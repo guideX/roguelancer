@@ -35,8 +35,8 @@ namespace Rougelancer.Particle.System.ParticleSystems {
         public void Init() {
             lParticleSystem.Init();
         }
-        public void LoadContent(ContentManager _Content) {
-            lParticleSystem.LoadContent(_Content);
+        public void LoadContent(clsGame _Game) {
+            lParticleSystem.LoadContent(_Game.Content);
         }
         public void Update(GameTime _GameTime, clsDebugText _DebugText, clsGraphics _Graphics) {
             lParticleSystem.Update(_GameTime, lSettings, _DebugText, _Graphics);

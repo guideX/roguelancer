@@ -23,6 +23,10 @@ Content\Textures\star.xnb
 Content\Textures\explosion.xnb
 Content\Textures\fire.xnb
 Content\Textures\smoke.xnb
+Content\Effects\Particle.xnb
+Content\Effects\BloomExtract.xnb
+Content\Effects\GaussianBlur.xnb
+Content\Effects\BloomCombine.xnb
 Content\Checker_0.xnb
 Content\SHIPS\PI_TRANSPORT\wings_fin_0.xnb
 Content\SHIPS\PI_TRANSPORT\engine_grill_0.xnb
@@ -32,7 +36,3 @@ Content\SHIPS\PI_TRANSPORT\hold_0.xnb
 Content\SHIPS\PI_TRANSPORT\equip_0.xnb
 Content\SHIPS\PI_TRANSPORT\skull_0.xnb
 Content\SHIPS\PI_TRANSPORT\windows_0.xnb
-Content\Effects\BloomExtract.xnb
-Content\Effects\GaussianBlur.xnb
-Content\Effects\BloomCombine.xnb
-Content\Effects\Particle.xnb

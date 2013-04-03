@@ -23,21 +23,21 @@ namespace Rougelancer.Particle {
         clsParticleStarSheet[] lStars = new clsParticleStarSheet[200];
         Effect lStarEffect;
         Texture2D lStarTexture;
-        public void LoadContent(ContentManager _Content, clsGraphics _Graphics, clsCamera _Camera) {
+        public void LoadContent(clsGame _Game) {
             int n = 0;
-            lExplosionTexture = _Content.Load<Texture2D>("Textures\\Particle");
-            lExplosionColorsTexture = _Content.Load<Texture2D>("Textures\\ParticleColors");
-            lExplosionEffect = _Content.Load<Effect>("Effects\\Particle");
+            lExplosionTexture = _Game.Content.Load<Texture2D>("Textures\\Particle");
+            lExplosionColorsTexture = _Game.Content.Load<Texture2D>("Textures\\ParticleColors");
+            lExplosionEffect = _Game.Content.Load<Effect>("Effects\\Particle");
             lExplosionEffect.CurrentTechnique = lExplosionEffect.Techniques["Technique1"];
             lExplosionEffect.Parameters["theTexture"].SetValue(lExplosionTexture);
-            lStarTexture = _Content.Load<Texture2D>("textures\\stars");
+            lStarTexture = _Game.Content.Load<Texture2D>("textures\\stars");
             lStarEffect = lExplosionEffect.Clone();
             lStarEffect.CurrentTechnique = lStarEffect.Techniques["Technique1"];
             lStarEffect.Parameters["theTexture"].SetValue(lExplosionTexture);
             n = lMaxPositionStartingY;
             for(int i = 0; i < lStars.Length;++i) {
                 n = n - lMaxPositionIncrementY;
-                lStars[i] = new clsParticleStarSheet(_Graphics, new Vector3(lMaxPositionX, lMaxPositionY, n), lAmountOfStarsPerSheet, lStarTexture, lStarEffect, lMaxSize, _Camera);
+                lStars[i] = new clsParticleStarSheet(_Game.lGraphics, new Vector3(lMaxPositionX, lMaxPositionY, n), lAmountOfStarsPerSheet, lStarTexture, lStarEffect, lMaxSize, _Game.lCamera);
             }
         }
         public void Update(clsCamera _Camera, clsGraphics _Graphics) {

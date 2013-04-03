@@ -55,9 +55,9 @@ namespace Rougelancer.Functionality {
             }
         }
         
-        public void Init(clsGraphics _Graphics, clsShip _Ship) {
-            lAspectRatio = _Graphics.ScreenDimensions();
-            UpdateCameraChaseTarget(_Graphics, _Ship);
+        public void Init(clsGame _Game) {
+            lAspectRatio = _Game.lGraphics.ScreenDimensions();
+            UpdateCameraChaseTarget(_Game.lGraphics, _Game.lShip);
             Reset();
         }
         private void UpdateWorldPositions() {
@@ -74,7 +74,7 @@ namespace Rougelancer.Functionality {
                 lLookAt = lChasePosition + lThrustViewAmount * lChaseDirection;
             }
         }
-        public void UpdateNewCamera(float _X, float _Y) {
+        private void UpdateNewCamera(float _X, float _Y) {
             if (lMode != 1) {
                 return;
             }

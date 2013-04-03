@@ -13,19 +13,20 @@ namespace Rougelancer.Functionality {
         private String lText = "Rougelancer";
         private SpriteFont lFont;
         private Vector2 lFontPosition;
-        public void LoadContent(string _FontName, Viewport _ViewPort, ContentManager _Content) {
-            lFont = _Content.Load<SpriteFont>("FONTS\\" + _FontName);
-            lFontPosition = new Vector2(_ViewPort.Width / 2, _ViewPort.Height / 2);
+        public void LoadContent(clsGame _Game) {
+            lFont = _Game.Content.Load<SpriteFont>("FONTS\\" + _Game.lSettings.lFont);
+            lFontPosition = new Vector2(_Game.lGraphics.lGDM.GraphicsDevice.Viewport.Width / 2, _Game.lGraphics.lGDM.GraphicsDevice.Viewport.Height / 2);
+            // lDebugText.LoadContent("LucidaFont", lGraphics.lGDM.GraphicsDevice.Viewport, Content);
         }
-        public void Update(string _Text, SpriteBatch _SpriteBatch) {
-            lSpriteBatch = _SpriteBatch;
-            if (_Text == null) {
+        public void Update(clsGame _Game) {
+            lSpriteBatch = _Game.lGraphics.lSpriteBatch;
+            /*if (_Text == null) {
             } else {
                 if (_Text.Length == 0) {
                 } else {
                     lText = _Text;
                 }
-            }
+            }*/
         }
         public void Draw() {
             Vector2 _FontOrigin = lFont.MeasureString(lText) / 2;

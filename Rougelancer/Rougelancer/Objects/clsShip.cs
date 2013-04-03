@@ -50,8 +50,8 @@ namespace Rougelancer.Objects {
             lVelocity = Vector3.Zero;
             lModel = new clsModel();
         }
-        public void LoadContent(string _Path, ContentManager _Content, clsCamera _Camera) {
-            lModel.Init(_Path, _Content);
+        public void LoadContent(clsGame _Game) {
+            lModel.Init(_Game.lSettings.lShipTexture, _Game.Content);
         }
         public void Update(GameTime _GameTime, clsGraphics _Graphics, clsInputItems _InputItems, clsDebugText _DebugText, clsCamera _Camera) {
             Vector3 _Force, _Acceleration;
@@ -89,7 +89,7 @@ namespace Rougelancer.Objects {
             lUp.Normalize();
             lRight = Vector3.Cross(lDirection, lUp);
             lUp = Vector3.Cross(lRight, lDirection);
-            _DebugText.Update("D: " + lDirection.X.ToString() + "-" + lDirection.Y.ToString() + "-" + lDirection.Z.ToString() + Environment.NewLine + "P: " + lPosition.X.ToString() + "-" + lPosition.Y.ToString() + "-" + lPosition.Z.ToString() + Environment.NewLine + "R: " + lRotationMatrix.Forward.X.ToString() + "-" + lRotationMatrix.Forward.Y.ToString() + lRotationMatrix.Forward.Z.ToString() + Environment.NewLine + "T: " + lCurrentThrust.ToString(), _Graphics.lSpriteBatch);
+            //_DebugText.Update("D: " + lDirection.X.ToString() + "-" + lDirection.Y.ToString() + "-" + lDirection.Z.ToString() + Environment.NewLine + "P: " + lPosition.X.ToString() + "-" + lPosition.Y.ToString() + "-" + lPosition.Z.ToString() + Environment.NewLine + "R: " + lRotationMatrix.Forward.X.ToString() + "-" + lRotationMatrix.Forward.Y.ToString() + lRotationMatrix.Forward.Z.ToString() + Environment.NewLine + "T: " + lCurrentThrust.ToString(), _Graphics.lSpriteBatch);
             if (lUseInput == true) {
                 //lPreviousScrollValue = lCurrentScrollValue;
                 //lCurrentScrollValue = _InputItems.lMouse.lScrollWheel;
