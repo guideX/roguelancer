@@ -17,7 +17,6 @@ namespace Rougelancer.Functionality {
         private clsStarfields lStars;
         public clsCamera lCamera;
         private clsInput lInput;
-        private clsInputItems lInputItems;
         private clsDebugText lDebugText;
         private clsCamera lCameraSnapshot;
         private clsBloomHandler lBloom;
@@ -31,16 +30,15 @@ namespace Rougelancer.Functionality {
             lCamera = new clsCamera();
             lShip = new clsShip(true);
             lGraphics = new clsGraphics();
-            lInputItems = new clsInputItems();
-            lGraphics.Init(this);
+            lGraphics.Initialize(this);
             lDebugText = new clsDebugText();
             lParticleSystem = new clsParticleSystemHandler(this);
         }
         protected override void Initialize() {
             base.Initialize();
-            lCamera.Init(this);
-            lInput.Init();
-            lParticleSystem.Init();
+            lCamera.Initialize(this);
+            lInput.Initialize(this);
+            lParticleSystem.Initialize();
         }
         protected override void LoadContent() {
             lGraphics.LoadContent();
@@ -53,8 +51,8 @@ namespace Rougelancer.Functionality {
         }
         protected override void Update(GameTime _GameTime) {
             lStars.Update(lCamera, lGraphics);
-            lInputItems = lInput.Update(this, lDebugText, lGraphics.lSpriteBatch);
-            lShip.Update(_GameTime, lGraphics, lInputItems, lDebugText, lCamera);
+            lInput.Update(this);
+            lShip.Update(_GameTime, lGraphics, lInput.lInputItems, lDebugText, lCamera);
             lBloom.Update(true);
             if (lInput.lInputItems.lToggles.lCameraSnapshot == true) {
                 lInput.lInputItems.lToggles.lCameraSnapshot = false;
@@ -73,7 +71,7 @@ namespace Rougelancer.Functionality {
             lParticleSystem.Draw(lGraphics, lCamera, lShip);
             lGraphics.BeginSpriteBatch();
             lGraphics.Draw();
-            lDebugText.Draw();
+            lDebugText.Draw(this);
             lStars.Draw(lCamera);
             lShip.Draw(lCamera);
             lGraphics.EndSpriteBatch();

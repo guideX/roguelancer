@@ -4,10 +4,14 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Content;
 using Rougelancer.Functionality;
+using Rougelancer.Interfaces;
 namespace Rougelancer.Objects {
-    public class clsGround {
+    public class clsGround : intGame {
         public clsModel lModel;
-        public void LoadContent(string _Path, ContentManager _Content) {
+        void Initialize(clsGame _Game) {
+        }
+        public void LoadContent(clsGame _Game) {
+        //public void LoadContent(string _Path, ContentManager _Content) {
             lModel = new clsModel();
             lModel.Init(_Path, _Content);
         }

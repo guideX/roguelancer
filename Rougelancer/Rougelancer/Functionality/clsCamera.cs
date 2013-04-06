@@ -6,6 +6,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Graphics;
 using Rougelancer.Objects;
+using Rougelancer.Interfaces;
 namespace Rougelancer.Functionality {
     public class clsCamera {
         public bool lCameraSpringEnabled = true;
@@ -55,7 +56,7 @@ namespace Rougelancer.Functionality {
             }
         }
         
-        public void Init(clsGame _Game) {
+        public void Initialize(clsGame _Game) {
             lAspectRatio = _Game.lGraphics.ScreenDimensions();
             UpdateCameraChaseTarget(_Game.lGraphics, _Game.lShip);
             Reset();
@@ -161,6 +162,8 @@ namespace Rougelancer.Functionality {
         }
         public void ExCameraSpringEnabled() {
             lCameraSpringEnabled = !lCameraSpringEnabled;
+        }
+        public void Draw(clsGame _Game) {
         }
     }
 }

@@ -3,6 +3,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Content;
+using Rougelancer.Interfaces;
 namespace Rougelancer.Functionality {
     public class clsModel {
         public Matrix lWorld;

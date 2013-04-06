@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
+using Rougelancer.Interfaces;
 namespace Rougelancer.Functionality {
     public class clsInputItems {
         public clsMouse lMouse;
@@ -41,16 +42,22 @@ namespace Rougelancer.Functionality {
         public bool lJ;
         public bool lC;
     }
-    public class clsInput {
+    public class clsInput : intGame {
         public clsInputItems lInputItems = new clsInputItems();
         private KeyboardState lLastKeyboardState = new KeyboardState();
         private KeyboardState lCurrentKeyboardState = new KeyboardState();
-        public void Init() {
+        public clsInput() {
             lInputItems.lToggles = new clsToggles();
             lInputItems.lKeys = new clsKeys();
             lInputItems.lMouse = new clsMouse();
         }
-        public clsInputItems Update(Game _Game, clsDebugText _DebugText, Microsoft.Xna.Framework.Graphics.SpriteBatch _SpriteBatch) {
+        public void Initialize(clsGame _Game) {
+
+        }
+        public void LoadContent(clsGame _Game) {
+
+        }
+        public void Update(clsGame _Game) {
             MouseState _MouseState = Mouse.GetState();
             lInputItems.lMouse.lScrollWheel = _MouseState.ScrollWheelValue * .0001f;
             //_DebugText.Update(lInputItems.lMouse.lScrollWheel.ToString(), _SpriteBatch);
@@ -150,7 +157,9 @@ namespace Rougelancer.Functionality {
                 lInputItems.lMouse.lLeftButton = false;
             }
             lInputItems.lMouse.lVector = new Vector2(_MouseState.X, _MouseState.Y);
-            return lInputItems;
+        }
+        public void Draw(clsGame _Game) {
+
         }
     }
 }

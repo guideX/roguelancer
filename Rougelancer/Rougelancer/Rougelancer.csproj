@@ -117,6 +117,7 @@
     <Compile Include="Functionality\clsInput.cs" />
     <Compile Include="Functionality\clsModel.cs" />
     <Compile Include="Functionality\clsSettings.cs" />
+    <Compile Include="Interfaces\intGame.cs" />
     <Compile Include="Particle\ParticleSystem\clsDynamicParticle.cs" />
     <Compile Include="Particle\ParticleSystem\clsDynamicParticleSystem.cs" />
     <Compile Include="Particle\ParticleSystem\clsIParticle.cs" />
@@ -132,7 +133,6 @@
     <Compile Include="Particle\System\Emitters\ParticleSystems\clsExplosionParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\clsExplosionSmokeParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\clsFireParticleSystem.cs" />
-    <Compile Include="Objects\clsGround.cs" />
     <Compile Include="Particle\System\clsProjectile.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\clsParticleSystemHandler.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\clsProjectileTrailParticleSystem.cs" />
@@ -154,7 +154,6 @@
   <ItemGroup>
     <Content Include="Game.ico" />
     <Content Include="GameThumbnail.png" />
-    <Content Include="TextFile1.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\RougelancerContent\RougelancerContent.contentproj">
@@ -192,6 +191,7 @@
   <ItemGroup>
     <Compile Include="Functionality\clsIni.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\Microsoft.Xna.GameStudio.targets" />
   <!--

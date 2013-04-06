@@ -7,12 +7,16 @@ using System.Text;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
+using Rougelancer.Interfaces;
 namespace Rougelancer.Functionality {
-    public class clsDebugText {
+    public class clsDebugText : intGame {
         private SpriteBatch lSpriteBatch;
         private String lText = "Rougelancer";
         private SpriteFont lFont;
         private Vector2 lFontPosition;
+        public void Initialize(clsGame _Game) {
+
+        }
         public void LoadContent(clsGame _Game) {
             lFont = _Game.Content.Load<SpriteFont>("FONTS\\" + _Game.lSettings.lFont);
             lFontPosition = new Vector2(_Game.lGraphics.lGDM.GraphicsDevice.Viewport.Width / 2, _Game.lGraphics.lGDM.GraphicsDevice.Viewport.Height / 2);
@@ -28,7 +32,7 @@ namespace Rougelancer.Functionality {
                 }
             }*/
         }
-        public void Draw() {
+        public void Draw(clsGame _Game) {
             Vector2 _FontOrigin = lFont.MeasureString(lText) / 2;
             lSpriteBatch.DrawString(lFont, lText, lFontPosition, Color.White, 0, _FontOrigin, 3.0f, SpriteEffects.None, 0.5f);
         }

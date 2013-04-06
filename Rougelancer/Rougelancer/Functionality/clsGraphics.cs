@@ -10,7 +10,7 @@ namespace Rougelancer.Functionality {
     public class clsGraphics {
         public GraphicsDeviceManager lGDM;
         public SpriteBatch lSpriteBatch;
-        public void Init(clsGame _Game) {
+        public void Initialize(clsGame _Game) {
             lGDM = new GraphicsDeviceManager(_Game);
             lGDM.PreferredBackBufferWidth = (int)_Game.lSettings.lResolution.X;
             lGDM.PreferredBackBufferHeight = (int)_Game.lSettings.lResolution.Y;
