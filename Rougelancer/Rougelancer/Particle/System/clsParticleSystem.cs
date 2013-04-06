@@ -120,12 +120,13 @@ namespace Rougelancer.Particle.System {
                 lParticleManager.SetMatrices(lView, lProjection);
             }
         }
-        public void Draw(clsGraphics _Graphics, clsCamera _Camera, clsShip _Ship) {
+        public void Draw(clsGame _Game) {
             if(lSettings.pEnabled == true) {
-                float lAspectRatio = (float)_Graphics.lGDM.GraphicsDevice.Viewport.Width / (float)_Graphics.lGDM.GraphicsDevice.Viewport.Height;
-                //lView = Matrix.CreateTranslation(0, -25, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(lSettings.pCameraRotation)) * Matrix.CreateRotationX(MathHelper.ToRadians(lSettings.pCameraArc)) * Matrix.CreateLookAt(new Vector3(0, 0, - lSettings.pCameraDistance), new Vector3(0, 0, 0), Vector3.Up);
+
+                float lAspectRatio = (float)_Game.lGraphics.lGDM.GraphicsDevice.Viewport.Width / (float)_Game.lGraphics.lGDM.GraphicsDevice.Viewport.Height;
+                lView = Matrix.CreateTranslation(0, -25, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(lSettings.pCameraRotation)) * Matrix.CreateRotationX(MathHelper.ToRadians(lSettings.pCameraArc)) * Matrix.CreateLookAt(new Vector3(0, 0, - lSettings.pCameraDistance), new Vector3(0, 0, 0), Vector3.Up);
                 //lProjection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10000);
-                lView = Matrix.CreateTranslation(0, 0, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(_Ship.lPosition.X)) * Matrix.CreateRotationX(MathHelper.ToRadians(_Ship.lPosition.Y)) * Matrix.CreateLookAt(new Vector3(0, 0, -lSettings.pCameraDistance), new Vector3(0, 0, 0), Vector3.Up);
+                //lView = Matrix.CreateTranslation(0, 0, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(_Ship.lPosition.X)) * Matrix.CreateRotationX(MathHelper.ToRadians(_Ship.lPosition.Y)) * Matrix.CreateLookAt(new Vector3(0, 0, -lSettings.pCameraDistance), new Vector3(0, 0, 0), Vector3.Up);
                 lProjection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10000);
             }
         }

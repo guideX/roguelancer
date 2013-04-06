@@ -32,7 +32,7 @@ namespace Rougelancer.Particle.System.ParticleSystems {
             lSettings.pSmokeTexture = "Textures\\Smoke";
             lParticleSystem = new clsParticleSystem(_Game, lSettings);
         }
-        public void Init() {
+        public void Initialize() {
             lParticleSystem.Init();
         }
         public void LoadContent(clsGame _Game) {
@@ -41,8 +41,8 @@ namespace Rougelancer.Particle.System.ParticleSystems {
         public void Update(GameTime _GameTime, clsDebugText _DebugText, clsGraphics _Graphics) {
             lParticleSystem.Update(_GameTime, lSettings, _DebugText, _Graphics);
         }
-        public void Draw(clsGraphics _Graphics, clsCamera _Camera, clsShip _Ship) {
-            lParticleSystem.Draw(_Graphics, _Camera, _Ship);
+        public void Draw(clsGame _Game) {
+            lParticleSystem.Draw(_Game.lGraphics, _Game.lCamera, _Game.lShip);
         }
     }
 }
