@@ -4,11 +4,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Rougelancer.Functionality;
 namespace Rougelancer.Bloom {
     public class clsBloomHandler {
         private int lBloomSettings = 0;
         private clsBloomComponent lBloom;
-        public clsBloomHandler(Microsoft.Xna.Framework.Game _Game) {
+        public clsBloomHandler(clsGame _Game) {
             lBloom = new clsBloomComponent(_Game);
             _Game.Components.Add(lBloom);
         }

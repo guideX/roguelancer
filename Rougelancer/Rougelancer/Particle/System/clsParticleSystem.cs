@@ -122,7 +122,7 @@ namespace Rougelancer.Particle.System {
         }
         public void Draw(clsGame _Game) {
             if(lSettings.pEnabled == true) {
-
+                //_Game.lDebugText.lText = _Game.lShip.lDirection.X.ToString() + " - " + _Game.lShip.lDirection.Y.ToString() + " - " + _Game.lShip.lDirection.Z.ToString();
                 float lAspectRatio = (float)_Game.lGraphics.lGDM.GraphicsDevice.Viewport.Width / (float)_Game.lGraphics.lGDM.GraphicsDevice.Viewport.Height;
                 lView = Matrix.CreateTranslation(0, -25, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(lSettings.pCameraRotation)) * Matrix.CreateRotationX(MathHelper.ToRadians(lSettings.pCameraArc)) * Matrix.CreateLookAt(new Vector3(0, 0, - lSettings.pCameraDistance), new Vector3(0, 0, 0), Vector3.Up);
                 //lProjection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10000);

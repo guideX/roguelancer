@@ -83,7 +83,7 @@ namespace Rougelancer.Functionality {
                     }
                 }
             }
-            //_DebugText.Update(lInputItems.lToggles.lToggleCamera.ToString() + " - " + lInputItems.lToggles.lToggleCamera.ToString() + " - " + lInputItems.lToggles.lToggleCamera);
+            _Game.lDebugText.lText = lInputItems.lToggles.lToggleCamera.ToString() + " - " + lInputItems.lToggles.lToggleCamera.ToString() + " - " + lInputItems.lToggles.lToggleCamera;
             if (lCurrentKeyboardState.IsKeyDown(Keys.P)) {
                 lInputItems.lKeys.lP = true;
             } else {

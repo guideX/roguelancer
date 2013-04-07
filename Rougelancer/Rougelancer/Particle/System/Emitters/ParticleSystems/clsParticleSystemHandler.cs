@@ -42,7 +42,7 @@ namespace Rougelancer.Particle.System.ParticleSystems {
             lParticleSystem.Update(_GameTime, lSettings, _DebugText, _Graphics);
         }
         public void Draw(clsGame _Game) {
-            lParticleSystem.Draw(_Game.lGraphics, _Game.lCamera, _Game.lShip);
+            lParticleSystem.Draw(_Game);
         }
     }
 }

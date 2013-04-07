@@ -11,7 +11,7 @@ using Rougelancer.Interfaces;
 namespace Rougelancer.Functionality {
     public class clsDebugText : intGame {
         private SpriteBatch lSpriteBatch;
-        private String lText = "Rougelancer";
+        public String lText = "Rougelancer";
         private SpriteFont lFont;
         private Vector2 lFontPosition;
         public void Initialize(clsGame _Game) {
