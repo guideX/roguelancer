@@ -16,8 +16,8 @@ namespace Rougelancer.Functionality {
         private clsParticleSystemHandler lParticleSystem;
         private clsStarfields lStars;
         public clsCamera lCamera;
-        private clsInput lInput;
-        private clsDebugText lDebugText;
+        public clsInput lInput;
+        public clsDebugText lDebugText;
         private clsCamera lCameraSnapshot;
         private clsBloomHandler lBloom;
         public clsGame() {
@@ -52,7 +52,7 @@ namespace Rougelancer.Functionality {
         protected override void Update(GameTime _GameTime) {
             lStars.Update(lCamera, lGraphics);
             lInput.Update(this);
-            lShip.Update(_GameTime, lGraphics, lInput.lInputItems, lDebugText, lCamera);
+            lShip.Update(_GameTime, this);
             lBloom.Update(true);
             if (lInput.lInputItems.lToggles.lCameraSnapshot == true) {
                 lInput.lInputItems.lToggles.lCameraSnapshot = false;
@@ -68,12 +68,12 @@ namespace Rougelancer.Functionality {
         }
         protected override void Draw(GameTime _GameTime) {
             lBloom.Draw();
-            lParticleSystem.Draw(lGraphics, lCamera, lShip);
+            lParticleSystem.Draw(this);
             lGraphics.BeginSpriteBatch();
             lGraphics.Draw();
             lDebugText.Draw(this);
             lStars.Draw(lCamera);
-            lShip.Draw(lCamera);
+            lShip.Draw(this);
             lGraphics.EndSpriteBatch();
             base.Draw(_GameTime);
         }

@@ -26,8 +26,6 @@ namespace Rougelancer.Objects {
         private const float lThrustForce = 24000.0f;
         private const float lDragFactor = 0.97f;
         public Matrix lRotationMatrix;
-        //private float lCurrentScrollValue = 0.0f;
-        //private float lPreviousScrollValue = 0.0f;
         private float lMaxThrustAmount = 0.2f;
         private float lMaxThrustAfterburnerAmount = 0.4f;
         private float lThrustAddSpeed = 0.006f;
@@ -53,27 +51,27 @@ namespace Rougelancer.Objects {
         public void LoadContent(clsGame _Game) {
             lModel.Init(_Game.lSettings.lShipTexture, _Game.Content);
         }
-        public void Update(GameTime _GameTime, clsGraphics _Graphics, clsInputItems _InputItems, clsDebugText _DebugText, clsCamera _Camera) {
+        public void Update(GameTime _GameTime, clsGame _Game) {
             Vector3 _Force, _Acceleration;
             float elapsed = (float)_GameTime.ElapsedGameTime.TotalSeconds;
             Vector2 _RotationAmount = new Vector2();
-            float w2 = (float)_Graphics.ReturnBackBufferWidth() / lUpdateDirectionX;
-            float h2 = (float)_Graphics.ReturnBackBufferHeight() / lUpdateDirectionY;
+            float w2 = (float)_Game.lGraphics.ReturnBackBufferWidth() / lUpdateDirectionX;
+            float h2 = (float)_Game.lGraphics.ReturnBackBufferHeight() / lUpdateDirectionY;
             if (lUseInput == true) {
-                if (_InputItems.lMouse.lLeftButton == true) {
-                    _RotationAmount.X = (_InputItems.lMouse.lVector.X - w2) / -w2;
-                    _RotationAmount.Y = (_InputItems.lMouse.lVector.Y - h2) / -h2;
+                if (_Game.lInput.lInputItems.lMouse.lLeftButton == true) {
+                    _RotationAmount.X = (_Game.lInput.lInputItems.lMouse.lVector.X - w2) / -w2;
+                    _RotationAmount.Y = (_Game.lInput.lInputItems.lMouse.lVector.Y - h2) / -h2;
                 }
-                if (_InputItems.lKeys.lLeft == true) {
+                if (_Game.lInput.lInputItems.lKeys.lLeft == true) {
                     _RotationAmount.X = lRotationXLeftAdd;
-                } 
-                if (_InputItems.lKeys.lRight == true) {
+                }
+                if (_Game.lInput.lInputItems.lKeys.lRight == true) {
                     _RotationAmount.X = lRotationXRightAdd;
-                } 
-                if (_InputItems.lKeys.lUp == true) {
+                }
+                if (_Game.lInput.lInputItems.lKeys.lUp == true) {
                     _RotationAmount.Y = lRotationYUpAdd;
                 }
-                if (_InputItems.lKeys.lDown == true) {
+                if (_Game.lInput.lInputItems.lKeys.lDown == true) {
                     _RotationAmount.Y = lRotationYDownAdd;
                 }
                 _RotationAmount = _RotationAmount * lRotationRate * elapsed;
@@ -89,12 +87,10 @@ namespace Rougelancer.Objects {
             lUp.Normalize();
             lRight = Vector3.Cross(lDirection, lUp);
             lUp = Vector3.Cross(lRight, lDirection);
-            //_DebugText.Update("D: " + lDirection.X.ToString() + "-" + lDirection.Y.ToString() + "-" + lDirection.Z.ToString() + Environment.NewLine + "P: " + lPosition.X.ToString() + "-" + lPosition.Y.ToString() + "-" + lPosition.Z.ToString() + Environment.NewLine + "R: " + lRotationMatrix.Forward.X.ToString() + "-" + lRotationMatrix.Forward.Y.ToString() + lRotationMatrix.Forward.Z.ToString() + Environment.NewLine + "T: " + lCurrentThrust.ToString(), _Graphics.lSpriteBatch);
+            _Game.lDebugText.Update(_Game);
             if (lUseInput == true) {
-                //lPreviousScrollValue = lCurrentScrollValue;
-                //lCurrentScrollValue = _InputItems.lMouse.lScrollWheel;
-                if(_InputItems.lKeys.lW == true) {
-                    _Camera.Shake(.8f, 0f, false);
+                if(_Game.lInput.lInputItems.lKeys.lW == true) {
+                    _Game.lCamera.Shake(.8f, 0f, false);
                     if(lCurrentThrust == lMaxThrustAmount) {
                         lCurrentThrust = lMaxThrustAmount;
                     } else if(lCurrentThrust < lMaxThrustAmount) {
@@ -103,18 +99,18 @@ namespace Rougelancer.Objects {
                         lCurrentThrust = lMaxThrustAmount;
                     }
                 } else {
-                    _Camera.StopShaking();
+                    _Game.lCamera.StopShaking();
                 }
-                if (_InputItems.lToggles.lCruise == true) {
-                    if (_InputItems.lKeys.lS == true) {
+                if (_Game.lInput.lInputItems.lToggles.lCruise == true) {
+                    if (_Game.lInput.lInputItems.lKeys.lS == true) {
                         lCurrentThrust = lMaxThrustAmount;
-                        _InputItems.lToggles.lCruise = false;
+                        _Game.lInput.lInputItems.lToggles.lCruise = false;
                     } else {
                         lCurrentThrust = lMaxCruiseSpeed;
                     }
                 } else {
-                    if (_InputItems.lKeys.lTab == true) {
-                        _Camera.Shake(10f, 0f, false);
+                    if (_Game.lInput.lInputItems.lKeys.lTab == true) {
+                        _Game.lCamera.Shake(10f, 0f, false);
                         if (lCurrentThrust == lMaxThrustAfterburnerAmount) {
                             lCurrentThrust = lMaxThrustAfterburnerAmount;
                         } else if (lCurrentThrust < lMaxThrustAfterburnerAmount) {
@@ -125,10 +121,10 @@ namespace Rougelancer.Objects {
                     } else {
                         if(lCurrentThrust > lMaxThrustAmount) {
                             lCurrentThrust = lCurrentThrust - lThrustSlowDownSpeed;
-                            _Camera.Shake(.8f, 0f, false);
+                            _Game.lCamera.Shake(.8f, 0f, false);
                         } else {
-                            if(_InputItems.lKeys.lW == true) {
-                                _Camera.Shake(.8f, 0f, false);
+                            if(_Game.lInput.lInputItems.lKeys.lW == true) {
+                                _Game.lCamera.Shake(.8f, 0f, false);
                                 if(lCurrentThrust == lMaxThrustAmount) {
                                     lCurrentThrust = lMaxThrustAmount;
                                 } else if(lCurrentThrust < lMaxThrustAmount) {
@@ -137,18 +133,18 @@ namespace Rougelancer.Objects {
                                     lCurrentThrust = lMaxThrustAmount;
                                 }
                             } else {
-                                _Camera.StopShaking();
+                                _Game.lCamera.StopShaking();
                             }
                         }
                     }
-                    if (_InputItems.lKeys.lX == true) {
-                        _Camera.Shake(1f, 0f, false);
+                    if (_Game.lInput.lInputItems.lKeys.lX == true) {
+                        _Game.lCamera.Shake(1f, 0f, false);
                         if (lCurrentThrust > lMaxThrustReverse) {
                             lCurrentThrust = lCurrentThrust + lThrustReverseSpeed;
                         }
                     }
-                    if (_InputItems.lKeys.lS == true) {
-                        _Camera.StopShaking();
+                    if (_Game.lInput.lInputItems.lKeys.lS == true) {
+                        _Game.lCamera.StopShaking();
                         if (lCurrentThrust == 0) {
                         } else if (lCurrentThrust > lMaxThrustAmount || lCurrentThrust > -.0001) {
                             lCurrentThrust = lCurrentThrust - lThrustSlowDownSpeed;
@@ -162,8 +158,7 @@ namespace Rougelancer.Objects {
                     }
                 }
             } else {
-                // Test Controls Begin
-                if (_InputItems.lKeys.lL == true) {
+                if (_Game.lInput.lInputItems.lKeys.lL == true) {
                     if (lCurrentThrust == lMaxThrustAfterburnerAmount) {
                         lCurrentThrust = lMaxThrustAfterburnerAmount;
                     } else if (lCurrentThrust < lMaxThrustAfterburnerAmount) {
@@ -175,7 +170,7 @@ namespace Rougelancer.Objects {
                     if (lCurrentThrust > lMaxThrustAmount) {
                         lCurrentThrust = lCurrentThrust - lThrustSlowDownSpeed;
                     } else {
-                        if (_InputItems.lKeys.lP == true) {
+                        if (_Game.lInput.lInputItems.lKeys.lP == true) {
                             if (lCurrentThrust == lMaxThrustAmount) {
                                 lCurrentThrust = lMaxThrustAmount;
                             } else if (lCurrentThrust < lMaxThrustAmount) {
@@ -185,7 +180,7 @@ namespace Rougelancer.Objects {
                             }
                         }
                     }
-                } if (_InputItems.lKeys.lK == true) {
+                } if (_Game.lInput.lInputItems.lKeys.lK == true) {
                     if (lCurrentThrust == 0) {
                     } else if (lCurrentThrust > lMaxThrustAmount || lCurrentThrust > -.0001) {
                         lCurrentThrust = lCurrentThrust - lThrustSlowDownSpeed;
@@ -197,9 +192,8 @@ namespace Rougelancer.Objects {
                         lCurrentThrust = lCurrentThrust - lThrustSlowDownSpeed;
                     }
                 }
-                // Test Controls End
             }
-            if (_InputItems.lToggles.lToggleCamera == false) {
+            if (_Game.lInput.lInputItems.lToggles.lToggleCamera == false) {
                 _Force = lDirection * lCurrentThrust * lThrustForce;
                 _Acceleration = _Force / lMass;
                 lVelocity += _Acceleration * elapsed;
@@ -215,8 +209,8 @@ namespace Rougelancer.Objects {
                 lModel.lWorld.Translation = lPosition;
             }
         }
-        public void Draw(clsCamera _Camera) {
-            lModel.Draw(_Camera);
+        public void Draw(clsGame _Game) {
+            lModel.Draw(_Game.lCamera);
         }
     }
 }
