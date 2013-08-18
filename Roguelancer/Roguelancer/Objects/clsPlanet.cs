@@ -15,10 +15,7 @@ namespace Roguelancer.Objects {
         public Vector3 startPosition { get; set; }
         private Model model;
         private Vector3 modelPosition;
-        //Vector3 origin;
-        //float yaw, pitch;
-        //float distance = (float)0;
-        //Vector3 orbitOffset = Vector3.UnitX * distance;
+        float modelRotation = 0.0f;
         public void Initialize(clsGame _Game) {
             modelPosition = new Vector3();
         }
@@ -32,14 +29,14 @@ namespace Roguelancer.Objects {
         public void Draw(clsGame _Game) {
             Matrix[] transforms = new Matrix[model.Bones.Count];
             model.CopyAbsoluteBoneTransformsTo(transforms);
-            foreach(ModelMesh mesh in model.Meshes) {
-                foreach(BasicEffect _Effect in mesh.Effects) {
-                    _Effect.EnableDefaultLighting();
-                    _Effect.World = transforms[mesh.ParentBone.Index];
-                    //_Effect.View = _Game.lCamera.lView;
-                    //_Effect.Projection = _Game.lCamera.lProjection;
+            foreach(ModelMesh modelMesh in model.Meshes) {
+                foreach(BasicEffect basicEffect in modelMesh.Effects) {
+                    basicEffect.EnableDefaultLighting();
+                    basicEffect.World = transforms[modelMesh.ParentBone.Index] * Matrix.CreateRotationY(modelRotation) * Matrix.CreateTranslation(modelPosition);
+                    basicEffect.View = Matrix.CreateLookAt(_Game.lCamera.lPosition, Vector3.Zero, Vector3.Up);
+                    basicEffect.Projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.ToRadians(45.0f), _Game.lCamera.lAspectRatio, 1.0f, 10.0f);
                 }
-                mesh.Draw();
+                modelMesh.Draw();
             }
         }
     }

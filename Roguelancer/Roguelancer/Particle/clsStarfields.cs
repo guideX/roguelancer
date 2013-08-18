@@ -10,7 +10,7 @@ using Roguelancer.Objects;
 using Roguelancer.Functionality;
 namespace Roguelancer.Particle {
     class clsStarfields {
-        int lAmountOfStarsPerSheet = 10;
+        int lAmountOfStarsPerSheet = 30;
         float lMaxPositionX = 1000000;
         float lMaxPositionY = 1000000;
         int lMaxPositionIncrementY = 10000;

@@ -13,14 +13,14 @@ namespace Roguelancer.Functionality {
         public clsGraphics lGraphics;
         public clsShip lShip;
         public clsSettings lSettings;
-        //private clsParticleSystemHandler lParticleSystem;
         private clsStarfields lStars;
         public clsCamera lCamera;
         public clsInput lInput;
         public clsDebugText lDebugText;
         private clsCamera lCameraSnapshot;
         private clsBloomHandler lBloom;
-        //private clsPlanet lEarth;
+        private clsPlanet lEarth;
+        //private clsParticleSystemHandler lParticleSystem;
         //private clsSound lEngineNoise;
         public clsGame() {
             lSettings = new clsSettings();
@@ -34,16 +34,16 @@ namespace Roguelancer.Functionality {
             lGraphics = new clsGraphics();
             lGraphics.Initialize(this);
             lDebugText = new clsDebugText();
+            lEarth = new clsPlanet();
             //lEngineNoise = new clsSound();
             //lParticleSystem = new clsParticleSystemHandler(this);
-            //lEarth = new clsPlanet();
         }
         protected override void Initialize() {
             base.Initialize();
             lCamera.Initialize(this);
             lInput.Initialize(this);
+            lEarth.Initialize(this);
             //lParticleSystem.Initialize();
-            //lEarth.Initialize(this);
             //lEngineNoise.Initialize(this);
         }
         protected override void LoadContent() {
@@ -53,11 +53,11 @@ namespace Roguelancer.Functionality {
             lDebugText.LoadContent(this);
             lDebugText.Update(this);
             lBloom.LoadContent();
-            //lParticleSystem.LoadContent(this);
-            //lEarth.modelPath = lSettings.lEarth.shipModel;
-            //lEarth.startPosition = lSettings.lEarth.shipStartupPosition;
-            //lEarth.LoadContent(this);
+            lEarth.modelPath = lSettings.lEarth.shipModel;
+            lEarth.startPosition = lSettings.lEarth.shipStartupPosition;
+            lEarth.LoadContent(this);
             //lEngineNoise.soundPath = "engine";
+            //lParticleSystem.LoadContent(this);
         }
         protected override void Update(GameTime _GameTime) {
             lStars.Update(lCamera, lGraphics);
@@ -73,8 +73,8 @@ namespace Roguelancer.Functionality {
             }
             lCamera.UpdateCameraChaseTarget(lGraphics, lShip);
             lCamera.Update(_GameTime);
+            lEarth.Update(this);
             //lParticleSystem.Update(_GameTime, lDebugText, lGraphics);
-            //lEarth.Update(this);
             //lEngineNoise.Update(this);
             base.Update(_GameTime);
         }
@@ -86,9 +86,9 @@ namespace Roguelancer.Functionality {
             lDebugText.Draw(this);
             lStars.Draw(lCamera);
             lShip.Draw(this);
-            //lEarth.Draw(this);
             lGraphics.EndSpriteBatch();
-            //lEarth.Draw(this);
+            lEarth.Draw(this);
+            lEarth.Draw(this);
             //lEngineNoise.Draw(this);
             base.Draw(_GameTime);
         }
