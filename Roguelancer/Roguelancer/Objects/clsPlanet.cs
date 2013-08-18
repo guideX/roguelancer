@@ -9,35 +9,58 @@ using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 namespace Roguelancer.Objects {
-    public class clsPlanet : intGame {
-        public Matrix lWorld;
-        public string modelPath { get; set; }
-        public Vector3 startPosition { get; set; }
-        private Model model;
-        private Vector3 modelPosition;
-        float modelRotation = 0.0f;
+    public class clsPlanetCollection : intGame {
+        public List<clsPlanet> planets { get; set; }
+        public clsPlanetCollection() {
+            planets = new List<clsPlanet>();
+        }
         public void Initialize(clsGame _Game) {
-            modelPosition = new Vector3();
+            foreach(clsSettingsModelObject planet in _Game.lSettings.planets) {
+                planets.Add(new clsPlanet {
+                    settings = planet
+                });
+            }
+            for(int i = 0; i <= planets.Count - 1; i++) {
+                planets[i].Initialize(_Game);
+            }
         }
         public void LoadContent(clsGame _Game) {
-            model = _Game.Content.Load<Model>(modelPath);
-            modelPosition = startPosition;
+            for(int i = 0; i <= planets.Count - 1; i++) {
+                planets[i].LoadContent(_Game);
+            }
         }
         public void Update(clsGame _Game) {
-            // Planets do not update
+            for(int i = 0; i <= planets.Count - 1; i++) {
+                planets[i].Update(_Game);
+            }
         }
         public void Draw(clsGame _Game) {
-            Matrix[] transforms = new Matrix[model.Bones.Count];
-            model.CopyAbsoluteBoneTransformsTo(transforms);
-            foreach(ModelMesh modelMesh in model.Meshes) {
-                foreach(BasicEffect basicEffect in modelMesh.Effects) {
-                    basicEffect.EnableDefaultLighting();
-                    basicEffect.World = transforms[modelMesh.ParentBone.Index] * Matrix.CreateRotationY(modelRotation) * Matrix.CreateTranslation(modelPosition);
-                    basicEffect.View = Matrix.CreateLookAt(_Game.lCamera.lPosition, Vector3.Zero, Vector3.Up);
-                    basicEffect.Projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.ToRadians(45.0f), _Game.lCamera.lAspectRatio, 1.0f, 10.0f);
-                }
-                modelMesh.Draw();
+            for(int i = 0; i <= planets.Count - 1; i++) {
+                planets[i].Draw(_Game);
             }
+        }
+    }
+    public class clsPlanet : intGame {
+        public clsSettingsModelObject settings { get; set; }
+        private clsModel model;
+        public void Initialize(clsGame _Game) {
+            model = new clsModel();
+        }
+        public void LoadContent(clsGame _Game) {
+            model.drawMode = clsModel.DrawMode.planet;
+            model.modelPath = settings.modelPath;
+            if(settings != null) {
+                model.modelPath = settings.modelPath;
+                model.startPosition = settings.startupPosition;
+                model.modelScaling = settings.modelScaling;
+            }
+            model.Initialize(_Game);
+        }
+        public void Update(clsGame _Game) {
+            model.Update(_Game);
+        }
+        public void Draw(clsGame _Game) {
+            model.Draw(_Game);
         }
     }
 }

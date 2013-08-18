@@ -48,8 +48,12 @@ namespace Roguelancer.Objects {
             lVelocity = Vector3.Zero;
             lModel = new clsModel();
         }
+        public void Initialize(clsGame _Game) {
+
+        }
         public void LoadContent(clsGame _Game) {
-            lModel.Init(_Game.lSettings.lShipTexture, _Game.Content);
+            lModel.drawMode = clsModel.DrawMode.mainModel;
+            lModel.Initialize(_Game);
         }
         public void Update(GameTime _GameTime, clsGame _Game) {
             Vector3 _Force, _Acceleration;
@@ -202,15 +206,15 @@ namespace Roguelancer.Objects {
                 if (lLimitAltitude == true) {
                     lPosition.Y = Math.Max(lPosition.Y, lMinimumAltitude);
                 }
-                lModel.lWorld = Matrix.Identity;
-                lModel.lWorld.Forward = lDirection;
-                lModel.lWorld.Up = lUp;
-                lModel.lWorld.Right = lRight;
-                lModel.lWorld.Translation = lPosition;
+                lModel.world = Matrix.Identity;
+                lModel.world.Forward = lDirection;
+                lModel.world.Up = lUp;
+                lModel.world.Right = lRight;
+                lModel.world.Translation = lPosition;
             }
         }
         public void Draw(clsGame _Game) {
-            lModel.Draw(_Game.lCamera);
+            lModel.Draw(_Game);
         }
     }
 }
