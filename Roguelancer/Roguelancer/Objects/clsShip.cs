@@ -49,10 +49,10 @@ namespace Roguelancer.Objects {
             lModel = new clsModel();
         }
         public void Initialize(clsGame _Game) {
+            lModel.drawMode = clsModel.DrawMode.mainModel;
             lModel.Initialize(_Game);
         }
         public void LoadContent(clsGame _Game) {
-            lModel.drawMode = clsModel.DrawMode.mainModel;
             lModel.LoadContent(_Game);
         }
         public void Update(GameTime _GameTime, clsGame _Game) {
