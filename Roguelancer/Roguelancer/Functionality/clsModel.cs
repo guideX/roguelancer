@@ -11,15 +11,24 @@ namespace Roguelancer.Functionality {
             mainModel = 1,
             planet = 2
         }
+        public Vector2 rotationAmount { get; set; }
+        public Vector3 up;
+        public Vector3 right;
+        public Vector3 position;
+        public Vector3 direction;
         public DrawMode drawMode { get; set; }
         public Matrix world;
         public string modelPath { get; set; }
         public Vector3 modelScaling { get; set; }
         public Vector3 modelRotation { get; set; }
         public Vector3 startPosition { get; set; }
+        public float minimumAltitude = 350.0f;
         private Model model;
         public clsModel() {
             drawMode = DrawMode.unknown;
+            position = new Vector3(0, minimumAltitude, 0);
+            up = Vector3.Up;
+            right = Vector3.Right;
         }
         public void Initialize(clsGame _Game) {
             
@@ -27,7 +36,22 @@ namespace Roguelancer.Functionality {
         public void LoadContent(clsGame _Game) {
             model = _Game.Content.Load<Model>(modelPath);
         }
-        public void Update(clsGame _Game) {}
+        public void UpdatePosition() {
+            Matrix rotationMatrix = Matrix.CreateFromAxisAngle(right, rotationAmount.Y) * Matrix.CreateRotationY(rotationAmount.X);
+            direction = Vector3.TransformNormal(direction, rotationMatrix);
+            up = Vector3.TransformNormal(up, rotationMatrix);
+            direction.Normalize();
+            up.Normalize();
+            right = Vector3.Cross(direction, up);
+            up = Vector3.Cross(right, direction);
+        }
+        public void Update(clsGame _Game) {
+            world = Matrix.Identity;
+            world.Forward = direction;
+            world.Up = up;
+            world.Right = right;
+            world.Translation = position;           
+        }
         public void Draw(clsGame _Game) {
             if(drawMode == DrawMode.unknown) {
                 return;

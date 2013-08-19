@@ -150,9 +150,9 @@ namespace Roguelancer.Functionality {
         public void UpdateCameraChaseTarget(clsGraphics _Graphics, clsShip _Ship) {
             GraphicsDevice _GraphicsDevice = _Graphics.lGDM.GraphicsDevice;
             MouseState _MouseState = Mouse.GetState();
-            lChasePosition = _Ship.lPosition;
-            lChaseDirection = _Ship.lDirection;
-            lUp = _Ship.lUp;
+            lChasePosition = _Ship.model.position;
+            lChaseDirection = _Ship.model.direction;
+            lUp = _Ship.model.up;
             if (lMode == 1) {
                 if (_MouseState.LeftButton == ButtonState.Pressed) {
                     UpdateNewCamera((float)_MouseState.X / (float)_GraphicsDevice.Viewport.Width, (float)_MouseState.Y / (float)_GraphicsDevice.Viewport.Height);

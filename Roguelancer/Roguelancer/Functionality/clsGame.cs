@@ -46,7 +46,7 @@ namespace Roguelancer.Functionality {
         protected override void LoadContent() {
             graphics.LoadContent(this);
             stars.LoadContent(this);
-            ship.lModel.modelPath = settings.shipTexture;
+            ship.model.modelPath = settings.shipTexture;
             ship.LoadContent(this);
             //debugText.LoadContent(this);
             //debugText.Update(this);
