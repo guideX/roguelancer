@@ -9,14 +9,14 @@ using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 namespace Roguelancer.Objects {
-    public class clsPlanetCollection : intGame {
-        public List<clsPlanet> planets { get; set; }
-        public clsPlanetCollection() {
-            planets = new List<clsPlanet>();
+    public class PlanetCollection : IGame {
+        public List<Planet> planets { get; set; }
+        public PlanetCollection() {
+            planets = new List<Planet>();
         }
         public void Initialize(clsGame _Game) {
-            foreach(clsSettingsModelObject planet in _Game.lSettings.planets) {
-                planets.Add(new clsPlanet {
+            foreach(SettingsModelObject planet in _Game.settings.planets) {
+                planets.Add(new Planet {
                     settings = planet
                 });
             }
@@ -40,21 +40,24 @@ namespace Roguelancer.Objects {
             }
         }
     }
-    public class clsPlanet : intGame {
-        public clsSettingsModelObject settings { get; set; }
+    public class Planet : IGame {
+        public SettingsModelObject settings { get; set; }
         private clsModel model;
+        public Planet() {}
         public void Initialize(clsGame _Game) {
             model = new clsModel();
+            model.Initialize(_Game);
         }
         public void LoadContent(clsGame _Game) {
-            model.drawMode = clsModel.DrawMode.planet;
+            //model.drawMode = clsModel.DrawMode.planet;
             model.modelPath = settings.modelPath;
+            model.LoadContent(_Game);
             if(settings != null) {
                 model.modelPath = settings.modelPath;
                 model.startPosition = settings.startupPosition;
                 model.modelScaling = settings.modelScaling;
             }
-            model.Initialize(_Game);
+            
         }
         public void Update(clsGame _Game) {
             model.Update(_Game);

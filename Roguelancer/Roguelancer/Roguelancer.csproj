@@ -117,8 +117,13 @@
     <Compile Include="Functionality\clsInput.cs" />
     <Compile Include="Functionality\clsModel.cs" />
     <Compile Include="Functionality\clsSettings.cs" />
-    <Compile Include="Interfaces\intGame.cs" />
-    <Compile Include="Objects\clsPlanet.cs" />
+    <Compile Include="Interfaces\IGame.cs" />
+    <Compile Include="Objects\clsPlanet.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Objects\clsShip.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Particle\ParticleSystem\clsDynamicParticle.cs" />
     <Compile Include="Particle\ParticleSystem\clsDynamicParticleSystem.cs" />
     <Compile Include="Particle\ParticleSystem\clsIParticle.cs" />
@@ -137,7 +142,6 @@
     <Compile Include="Particle\System\clsProjectile.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\clsParticleSystemHandler.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\clsProjectileTrailParticleSystem.cs" />
-    <Compile Include="Objects\clsShip.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\clsSmokeParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\clsSmokePlumeEmitter.cs" />
     <Compile Include="Particle\System\Emitters\clsSmokeRingEmitter.cs" />

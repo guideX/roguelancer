@@ -8,7 +8,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Objects;
 using Roguelancer.Interfaces;
 namespace Roguelancer.Functionality {
-    public class clsCamera {
+    public class clsCamera : IGame {
         public bool lCameraSpringEnabled = true;
         public int lMode = 2;
         public float lAspectRatio = 4.0f / 3.0f; // Screen Dimensions
@@ -18,6 +18,7 @@ namespace Roguelancer.Functionality {
         public Vector3 lChaseDirection;
         public Vector3 lLookAt;
         public Vector3 lPosition;
+        public GameTime gameTime;
         public Vector3 lUp = Vector3.Up;
         private Vector3 lDesiredPositionOffset = new Vector3(0, 400.0f, 1830.0f);
         private Vector3 lDesiredPosition;
@@ -55,10 +56,9 @@ namespace Roguelancer.Functionality {
                 lShakeTimer = 0f;
             }
         }
-        
         public void Initialize(clsGame _Game) {
-            lAspectRatio = _Game.lGraphics.ScreenDimensions();
-            UpdateCameraChaseTarget(_Game.lGraphics, _Game.lShip);
+            lAspectRatio = _Game.graphics.ScreenDimensions();
+            UpdateCameraChaseTarget(_Game.graphics, _Game.ship);
             Reset();
         }
         private void UpdateWorldPositions() {
@@ -75,6 +75,7 @@ namespace Roguelancer.Functionality {
                 lLookAt = lChasePosition + lThrustViewAmount * lChaseDirection;
             }
         }
+        public void LoadContent(clsGame _Game) { }
         private void UpdateNewCamera(float _X, float _Y) {
             if (lMode != 1) {
                 return;
@@ -117,7 +118,7 @@ namespace Roguelancer.Functionality {
             lPosition = lDesiredPosition;
             UpdateMatrices();
         }
-        public void Update(GameTime gameTime) {
+        public void Update(clsGame _Game) {
             if (gameTime == null) {
                 throw new ArgumentNullException("gameTime");
             }

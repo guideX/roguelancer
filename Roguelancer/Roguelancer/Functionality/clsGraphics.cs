@@ -8,13 +8,13 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
 namespace Roguelancer.Functionality {
-    public class clsGraphics : intGame {
+    public class clsGraphics : IGame {
         public GraphicsDeviceManager lGDM;
         public SpriteBatch lSpriteBatch;
         public void Initialize(clsGame _Game) {
             lGDM = new GraphicsDeviceManager(_Game);
-            lGDM.PreferredBackBufferWidth = (int)_Game.lSettings.resolution.X;
-            lGDM.PreferredBackBufferHeight = (int)_Game.lSettings.resolution.Y;
+            lGDM.PreferredBackBufferWidth = (int)_Game.settings.resolution.X;
+            lGDM.PreferredBackBufferHeight = (int)_Game.settings.resolution.Y;
             lGDM.IsFullScreen = false;
         }
         public void LoadContent(clsGame _Game) {

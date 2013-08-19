@@ -42,7 +42,7 @@ namespace Roguelancer.Functionality {
         public bool lJ;
         public bool lC;
     }
-    public class clsInput : intGame {
+    public class clsInput : IGame {
         public clsInputItems lInputItems = new clsInputItems();
         private KeyboardState lLastKeyboardState = new KeyboardState();
         private KeyboardState lCurrentKeyboardState = new KeyboardState();
@@ -83,7 +83,7 @@ namespace Roguelancer.Functionality {
                     }
                 }
             }
-            _Game.lDebugText.lText = lInputItems.lToggles.lToggleCamera.ToString() + " - " + lInputItems.lToggles.lToggleCamera.ToString() + " - " + lInputItems.lToggles.lToggleCamera;
+            //_Game.debugText.lText = lInputItems.lToggles.lToggleCamera.ToString() + " - " + lInputItems.lToggles.lToggleCamera.ToString() + " - " + lInputItems.lToggles.lToggleCamera;
             if (lCurrentKeyboardState.IsKeyDown(Keys.P)) {
                 lInputItems.lKeys.lP = true;
             } else {

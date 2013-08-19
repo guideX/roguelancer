@@ -37,7 +37,7 @@ namespace Roguelancer.Particle {
             n = lMaxPositionStartingY;
             for(int i = 0; i < lStars.Length;++i) {
                 n = n - lMaxPositionIncrementY;
-                lStars[i] = new clsParticleStarSheet(_Game.lGraphics, new Vector3(lMaxPositionX, lMaxPositionY, n), lAmountOfStarsPerSheet, lStarTexture, lStarEffect, lMaxSize, _Game.lCamera);
+                lStars[i] = new clsParticleStarSheet(_Game.graphics, new Vector3(lMaxPositionX, lMaxPositionY, n), lAmountOfStarsPerSheet, lStarTexture, lStarEffect, lMaxSize, _Game.camera);
             }
         }
         public void Update(clsCamera _Camera, clsGraphics _Graphics) {

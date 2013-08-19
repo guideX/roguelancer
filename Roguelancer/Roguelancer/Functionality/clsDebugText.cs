@@ -9,7 +9,7 @@ using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
 namespace Roguelancer.Functionality {
-    public class clsDebugText : intGame {
+    public class clsDebugText : IGame {
         private SpriteBatch lSpriteBatch;
         public String lText = "Roguelancer";
         private SpriteFont lFont;
@@ -18,12 +18,12 @@ namespace Roguelancer.Functionality {
 
         }
         public void LoadContent(clsGame _Game) {
-            lFont = _Game.Content.Load<SpriteFont>("FONTS\\" + _Game.lSettings.font);
-            lFontPosition = new Vector2(_Game.lGraphics.lGDM.GraphicsDevice.Viewport.Width / 2, _Game.lGraphics.lGDM.GraphicsDevice.Viewport.Height / 2);
+            lFont = _Game.Content.Load<SpriteFont>("FONTS\\" + _Game.settings.font);
+            lFontPosition = new Vector2(_Game.graphics.lGDM.GraphicsDevice.Viewport.Width / 2, _Game.graphics.lGDM.GraphicsDevice.Viewport.Height / 2);
             // lDebugText.LoadContent("LucidaFont", lGraphics.lGDM.GraphicsDevice.Viewport, Content);
         }
         public void Update(clsGame _Game) {
-            lSpriteBatch = _Game.lGraphics.lSpriteBatch;
+            lSpriteBatch = _Game.graphics.lSpriteBatch;
             /*if (_Text == null) {
             } else {
                 if (_Text.Length == 0) {

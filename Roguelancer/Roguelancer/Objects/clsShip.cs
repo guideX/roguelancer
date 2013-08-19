@@ -49,33 +49,33 @@ namespace Roguelancer.Objects {
             lModel = new clsModel();
         }
         public void Initialize(clsGame _Game) {
-
+            lModel.Initialize(_Game);
         }
         public void LoadContent(clsGame _Game) {
             lModel.drawMode = clsModel.DrawMode.mainModel;
-            lModel.Initialize(_Game);
+            lModel.LoadContent(_Game);
         }
         public void Update(GameTime _GameTime, clsGame _Game) {
             Vector3 _Force, _Acceleration;
             float elapsed = (float)_GameTime.ElapsedGameTime.TotalSeconds;
             Vector2 _RotationAmount = new Vector2();
-            float w2 = (float)_Game.lGraphics.ReturnBackBufferWidth() / lUpdateDirectionX;
-            float h2 = (float)_Game.lGraphics.ReturnBackBufferHeight() / lUpdateDirectionY;
+            float w2 = (float)_Game.graphics.ReturnBackBufferWidth() / lUpdateDirectionX;
+            float h2 = (float)_Game.graphics.ReturnBackBufferHeight() / lUpdateDirectionY;
             if (lUseInput == true) {
-                if (_Game.lInput.lInputItems.lMouse.lLeftButton == true) {
-                    _RotationAmount.X = (_Game.lInput.lInputItems.lMouse.lVector.X - w2) / -w2;
-                    _RotationAmount.Y = (_Game.lInput.lInputItems.lMouse.lVector.Y - h2) / -h2;
+                if (_Game.input.lInputItems.lMouse.lLeftButton == true) {
+                    _RotationAmount.X = (_Game.input.lInputItems.lMouse.lVector.X - w2) / -w2;
+                    _RotationAmount.Y = (_Game.input.lInputItems.lMouse.lVector.Y - h2) / -h2;
                 }
-                if (_Game.lInput.lInputItems.lKeys.lLeft == true) {
+                if (_Game.input.lInputItems.lKeys.lLeft == true) {
                     _RotationAmount.X = lRotationXLeftAdd;
                 }
-                if (_Game.lInput.lInputItems.lKeys.lRight == true) {
+                if (_Game.input.lInputItems.lKeys.lRight == true) {
                     _RotationAmount.X = lRotationXRightAdd;
                 }
-                if (_Game.lInput.lInputItems.lKeys.lUp == true) {
+                if (_Game.input.lInputItems.lKeys.lUp == true) {
                     _RotationAmount.Y = lRotationYUpAdd;
                 }
-                if (_Game.lInput.lInputItems.lKeys.lDown == true) {
+                if (_Game.input.lInputItems.lKeys.lDown == true) {
                     _RotationAmount.Y = lRotationYDownAdd;
                 }
                 _RotationAmount = _RotationAmount * lRotationRate * elapsed;
@@ -91,10 +91,10 @@ namespace Roguelancer.Objects {
             lUp.Normalize();
             lRight = Vector3.Cross(lDirection, lUp);
             lUp = Vector3.Cross(lRight, lDirection);
-            _Game.lDebugText.Update(_Game);
+            //_Game.lDebugText.Update(_Game);
             if (lUseInput == true) {
-                if(_Game.lInput.lInputItems.lKeys.lW == true) {
-                    _Game.lCamera.Shake(.8f, 0f, false);
+                if(_Game.input.lInputItems.lKeys.lW == true) {
+                    _Game.camera.Shake(.8f, 0f, false);
                     if(lCurrentThrust == lMaxThrustAmount) {
                         lCurrentThrust = lMaxThrustAmount;
                     } else if(lCurrentThrust < lMaxThrustAmount) {
@@ -103,18 +103,18 @@ namespace Roguelancer.Objects {
                         lCurrentThrust = lMaxThrustAmount;
                     }
                 } else {
-                    _Game.lCamera.StopShaking();
+                    _Game.camera.StopShaking();
                 }
-                if (_Game.lInput.lInputItems.lToggles.lCruise == true) {
-                    if (_Game.lInput.lInputItems.lKeys.lS == true) {
+                if (_Game.input.lInputItems.lToggles.lCruise == true) {
+                    if (_Game.input.lInputItems.lKeys.lS == true) {
                         lCurrentThrust = lMaxThrustAmount;
-                        _Game.lInput.lInputItems.lToggles.lCruise = false;
+                        _Game.input.lInputItems.lToggles.lCruise = false;
                     } else {
                         lCurrentThrust = lMaxCruiseSpeed;
                     }
                 } else {
-                    if (_Game.lInput.lInputItems.lKeys.lTab == true) {
-                        _Game.lCamera.Shake(10f, 0f, false);
+                    if (_Game.input.lInputItems.lKeys.lTab == true) {
+                        _Game.camera.Shake(10f, 0f, false);
                         if (lCurrentThrust == lMaxThrustAfterburnerAmount) {
                             lCurrentThrust = lMaxThrustAfterburnerAmount;
                         } else if (lCurrentThrust < lMaxThrustAfterburnerAmount) {
@@ -125,10 +125,10 @@ namespace Roguelancer.Objects {
                     } else {
                         if(lCurrentThrust > lMaxThrustAmount) {
                             lCurrentThrust = lCurrentThrust - lThrustSlowDownSpeed;
-                            _Game.lCamera.Shake(.8f, 0f, false);
+                            _Game.camera.Shake(.8f, 0f, false);
                         } else {
-                            if(_Game.lInput.lInputItems.lKeys.lW == true) {
-                                _Game.lCamera.Shake(.8f, 0f, false);
+                            if(_Game.input.lInputItems.lKeys.lW == true) {
+                                _Game.camera.Shake(.8f, 0f, false);
                                 if(lCurrentThrust == lMaxThrustAmount) {
                                     lCurrentThrust = lMaxThrustAmount;
                                 } else if(lCurrentThrust < lMaxThrustAmount) {
@@ -137,18 +137,18 @@ namespace Roguelancer.Objects {
                                     lCurrentThrust = lMaxThrustAmount;
                                 }
                             } else {
-                                _Game.lCamera.StopShaking();
+                                _Game.camera.StopShaking();
                             }
                         }
                     }
-                    if (_Game.lInput.lInputItems.lKeys.lX == true) {
-                        _Game.lCamera.Shake(1f, 0f, false);
+                    if (_Game.input.lInputItems.lKeys.lX == true) {
+                        _Game.camera.Shake(1f, 0f, false);
                         if (lCurrentThrust > lMaxThrustReverse) {
                             lCurrentThrust = lCurrentThrust + lThrustReverseSpeed;
                         }
                     }
-                    if (_Game.lInput.lInputItems.lKeys.lS == true) {
-                        _Game.lCamera.StopShaking();
+                    if (_Game.input.lInputItems.lKeys.lS == true) {
+                        _Game.camera.StopShaking();
                         if (lCurrentThrust == 0) {
                         } else if (lCurrentThrust > lMaxThrustAmount || lCurrentThrust > -.0001) {
                             lCurrentThrust = lCurrentThrust - lThrustSlowDownSpeed;
@@ -162,7 +162,7 @@ namespace Roguelancer.Objects {
                     }
                 }
             } else {
-                if (_Game.lInput.lInputItems.lKeys.lL == true) {
+                if (_Game.input.lInputItems.lKeys.lL == true) {
                     if (lCurrentThrust == lMaxThrustAfterburnerAmount) {
                         lCurrentThrust = lMaxThrustAfterburnerAmount;
                     } else if (lCurrentThrust < lMaxThrustAfterburnerAmount) {
@@ -174,7 +174,7 @@ namespace Roguelancer.Objects {
                     if (lCurrentThrust > lMaxThrustAmount) {
                         lCurrentThrust = lCurrentThrust - lThrustSlowDownSpeed;
                     } else {
-                        if (_Game.lInput.lInputItems.lKeys.lP == true) {
+                        if (_Game.input.lInputItems.lKeys.lP == true) {
                             if (lCurrentThrust == lMaxThrustAmount) {
                                 lCurrentThrust = lMaxThrustAmount;
                             } else if (lCurrentThrust < lMaxThrustAmount) {
@@ -184,7 +184,7 @@ namespace Roguelancer.Objects {
                             }
                         }
                     }
-                } if (_Game.lInput.lInputItems.lKeys.lK == true) {
+                } if (_Game.input.lInputItems.lKeys.lK == true) {
                     if (lCurrentThrust == 0) {
                     } else if (lCurrentThrust > lMaxThrustAmount || lCurrentThrust > -.0001) {
                         lCurrentThrust = lCurrentThrust - lThrustSlowDownSpeed;
@@ -197,7 +197,7 @@ namespace Roguelancer.Objects {
                     }
                 }
             }
-            if (_Game.lInput.lInputItems.lToggles.lToggleCamera == false) {
+            if (_Game.input.lInputItems.lToggles.lToggleCamera == false) {
                 _Force = lDirection * lCurrentThrust * lThrustForce;
                 _Acceleration = _Force / lMass;
                 lVelocity += _Acceleration * elapsed;
