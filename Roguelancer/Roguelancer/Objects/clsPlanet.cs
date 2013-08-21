@@ -52,15 +52,16 @@ namespace Roguelancer.Objects {
         public void LoadContent(clsGame _Game) {
             model.drawMode = clsModel.DrawMode.planet;
             model.modelPath = settings.modelPath;
-            model.LoadContent(_Game);
             if(settings != null) {
                 model.modelPath = settings.modelPath;
                 model.startPosition = settings.startupPosition;
                 model.modelScaling = settings.modelScaling;
             }
+            model.LoadContent(_Game);
             
         }
         public void Update(clsGame _Game) {
+            model.UpdatePosition();
             model.Update(_Game);
         }
         public void Draw(clsGame _Game) {

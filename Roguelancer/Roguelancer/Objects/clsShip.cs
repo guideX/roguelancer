@@ -8,8 +8,6 @@ using System;
 using Roguelancer.Functionality;
 namespace Roguelancer.Objects {
     public class clsShip {
-        public string lText;
-        public Vector3 lVelocity;
         public clsModel model;
         private float lUpdateDirectionX = 2.0f;
         private float lUpdateDirectionY = 2.0f;
@@ -21,7 +19,6 @@ namespace Roguelancer.Objects {
         private const float lMass = 1.0f;
         private const float lThrustForce = 24000.0f;
         private const float lDragFactor = 0.97f;
-        //public Matrix lRotationMatrix;
         private float lMaxThrustAmount = 0.2f;
         private float lMaxThrustAfterburnerAmount = 0.4f;
         private float lThrustAddSpeed = 0.006f;
@@ -37,8 +34,6 @@ namespace Roguelancer.Objects {
         public clsShip(bool _UseInput) {
             lUseInput = _UseInput;
             model = new clsModel();
-            model.direction = Vector3.Forward;
-            lVelocity = Vector3.Zero;
         }
         public void Initialize(clsGame _Game) {
             model.drawMode = clsModel.DrawMode.mainModel;
@@ -77,7 +72,6 @@ namespace Roguelancer.Objects {
             }
             model.rotationAmount = rotationAmount;
             model.UpdatePosition();
-            //_Game.lDebugText.Update(_Game);
             if (lUseInput == true) {
                 if(_Game.input.lInputItems.lKeys.lW == true) {
                     _Game.camera.Shake(.8f, 0f, false);
@@ -186,9 +180,9 @@ namespace Roguelancer.Objects {
             if (_Game.input.lInputItems.lToggles.lToggleCamera == false) {
                 _Force = model.direction * lCurrentThrust * lThrustForce;
                 _Acceleration = _Force / lMass;
-                lVelocity += _Acceleration * elapsed;
-                lVelocity *= lDragFactor;
-                model.position += lVelocity * elapsed;
+                model.velocity += _Acceleration * elapsed;
+                model.velocity *= lDragFactor;
+                model.position += model.velocity * elapsed;
                 if (lLimitAltitude == true) {
                     model.position.Y = Math.Max(model.position.Y, model.minimumAltitude);
                 }

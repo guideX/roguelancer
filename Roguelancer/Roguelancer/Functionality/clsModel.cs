@@ -11,6 +11,7 @@ namespace Roguelancer.Functionality {
             mainModel = 1,
             planet = 2
         }
+        public Vector3 velocity { get; set; }
         public Vector2 rotationAmount { get; set; }
         public Vector3 up;
         public Vector3 right;
@@ -25,16 +26,21 @@ namespace Roguelancer.Functionality {
         public float minimumAltitude = 350.0f;
         private Model model;
         public clsModel() {
+            velocity = Vector3.Zero;
             drawMode = DrawMode.unknown;
             position = new Vector3(0, minimumAltitude, 0);
             up = Vector3.Up;
             right = Vector3.Right;
         }
         public void Initialize(clsGame _Game) {
-            
+            direction = Vector3.Forward;
+  
         }
         public void LoadContent(clsGame _Game) {
             model = _Game.Content.Load<Model>(modelPath);
+            if(startPosition != null) {
+                position = startPosition;
+            }
         }
         public void UpdatePosition() {
             Matrix rotationMatrix = Matrix.CreateFromAxisAngle(right, rotationAmount.Y) * Matrix.CreateRotationY(rotationAmount.X);
