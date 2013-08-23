@@ -35,7 +35,7 @@ namespace Roguelancer.Particle {
                 lVerts[(i * 4) + 3] = new VertexPositionTexture(new Vector3(position.X + size, position.Y + size, position.Z), new Vector2(1, 1));
                 lVertexColorArray[i] = colors[(lRnd.Next(0, lParticleColorsTexture.Height) * lParticleColorsTexture.Width) + lRnd.Next(0, lParticleColorsTexture.Width)];
             }
-            lParticleVertexBuffer = new VertexBuffer(_Graphics.lGDM.GraphicsDevice, typeof(VertexPositionTexture), lVerts.Length, BufferUsage.None);
+            lParticleVertexBuffer = new VertexBuffer(_Graphics.graphicsDeviceManager.GraphicsDevice, typeof(VertexPositionTexture), lVerts.Length, BufferUsage.None);
         }
         public void Update(clsCamera _Camera, GraphicsDevice _GraphicsDevice) {
             lCamera = _Camera;

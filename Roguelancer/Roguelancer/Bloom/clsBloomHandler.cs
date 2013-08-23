@@ -13,6 +13,8 @@ namespace Roguelancer.Bloom {
             lBloom = new clsBloomComponent(_Game);
             _Game.Components.Add(lBloom);
         }
+        public void Initialize() {
+        }
         public void LoadContent() {
             // TODO
         }

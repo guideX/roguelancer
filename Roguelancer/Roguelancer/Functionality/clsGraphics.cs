@@ -9,31 +9,33 @@ using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
 namespace Roguelancer.Functionality {
     public class clsGraphics : IGame {
-        public GraphicsDeviceManager lGDM;
+        public GraphicsDeviceManager graphicsDeviceManager;
         public SpriteBatch lSpriteBatch;
+        public clsGraphics(clsGame _Game) {
+            graphicsDeviceManager = new GraphicsDeviceManager(_Game);
+        }
         public void Initialize(clsGame _Game) {
-            lGDM = new GraphicsDeviceManager(_Game);
-            lGDM.PreferredBackBufferWidth = (int)_Game.settings.resolution.X;
-            lGDM.PreferredBackBufferHeight = (int)_Game.settings.resolution.Y;
-            lGDM.IsFullScreen = false;
+            graphicsDeviceManager.PreferredBackBufferWidth = (int)_Game.settings.resolution.X;
+            graphicsDeviceManager.PreferredBackBufferHeight = (int)_Game.settings.resolution.Y;
+            graphicsDeviceManager.IsFullScreen = true;
         }
         public void LoadContent(clsGame _Game) {
-            lSpriteBatch = new SpriteBatch(lGDM.GraphicsDevice);
+            lSpriteBatch = new SpriteBatch(graphicsDeviceManager.GraphicsDevice);
         }
         public void Update(clsGame _Game) {
         }
         public void Draw(clsGame _Game) {
-            lGDM.GraphicsDevice.Clear(Color.Black);
-            lGDM.GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            graphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
+            graphicsDeviceManager.GraphicsDevice.DepthStencilState = DepthStencilState.Default;
         }
         public float ScreenDimensions() {
-            return (float)lGDM.GraphicsDevice.Viewport.Width / lGDM.GraphicsDevice.Viewport.Height;
+            return (float)graphicsDeviceManager.GraphicsDevice.Viewport.Width / graphicsDeviceManager.GraphicsDevice.Viewport.Height;
         }
         public int ReturnBackBufferHeight() {
-            return lGDM.PreferredBackBufferHeight;
+            return graphicsDeviceManager.PreferredBackBufferHeight;
         }
         public int ReturnBackBufferWidth() {
-            return lGDM.PreferredBackBufferWidth;
+            return graphicsDeviceManager.PreferredBackBufferWidth;
         }
         public void BeginSpriteBatch() {
             lSpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);

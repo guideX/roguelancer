@@ -8,8 +8,9 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Content;
 using Roguelancer.Objects;
 using Roguelancer.Functionality;
+using Roguelancer.Interfaces;
 namespace Roguelancer.Particle {
-    class clsStarfields {
+    class clsStarfields : IGame {
         int lAmountOfStarsPerSheet = 30;
         float lMaxPositionX = 1000000;
         float lMaxPositionY = 1000000;
@@ -23,6 +24,11 @@ namespace Roguelancer.Particle {
         clsParticleStarSheet[] lStars = new clsParticleStarSheet[200];
         Effect lStarEffect;
         Texture2D lStarTexture;
+        public clsStarfields() {
+        }
+        public void Initialize(clsGame _Game) {
+
+        }
         public void LoadContent(clsGame _Game) {
             int n = 0;
             lExplosionTexture = _Game.Content.Load<Texture2D>("Textures\\Particle");
@@ -40,22 +46,20 @@ namespace Roguelancer.Particle {
                 lStars[i] = new clsParticleStarSheet(_Game.graphics, new Vector3(lMaxPositionX, lMaxPositionY, n), lAmountOfStarsPerSheet, lStarTexture, lStarEffect, lMaxSize, _Game.camera);
             }
         }
-        public void Update(clsCamera _Camera, clsGraphics _Graphics) {
-            for (int i = 0; i < lStars.Length; ++i) {
-                lStars[i].Update(_Camera, _Graphics.lGDM.GraphicsDevice);
-            }
-        }
-        public void Draw(clsCamera _Camera) {
+        public void Draw(clsGame _Game) {
             for (int i = 0; i < lStars.Length; ++i) {
                 lStars[i].Draw();
                 foreach(clsParticleExplosion _Explosion in lExplosions) {
-                    _Explosion.Draw(_Camera);
+                    _Explosion.Draw(_Game.camera);
                 }
             }
         }
-        public void Update(GameTime _GameTime) {
-            for (int i = 0; i < lExplosions.Count; ++i) {
-                lExplosions[i].Update(_GameTime);
+        public void Update(clsGame _Game) {
+            for(int i = 0; i < lStars.Length; ++i) {
+                lStars[i].Update(_Game.camera, _Game.graphics.graphicsDeviceManager.GraphicsDevice);
+            }
+            for(int i = 0; i < lExplosions.Count; ++i) {
+                lExplosions[i].Update(_Game.gameTime );
                 if (lExplosions[i].IsDead) {
                     lExplosions.RemoveAt(i);
                     --i;

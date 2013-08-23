@@ -19,7 +19,7 @@ namespace Roguelancer.Functionality {
         }
         public void LoadContent(clsGame _Game) {
             lFont = _Game.Content.Load<SpriteFont>("FONTS\\" + _Game.settings.font);
-            lFontPosition = new Vector2(_Game.graphics.lGDM.GraphicsDevice.Viewport.Width / 2, _Game.graphics.lGDM.GraphicsDevice.Viewport.Height / 2);
+            lFontPosition = new Vector2(_Game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / 2, _Game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
             // lDebugText.LoadContent("LucidaFont", lGraphics.lGDM.GraphicsDevice.Viewport, Content);
         }
         public void Update(clsGame _Game) {
