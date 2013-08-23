@@ -22,7 +22,7 @@ namespace Roguelancer.Functionality {
             "Earth",
             new Vector3(1.0f, 0f, 10.0f), 
             new Vector3(0.0f, -1.9f, 0.0f), 
-            new Vector3(.5f, .5f, .5f)
+            new Vector3(5.5f, 5.5f, 5.5f)
         );
         public List<SettingsModelObject> ships { get; set; }
         public List<SettingsModelObject> planets { get; set; }

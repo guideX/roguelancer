@@ -6,12 +6,12 @@ using Microsoft.Xna.Framework;
 namespace Roguelancer.Functionality {
     public class clsGame : Microsoft.Xna.Framework.Game {
         public clsGraphics graphics;
-        public clsShip ship;
+        public ShipCollection ships;
         public Settings settings;
         public clsCamera camera;
         public clsInput input;
         public GameTime gameTime;
-        public clsDebugText debugText;
+        //public clsDebugText debugText;
         private clsStarfields stars;
         private clsCamera cameraSnapshot;
         private clsBloomHandler bloom;
@@ -26,10 +26,11 @@ namespace Roguelancer.Functionality {
             stars = new clsStarfields();
             input = new clsInput();
             camera = new clsCamera();
-            ship = new clsShip();
+            //ship = new clsShip();
+            ships = new ShipCollection();
             graphics = new clsGraphics();
             graphics.Initialize(this);
-            debugText = new clsDebugText();
+            //debugText = new clsDebugText();
             planets = new PlanetCollection();
             //lEngineNoise = new clsSound();
             //lParticleSystem = new clsParticleSystemHandler(this);
@@ -37,8 +38,9 @@ namespace Roguelancer.Functionality {
         protected override void Initialize() {
             camera.Initialize(this);
             input.Initialize(this);
-            ship.Initialize(this);
-            ship.playerShipControl.useInput = true;
+            ships.Initialize(this);
+            //ship.Initialize(this);
+            //ship.playerShipControl.useInput = true;
             planets.Initialize(this);
             //lParticleSystem.Initialize();
             //lEngineNoise.Initialize(this);
@@ -47,11 +49,12 @@ namespace Roguelancer.Functionality {
         protected override void LoadContent() {
             graphics.LoadContent(this);
             stars.LoadContent(this);
-            ship.model.settings = settings.playerShip;
+            ships.LoadContent(this);
+            //ship.model.settings = settings.playerShip;
             //ship.model.modelPath = settings.shipTexture;
-            ship.LoadContent(this);
-            debugText.LoadContent(this);
-            debugText.Update(this);
+            //ship.LoadContent(this);
+            //debugText.LoadContent(this);
+            //debugText.Update(this);
             bloom.LoadContent();
             planets.LoadContent(this);
             //lEngineNoise.soundPath = "engine";
@@ -64,7 +67,8 @@ namespace Roguelancer.Functionality {
             input.Update(this);
             //ship.gameTime = _GameTime;
             //ship.model.gameTime = _GameTime;
-            ship.Update(this);
+            //ship.Update(this);
+            ships.Update(this);
             planets.Update(this);
             bloom.Update(true);
             if (input.lInputItems.lToggles.lCameraSnapshot == true) {
@@ -74,11 +78,11 @@ namespace Roguelancer.Functionality {
                 input.lInputItems.lToggles.lRevertCamera = false;
                 camera = cameraSnapshot;
             }
-            camera.UpdateCameraChaseTarget(graphics, ship);
+            camera.UpdateCameraChaseTarget(graphics, ships.GetPlayerShip());
             camera.gameTime = _GameTime;
             camera.Update(this);
-            debugText.lText = planets.debugText + " + " + ship.debugText;
-            debugText.Update(this);
+            //debugText.lText = planets.debugText + " + " + ship.debugText;
+            //debugText.Update(this);
             //lParticleSystem.Update(_GameTime, lDebugText, lGraphics);
             //lEngineNoise.Update(this);
             base.Update(_GameTime);
@@ -88,9 +92,9 @@ namespace Roguelancer.Functionality {
             bloom.Draw();
             graphics.BeginSpriteBatch();
             graphics.Draw(this);
-            debugText.Draw(this);
+            //debugText.Draw(this);
             stars.Draw(camera);
-            ship.Draw(this);
+            ships.Draw(this);
             graphics.EndSpriteBatch();
             planets.Draw(this);
             //lParticleSystem.Draw(this);

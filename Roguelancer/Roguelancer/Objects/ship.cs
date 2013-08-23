@@ -7,12 +7,51 @@ using Microsoft.Xna.Framework.Content;
 using System;
 using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
+using System.Collections.Generic;
 namespace Roguelancer.Objects {
-    public class clsShip : IGame {
+    public class ShipCollection: IGame {
+        public List<ship> ships { get; set; }
+        public ShipCollection() {
+            ships = new List<ship>();
+            ship playerShip = new ship();
+            playerShip.model.settings = new Settings().playerShip;
+            playerShip.playerShipControl.useInput = true;
+            ships.Add(playerShip);
+        }
+        public ship GetPlayerShip() {
+            foreach(ship ship in ships) {
+                if(ship.playerShipControl.useInput == true) {
+                    return ship;
+                }
+            }
+            return new ship();
+        }
+        public void Initialize(clsGame _Game) {
+            foreach(ship _ship in ships) {
+                _ship.Initialize(_Game);
+            }
+        }
+        public void LoadContent(clsGame _Game) {
+            foreach(ship _ship in ships) {
+                _ship.LoadContent(_Game);
+            }
+        }
+        public void Update(clsGame _Game) {
+            foreach(ship _ship in ships) {
+                _ship.Update(_Game);
+            }
+        }
+        public void Draw(clsGame _Game) {
+            foreach(ship _ship in ships) {
+                _ship.Draw(_Game);
+            }
+        }
+    }
+    public class ship : IGame {
         public clsModel model;
         public clsPlayerShipControl playerShipControl;
         public string debugText { get; set; }
-        public clsShip() {
+        public ship() {
             model = new clsModel();
             playerShipControl = new clsPlayerShipControl();
         }

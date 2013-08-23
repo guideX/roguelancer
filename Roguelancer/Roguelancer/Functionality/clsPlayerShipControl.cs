@@ -178,6 +178,7 @@ namespace Roguelancer.Functionality {
                 if(lLimitAltitude == true) {
                     model.position.Y = Math.Max(model.position.Y, model.minimumAltitude);
                 }
+                model.Update(_Game);
             }
         }
         public void Draw(clsGame _Game) {

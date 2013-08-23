@@ -58,7 +58,7 @@ namespace Roguelancer.Functionality {
         }
         public void Initialize(clsGame _Game) {
             lAspectRatio = _Game.graphics.ScreenDimensions();
-            UpdateCameraChaseTarget(_Game.graphics, _Game.ship);
+            UpdateCameraChaseTarget(_Game.graphics, _Game.ships.GetPlayerShip());
             Reset();
         }
         private void UpdateWorldPositions() {
@@ -147,7 +147,7 @@ namespace Roguelancer.Functionality {
             lPosition += lVelocity * elapsed;
             UpdateMatrices();
         }
-        public void UpdateCameraChaseTarget(clsGraphics _Graphics, clsShip _Ship) {
+        public void UpdateCameraChaseTarget(clsGraphics _Graphics, ship _Ship) {
             GraphicsDevice _GraphicsDevice = _Graphics.lGDM.GraphicsDevice;
             MouseState _MouseState = Mouse.GetState();
             lChasePosition = _Ship.model.position;

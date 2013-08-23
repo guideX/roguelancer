@@ -20,10 +20,8 @@ namespace Roguelancer.Functionality {
         public Vector3 direction;
         public DrawMode drawMode { get; set; }
         public Matrix world;
-        //public string modelPath { get; set; }
         public Vector3 modelScaling { get; set; }
         public Vector3 modelRotation { get; set; }
-        //public Vector3 startPosition { get; set; }
         public float minimumAltitude = 350.0f;
         private Model model;
         public SettingsModelObject settings { get; set; }
