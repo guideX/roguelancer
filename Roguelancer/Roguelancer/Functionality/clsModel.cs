@@ -44,7 +44,7 @@ namespace Roguelancer.Functionality {
                 position = settings.startupPosition;
             }
         }
-        public void Update(clsGame _Game) {
+        public void UpdatePosition() {
             Matrix rotationMatrix = Matrix.CreateFromAxisAngle(right, rotationAmount.Y) * Matrix.CreateRotationY(rotationAmount.X);
             direction = Vector3.TransformNormal(direction, rotationMatrix);
             up = Vector3.TransformNormal(up, rotationMatrix);
@@ -52,11 +52,15 @@ namespace Roguelancer.Functionality {
             up.Normalize();
             right = Vector3.Cross(direction, up);
             up = Vector3.Cross(right, direction);
-            world = Matrix.Identity;
-            world.Forward = direction;
-            world.Up = up;
-            world.Right = right;
-            world.Translation = position;           
+        }
+        public void Update(clsGame _Game) {
+            if(_Game.input.lInputItems.lToggles.lToggleCamera == false) {
+                world = Matrix.Identity;
+                world.Forward = direction;
+                world.Up = up;
+                world.Right = right;
+                world.Translation = position;
+            }
         }
         public void Draw(clsGame _Game) {
             if(drawMode == DrawMode.unknown) {
@@ -79,7 +83,7 @@ namespace Roguelancer.Functionality {
                             basicEffect.EnableDefaultLighting();
                             basicEffect.World = _Transforms[modelMesh.ParentBone.Index] * world;
                             basicEffect.View = _Game.camera.lView;
-                            //basicEffect.Projection = _Game.camera.lProjection;
+                            basicEffect.Projection = _Game.camera.lProjection;
                             break;
                     } 
                 }

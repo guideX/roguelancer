@@ -58,7 +58,7 @@ namespace Roguelancer.Functionality {
                 }
             }
             model.rotationAmount = rotationAmount;
-            //model.UpdatePosition();
+            model.UpdatePosition();
             if(useInput == true) {
                 if(_Game.input.lInputItems.lKeys.lW == true) {
                     _Game.camera.Shake(.8f, 0f, false);
@@ -178,7 +178,6 @@ namespace Roguelancer.Functionality {
                 if(lLimitAltitude == true) {
                     model.position.Y = Math.Max(model.position.Y, model.minimumAltitude);
                 }
-                //model.Update(_Game);
             }
         }
         public void Draw(clsGame _Game) {
