@@ -6,19 +6,29 @@ using Microsoft.Xna.Framework;
 namespace Roguelancer.Functionality {
     public class Settings {
         public Vector3 shipModelScaling = new Vector3(2.0f, 2.0f, 1.0f);
-        public string shipTexture = "SHIPS\\PI_TRANSPORT\\PI_TRANSPORT";
+        //public string shipTexture = "SHIPS\\PI_TRANSPORT\\PI_TRANSPORT";
         public string appPath = System.IO.Directory.GetCurrentDirectory();
         public string groundTexture = "";
         public string font = "LucidaFont";
         public Vector2 resolution = new Vector2(1024, 768);
+        public SettingsModelObject playerShip = new SettingsModelObject(
+            "PlayerShip",
+            new Vector3(1.0f, 0f, 10.0f),
+            new Vector3(0.0f, -1.9f, 0.0f),
+            new Vector3(.5f, .5f, .5f)
+        );
+        
         public SettingsModelObject earth = new SettingsModelObject(
-            "Earth", 
-            new Vector3(1.0f, 0f, -1.0f), 
+            "Earth",
+            new Vector3(1.0f, 0f, 10.0f), 
             new Vector3(0.0f, -1.9f, 0.0f), 
             new Vector3(.5f, .5f, .5f)
         );
+        public List<SettingsModelObject> ships { get; set; }
         public List<SettingsModelObject> planets { get; set; }
         public Settings() {
+            earth.modelPath = "Earth";
+            playerShip.modelPath = "SHIPS\\PI_TRANSPORT\\PI_TRANSPORT";
             planets = new List<SettingsModelObject>();
             planets.Add(earth);
         }

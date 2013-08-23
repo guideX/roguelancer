@@ -11,14 +11,15 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Roguelancer.Objects {
     public class PlanetCollection : IGame {
         public List<Planet> planets { get; set; }
+        public string debugText { get; set; }
         public PlanetCollection() {
             planets = new List<Planet>();
         }
         public void Initialize(clsGame _Game) {
-            foreach(SettingsModelObject planet in _Game.settings.planets) {
-                planets.Add(new Planet {
-                    settings = planet
-                });
+            foreach(SettingsModelObject settings in _Game.settings.planets) {
+                Planet p = new Planet();
+                p.model.settings = settings;
+                planets.Add(p);
             }
             for(int i = 0; i <= planets.Count - 1; i++) {
                 planets[i].Initialize(_Game);
@@ -30,8 +31,14 @@ namespace Roguelancer.Objects {
             }
         }
         public void Update(clsGame _Game) {
+            debugText = "";
             for(int i = 0; i <= planets.Count - 1; i++) {
                 planets[i].Update(_Game);
+                if(!string.IsNullOrEmpty(debugText)) {
+                    debugText = debugText + ", " + planets[i].model.position.Z.ToString() + " - " + planets[i].model.position.Y.ToString() + " - " + planets[i].model.position.Z.ToString();
+                } else {
+                    debugText = planets[i].model.position.Z.ToString() + " - " + planets[i].model.position.Y.ToString() + " - " + planets[i].model.position.Z.ToString();
+                }
             }
         }
         public void Draw(clsGame _Game) {
@@ -41,27 +48,19 @@ namespace Roguelancer.Objects {
         }
     }
     public class Planet : IGame {
-        public SettingsModelObject settings { get; set; }
-        private clsModel model;
-        public Planet() {}
-        public void Initialize(clsGame _Game) {
+        public clsModel model;
+        public Planet() {
             model = new clsModel();
+        }
+        public void Initialize(clsGame _Game) {
             model.drawMode = clsModel.DrawMode.planet;
             model.Initialize(_Game);
         }
         public void LoadContent(clsGame _Game) {
             model.drawMode = clsModel.DrawMode.planet;
-            model.modelPath = settings.modelPath;
-            if(settings != null) {
-                model.modelPath = settings.modelPath;
-                model.startPosition = settings.startupPosition;
-                model.modelScaling = settings.modelScaling;
-            }
             model.LoadContent(_Game);
-            
         }
         public void Update(clsGame _Game) {
-            model.UpdatePosition();
             model.Update(_Game);
         }
         public void Draw(clsGame _Game) {

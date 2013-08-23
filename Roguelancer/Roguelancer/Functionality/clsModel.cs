@@ -11,6 +11,7 @@ namespace Roguelancer.Functionality {
             mainModel = 1,
             planet = 2
         }
+        public float currentThrust { get; set; }
         public Vector3 velocity { get; set; }
         public Vector2 rotationAmount { get; set; }
         public Vector3 up;
@@ -19,30 +20,31 @@ namespace Roguelancer.Functionality {
         public Vector3 direction;
         public DrawMode drawMode { get; set; }
         public Matrix world;
-        public string modelPath { get; set; }
+        //public string modelPath { get; set; }
         public Vector3 modelScaling { get; set; }
         public Vector3 modelRotation { get; set; }
-        public Vector3 startPosition { get; set; }
+        //public Vector3 startPosition { get; set; }
         public float minimumAltitude = 350.0f;
         private Model model;
+        public SettingsModelObject settings { get; set; }
         public clsModel() {
             velocity = Vector3.Zero;
             drawMode = DrawMode.unknown;
             position = new Vector3(0, minimumAltitude, 0);
             up = Vector3.Up;
             right = Vector3.Right;
+            currentThrust = 0.0f;
+            direction = Vector3.Forward;  
         }
         public void Initialize(clsGame _Game) {
-            direction = Vector3.Forward;
-  
         }
         public void LoadContent(clsGame _Game) {
-            model = _Game.Content.Load<Model>(modelPath);
-            if(startPosition != null) {
-                position = startPosition;
+            model = _Game.Content.Load<Model>(settings.modelPath);
+            if(settings.startupPosition != null) {
+                position = settings.startupPosition;
             }
         }
-        public void UpdatePosition() {
+        public void Update(clsGame _Game) {
             Matrix rotationMatrix = Matrix.CreateFromAxisAngle(right, rotationAmount.Y) * Matrix.CreateRotationY(rotationAmount.X);
             direction = Vector3.TransformNormal(direction, rotationMatrix);
             up = Vector3.TransformNormal(up, rotationMatrix);
@@ -50,8 +52,6 @@ namespace Roguelancer.Functionality {
             up.Normalize();
             right = Vector3.Cross(direction, up);
             up = Vector3.Cross(right, direction);
-        }
-        public void Update(clsGame _Game) {
             world = Matrix.Identity;
             world.Forward = direction;
             world.Up = up;
@@ -79,7 +79,7 @@ namespace Roguelancer.Functionality {
                             basicEffect.EnableDefaultLighting();
                             basicEffect.World = _Transforms[modelMesh.ParentBone.Index] * world;
                             basicEffect.View = _Game.camera.lView;
-                            basicEffect.Projection = _Game.camera.lProjection;
+                            //basicEffect.Projection = _Game.camera.lProjection;
                             break;
                     } 
                 }

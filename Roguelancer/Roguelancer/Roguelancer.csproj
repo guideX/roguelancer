@@ -116,6 +116,7 @@
     <Compile Include="Functionality\clsGraphics.cs" />
     <Compile Include="Functionality\clsInput.cs" />
     <Compile Include="Functionality\clsModel.cs" />
+    <Compile Include="Functionality\clsPlayerShipControl.cs" />
     <Compile Include="Functionality\clsSettings.cs" />
     <Compile Include="Interfaces\IGame.cs" />
     <Compile Include="Objects\clsPlanet.cs">
