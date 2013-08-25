@@ -57,6 +57,46 @@
       <Importer>FontDescriptionImporter</Importer>
       <Processor>FontDescriptionProcessor</Processor>
     </Compile>
+    <Compile Include="SHIPS\BW_ELITE\BW_ELITE.x">
+      <Name>BW_ELITE</Name>
+      <Importer>XImporter</Importer>
+      <Processor>ModelProcessor</Processor>
+    </Compile>
+    <Compile Include="SHIPS\BW_ELITE\BW_ELITE2.x">
+      <Name>BW_ELITE2</Name>
+      <Importer>XImporter</Importer>
+      <Processor>ModelProcessor</Processor>
+    </Compile>
+    <Compile Include="SHIPS\BW_ELITE\BW_ELITE3.x">
+      <Name>BW_ELITE3</Name>
+      <Importer>XImporter</Importer>
+      <Processor>ModelProcessor</Processor>
+    </Compile>
+    <Compile Include="SHIPS\BW_ELITE\bw_engine.TGA">
+      <Name>bw_engine</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="SHIPS\BW_ELITE\bw_panel_256.TGA">
+      <Name>bw_panel_256</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="SHIPS\BW_ELITE\engine_128.TGA">
+      <Name>engine_128</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="SHIPS\BW_ELITE\engine_grill01.TGA">
+      <Name>engine_grill01</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="SHIPS\BW_ELITE\weaponplate2.TGA">
+      <Name>weaponplate2</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
     <Compile Include="SHIPS\PI_TRANSPORT\PI_TRANSPORT.x">
       <Name>PI_TRANSPORT</Name>
       <Importer>XImporter</Importer>
@@ -209,6 +249,40 @@
   <ItemGroup>
     <Compile Include="Earth.fbx">
       <Name>Earth</Name>
+      <Importer>FbxImporter</Importer>
+      <Processor>ModelProcessor</Processor>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="BASES\BADLANDS\BADLANDS.x">
+      <Name>BADLANDS</Name>
+      <Importer>XImporter</Importer>
+      <Processor>ModelProcessor</Processor>
+    </Compile>
+    <Compile Include="BASES\BADLANDS\bd_li01_05_badlands_a.TGA">
+      <Name>bd_li01_05_badlands_a</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="BASES\BADLANDS\bd_li01_05_badlands_b.TGA">
+      <Name>bd_li01_05_badlands_b</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="BASES\BADLANDS\bd_li01_05_badlands_c.TGA">
+      <Name>bd_li01_05_badlands_c</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="BASES\BADLANDS\bd_li01_05_badlands_d.TGA">
+      <Name>bd_li01_05_badlands_d</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Ship.fbx">
+      <Name>Ship</Name>
       <Importer>FbxImporter</Importer>
       <Processor>ModelProcessor</Processor>
     </Compile>

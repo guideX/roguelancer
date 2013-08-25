@@ -111,20 +111,21 @@
     <Compile Include="Bloom\clsBloomSettings.cs" />
     <Compile Include="Bloom\clsBloomHandler.cs" />
     <Compile Include="Functionality\clsGame.cs" />
-    <Compile Include="Functionality\clsCamera.cs" />
+    <Compile Include="Functionality\camera.cs" />
     <Compile Include="Functionality\clsDebugText.cs" />
     <Compile Include="Functionality\clsGraphics.cs" />
     <Compile Include="Functionality\clsInput.cs" />
     <Compile Include="Functionality\clsModel.cs" />
     <Compile Include="Functionality\clsPlayerShipControl.cs" />
-    <Compile Include="Functionality\clsSettings.cs" />
+    <Compile Include="Functionality\settings.cs" />
     <Compile Include="Interfaces\IGame.cs" />
-    <Compile Include="Objects\clsPlanet.cs">
+    <Compile Include="Objects\planet.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Objects\ship.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Objects\station.cs" />
     <Compile Include="Particle\ParticleSystem\clsDynamicParticle.cs" />
     <Compile Include="Particle\ParticleSystem\clsDynamicParticleSystem.cs" />
     <Compile Include="Particle\ParticleSystem\clsIParticle.cs" />
@@ -162,12 +163,6 @@
     <Content Include="GameThumbnail.png" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\RougelancerContent\RougelancerContent.contentproj">
-      <Name>RougelancerContent</Name>
-      <XnaReferenceType>Content</XnaReferenceType>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.0,Profile=Client">
       <Visible>False</Visible>
       <ProductName>Microsoft .NET Framework 4 Client Profile %28x86 and x64%29</ProductName>
@@ -197,7 +192,13 @@
   <ItemGroup>
     <Compile Include="Functionality\clsIni.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\RoguelancerContent\RoguelancerContent.contentproj">
+      <Project>{0555E32F-EA07-4A76-BB15-7148114CF03E}</Project>
+      <Name>RoguelancerContent %28Content%29</Name>
+      <XnaReferenceType>Content</XnaReferenceType>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\Microsoft.Xna.GameStudio.targets" />
   <!--

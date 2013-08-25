@@ -13,11 +13,11 @@ namespace Roguelancer.Functionality {
         public SpriteBatch lSpriteBatch;
         public clsGraphics(clsGame _Game) {
             graphicsDeviceManager = new GraphicsDeviceManager(_Game);
-        }
-        public void Initialize(clsGame _Game) {
             graphicsDeviceManager.PreferredBackBufferWidth = (int)_Game.settings.resolution.X;
             graphicsDeviceManager.PreferredBackBufferHeight = (int)_Game.settings.resolution.Y;
-            graphicsDeviceManager.IsFullScreen = true;
+            graphicsDeviceManager.IsFullScreen = false;
+        }
+        public void Initialize(clsGame _Game) {
         }
         public void LoadContent(clsGame _Game) {
             lSpriteBatch = new SpriteBatch(graphicsDeviceManager.GraphicsDevice);

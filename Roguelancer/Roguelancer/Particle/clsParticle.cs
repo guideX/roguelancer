@@ -8,7 +8,7 @@ using Roguelancer.Objects;
 namespace Roguelancer.Particle {
     class clsParticleStarSheet {
         GraphicsDevice lGraphicsDevice;
-        clsCamera lCamera;
+        camera lCamera;
         VertexPositionTexture[] lVerts;
         Color[] lVertexColorArray;
         VertexBuffer lParticleVertexBuffer;
@@ -17,7 +17,7 @@ namespace Roguelancer.Particle {
         static Random lRnd = new Random();
         Effect lParticleEffect;
         Texture2D lParticleColorsTexture;
-        public clsParticleStarSheet(clsGraphics _Graphics, Vector3 _MaxPosition, int _MaxParticles, Texture2D _ParticleColorsTexture, Effect _ParticleEffect, int _MaxSize, clsCamera _Camera) {
+        public clsParticleStarSheet(clsGraphics _Graphics, Vector3 _MaxPosition, int _MaxParticles, Texture2D _ParticleColorsTexture, Effect _ParticleEffect, int _MaxSize, camera _Camera) {
             lMaxParticles = _MaxParticles;
             lParticleEffect = _ParticleEffect;
             lParticleColorsTexture = _ParticleColorsTexture;
@@ -37,7 +37,7 @@ namespace Roguelancer.Particle {
             }
             lParticleVertexBuffer = new VertexBuffer(_Graphics.graphicsDeviceManager.GraphicsDevice, typeof(VertexPositionTexture), lVerts.Length, BufferUsage.None);
         }
-        public void Update(clsCamera _Camera, GraphicsDevice _GraphicsDevice) {
+        public void Update(camera _Camera, GraphicsDevice _GraphicsDevice) {
             lCamera = _Camera;
             lGraphicsDevice = _GraphicsDevice;
         }
@@ -45,7 +45,7 @@ namespace Roguelancer.Particle {
             //GraphicsDevice _GraphicsDevice = _GraphicsDevice;
             lGraphicsDevice.SetVertexBuffer(lParticleVertexBuffer);
             for (int i = 0; i < lMaxParticles; ++i) {
-                lParticleEffect.Parameters["WorldViewProjection"].SetValue(lCamera.lView * lCamera.lProjection);
+                lParticleEffect.Parameters["WorldViewProjection"].SetValue(lCamera.view * lCamera.projection);
                 lParticleEffect.Parameters["particleColor"].SetValue(lVertexColorArray[i].ToVector4());
                 foreach (EffectPass _EffectPass in lParticleEffect.CurrentTechnique.Passes) {
                     _EffectPass.Apply();
@@ -135,11 +135,11 @@ namespace Roguelancer.Particle {
                 lVerts[(i * 4) + 3].Position += lVertexDirectionArray[i];
             }
         }
-        public void Draw(clsCamera _Camera) {
+        public void Draw(camera _Camera) {
             lGraphicsDevice.SetVertexBuffer(lParticleVertexBuffer);
             if (lEndOfLiveParticlesIndex - lEndOfDeadParticlesIndex > 0) {
                 for (int i = lEndOfDeadParticlesIndex; i < lEndOfLiveParticlesIndex; ++i) {
-                    lParticleEffect.Parameters["WorldViewProjection"].SetValue(_Camera.lView * _Camera.lProjection);
+                    lParticleEffect.Parameters["WorldViewProjection"].SetValue(_Camera.view * _Camera.projection);
                     lParticleEffect.Parameters["particleColor"].SetValue(lVertexColorArray[i].ToVector4());
                     foreach (EffectPass _EffectPass in lParticleEffect.CurrentTechnique.Passes) {
                         _EffectPass.Apply();

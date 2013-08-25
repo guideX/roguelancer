@@ -2,7 +2,16 @@ Content\FONTS\Arial.xnb
 Content\FONTS\LucidaFont.xnb
 Content\FONTS\HudFont.xnb
 Content\Ground.xnb
+Content\SHIPS\BW_ELITE\BW_ELITE.xnb
+Content\SHIPS\BW_ELITE\BW_ELITE2.xnb
+Content\SHIPS\BW_ELITE\BW_ELITE3.xnb
 Content\SHIPS\PI_TRANSPORT\PI_TRANSPORT.xnb
+Content\BASES\BADLANDS\BADLANDS.xnb
+Content\SHIPS\BW_ELITE\bw_engine.xnb
+Content\SHIPS\BW_ELITE\bw_panel_256.xnb
+Content\SHIPS\BW_ELITE\engine_128.xnb
+Content\SHIPS\BW_ELITE\engine_grill01.xnb
+Content\SHIPS\BW_ELITE\weaponplate2.xnb
 Content\SHIPS\PI_TRANSPORT\engine grill.xnb
 Content\SHIPS\PI_TRANSPORT\engine ring.xnb
 Content\SHIPS\PI_TRANSPORT\engines.xnb
@@ -23,11 +32,21 @@ Content\Textures\star.xnb
 Content\Textures\explosion.xnb
 Content\Textures\fire.xnb
 Content\Textures\smoke.xnb
+Content\BASES\BADLANDS\bd_li01_05_badlands_a.xnb
+Content\BASES\BADLANDS\bd_li01_05_badlands_b.xnb
+Content\BASES\BADLANDS\bd_li01_05_badlands_c.xnb
+Content\BASES\BADLANDS\bd_li01_05_badlands_d.xnb
 Content\Effects\Particle.xnb
 Content\Effects\BloomExtract.xnb
 Content\Effects\GaussianBlur.xnb
 Content\Effects\BloomCombine.xnb
+Content\Earth.xnb
 Content\Checker_0.xnb
+Content\SHIPS\BW_ELITE\bw_panel_256_0.xnb
+Content\SHIPS\BW_ELITE\engine_128_0.xnb
+Content\SHIPS\BW_ELITE\weaponplate2_0.xnb
+Content\SHIPS\BW_ELITE\bw_engine_0.xnb
+Content\SHIPS\BW_ELITE\engine_grill01_0.xnb
 Content\SHIPS\PI_TRANSPORT\wings_fin_0.xnb
 Content\SHIPS\PI_TRANSPORT\engine_grill_0.xnb
 Content\SHIPS\PI_TRANSPORT\engines_0.xnb
@@ -36,4 +55,9 @@ Content\SHIPS\PI_TRANSPORT\hold_0.xnb
 Content\SHIPS\PI_TRANSPORT\equip_0.xnb
 Content\SHIPS\PI_TRANSPORT\skull_0.xnb
 Content\SHIPS\PI_TRANSPORT\windows_0.xnb
-Content\Earth.xnb
+Content\BASES\BADLANDS\bd_li01_05_badlands_a_0.xnb
+Content\BASES\BADLANDS\bd_li01_05_badlands_b_0.xnb
+Content\BASES\BADLANDS\bd_li01_05_badlands_c_0.xnb
+Content\BASES\BADLANDS\bd_li01_05_badlands_d_0.xnb
+Content\Ship.xnb
+Content\ShipDiffuse_0.xnb

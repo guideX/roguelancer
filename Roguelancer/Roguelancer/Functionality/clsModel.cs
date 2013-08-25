@@ -6,11 +6,13 @@ using Microsoft.Xna.Framework.Content;
 using Roguelancer.Interfaces;
 namespace Roguelancer.Functionality {
     public class clsModel : IGame {
-        public enum DrawMode {
+        public enum ModelMode {
             unknown = 0,
-            mainModel = 1,
-            planet = 2
+            ship = 1,
+            planet = 2,
+            station = 3
         }
+        public ModelMode modelMode { get; set; }
         public float currentThrust { get; set; }
         public Vector3 velocity { get; set; }
         public Vector2 rotationAmount { get; set; }
@@ -18,21 +20,17 @@ namespace Roguelancer.Functionality {
         public Vector3 right;
         public Vector3 position;
         public Vector3 direction;
-        public DrawMode drawMode { get; set; }
         public Matrix world;
-        public Vector3 modelScaling { get; set; }
-        public Vector3 modelRotation { get; set; }
         public float minimumAltitude = 350.0f;
         private Model model;
         public SettingsModelObject settings { get; set; }
         public clsModel() {
             velocity = Vector3.Zero;
-            drawMode = DrawMode.unknown;
             position = new Vector3(0, minimumAltitude, 0);
             up = Vector3.Up;
             right = Vector3.Right;
             currentThrust = 0.0f;
-            direction = Vector3.Forward;  
+            direction = Vector3.Forward;
         }
         public void Initialize(clsGame _Game) {
         }
@@ -40,6 +38,8 @@ namespace Roguelancer.Functionality {
             model = _Game.Content.Load<Model>(settings.modelPath);
             if(settings.startupPosition != null) {
                 position = settings.startupPosition;
+            } else {
+                position = new Vector3(0, 0, 0);
             }
         }
         public void UpdatePosition() {
@@ -61,29 +61,26 @@ namespace Roguelancer.Functionality {
             }
         }
         public void Draw(clsGame _Game) {
-            if(drawMode == DrawMode.unknown) {
-                return;
-            }
-            Matrix[] _Transforms = new Matrix[model.Bones.Count];
-            model.CopyAbsoluteBoneTransformsTo(_Transforms);
+            Matrix[] transforms = new Matrix[model.Bones.Count];
+            model.CopyAbsoluteBoneTransformsTo(transforms);
             foreach(ModelMesh modelMesh in model.Meshes) {
                 foreach(BasicEffect basicEffect in modelMesh.Effects) {
-                    switch(drawMode) {
-                        case DrawMode.mainModel:
+                    switch(modelMode) {
+                        case (ModelMode.ship):
                             basicEffect.Alpha = 1;
                             basicEffect.EnableDefaultLighting();
-                            basicEffect.World = _Transforms[modelMesh.ParentBone.Index] * world;
-                            basicEffect.View = _Game.camera.lView;
-                            basicEffect.Projection = _Game.camera.lProjection;
+                            basicEffect.World = transforms[modelMesh.ParentBone.Index] * world;
+                            basicEffect.View = _Game.camera.view;
+                            basicEffect.Projection = _Game.camera.projection;
                             break;
-                        case DrawMode.planet:
+                        default:
                             basicEffect.Alpha = 1;
                             basicEffect.EnableDefaultLighting();
-                            basicEffect.World = _Transforms[modelMesh.ParentBone.Index] * world;
-                            basicEffect.View = _Game.camera.lView;
-                            basicEffect.Projection = _Game.camera.lProjection;
+                            basicEffect.World = transforms[modelMesh.ParentBone.Index] * world;
+                            basicEffect.View = _Game.camera.view;
+                            basicEffect.Projection = _Game.camera.projection;
                             break;
-                    } 
+                    }
                 }
                 modelMesh.Draw();
             }

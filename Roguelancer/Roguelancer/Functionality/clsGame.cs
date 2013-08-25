@@ -1,51 +1,49 @@
 ﻿using Roguelancer.Bloom;
 using Roguelancer.Objects;
 using Roguelancer.Particle;
-//using Roguelancer.Particle.System.ParticleSystems;
 using Microsoft.Xna.Framework;
 namespace Roguelancer.Functionality {
     public class clsGame : Microsoft.Xna.Framework.Game {
         public clsGraphics graphics;
-        public ShipCollection ships;
         public Settings settings;
-        public clsCamera camera;
+        public camera camera;
         public clsInput input;
         public GameTime gameTime;
+        public ShipCollection ships;
+        public StationCollection stations;
         private clsStarfields stars;
-        private clsCamera cameraSnapshot;
+        private camera cameraSnapshot;
         private clsBloomHandler bloom;
         private PlanetCollection planets;
-        //public clsDebugText debugText;
+        public clsDebugText debugText;
         //private clsParticleSystemHandler lParticleSystem;
         //private clsSound lEngineNoise;
         public clsGame() {
-            // INITIALIZE SETTINGS
             settings = new Settings();
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
-            // INSTANCIATE GRAPHICS SYSTEM
-            camera = new clsCamera();
+            camera = new camera();
             graphics = new clsGraphics(this);
-            //graphics.Initialize(this);
+            stations = new StationCollection();
+            graphics.Initialize(this);
             bloom = new clsBloomHandler(this);
             input = new clsInput();
             stars = new clsStarfields();
-            // INSTANCIATE OBJECT CLASSES
-            ships = new ShipCollection();
+            ships = new ShipCollection(this);
             planets = new PlanetCollection();
-            //debugText = new clsDebugText();
+            debugText = new clsDebugText();
             //lEngineNoise = new clsSound();
             //lParticleSystem = new clsParticleSystemHandler(this);
         }
         protected override void Initialize() {
             graphics.Initialize(this);
             camera.Initialize(this);
-            
             bloom.Initialize();
             input.Initialize(this);
             stars.Initialize(this);
             ships.Initialize(this);
             planets.Initialize(this);
+            stations.Initialize(this);
             //lParticleSystem.Initialize();
             //lEngineNoise.Initialize(this);
             base.Initialize();
@@ -57,11 +55,9 @@ namespace Roguelancer.Functionality {
             bloom.LoadContent();
             ships.LoadContent(this);
             planets.LoadContent(this);
-            //ship.model.settings = settings.playerShip;
-            //ship.model.modelPath = settings.shipTexture;
-            //ship.LoadContent(this);
-            //debugText.LoadContent(this);
-            //debugText.Update(this);
+            stations.LoadContent(this);
+            debugText.LoadContent(this);
+            debugText.Update(this);
             //lEngineNoise.soundPath = "engine";
             //lParticleSystem.LoadContent(this);
             base.LoadContent();
@@ -70,11 +66,9 @@ namespace Roguelancer.Functionality {
             gameTime = _GameTime;
             stars.Update(this);
             input.Update(this);
-            //ship.gameTime = _GameTime;
-            //ship.model.gameTime = _GameTime;
-            //ship.Update(this);
             ships.Update(this);
             planets.Update(this);
+            stations.Update(this);
             bloom.Update(true);
             if (input.lInputItems.lToggles.lCameraSnapshot == true) {
                 input.lInputItems.lToggles.lCameraSnapshot = false;
@@ -83,11 +77,10 @@ namespace Roguelancer.Functionality {
                 input.lInputItems.lToggles.lRevertCamera = false;
                 camera = cameraSnapshot;
             }
-            camera.UpdateCameraChaseTarget(graphics, ships.GetPlayerShip());
-            camera.gameTime = _GameTime;
+            camera.UpdateCameraChaseTarget(this);
             camera.Update(this);
-            //debugText.lText = planets.debugText + " + " + ship.debugText;
-            //debugText.Update(this);
+            debugText.lText = "Hi.";
+            debugText.Update(this);
             //lParticleSystem.Update(_GameTime, lDebugText, lGraphics);
             //lEngineNoise.Update(this);
             base.Update(_GameTime);
@@ -97,11 +90,12 @@ namespace Roguelancer.Functionality {
             bloom.Draw();
             graphics.BeginSpriteBatch();
             graphics.Draw(this);
-            //debugText.Draw(this);
+            debugText.Draw(this);
             stars.Draw(this);
             ships.Draw(this);
-            graphics.EndSpriteBatch();
             planets.Draw(this);
+            stations.Draw(this);
+            graphics.EndSpriteBatch();
             //lParticleSystem.Draw(this);
             //lEngineNoise.Draw(this);
             base.Draw(_GameTime);

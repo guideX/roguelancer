@@ -9,14 +9,18 @@ using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using System.Collections.Generic;
 namespace Roguelancer.Objects {
-    public class ShipCollection: IGame {
+    public class ShipCollection : IGame {
         public List<ship> ships { get; set; }
-        public ShipCollection() {
+        public ShipCollection(clsGame _Game) {
             ships = new List<ship>();
             ship playerShip = new ship();
-            playerShip.model.settings = new Settings().playerShip;
+            ship enemyShip = new ship();
+            playerShip.model.settings = _Game.settings.playerShip;
             playerShip.playerShipControl.useInput = true;
+            enemyShip.playerShipControl.useInput = false;
+            enemyShip.model.settings = _Game.settings.enemyShip;
             ships.Add(playerShip);
+            ships.Add(enemyShip);
         }
         public ship GetPlayerShip() {
             foreach(ship ship in ships) {
@@ -50,14 +54,13 @@ namespace Roguelancer.Objects {
     public class ship : IGame {
         public clsModel model;
         public clsPlayerShipControl playerShipControl;
-        public string debugText { get; set; }
         public ship() {
             model = new clsModel();
             playerShipControl = new clsPlayerShipControl();
         }
         public void Initialize(clsGame _Game) {
-            model.drawMode = clsModel.DrawMode.mainModel;
             model.Initialize(_Game);
+            model.modelMode = clsModel.ModelMode.ship;
             if(playerShipControl.useInput) {
                 playerShipControl = new clsPlayerShipControl();
                 playerShipControl.Initialize(_Game);
@@ -81,7 +84,6 @@ namespace Roguelancer.Objects {
             } else {
                 model.Update(_Game);
             }
-            debugText = model.position.X.ToString() + " - " + model.position.Y.ToString() + " - " + model.position.Z.ToString();
         }
         public void Draw(clsGame _Game) {
             model.Draw(_Game);
