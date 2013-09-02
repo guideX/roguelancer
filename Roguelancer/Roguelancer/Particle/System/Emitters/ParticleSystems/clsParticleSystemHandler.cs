@@ -13,7 +13,7 @@ namespace Roguelancer.Particle.System.ParticleSystems {
     public class clsParticleSystemHandler {
         private clsParticleSystem.gParticleSystemSettings lSettings;
         private clsParticleSystem lParticleSystem;
-        public clsParticleSystemHandler(Game _Game) {
+        public clsParticleSystemHandler(RoguelancerGame _Game) {
             lSettings = new clsParticleSystem.gParticleSystemSettings();
             lSettings.pFireRingSystemParticles = 200;
             lSettings.pSmokePlumeParticles = 100;
@@ -35,13 +35,13 @@ namespace Roguelancer.Particle.System.ParticleSystems {
         public void Initialize() {
             lParticleSystem.Init();
         }
-        public void LoadContent(clsGame _Game) {
+        public void LoadContent(RoguelancerGame _Game) {
             lParticleSystem.LoadContent(_Game.Content);
         }
-        public void Update(GameTime _GameTime, clsDebugText _DebugText, clsGraphics _Graphics) {
+        public void Update(GameTime _GameTime, DebugText _DebugText, GameGraphics _Graphics) {
             lParticleSystem.Update(_GameTime, lSettings, _DebugText, _Graphics);
         }
-        public void Draw(clsGame _Game) {
+        public void Draw(RoguelancerGame _Game) {
             lParticleSystem.Draw(_Game);
         }
     }

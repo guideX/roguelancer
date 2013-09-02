@@ -7,14 +7,14 @@ using Roguelancer.Particle;
 using Roguelancer.Bloom;
 using Roguelancer.Particle.System.ParticleSystems;
 namespace Roguelancer {
-    public class Roguelancer : clsGame {
+    public class Roguelancer : Game {
         public Roguelancer() {
         }
 #if WINDOWS
         static class Program {
             static void Main(string[] args) {
-                using (Roguelancer game = new Roguelancer()) {
-                    game.Run();
+                using(RoguelancerGame _Game = new RoguelancerGame()) {
+                    _Game.Run();
                 }
             }
         }

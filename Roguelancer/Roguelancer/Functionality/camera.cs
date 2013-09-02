@@ -8,7 +8,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Objects;
 using Roguelancer.Interfaces;
 namespace Roguelancer.Functionality {
-    public class camera : IGame {
+    public class GameCamera : IGame {
         public Matrix projection;
         public Matrix view;
         private int mode = 2;
@@ -19,7 +19,7 @@ namespace Roguelancer.Functionality {
         private Vector3 up = Vector3.Up;
         private Vector3 desiredPosition;
         private Vector3 velocity;
-        private Vector3 lShakeOffset;
+        private Vector3 shakeOffset;
         private float shakeMagnitude;
         private float shakeDuration;
         private float shakeTimer;
@@ -41,12 +41,12 @@ namespace Roguelancer.Functionality {
                 shakeTimer = 0f;
             }
         }
-        public void Initialize(clsGame _Game) {
+        public void Initialize(RoguelancerGame _Game) {
             _Game.settings.cameraSettings.aspectRatio = _Game.graphics.ScreenDimensions();
             UpdateCameraChaseTarget(_Game);
             Reset(_Game);
         }
-        private void UpdateWorldPositions(clsGame _Game) {
+        private void UpdateWorldPositions(RoguelancerGame _Game) {
             Matrix transform = Matrix.Identity;
             transform.Forward = chaseDirection;
             transform.Up = up;
@@ -60,9 +60,9 @@ namespace Roguelancer.Functionality {
                 lookAt = chasePosition + _Game.settings.cameraSettings.thrustViewAmount * chaseDirection;
             }
         }
-        public void LoadContent(clsGame _Game) { 
+        public void LoadContent(RoguelancerGame _Game) { 
         }
-        private void UpdateNewCamera(float _X, float _Y, clsGame _Game) {
+        private void UpdateNewCamera(float _X, float _Y, RoguelancerGame _Game) {
             if (mode != 1) {
                 return;
             }
@@ -94,17 +94,17 @@ namespace Roguelancer.Functionality {
                 lookAt = d + v / _Game.settings.cameraSettings.lookAtDivideBy;
             }
         }
-        private void UpdateMatrices(clsGame _Game) {
+        private void UpdateMatrices(RoguelancerGame _Game) {
             view = Matrix.CreateLookAt(position, lookAt, up);
             projection = Matrix.CreatePerspectiveFieldOfView(_Game.settings.cameraSettings.fieldOfView, _Game.settings.cameraSettings.aspectRatio, _Game.settings.cameraSettings.nearPlaneDistance, _Game.settings.cameraSettings.clippingDistance);
         }
-        public void Reset(clsGame _Game) {
+        public void Reset(RoguelancerGame _Game) {
             UpdateWorldPositions(_Game);
             velocity = Vector3.Zero;
             position = desiredPosition;
             UpdateMatrices(_Game);
         }
-        public void Update(clsGame _Game) {
+        public void Update(RoguelancerGame _Game) {
             if(_Game.gameTime == null) {
                 throw new ArgumentNullException("gameTime");
             }
@@ -120,8 +120,8 @@ namespace Roguelancer.Functionality {
                     }
                 } else {
                     magnitude = shakeMagnitude * (1f - (2f));
-                    lShakeOffset = new Vector3(NextShakeFloat(), NextShakeFloat(), NextShakeFloat()) * magnitude;
-                    position += lShakeOffset;
+                    shakeOffset = new Vector3(NextShakeFloat(), NextShakeFloat(), NextShakeFloat()) * magnitude;
+                    position += shakeOffset;
                 }
             }
             UpdateWorldPositions(_Game);
@@ -133,8 +133,8 @@ namespace Roguelancer.Functionality {
             position += velocity * elapsed;
             UpdateMatrices(_Game);
         }
-        public void UpdateCameraChaseTarget(clsGame _Game) {
-            ship _ship = _Game.ships.GetPlayerShip();
+        public void UpdateCameraChaseTarget(RoguelancerGame _Game) {
+            Ship _ship = _Game.objects.ships.GetPlayerShip();
             GraphicsDevice _GraphicsDevice = _Game.graphics.graphicsDeviceManager.GraphicsDevice;
             MouseState _MouseState = Mouse.GetState();
             chasePosition = _ship.model.position;
@@ -148,7 +148,7 @@ namespace Roguelancer.Functionality {
                 }
             }
         }
-        public void Draw(clsGame _Game) {
+        public void Draw(RoguelancerGame _Game) {
         }
     }
 }

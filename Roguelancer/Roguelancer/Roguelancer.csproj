@@ -93,6 +93,7 @@
     <Reference Include="System">
       <Private>False</Private>
     </Reference>
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml">
       <Private>False</Private>
     </Reference>
@@ -110,22 +111,30 @@
     <Compile Include="Bloom\clsBloomComponent.cs" />
     <Compile Include="Bloom\clsBloomSettings.cs" />
     <Compile Include="Bloom\clsBloomHandler.cs" />
-    <Compile Include="Functionality\clsGame.cs" />
-    <Compile Include="Functionality\camera.cs" />
-    <Compile Include="Functionality\clsDebugText.cs" />
-    <Compile Include="Functionality\clsGraphics.cs" />
-    <Compile Include="Functionality\clsInput.cs" />
-    <Compile Include="Functionality\clsModel.cs" />
-    <Compile Include="Functionality\clsPlayerShipControl.cs" />
-    <Compile Include="Functionality\settings.cs" />
+    <Compile Include="Functionality\IniFile.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Functionality\RoguelancerGame.cs" />
+    <Compile Include="Functionality\Camera.cs" />
+    <Compile Include="Functionality\DebugText.cs" />
+    <Compile Include="Functionality\GameGraphics.cs" />
+    <Compile Include="Functionality\Input.cs" />
+    <Compile Include="Functionality\GameModel.cs" />
+    <Compile Include="Functionality\PlayerShipControl.cs" />
+    <Compile Include="Functionality\GameState.cs" />
+    <Compile Include="Functionality\GameSettings.cs" />
     <Compile Include="Interfaces\IGame.cs" />
+    <Compile Include="Objects\gameMenu.cs" />
+    <Compile Include="Objects\Hardpoint.cs" />
+    <Compile Include="Objects\objects.cs" />
     <Compile Include="Objects\planet.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Objects\ship.cs">
+    <Compile Include="Objects\Ship.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Objects\station.cs" />
+    <Compile Include="Objects\StarSystem.cs" />
     <Compile Include="Particle\ParticleSystem\clsDynamicParticle.cs" />
     <Compile Include="Particle\ParticleSystem\clsDynamicParticleSystem.cs" />
     <Compile Include="Particle\ParticleSystem\clsIParticle.cs" />
@@ -188,9 +197,6 @@
       <ProductName>Microsoft XNA Framework Redistributable 4.0</ProductName>
       <Install>true</Install>
     </BootstrapperPackage>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Functionality\clsIni.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\RoguelancerContent\RoguelancerContent.contentproj">

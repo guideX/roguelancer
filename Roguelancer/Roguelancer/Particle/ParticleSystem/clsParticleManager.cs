@@ -90,8 +90,6 @@ namespace Roguelancer.Particle.System {
         public void SetMatrices(Matrix view, Matrix projection) {
             View = view;
             Projection = projection;
-            //View = view * InvertY;
-            //Projection = projection;
         }
     }
 }

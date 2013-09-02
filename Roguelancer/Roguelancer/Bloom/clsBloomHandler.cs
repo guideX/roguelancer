@@ -9,7 +9,7 @@ namespace Roguelancer.Bloom {
     public class clsBloomHandler {
         private int lBloomSettings = 0;
         private clsBloomComponent lBloom;
-        public clsBloomHandler(clsGame _Game) {
+        public clsBloomHandler(RoguelancerGame _Game) {
             lBloom = new clsBloomComponent(_Game);
             _Game.Components.Add(lBloom);
         }

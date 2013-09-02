@@ -14,50 +14,52 @@ namespace Roguelancer.Objects {
         public PlanetCollection() {
             planets = new List<Planet>();
         }
-        public void Initialize(clsGame _Game) {
-            foreach(SettingsModelObject settings in _Game.settings.planets) {
-                Planet p = new Planet();
-                p.model.settings = settings;
-                planets.Add(p);
+        public void Initialize(RoguelancerGame _Game) {
+            Planet tempPlanet;
+            foreach(ModelWorldObjects modelWorldObject in _Game.settings.starSystemSettings[0].planets) {
+                tempPlanet = new Planet();
+                tempPlanet.model.worldObject = modelWorldObject;
+                planets.Add(tempPlanet);
             }
+
             for(int i = 0; i <= planets.Count - 1; i++) {
                 planets[i].Initialize(_Game);
             }
         }
-        public void LoadContent(clsGame _Game) {
+        public void LoadContent(RoguelancerGame _Game) {
             for(int i = 0; i <= planets.Count - 1; i++) {
                 planets[i].LoadContent(_Game);
             }
         }
-        public void Update(clsGame _Game) {
+        public void Update(RoguelancerGame _Game) {
             for(int i = 0; i <= planets.Count - 1; i++) {
                 planets[i].Update(_Game);
             }
         }
-        public void Draw(clsGame _Game) {
+        public void Draw(RoguelancerGame _Game) {
             for(int i = 0; i <= planets.Count - 1; i++) {
                 planets[i].Draw(_Game);
             }
         }
     }
     public class Planet : IGame {
-        public clsModel model;
+        public GameModel model;
         public Planet() {
-            model = new clsModel();
+            model = new GameModel();
         }
-        public void Initialize(clsGame _Game) {
-            model.modelMode = clsModel.ModelMode.planet;
+        public void Initialize(RoguelancerGame _Game) {
+            model.modelMode = GameModel.ModelMode.planet;
             
             model.Initialize(_Game);
         }
-        public void LoadContent(clsGame _Game) {
+        public void LoadContent(RoguelancerGame _Game) {
             model.LoadContent(_Game);
         }
-        public void Update(clsGame _Game) {
+        public void Update(RoguelancerGame _Game) {
             model.UpdatePosition();
             model.Update(_Game);
         }
-        public void Draw(clsGame _Game) {
+        public void Draw(RoguelancerGame _Game) {
             model.Draw(_Game);
         }
     }

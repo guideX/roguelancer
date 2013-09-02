@@ -29,7 +29,7 @@ namespace Roguelancer.Particle.System {
         private List<clsProjectile> lProjectiles = new List<clsProjectile>();
         private TimeSpan lTimeToNextProjectile = TimeSpan.Zero;
         private TimeSpan lTargetElapsedTime;
-        public clsParticleSystem(Microsoft.Xna.Framework.Game _Game, gParticleSystemSettings _Settings) {
+        public clsParticleSystem(RoguelancerGame _Game, gParticleSystemSettings _Settings) {
             lSettings = _Settings;
             lTargetElapsedTime = TimeSpan.FromTicks(333333);
             lParticleManager = new clsParticleManager(_Game);
@@ -99,7 +99,7 @@ namespace Roguelancer.Particle.System {
                 }
             }
         }
-        public void Update(GameTime _GameTime, gParticleSystemSettings _Settings, clsDebugText _DebugText, clsGraphics _Graphics) {
+        public void Update(GameTime _GameTime, gParticleSystemSettings _Settings, DebugText _DebugText, GameGraphics _Graphics) {
             lSettings = _Settings;
             if(lSettings.pEnabled == true) {
                 if(lSettings.pSmokeRing == true) {
@@ -120,13 +120,10 @@ namespace Roguelancer.Particle.System {
                 lParticleManager.SetMatrices(lView, lProjection);
             }
         }
-        public void Draw(clsGame _Game) {
+        public void Draw(RoguelancerGame _Game) {
             if(lSettings.pEnabled == true) {
-                //_Game.lDebugText.lText = _Game.lShip.lDirection.X.ToString() + " - " + _Game.lShip.lDirection.Y.ToString() + " - " + _Game.lShip.lDirection.Z.ToString();
                 float lAspectRatio = (float)_Game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / (float)_Game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Height;
                 lView = Matrix.CreateTranslation(0, -25, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(lSettings.pCameraRotation)) * Matrix.CreateRotationX(MathHelper.ToRadians(lSettings.pCameraArc)) * Matrix.CreateLookAt(new Vector3(0, 0, - lSettings.pCameraDistance), new Vector3(0, 0, 0), Vector3.Up);
-                //lProjection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10000);
-                //lView = Matrix.CreateTranslation(0, 0, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(_Ship.lPosition.X)) * Matrix.CreateRotationX(MathHelper.ToRadians(_Ship.lPosition.Y)) * Matrix.CreateLookAt(new Vector3(0, 0, -lSettings.pCameraDistance), new Vector3(0, 0, 0), Vector3.Up);
                 lProjection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10000);
             }
         }

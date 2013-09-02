@@ -26,10 +26,10 @@ namespace Roguelancer.Particle {
         Texture2D lStarTexture;
         public clsStarfields() {
         }
-        public void Initialize(clsGame _Game) {
+        public void Initialize(RoguelancerGame _Game) {
 
         }
-        public void LoadContent(clsGame _Game) {
+        public void LoadContent(RoguelancerGame _Game) {
             int n = 0;
             lExplosionTexture = _Game.Content.Load<Texture2D>("Textures\\Particle");
             lExplosionColorsTexture = _Game.Content.Load<Texture2D>("Textures\\ParticleColors");
@@ -46,7 +46,7 @@ namespace Roguelancer.Particle {
                 lStars[i] = new clsParticleStarSheet(_Game.graphics, new Vector3(lMaxPositionX, lMaxPositionY, n), lAmountOfStarsPerSheet, lStarTexture, lStarEffect, lMaxSize, _Game.camera);
             }
         }
-        public void Draw(clsGame _Game) {
+        public void Draw(RoguelancerGame _Game) {
             for (int i = 0; i < lStars.Length; ++i) {
                 lStars[i].Draw();
                 foreach(clsParticleExplosion _Explosion in lExplosions) {
@@ -54,7 +54,7 @@ namespace Roguelancer.Particle {
                 }
             }
         }
-        public void Update(clsGame _Game) {
+        public void Update(RoguelancerGame _Game) {
             for(int i = 0; i < lStars.Length; ++i) {
                 lStars[i].Update(_Game.camera, _Game.graphics.graphicsDeviceManager.GraphicsDevice);
             }
