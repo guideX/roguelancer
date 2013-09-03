@@ -13,6 +13,9 @@ namespace Roguelancer.Objects {
     public class ShipCollection : IGame {
         public List<Ship> ships { get; set; }
         public ShipCollection(RoguelancerGame _Game) {
+            Reset(_Game);
+        }
+        public void Reset(RoguelancerGame _Game) {
             ships = new List<Ship>();
             Ship playerShip = new Ship();
             Ship tempShip;
@@ -90,7 +93,6 @@ namespace Roguelancer.Objects {
         public void Update(RoguelancerGame _Game) {
             if(playerShipControl.useInput) {
                 playerShipControl.UpdateModel(model, _Game);
-                //playerShipControl.Update(_Game);
             }
             if(playerShipControl.useInput) {
                 if(_Game.input.lInputItems.toggles.toggleCamera == false) {

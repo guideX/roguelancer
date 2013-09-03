@@ -124,9 +124,9 @@
     <Compile Include="Functionality\GameState.cs" />
     <Compile Include="Functionality\GameSettings.cs" />
     <Compile Include="Interfaces\IGame.cs" />
-    <Compile Include="Objects\gameMenu.cs" />
+    <Compile Include="Objects\GameMenu.cs" />
     <Compile Include="Objects\Hardpoint.cs" />
-    <Compile Include="Objects\objects.cs" />
+    <Compile Include="Objects\Objects.cs" />
     <Compile Include="Objects\planet.cs">
       <SubType>Code</SubType>
     </Compile>

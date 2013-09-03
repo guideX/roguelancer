@@ -71,7 +71,6 @@ namespace Roguelancer.Functionality {
             debugText.Update(this);
             gameMenu.Update(this);
             //particleSystem.Update(_GameTime, debugText, graphics);
-            //lEngineNoise.Update(this);
             base.Update(_GameTime);
         }
         protected override void Draw(GameTime _GameTime) {
@@ -84,6 +83,7 @@ namespace Roguelancer.Functionality {
                     graphics.graphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
                 }
                 graphics.Draw(this);
+                //particleSystem.Draw(this);
                 objects.Draw(this);
             } else if(gameState.currentGameState == GameState.GameStates.menu) {
                 if(gameState.lastGameState != gameState.currentGameState) {
@@ -94,8 +94,6 @@ namespace Roguelancer.Functionality {
             }
             debugText.Draw(this);
             graphics.EndSpriteBatch();
-            //particleSystem.Draw(this);
-            //lEngineNoise.Draw(this);
             base.Draw(_GameTime);
         }
     }

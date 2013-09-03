@@ -27,7 +27,8 @@ namespace Roguelancer.Particle {
             Color[] colors = new Color[lParticleColorsTexture.Width * lParticleColorsTexture.Height];
             lParticleColorsTexture.GetData(colors);
             for (int i = 0; i < lMaxParticles; ++i) {
-                float size = (float)lRnd.NextDouble() * _MaxSize;
+                //float size = (float)lRnd.NextDouble() * _MaxSize;
+                float size = 10000f;
                 Vector3 position = new Vector3(lRnd.Next(-(int)lMaxPosition.X, (int)lMaxPosition.X), lRnd.Next(-(int)lMaxPosition.Y, (int)lMaxPosition.Y), lMaxPosition.Z);
                 lVerts[i * 4] = new VertexPositionTexture(position, new Vector2(0, 0));
                 lVerts[(i * 4) + 1] = new VertexPositionTexture(new Vector3(position.X, position.Y + size, position.Z), new Vector2(0, 1));
@@ -42,7 +43,6 @@ namespace Roguelancer.Particle {
             lGraphicsDevice = _GraphicsDevice;
         }
         public void Draw() {
-            //GraphicsDevice _GraphicsDevice = _GraphicsDevice;
             lGraphicsDevice.SetVertexBuffer(lParticleVertexBuffer);
             for (int i = 0; i < lMaxParticles; ++i) {
                 lParticleEffect.Parameters["WorldViewProjection"].SetValue(lCamera.view * lCamera.projection);

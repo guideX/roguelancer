@@ -60,10 +60,10 @@ namespace Roguelancer.Particle.System {
         }
         public void Init() {
         }
-        private void LoadTextures(ContentManager _Content) {
-            lExplosion = _Content.Load<Texture2D>(lSettings.pExplosionTexture);
-            lFire = _Content.Load<Texture2D>(lSettings.pFireTexture);
-            lSmoke = _Content.Load<Texture2D>(lSettings.pSmokeTexture);
+        private void LoadTextures(RoguelancerGame game) {
+            lExplosion = game.Content.Load<Texture2D>(lSettings.pExplosionTexture);
+            lFire = game.Content.Load<Texture2D>(lSettings.pFireTexture);
+            lSmoke = game.Content.Load<Texture2D>(lSettings.pSmokeTexture);
         }
         private void InitializeSystem() {
             lExplosionSmokeParticleSystem = new clsExplosionSmokeParticleSystem(100, lSmoke);
@@ -76,9 +76,9 @@ namespace Roguelancer.Particle.System {
             lExplosionParticleSystem.AddAffector(new clsVelocityAffector(Vector3.Down));
             lSmokeRingEmitter = new clsSmokeRingEmitter(Vector3.Zero, 0);
         }
-        public void LoadContent(ContentManager _Content) {
+        public void LoadContent(RoguelancerGame game) {
             if(lSettings.pEnabled == true) {
-                LoadTextures(_Content);
+                LoadTextures(game);
                 InitializeSystem();
                 if(lSettings.pExplosions == true) {
                     lParticleManager.AddParticleSystem(lExplosionSmokeParticleSystem, BlendState.NonPremultiplied);

@@ -52,11 +52,6 @@
       <Importer>FontDescriptionImporter</Importer>
       <Processor>FontDescriptionProcessor</Processor>
     </Compile>
-    <Compile Include="Ground.x">
-      <Name>Ground</Name>
-      <Importer>XImporter</Importer>
-      <Processor>ModelProcessor</Processor>
-    </Compile>
     <Compile Include="FONTS\LucidaFont.spritefont">
       <Name>LucidaFont</Name>
       <Importer>FontDescriptionImporter</Importer>
@@ -261,6 +256,13 @@
   <ItemGroup>
     <Compile Include="Textures\menu2.jpg">
       <Name>menu2</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ASSETS\LOAD.jpg">
+      <Name>LOAD</Name>
       <Importer>TextureImporter</Importer>
       <Processor>TextureProcessor</Processor>
     </Compile>

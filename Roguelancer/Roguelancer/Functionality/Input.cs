@@ -44,6 +44,7 @@ namespace Roguelancer.Functionality {
         public bool lJ;
         public bool lC;
         public bool lF10;
+        public bool lF12;
         public bool lF9;
         public bool lM;
         public bool lF;
@@ -81,6 +82,11 @@ namespace Roguelancer.Functionality {
             } else {
                 lInputItems.keys.lM = false;
             }
+            if(lCurrentKeyboardState.IsKeyDown(Keys.F12)) {
+                lInputItems.keys.lF12 = true;
+            } else {
+                lInputItems.keys.lF12 = false;
+            }
             if(lCurrentKeyboardState.IsKeyDown(Keys.F10)) {
                 lInputItems.keys.lF10 = true;
             } else {
@@ -90,6 +96,12 @@ namespace Roguelancer.Functionality {
                 lInputItems.keys.lF9 = true;
             } else {
                 lInputItems.keys.lF9 = false;
+            }
+            if(lCurrentKeyboardState.IsKeyDown(Keys.Escape)) {
+                lInputItems.keys.lEscape = true;
+                _Game.Exit();
+            } else {
+                lInputItems.keys.lEscape = false;
             }
             if(_Game.gameState.currentGameState == GameState.GameStates.playing) {
                 if(lCurrentKeyboardState.IsKeyDown(Keys.C)) {
@@ -167,12 +179,6 @@ namespace Roguelancer.Functionality {
                 } else {
                     lInputItems.keys.lX = false;
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.Escape)) {
-                    lInputItems.keys.lEscape = true;
-                    _Game.Exit();
-                } else {
-                    lInputItems.keys.lEscape = false;
-                }
                 if(lCurrentKeyboardState.IsKeyDown(Keys.W)) {
                     lInputItems.keys.lW = true;
 
@@ -202,19 +208,28 @@ namespace Roguelancer.Functionality {
                 _Game.input.lInputItems.toggles.freeMouseMode = true;
             }
             if(_Game.input.lInputItems.keys.lF10) {
-                if(_Game.gameState.currentGameState != GameState.GameStates.playing) {
+                if(_Game.gameState.currentGameState == GameState.GameStates.menu) {
                     _Game.gameState.lastGameState = _Game.gameState.currentGameState;
                     _Game.gameState.currentGameState = GameState.GameStates.playing;
                     _Game.debugText.text = "";
                 }
             }
             if(_Game.input.lInputItems.keys.lF9) {
-                if(_Game.gameState.currentGameState != GameState.GameStates.menu) {
+                if(_Game.gameState.currentGameState == GameState.GameStates.playing) {
                     _Game.gameState.lastGameState = _Game.gameState.currentGameState;
                     _Game.gameState.currentGameState = GameState.GameStates.menu;
                     _Game.debugText.text = _Game.settings.menuText;
                 }
             }
+            //if(_Game.input.lInputItems.keys.lF12) {
+                //if(_Game.gameState.currentGameState == GameState.GameStates.menu) {
+                    //_Game.settings = new GameSettings();
+                    //_Game.objects.Reset(_Game);
+                    //_Game.gameState.lastGameState = _Game.gameState.currentGameState;
+                    //_Game.gameState.currentGameState = GameState.GameStates.playing;
+                    //_Game.debugText.text = "";
+                //}
+            //}
         }
         public void Draw(RoguelancerGame _Game) {
         }

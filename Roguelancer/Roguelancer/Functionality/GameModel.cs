@@ -30,18 +30,19 @@ namespace Roguelancer.Functionality {
             up = Vector3.Up;
             right = Vector3.Right;
             currentThrust = 0.0f;
-            direction =  Vector3.Forward;
+            direction = Vector3.Forward;
         }
         public void Initialize(RoguelancerGame _Game) {
         }
         public void LoadContent(RoguelancerGame _Game) {
-            //model = _Game.Content.Load<Model>(settings.modelPath);
             model = _Game.Content.Load<Model>(worldObject.settingsModelObject.modelPath);
-            if(worldObject.startupPosition != null) {
-                position = worldObject.startupPosition;
-            } else {
-                position = new Vector3(0, 0, 0);
-            }
+            position = worldObject.startupPosition;
+            up = worldObject.initialModelUp;
+            right = worldObject.initialModelRight;
+            rotationAmount = new Vector2(worldObject.startupModelRotation.X, worldObject.startupModelRotation.Y);
+            velocity = worldObject.initialVelocity;
+            currentThrust = worldObject.initialCurrentThrust;
+            direction = worldObject.initialDirection;
         }
         public void UpdatePosition() {
             Matrix rotationMatrix = Matrix.CreateFromAxisAngle(right, rotationAmount.Y) * Matrix.CreateRotationY(rotationAmount.X);
