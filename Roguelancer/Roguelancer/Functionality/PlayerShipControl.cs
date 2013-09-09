@@ -13,14 +13,14 @@ namespace Roguelancer.Functionality {
         private const float mass = 1.0f;
         private const float thrustForce = 24000.0f;
         private const float dragFactor = 0.97f;
-        private float maxThrustAmount = 0.2f;
-        private float maxThrustAfterburnerAmount = 0.4f;
+        private float maxThrustAmount = 0.3f;
+        private float maxThrustAfterburnerAmount = 0.6f;
         private float thrustAddSpeed = 0.006f;
         private float thrustAfterBurnerAddAmount = 0.1f;
         private float thrustSlowDownSpeed = 0.005f;
         private float thrustReverseSpeed = -0.009f;
         private float maxThrustReverse = -0.10f;
-        private float maxCruiseSpeed = 1.3f;
+        private float maxCruiseSpeed = 2.0f;
         private bool limitAltitude = false;
         private float thrustMinNotZero = .00001f;
         public bool useInput = true;

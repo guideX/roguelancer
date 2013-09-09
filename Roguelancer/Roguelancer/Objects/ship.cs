@@ -17,27 +17,27 @@ namespace Roguelancer.Objects {
         }
         public void Reset(RoguelancerGame _Game) {
             ships = new List<Ship>();
-            Ship playerShip = new Ship();
+            Ship playerShip = new Ship(_Game);
             Ship tempShip;
             playerShip.model.worldObject = _Game.settings.starSystemSettings[0].ships.Where(s => s.settingsModelObject.modelType == ModelType.Ship && s.settingsModelObject.isPlayer == true).FirstOrDefault();
             playerShip.playerShipControl.useInput = true;
             ships.Add(playerShip);
             foreach(ModelWorldObjects modelWorldObject in _Game.settings.starSystemSettings[0].ships.Where(s => s.settingsModelObject.isPlayer == false).ToList()) {
-                tempShip = new Ship();
-                tempShip.model = new GameModel();
+                tempShip = new Ship(_Game);
+                tempShip.model = new GameModel(_Game);
                 tempShip.model.worldObject = ModelWorldObjects.Clone(modelWorldObject);
                 tempShip.playerShipControl.useInput = false;
                 tempShip.model.modelMode = GameModel.ModelMode.ship;
-                ships.Add(Ship.Clone(tempShip));
+                ships.Add(Ship.Clone(tempShip, _Game));
             }
         }
-        public Ship GetPlayerShip() {
+        public Ship GetPlayerShip(RoguelancerGame _Game) {
             foreach(Ship ship in ships) {
                 if(ship.playerShipControl.useInput == true) {
                     return ship;
                 }
             }
-            return new Ship();
+            return new Ship(_Game);
         }
         public void Initialize(RoguelancerGame _Game) {
             foreach(Ship _ship in ships) {
@@ -64,14 +64,15 @@ namespace Roguelancer.Objects {
         public GameModel model;
         public PlayerShipControl playerShipControl;
         public List<HardPoint> hardPoints;
-        public Ship() {
-            model = new GameModel();
+        public Ship(RoguelancerGame _Game) {
+            model = new GameModel(_Game);
             playerShipControl = new PlayerShipControl();
             hardPoints = new List<HardPoint>();
+            model.particleSystemEnabled = true;
         }
-        public static Ship Clone(Ship oldShip) {
+        public static Ship Clone(Ship oldShip, RoguelancerGame _Game) {
             Ship ship;
-            ship = new Ship();
+            ship = new Ship(_Game);
             ship.playerShipControl = oldShip.playerShipControl;
             ship.model = oldShip.model;
             return ship;

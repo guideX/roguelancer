@@ -11,30 +11,24 @@ using Roguelancer.Particle.System.ParticleSystems;
 using Roguelancer.Particle.System.Emitters;
 using Roguelancer.Objects;
 namespace Roguelancer.Particle.System {
-    public class clsParticleSystem {
+    public class ParticleSystem {
         private clsParticleManager lParticleManager;
-        private gParticleSystemSettings lSettings;
-        private Matrix lView;
-        private Matrix lProjection;
-        private Texture2D lExplosion;
-        private Texture2D lFire;
-        private Texture2D lSmoke;
-        private clsFireParticleSystem lFireParticleSystem;
-        private clsSmokeParticleSystem lSmokePlumeParticleSystem;
-        private clsSmokeRingEmitter lSmokeRingEmitter;
-        private clsSmokePlumeEmitter lSmokePlumeEmitter;
-        private clsExplosionParticleSystem lExplosionParticleSystem;
-        private clsExplosionSmokeParticleSystem lExplosionSmokeParticleSystem;
-        private clsProjectileTrailParticleSystem lProjectileTrailParticleSystem;
-        private List<clsProjectile> lProjectiles = new List<clsProjectile>();
-        private TimeSpan lTimeToNextProjectile = TimeSpan.Zero;
-        private TimeSpan lTargetElapsedTime;
-        public clsParticleSystem(RoguelancerGame _Game, gParticleSystemSettings _Settings) {
-            lSettings = _Settings;
-            lTargetElapsedTime = TimeSpan.FromTicks(333333);
-            lParticleManager = new clsParticleManager(_Game);
-            _Game.Components.Add(lParticleManager);
-        }
+        public gParticleSystemSettings settings { get; set; }
+        private Matrix view;
+        private Matrix projection;
+        private Texture2D explosion;
+        private Texture2D fire;
+        private Texture2D smoke;
+        private FireParticleSystem fireParticleSystem;
+        private SmokeParticleSystem smokePlumeParticleSystem;
+        private SmokeRingEmitter smokeRingEmitter;
+        private SmokePlumeEmitter smokePlumeEmitter;
+        private ExplosionParticleSystem explosionParticleSystem;
+        private ExplosionSmokeParticleSystem explosionSmokeParticleSystem;
+        private clsProjectileTrailParticleSystem projectileTrailParticleSystem;
+        private List<Projectile> projectiles = new List<Projectile>();
+        private TimeSpan timeToNextProjectile = TimeSpan.Zero;
+        private TimeSpan targetElapsedTime;
         public struct gFireParticleSettings {
             public Color fInitialColor;
             public float fScale;
@@ -58,93 +52,97 @@ namespace Roguelancer.Particle.System {
             public string pFireTexture;
             public string pSmokeTexture;
         }
-        public void Init() {
+        public ParticleSystem(RoguelancerGame game) {
+            targetElapsedTime = TimeSpan.FromTicks(333333);
+            lParticleManager = new clsParticleManager(game);
+            game.Components.Add(lParticleManager);
+        }
+        public void Initialize(RoguelancerGame game) {
         }
         private void LoadTextures(RoguelancerGame game) {
-            lExplosion = game.Content.Load<Texture2D>(lSettings.pExplosionTexture);
-            lFire = game.Content.Load<Texture2D>(lSettings.pFireTexture);
-            lSmoke = game.Content.Load<Texture2D>(lSettings.pSmokeTexture);
+            explosion = game.Content.Load<Texture2D>(settings.pExplosionTexture);
+            fire = game.Content.Load<Texture2D>(settings.pFireTexture);
+            smoke = game.Content.Load<Texture2D>(settings.pSmokeTexture);
         }
         private void InitializeSystem() {
-            lExplosionSmokeParticleSystem = new clsExplosionSmokeParticleSystem(100, lSmoke);
-            lFireParticleSystem = new clsFireParticleSystem(500, lFire);
-            lSmokePlumeParticleSystem = new clsSmokeParticleSystem(0, lSmoke);
-            lSmokePlumeEmitter = new clsSmokePlumeEmitter(Vector3.Zero, 0);
-            lProjectileTrailParticleSystem = new clsProjectileTrailParticleSystem(500, lSmoke);
-            lExplosionSmokeParticleSystem.AddAffector(new clsVelocityAffector(Vector3.Down));
-            lExplosionParticleSystem = new clsExplosionParticleSystem(100, lExplosion);
-            lExplosionParticleSystem.AddAffector(new clsVelocityAffector(Vector3.Down));
-            lSmokeRingEmitter = new clsSmokeRingEmitter(Vector3.Zero, 0);
+            explosionSmokeParticleSystem = new ExplosionSmokeParticleSystem(100, smoke);
+            fireParticleSystem = new FireParticleSystem(500, fire);
+            smokePlumeParticleSystem = new SmokeParticleSystem(0, smoke);
+            smokePlumeEmitter = new SmokePlumeEmitter(Vector3.Zero, 0);
+            projectileTrailParticleSystem = new clsProjectileTrailParticleSystem(500, smoke);
+            explosionSmokeParticleSystem.AddAffector(new clsVelocityAffector(Vector3.Down));
+            explosionParticleSystem = new ExplosionParticleSystem(100, explosion);
+            explosionParticleSystem.AddAffector(new clsVelocityAffector(Vector3.Down));
+            smokeRingEmitter = new SmokeRingEmitter(Vector3.Zero, 0);
         }
         public void LoadContent(RoguelancerGame game) {
-            if(lSettings.pEnabled == true) {
+            if(settings.pEnabled == true) {
                 LoadTextures(game);
                 InitializeSystem();
-                if(lSettings.pExplosions == true) {
-                    lParticleManager.AddParticleSystem(lExplosionSmokeParticleSystem, BlendState.NonPremultiplied);
-                    lParticleManager.AddParticleSystem(lExplosionParticleSystem, BlendState.Additive);
+                if(settings.pExplosions == true) {
+                    lParticleManager.AddParticleSystem(explosionSmokeParticleSystem, BlendState.NonPremultiplied);
+                    lParticleManager.AddParticleSystem(explosionParticleSystem, BlendState.Additive);
                 }
-                if(lSettings.pFire == true) {
-                    lParticleManager.AddParticleSystem(lFireParticleSystem, BlendState.Additive);
+                if(settings.pFire == true) {
+                    lParticleManager.AddParticleSystem(fireParticleSystem, BlendState.Additive);
                 }
-                if(lSettings.pSmoke == true) {
-                    lSmokePlumeParticleSystem.AddEmitter(lSmokePlumeEmitter);
-                    lParticleManager.AddParticleSystem(lSmokePlumeParticleSystem, BlendState.NonPremultiplied);
+                if(settings.pSmoke == true) {
+                    smokePlumeParticleSystem.AddEmitter(smokePlumeEmitter);
+                    lParticleManager.AddParticleSystem(smokePlumeParticleSystem, BlendState.NonPremultiplied);
                 }
-                if(lSettings.pProjectiles == true) {
-                    lParticleManager.AddParticleSystem(lProjectileTrailParticleSystem, BlendState.NonPremultiplied);
+                if(settings.pProjectiles == true) {
+                    lParticleManager.AddParticleSystem(projectileTrailParticleSystem, BlendState.NonPremultiplied);
                 }
-                if(lSettings.pSmokeRing == true) {
-                    lSmokePlumeParticleSystem.AddEmitter(lSmokeRingEmitter);
+                if(settings.pSmokeRing == true) {
+                    smokePlumeParticleSystem.AddEmitter(smokeRingEmitter);
                 }
             }
         }
         public void Update(GameTime _GameTime, gParticleSystemSettings _Settings, DebugText _DebugText, GameGraphics _Graphics) {
-            lSettings = _Settings;
-            if(lSettings.pEnabled == true) {
-                if(lSettings.pSmokeRing == true) {
-                    lSmokeRingEmitter.EmissionRate = lSettings.pSmokeRingParticles;
+            settings = _Settings;
+            if(settings.pEnabled == true) {
+                if(settings.pSmokeRing == true) {
+                    smokeRingEmitter.EmissionRate = settings.pSmokeRingParticles;
                 }
-                if(lSettings.pFire == true) {
-                    lFireParticleSystem.EmissionRate = lSettings.pFireRingSystemParticles;
+                if(settings.pFire == true) {
+                    fireParticleSystem.emissionRate = settings.pFireRingSystemParticles;
                 }
-                if(lSettings.pSmoke == true) {
-                    lSmokePlumeEmitter.EmissionRate = lSettings.pSmokePlumeParticles;
+                if(settings.pSmoke == true) {
+                    smokePlumeEmitter._emissionRate = settings.pSmokePlumeParticles;
                 }
-                if(lSettings.pExplosions == true) {
+                if(settings.pExplosions == true) {
                     UpdateExplosions(_GameTime);
                 }
-                if(lSettings.pProjectiles == true) {
+                if(settings.pProjectiles == true) {
                     UpdateProjectiles(_GameTime);
                 }
-                lParticleManager.SetMatrices(lView, lProjection);
+                lParticleManager.SetMatrices(view, projection);
             }
         }
         public void Draw(RoguelancerGame _Game) {
-            if(lSettings.pEnabled == true) {
+            if(settings.pEnabled == true) {
                 float lAspectRatio = (float)_Game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / (float)_Game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Height;
-                lView = Matrix.CreateTranslation(0, -25, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(lSettings.pCameraRotation)) * Matrix.CreateRotationX(MathHelper.ToRadians(lSettings.pCameraArc)) * Matrix.CreateLookAt(new Vector3(0, 0, - lSettings.pCameraDistance), new Vector3(0, 0, 0), Vector3.Up);
-                lProjection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10000);
+                view = Matrix.CreateTranslation(0, -25, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(settings.pCameraRotation)) * Matrix.CreateRotationX(MathHelper.ToRadians(settings.pCameraArc)) * Matrix.CreateLookAt(new Vector3(0, 0, - settings.pCameraDistance), new Vector3(0, 0, 0), Vector3.Up);
+                projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10000);
             }
         }
         private void UpdateExplosions(GameTime _GameTime) {
-            lTimeToNextProjectile -= _GameTime.ElapsedGameTime;
-            if(lTimeToNextProjectile <= TimeSpan.Zero) {
-                lProjectiles.Add(new clsProjectile(lExplosionParticleSystem, lExplosionSmokeParticleSystem, lProjectileTrailParticleSystem));
-                lTimeToNextProjectile += TimeSpan.FromSeconds(1);
+            timeToNextProjectile -= _GameTime.ElapsedGameTime;
+            if(timeToNextProjectile <= TimeSpan.Zero) {
+                projectiles.Add(new Projectile(explosionParticleSystem, explosionSmokeParticleSystem, projectileTrailParticleSystem));
+                timeToNextProjectile += TimeSpan.FromSeconds(1);
             }
         }
         private void UpdateProjectiles(GameTime _GameTime) {
             int i = 0;
-            while(i < lProjectiles.Count) {
-                if(!lProjectiles[i].Update(_GameTime)) {
-                    lProjectileTrailParticleSystem.RemoveEmitter(lProjectiles[i].lTrailEmitter);
-                    lProjectiles.RemoveAt(i);
+            while(i < projectiles.Count) {
+                if(!projectiles[i].Update(_GameTime)) {
+                    projectileTrailParticleSystem.RemoveEmitter(projectiles[i].lTrailEmitter);
+                    projectiles.RemoveAt(i);
                 } else {
                     i++;
                 }
             }
         }
-
     }
 }

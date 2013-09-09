@@ -10,58 +10,54 @@ using Roguelancer.Objects;
 using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 namespace Roguelancer.Particle {
-    class clsStarfields : IGame {
-        int lAmountOfStarsPerSheet = 30;
-        float lMaxPositionX = 1000000;
-        float lMaxPositionY = 1000000;
-        int lMaxPositionIncrementY = 10000;
-        int lMaxPositionStartingY = 500000;
-        int lMaxSize = 1000;
-        List<clsParticleExplosion> lExplosions = new List<clsParticleExplosion>();
-        Texture2D lExplosionTexture;
-        Texture2D lExplosionColorsTexture;
-        Effect lExplosionEffect;
-        clsParticleStarSheet[] lStars = new clsParticleStarSheet[200];
-        Effect lStarEffect;
-        Texture2D lStarTexture;
-        public clsStarfields() {
+    public class Starfields : IGame {
+        private List<clsParticleExplosion> explosions = new List<clsParticleExplosion>();
+        private Texture2D explosionTexture;
+        private Texture2D explosionColorsTexture;
+        private Effect explosionEffect;
+        private clsParticleStarSheet[] stars;
+        private Effect starEffect;
+        private Texture2D starTexture;
+        private StarSettings starSettings;
+        public Starfields(StarSettings _starSettings) {
+            starSettings = _starSettings;
         }
         public void Initialize(RoguelancerGame _Game) {
-
+            stars = new clsParticleStarSheet[starSettings.numberOfStarSheets];
         }
         public void LoadContent(RoguelancerGame _Game) {
             int n = 0;
-            lExplosionTexture = _Game.Content.Load<Texture2D>("Textures\\Particle");
-            lExplosionColorsTexture = _Game.Content.Load<Texture2D>("Textures\\ParticleColors");
-            lExplosionEffect = _Game.Content.Load<Effect>("Effects\\Particle");
-            lExplosionEffect.CurrentTechnique = lExplosionEffect.Techniques["Technique1"];
-            lExplosionEffect.Parameters["theTexture"].SetValue(lExplosionTexture);
-            lStarTexture = _Game.Content.Load<Texture2D>("textures\\stars");
-            lStarEffect = lExplosionEffect.Clone();
-            lStarEffect.CurrentTechnique = lStarEffect.Techniques["Technique1"];
-            lStarEffect.Parameters["theTexture"].SetValue(lExplosionTexture);
-            n = lMaxPositionStartingY;
-            for(int i = 0; i < lStars.Length;++i) {
-                n = n - lMaxPositionIncrementY;
-                lStars[i] = new clsParticleStarSheet(_Game.graphics, new Vector3(lMaxPositionX, lMaxPositionY, n), lAmountOfStarsPerSheet, lStarTexture, lStarEffect, lMaxSize, _Game.camera);
+            explosionTexture = _Game.Content.Load<Texture2D>("Textures\\Particle");
+            explosionColorsTexture = _Game.Content.Load<Texture2D>("Textures\\ParticleColors");
+            explosionEffect = _Game.Content.Load<Effect>("Effects\\Particle");
+            explosionEffect.CurrentTechnique = explosionEffect.Techniques["Technique1"];
+            explosionEffect.Parameters["theTexture"].SetValue(explosionTexture);
+            starTexture = _Game.Content.Load<Texture2D>("textures\\stars");
+            starEffect = explosionEffect.Clone();
+            starEffect.CurrentTechnique = starEffect.Techniques["Technique1"];
+            starEffect.Parameters["theTexture"].SetValue(explosionTexture);
+            n = starSettings.maxPositionStartingY;
+            for(int i = 0; i < stars.Length;++i) {
+                n = n - starSettings.maxPositionIncrementY;
+                stars[i] = new clsParticleStarSheet(_Game.graphics, new Vector3(starSettings.maxPositionX, starSettings.maxPositionY, n), starSettings.amountOfStarsPerSheet, starTexture, starEffect, starSettings.maxSize, _Game.camera);
             }
         }
         public void Draw(RoguelancerGame _Game) {
-            for (int i = 0; i < lStars.Length; ++i) {
-                lStars[i].Draw();
-                foreach(clsParticleExplosion _Explosion in lExplosions) {
+            for (int i = 0; i < stars.Length; ++i) {
+                stars[i].Draw();
+                foreach(clsParticleExplosion _Explosion in explosions) {
                     _Explosion.Draw(_Game.camera);
                 }
             }
         }
         public void Update(RoguelancerGame _Game) {
-            for(int i = 0; i < lStars.Length; ++i) {
-                lStars[i].Update(_Game.camera, _Game.graphics.graphicsDeviceManager.GraphicsDevice);
+            for(int i = 0; i < stars.Length; ++i) {
+                stars[i].Update(_Game.camera, _Game.graphics.graphicsDeviceManager.GraphicsDevice);
             }
-            for(int i = 0; i < lExplosions.Count; ++i) {
-                lExplosions[i].Update(_Game.gameTime );
-                if (lExplosions[i].IsDead) {
-                    lExplosions.RemoveAt(i);
+            for(int i = 0; i < explosions.Count; ++i) {
+                explosions[i].Update(_Game.gameTime );
+                if (explosions[i].IsDead) {
+                    explosions.RemoveAt(i);
                     --i;
                 }
             }

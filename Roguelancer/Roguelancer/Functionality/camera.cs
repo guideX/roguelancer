@@ -134,7 +134,7 @@ namespace Roguelancer.Functionality {
             UpdateMatrices(_Game);
         }
         public void UpdateCameraChaseTarget(RoguelancerGame _Game) {
-            Ship _ship = _Game.objects.ships.GetPlayerShip();
+            Ship _ship = _Game.objects.ships.GetPlayerShip(_Game);
             GraphicsDevice _GraphicsDevice = _Game.graphics.graphicsDeviceManager.GraphicsDevice;
             MouseState _MouseState = Mouse.GetState();
             chasePosition = _ship.model.position;

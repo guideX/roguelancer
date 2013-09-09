@@ -30,5 +30,17 @@ namespace Roguelancer.Functionality {
         public static Vector3 ReadINIVector3(string file, string section, string key1, string key2, string key3, float def = 0.0f) {
             return new Vector3(ReadINIFloat(file, section, key1, def), ReadINIFloat(file, section, key2, def), ReadINIFloat(file, section, key3, def));
         }
+        public static double ReadIniDouble(string file, string section, string key, double def = 0.0) {
+            string msg = ReadINI(file, section, key, def.ToString());
+            double result;
+            double.TryParse(msg, out result);
+            return result;
+        }
+        public static float ReadIniFloat(string file, string section, string key, float def = 0.0f) {
+            string msg = ReadINI(file, section, key, def.ToString());
+            float result;
+            float.TryParse(msg, out result);
+            return result;
+        }
     }
 }

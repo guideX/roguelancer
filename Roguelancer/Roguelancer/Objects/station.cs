@@ -13,7 +13,7 @@ namespace Roguelancer.Objects {
         public void Initialize(RoguelancerGame _Game) {
             Station tempStation;
             foreach(ModelWorldObjects modelWorldObject in _Game.settings.starSystemSettings[0].stations) {
-                tempStation = new Station();
+                tempStation = new Station(_Game);
                 tempStation.model.worldObject = modelWorldObject;
                 stations.Add(tempStation);
             }
@@ -39,8 +39,8 @@ namespace Roguelancer.Objects {
     }
     public class Station : IGame {
         public GameModel model;
-        public Station() {
-            model = new GameModel();
+        public Station(RoguelancerGame _Game) {
+            model = new GameModel(_Game);
         }
         public void Initialize(RoguelancerGame _Game) {
             model.modelMode = GameModel.ModelMode.station;

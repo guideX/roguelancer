@@ -9,31 +9,31 @@ namespace Roguelancer.Objects {
     public class GameObjects {
         public ShipCollection ships;
         private StarSystem starSystem;
-        //private clsStarField starField;
+        //private Starfields starFields;
         public GameObjects(RoguelancerGame _Game) {
-            starSystem = new StarSystem();
+            starSystem = new StarSystem(_Game);
             ships = new ShipCollection(_Game);
-            //starField = new clsStarField();
+            //starFields = new Starfields();
         }
         public void Initialize(RoguelancerGame _Game) {
             starSystem.Initialize(_Game);
             ships.Initialize(_Game);
-            //starField.Init(_Game);
+            //starFields.Initialize(_Game);
         }
         public void LoadContent(RoguelancerGame _Game) {
             starSystem.LoadContent(_Game);
             ships.LoadContent(_Game);
-            //starField.LoadContent(_Game);
+            //starFields.LoadContent(_Game);
         }
         public void Update(RoguelancerGame _Game) {
             starSystem.Update(_Game);
             ships.Update(_Game);
-            //starField.Update(_Game);
+            //starFields.Update(_Game);
         }
         public void Draw(RoguelancerGame _Game) {
             starSystem.Draw(_Game);
             ships.Draw(_Game);
-            //starField.Draw(_Game);
+            //starFields.Draw(_Game);
         }
         public void Reset(RoguelancerGame _Game) {
             ships.Reset(_Game);

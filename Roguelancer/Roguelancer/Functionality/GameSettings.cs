@@ -22,10 +22,10 @@ namespace Roguelancer.Functionality {
         private Vector3 _initialVelocity { get; set; }
         private float _initialCurrentThrust { get; set; }
         public Vector3 _initialDirection { get; set; }
-        public ModelWorldObjects(Vector3 startupPosition, 
-                Vector3 startupModelRotation, 
-                SettingsModelObject settingsModelObject, 
-                int starSystemId, 
+        public ModelWorldObjects(Vector3 startupPosition,
+                Vector3 startupModelRotation,
+                SettingsModelObject settingsModelObject,
+                int starSystemId,
                 Vector3 initialModelUp,
                 Vector3 initialModelRight,
                 Vector3 initialVelocity,
@@ -46,11 +46,11 @@ namespace Roguelancer.Functionality {
             return new ModelWorldObjects(
                     oldObject.startupPosition,
                     oldObject.startupModelRotation,
-                    SettingsModelObject.Clone(oldObject.settingsModelObject), 
-                    oldObject.starSystemId, 
+                    SettingsModelObject.Clone(oldObject.settingsModelObject),
+                    oldObject.starSystemId,
                     oldObject.initialModelUp,
                     oldObject.initialModelRight,
-                    oldObject.initialVelocity, 
+                    oldObject.initialVelocity,
                     oldObject.initialCurrentThrust,
                     oldObject._initialDirection
                 );
@@ -78,18 +78,50 @@ namespace Roguelancer.Functionality {
         public float initialCurrentThrust { get { return _initialCurrentThrust; } }
         public Vector3 initialDirection { get { return _initialDirection; } }
     }
+    public class StarSettings {
+        public bool starsEnabled { get; set; }
+        public int amountOfStarsPerSheet { get; set; }
+        public int maxPositionX { get; set; }
+        public int maxPositionY { get; set; }
+        public int maxSize { get; set; }
+        public int maxPositionIncrementY { get; set; }
+        public int maxPositionStartingY { get; set; }
+        public int numberOfStarSheets { get; set; }
+        public StarSettings
+            (
+                bool _starsEnabled,
+                int _amountOfStarsPerSheet,
+                int _maxPositionX,
+                int _maxPositionY,
+                int _maxSize,
+                int _maxPositionIncrementY,
+                int _maxPositionStartingY,
+                int _numberOfStarSheets
+            ) {
+            starsEnabled = _starsEnabled;
+            amountOfStarsPerSheet = _amountOfStarsPerSheet;
+            maxPositionX = _maxPositionX;
+            maxPositionY = _maxPositionY;
+            maxSize = _maxSize;
+            maxPositionIncrementY = _maxPositionIncrementY;
+            maxPositionStartingY = _maxPositionStartingY;
+            numberOfStarSheets = _numberOfStarSheets;
+        }
+    }
     public class StarSystemSettings { // SETTINGS FOR EACH STAR SYSTEM
         private string _path { get; set; }
         private int _starSystemId { get; set; }
         public List<ModelWorldObjects> ships { get; set; }
         public List<ModelWorldObjects> stations { get; set; }
         public List<ModelWorldObjects> planets { get; set; }
+        public StarSettings starSettings { get; set; }
         public StarSystemSettings(
                 int starSystemId,
                 string path,
                 string systemIniStartPath,
                 List<SettingsModelObject> modelSettings,
-                ModelWorldObjects player
+                ModelWorldObjects player,
+                StarSettings _starSettings
             ) {
             ships = new List<ModelWorldObjects>();
             planets = new List<ModelWorldObjects>();
@@ -105,6 +137,7 @@ namespace Roguelancer.Functionality {
             for(int i = 1; i < Convert.ToInt32(IniFile.ReadINI(systemIniStartPath + path + @"\planets.ini", "settings", "count", "0")) + 1; ++i) {
                 planets.Add(ModelWorldObjects.Read(modelSettings, systemIniStartPath + path + @"\planets.ini", i.ToString().Trim()));
             }
+            starSettings = _starSettings;
         }
     }
     public class SettingsModelObject {
@@ -115,10 +148,10 @@ namespace Roguelancer.Functionality {
         private ModelType _modelType { get; set; }
         private bool _isPlayer { get; set; }
         public SettingsModelObject(
-                string modelPath, 
-                Vector3 modelScaling, 
-                ModelType modelType, 
-                bool enabled, 
+                string modelPath,
+                Vector3 modelScaling,
+                ModelType modelType,
+                bool enabled,
                 int modelId
             ) {
             _modelPath = modelPath;
@@ -157,6 +190,21 @@ namespace Roguelancer.Functionality {
         public float newCameraY = 0.5f;
         public int thrustViewAmount = 10000;
         public float aspectRatio = 4.0f / 3.0f; // Screen Dimensions
+        public CameraSettings(string cameraSettingsIniFile) {
+            desiredPositionOffset = IniFile.ReadINIVector3(cameraSettingsIniFile, "settings", "desired_position_offset_x", "desired_position_offset_y", "desired_position_offset_z");
+            stiffness = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "stiffness");
+            damping = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "damping");
+            mass = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "mass");
+            fieldOfView = MathHelper.ToRadians(IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "field_of_view"));
+            nearPlaneDistance = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "near_plane_distance");
+            clippingDistance = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "clipping_distance");
+            lookAtOffset = IniFile.ReadINIVector3(cameraSettingsIniFile, "settings", "look_at_offset_x", "look_at_offset_y", "look_at_offset_z");
+            lookAtDivideBy = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "look_at_divide_by");
+            newCameraX = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "new_camera_x");
+            newCameraY = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "new_camera_y");
+            int.TryParse(IniFile.ReadINI(cameraSettingsIniFile, "settings", "thrust_view_amount"), out thrustViewAmount);
+            aspectRatio = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "aspect_ratio_1") / IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "aspect_ratio_2");
+        }
     }
     public class GameSettings {
         public string menuBackgroundTexture;
@@ -174,9 +222,10 @@ namespace Roguelancer.Functionality {
         private string systemsSettingsIniFile;
         private string playerIniFile;
         private string systemIniStartPath;
+        private string cameraSettingsIniFile;
         public GameSettings() {
-            cameraSettings = new CameraSettings();
             LoadSettings();
+            cameraSettings = new CameraSettings(cameraSettingsIniFile);
             LoadObjects();
             LoadStarSystem();
         }
@@ -187,6 +236,7 @@ namespace Roguelancer.Functionality {
             modelSettingsIniFile = appPath + directoryCorrection + @"settings\models.ini";
             systemsSettingsIniFile = appPath + directoryCorrection + @"settings\systems\systems.ini";
             playerIniFile = appPath + directoryCorrection + @"settings\player\settings.ini";
+            cameraSettingsIniFile = appPath + directoryCorrection + @"settings\camera.ini";
             systemIniStartPath = appPath + directoryCorrection + @"settings\systems\";
             menuBackgroundTexture = IniFile.ReadINI(gameSettingsIniFile, "Settings", "menu_background");
             menuText = "Roguelancer" + Environment.NewLine + Environment.NewLine + "10 = Play Game" + Environment.NewLine + "F9 = Return to menu" + Environment.NewLine + "ESC = Quit";
@@ -216,13 +266,23 @@ namespace Roguelancer.Functionality {
                     IniFile.ReadINI(systemsSettingsIniFile, i.ToString().Trim(), "path", ""),
                     systemIniStartPath,
                     modelSettings,
-                    LoadPlayer()
+                    LoadPlayer(),
+                    new StarSettings(
+                        Convert.ToBoolean(IniFile.ReadINI(systemsSettingsIniFile, i.ToString(), "starsEnabled", "")),
+                        Convert.ToInt32(IniFile.ReadINI(systemsSettingsIniFile, i.ToString(), "amountOfStarsPerSheet", "0")),
+                        Convert.ToInt32(IniFile.ReadINI(systemsSettingsIniFile, i.ToString(), "maxPositionX", "0")),
+                        Convert.ToInt32(IniFile.ReadINI(systemsSettingsIniFile, i.ToString(), "maxPositionY", "0")),
+                        Convert.ToInt32(IniFile.ReadINI(systemsSettingsIniFile, i.ToString(), "maxSize", "0")),
+                        Convert.ToInt32(IniFile.ReadINI(systemsSettingsIniFile, i.ToString(), "maxPositionIncrementY", "0")),
+                        Convert.ToInt32(IniFile.ReadINI(systemsSettingsIniFile, i.ToString(), "maxPositionStartingY", "0")),
+                        Convert.ToInt32(IniFile.ReadINI(systemsSettingsIniFile, i.ToString(), "numberOfStarSheets", "0"))
+                    )
                 ));
             }
         }
-        private void Initialize(RoguelancerGame _Game) {}
-        private void LoadContent(RoguelancerGame _Game) {}
-        public void Update(RoguelancerGame _Game) {}
-        private void Draw(RoguelancerGame _Game) {}
+        private void Initialize(RoguelancerGame _Game) { }
+        private void LoadContent(RoguelancerGame _Game) { }
+        public void Update(RoguelancerGame _Game) { }
+        private void Draw(RoguelancerGame _Game) { }
     }
 }
