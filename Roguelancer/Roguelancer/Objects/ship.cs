@@ -92,15 +92,15 @@ namespace Roguelancer.Objects {
             }
         }
         public void Update(RoguelancerGame _Game) {
-            if(playerShipControl.useInput) {
-                playerShipControl.UpdateModel(model, _Game);
-            }
-            if(playerShipControl.useInput) {
-                if(_Game.input.lInputItems.toggles.toggleCamera == false) {
+            if(_Game.gameState.currentGameState == GameState.GameStates.playing) {
+                if(playerShipControl.useInput) {
+                    playerShipControl.UpdateModel(model, _Game);
+                    if(_Game.input.lInputItems.toggles.toggleCamera == false) {
+                        model.Update(_Game);
+                    }
+                } else {
                     model.Update(_Game);
                 }
-            } else {
-                model.Update(_Game);
             }
         }
         public void Draw(RoguelancerGame _Game) {

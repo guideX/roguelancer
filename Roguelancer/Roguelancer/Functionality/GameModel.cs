@@ -25,7 +25,7 @@ namespace Roguelancer.Functionality {
         public float minimumAltitude = 350.0f;
         private Model model;
         public ModelWorldObjects worldObject { get; set; }
-        //private clsParticleSystemHandler particleSystem;
+        private clsParticleSystemHandler particleSystem;
         public bool particleSystemEnabled { get; set; }
         public GameModel(RoguelancerGame _Game) {
             velocity = Vector3.Zero;
@@ -34,13 +34,13 @@ namespace Roguelancer.Functionality {
             right = Vector3.Right;
             currentThrust = 0.0f;
             direction = Vector3.Forward;
-            //particleSystem = new clsParticleSystemHandler(_Game);
+            particleSystem = new clsParticleSystemHandler(_Game);
             particleSystemEnabled = false;
         }
         public void Initialize(RoguelancerGame _Game) {
-            //if(particleSystemEnabled) {
-                //particleSystem.Initialize(_Game);
-            //}
+            if(particleSystemEnabled) {
+                particleSystem.Initialize(_Game);
+            }
         }
         public void LoadContent(RoguelancerGame _Game) {
             model = _Game.Content.Load<Model>(worldObject.settingsModelObject.modelPath);
@@ -48,12 +48,12 @@ namespace Roguelancer.Functionality {
             //up = worldObject.initialModelUp;
             //right = worldObject.initialModelRight;
             //rotationAmount = new Vector2(worldObject.startupModelRotation.X, worldObject.startupModelRotation.Y);
-            //velocity = worldObject.initialVelocity;
-            //currentThrust = worldObject.initialCurrentThrust;
-            //direction = worldObject.initialDirection;
-            //if(particleSystemEnabled) {
-                //particleSystem.LoadContent(_Game);
-            //}
+            velocity = worldObject.initialVelocity;
+            currentThrust = worldObject.initialCurrentThrust;
+            direction = worldObject.initialDirection;
+            if(particleSystemEnabled) {
+                particleSystem.LoadContent(_Game);
+            }
         }
         public void UpdatePosition() {
             Matrix rotationMatrix = Matrix.CreateFromAxisAngle(right, rotationAmount.Y) * Matrix.CreateRotationY(rotationAmount.X);
@@ -73,31 +73,33 @@ namespace Roguelancer.Functionality {
                 world.Translation = position;
             }
             if(_Game.gameState.currentGameState != GameState.GameStates.playing) {
-                if(velocity != new Vector3()) {
-                    velocity = new Vector3();
-                }
+                //if(velocity != new Vector3()) {
+                    //velocity = new Vector3();
+                //}
                 currentThrust = 0.0f;
                 _Game.input.lInputItems.toggles.cruise = false;
             }
-            //if(particleSystemEnabled) {
-                //particleSystem.Update(_Game);
-            //}
+            if(particleSystemEnabled) {
+                particleSystem.Update(_Game);
+            }
         }
         public void Draw(RoguelancerGame _Game) {
-            Matrix[] transforms = new Matrix[model.Bones.Count];
-            model.CopyAbsoluteBoneTransformsTo(transforms);
-            //if(particleSystemEnabled) {
-                //particleSystem.Draw(_Game, this);
-            //}
-            foreach(ModelMesh modelMesh in model.Meshes) {
-                foreach(BasicEffect basicEffect in modelMesh.Effects) {
-                    basicEffect.Alpha = 1;
-                    basicEffect.EnableDefaultLighting();
-                    basicEffect.World = transforms[modelMesh.ParentBone.Index] * world;
-                    basicEffect.View = _Game.camera.view;
-                    basicEffect.Projection = _Game.camera.projection;
+            if(_Game.gameState.currentGameState == GameState.GameStates.playing) {
+                Matrix[] transforms = new Matrix[model.Bones.Count];
+                model.CopyAbsoluteBoneTransformsTo(transforms);
+                if(particleSystemEnabled) {
+                    particleSystem.Draw(_Game, this);
                 }
-                modelMesh.Draw();
+                foreach(ModelMesh modelMesh in model.Meshes) {
+                    foreach(BasicEffect basicEffect in modelMesh.Effects) {
+                        basicEffect.Alpha = 1;
+                        basicEffect.EnableDefaultLighting();
+                        basicEffect.World = transforms[modelMesh.ParentBone.Index] * world;
+                        basicEffect.View = _Game.camera.view;
+                        basicEffect.Projection = _Game.camera.projection;
+                    }
+                    modelMesh.Draw();
+                }
             }
         }
     }
