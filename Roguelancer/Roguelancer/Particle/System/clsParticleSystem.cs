@@ -64,7 +64,7 @@ namespace Roguelancer.Particle.System {
             fire = game.Content.Load<Texture2D>(settings.pFireTexture);
             smoke = game.Content.Load<Texture2D>(settings.pSmokeTexture);
         }
-        private void InitializeSystem() {
+        public void InitializeSystem() {
             explosionSmokeParticleSystem = new ExplosionSmokeParticleSystem(100, smoke);
             fireParticleSystem = new FireParticleSystem(500, fire);
             smokePlumeParticleSystem = new SmokeParticleSystem(0, smoke);
@@ -126,14 +126,14 @@ namespace Roguelancer.Particle.System {
                 projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10000);
             }
         }
-        private void UpdateExplosions(GameTime _GameTime) {
+        public void UpdateExplosions(GameTime _GameTime) {
             timeToNextProjectile -= _GameTime.ElapsedGameTime;
             if(timeToNextProjectile <= TimeSpan.Zero) {
                 projectiles.Add(new Projectile(explosionParticleSystem, explosionSmokeParticleSystem, projectileTrailParticleSystem));
                 timeToNextProjectile += TimeSpan.FromSeconds(1);
             }
         }
-        private void UpdateProjectiles(GameTime _GameTime) {
+        public void UpdateProjectiles(GameTime _GameTime) {
             int i = 0;
             while(i < projectiles.Count) {
                 if(!projectiles[i].Update(_GameTime)) {

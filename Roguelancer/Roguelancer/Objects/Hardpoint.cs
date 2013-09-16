@@ -9,7 +9,7 @@ namespace Roguelancer.Objects {
         }
         public void Initialize(RoguelancerGame game) {
         }
-        public void LoadContent(RoguelancerGame game) {
+        private void LoadContent(RoguelancerGame game) {
         }
         public void Update(RoguelancerGame game) {
         }

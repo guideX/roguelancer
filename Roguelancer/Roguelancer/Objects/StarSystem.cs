@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using Roguelancer.Particle;
 using Roguelancer.Functionality;
+using Roguelancer.Settings;
 namespace Roguelancer.Objects {
     public class StarSystem {
         private StationCollection stations;

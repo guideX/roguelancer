@@ -9,6 +9,7 @@ using Microsoft.Xna.Framework.Content;
 using Roguelancer.Objects;
 using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
+using Roguelancer.Settings;
 namespace Roguelancer.Particle {
     public class Starfields : IGame {
         private List<clsParticleExplosion> explosions = new List<clsParticleExplosion>();

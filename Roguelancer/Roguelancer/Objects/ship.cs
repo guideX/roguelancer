@@ -9,6 +9,7 @@ using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using System.Collections.Generic;
 using System.Linq;
+using Roguelancer.Settings;
 namespace Roguelancer.Objects {
     public class ShipCollection : IGame {
         public List<Ship> ships { get; set; }

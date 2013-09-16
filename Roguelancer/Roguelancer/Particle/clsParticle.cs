@@ -87,7 +87,7 @@ namespace Roguelancer.Particle {
             lParticleColorsTexture = _ParticleColorsTexture;
             InitializeParticleVertices(_MaxSize);
         }
-        private void InitializeParticleVertices(int _MaxSize) {
+        public void InitializeParticleVertices(int _MaxSize) {
             lVerts = new VertexPositionTexture[lMaxParticles * 4];
             lVertexDirectionArray = new Vector3[lMaxParticles];
             lVertexColorArray = new Color[lMaxParticles];

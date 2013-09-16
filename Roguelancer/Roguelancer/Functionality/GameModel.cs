@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Content;
 using Roguelancer.Interfaces;
 using Roguelancer.Particle.System.ParticleSystems;
+using Roguelancer.Settings;
 namespace Roguelancer.Functionality {
     public class GameModel : IGame {
         public enum ModelMode {
@@ -47,7 +48,7 @@ namespace Roguelancer.Functionality {
             position = worldObject.startupPosition;
             //up = worldObject.initialModelUp;
             //right = worldObject.initialModelRight;
-            //rotationAmount = new Vector2(worldObject.startupModelRotation.X, worldObject.startupModelRotation.Y);
+            rotationAmount = new Vector2(worldObject.startupModelRotation.X, worldObject.startupModelRotation.Y);
             velocity = worldObject.initialVelocity;
             currentThrust = worldObject.initialCurrentThrust;
             direction = worldObject.initialDirection;
@@ -73,9 +74,6 @@ namespace Roguelancer.Functionality {
                 world.Translation = position;
             }
             if(_Game.gameState.currentGameState != GameState.GameStates.playing) {
-                //if(velocity != new Vector3()) {
-                    //velocity = new Vector3();
-                //}
                 currentThrust = 0.0f;
                 _Game.input.lInputItems.toggles.cruise = false;
             }

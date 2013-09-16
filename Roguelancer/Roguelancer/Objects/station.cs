@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
+using Roguelancer.Settings;
 namespace Roguelancer.Objects {
     public class StationCollection : IGame {
         public List<Station> stations { get; set; }

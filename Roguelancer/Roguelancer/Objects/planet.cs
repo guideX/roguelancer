@@ -8,6 +8,7 @@ using Roguelancer.Functionality;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Roguelancer.Settings;
 namespace Roguelancer.Objects {
     public class PlanetCollection : IGame {
         public List<Planet> planets { get; set; }

@@ -8,31 +8,37 @@ using Microsoft.Xna.Framework;
 namespace Roguelancer.Objects {
     public class GameObjects {
         public ShipCollection ships;
+        private TradeLaneCollection tradeLaneCollection;
         private StarSystem starSystem;
         //private Starfields starFields;
         public GameObjects(RoguelancerGame _Game) {
             starSystem = new StarSystem(_Game);
             ships = new ShipCollection(_Game);
+            tradeLaneCollection = new TradeLaneCollection(_Game);
             //starFields = new Starfields();
         }
         public void Initialize(RoguelancerGame _Game) {
             starSystem.Initialize(_Game);
             ships.Initialize(_Game);
+            tradeLaneCollection.Initialize(_Game);
             //starFields.Initialize(_Game);
         }
         public void LoadContent(RoguelancerGame _Game) {
             starSystem.LoadContent(_Game);
             ships.LoadContent(_Game);
+            tradeLaneCollection.LoadContent(_Game);
             //starFields.LoadContent(_Game);
         }
         public void Update(RoguelancerGame _Game) {
             starSystem.Update(_Game);
             ships.Update(_Game);
+            tradeLaneCollection.Update(_Game);
             //starFields.Update(_Game);
         }
         public void Draw(RoguelancerGame _Game) {
             starSystem.Draw(_Game);
             ships.Draw(_Game);
+            tradeLaneCollection.Draw(_Game);
             //starFields.Draw(_Game);
         }
         public void Reset(RoguelancerGame _Game) {

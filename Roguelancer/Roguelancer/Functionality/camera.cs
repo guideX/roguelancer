@@ -46,7 +46,7 @@ namespace Roguelancer.Functionality {
             UpdateCameraChaseTarget(_Game);
             Reset(_Game);
         }
-        private void UpdateWorldPositions(RoguelancerGame _Game) {
+        public void UpdateWorldPositions(RoguelancerGame _Game) {
             Matrix transform = Matrix.Identity;
             transform.Forward = chaseDirection;
             transform.Up = up;
@@ -62,7 +62,7 @@ namespace Roguelancer.Functionality {
         }
         public void LoadContent(RoguelancerGame _Game) { 
         }
-        private void UpdateNewCamera(float _X, float _Y, RoguelancerGame _Game) {
+        public void UpdateNewCamera(float _X, float _Y, RoguelancerGame _Game) {
             if (mode != 1) {
                 return;
             }
@@ -94,7 +94,7 @@ namespace Roguelancer.Functionality {
                 lookAt = d + v / _Game.settings.cameraSettings.lookAtDivideBy;
             }
         }
-        private void UpdateMatrices(RoguelancerGame _Game) {
+        public void UpdateMatrices(RoguelancerGame _Game) {
             view = Matrix.CreateLookAt(position, lookAt, up);
             projection = Matrix.CreatePerspectiveFieldOfView(_Game.settings.cameraSettings.fieldOfView, _Game.settings.cameraSettings.aspectRatio, _Game.settings.cameraSettings.nearPlaneDistance, _Game.settings.cameraSettings.clippingDistance);
         }

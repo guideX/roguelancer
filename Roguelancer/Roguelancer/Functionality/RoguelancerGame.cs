@@ -2,6 +2,7 @@
 using Roguelancer.Bloom;
 using Roguelancer.Objects;
 using Roguelancer.Particle.System.ParticleSystems;
+using Roguelancer.Settings;
 namespace Roguelancer.Functionality {
     public class RoguelancerGame : Microsoft.Xna.Framework.Game {
         public GameGraphics graphics;
@@ -34,7 +35,6 @@ namespace Roguelancer.Functionality {
             //lEngineNoise = new clsSound();
         }
         protected override void Initialize() {
-            gameState.Initialize(this);
             graphics.Initialize(this);
             camera.Initialize(this);
             bloom.Initialize();
@@ -46,7 +46,6 @@ namespace Roguelancer.Functionality {
             base.Initialize();
         }
         protected override void LoadContent() {
-            gameState.LoadContent(this);
             camera.LoadContent(this);
             graphics.LoadContent(this);
             bloom.LoadContent();
@@ -61,8 +60,6 @@ namespace Roguelancer.Functionality {
         }
         protected override void Update(GameTime _GameTime) {
             gameTime = _GameTime;
-            gameState.Update(this);
-            settings.Update(this);
             input.Update(this);
             bloom.Update(true);
             objects.Update(this);
@@ -75,7 +72,6 @@ namespace Roguelancer.Functionality {
         }
         protected override void Draw(GameTime _GameTime) {
             gameTime = _GameTime;
-            gameState.Draw(this);
             graphics.BeginSpriteBatch();
             bloom.Draw();
             if(gameState.currentGameState == GameState.GameStates.playing) {
