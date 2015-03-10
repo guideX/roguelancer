@@ -83,6 +83,9 @@ namespace Roguelancer.Objects {
                                 game.gameMenu.CurrentMenu = CurrentMenu.HomeMenu;
                             }
                             break;
+                        case "Exit":
+                            game.Exit();
+                            break;
                     }
                 }
             } catch (Exception ex) {

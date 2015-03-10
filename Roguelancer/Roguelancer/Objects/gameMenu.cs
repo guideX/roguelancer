@@ -45,28 +45,39 @@ namespace Roguelancer.Objects {
                 MenuButtons = new List<MenuButton>();
                 switch (CurrentMenu) {
                     case Objects.CurrentMenu.HomeMenu:
-                        var newGame = new MenuButton(game);
-                        var options = new MenuButton(game);
-                        newGame.SortId = 1;
-                        newGame.Position = new Vector2(50, 200);
-                        newGame.Text = "New Game";
-                        newGame.TextPosition = newGame.Position;
-                        options.SortId = 2;
-                        options.Position = new Vector2(50, 290);
-                        options.TextPosition = options.Position;
-                        options.Text = "Options";
-                        MenuButtons.Add(newGame);
-                        MenuButtons.Add(options);
+                        MenuButtons.Add(new MenuButton(game) { 
+                            SortId = 1, 
+                            Position = new Vector2(50, 200), 
+                            Text = "New Game", 
+                            TextPosition = new Vector2(50, 200), 
+                            Enabled = true 
+                        });
+                        MenuButtons.Add(new MenuButton(game) { 
+                            SortId = 2, 
+                            Position = new Vector2(50, 290), 
+                            Text = "Options",
+                            TextPosition = new Vector2(50, 290), 
+                            Enabled = true 
+                        });
+                        MenuButtons.Add(new MenuButton(game) { 
+                            SortId = 3, 
+                            Position = new Vector2(50, 380), 
+                            Text = "Exit",
+                            TextPosition = new Vector2(50, 380), 
+                            Enabled = true 
+                        });
                         break;
-                    case CurrentMenu.OptionsMenu:
-                        var ret = new MenuButton(game);
-                        ret.SortId = 1;
-                        ret.Position = new Vector2(50, 200);
-                        ret.Text = "Return";
-                        ret.TextPosition = ret.Position;
-                        MenuButtons.Add(ret);
+                    case Objects.CurrentMenu.OptionsMenu:
+                        MenuButtons.Add(new MenuButton(game) {
+                            SortId = 1,
+                            Position = new Vector2(50, 200),
+                            Text = "Return",
+                            TextPosition = new Vector2(50, 200),
+                            Enabled = true
+                        });
                         break;
                 }
+                         
             }
             foreach (var button in MenuButtons) {
                 button.Update(game);
