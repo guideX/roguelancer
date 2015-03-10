@@ -26,7 +26,7 @@ namespace Roguelancer.Objects {
         private int screenHeight;
         private int screenWidth;
         private Rectangle screenRectangle;
-        private List<MenuButton> MenuButtons;
+        public List<MenuButton> MenuButtons;
         public GameMenu() {
             MenuButtons = new List<MenuButton>();
         }
@@ -50,15 +50,21 @@ namespace Roguelancer.Objects {
                         newGame.SortId = 1;
                         newGame.Position = new Vector2(50, 200);
                         newGame.Text = "New Game";
-                        newGame.TextPosition = new Vector2(1, 2);
+                        newGame.TextPosition = newGame.Position;
                         options.SortId = 2;
                         options.Position = new Vector2(50, 290);
-                        options.TextPosition = new Vector2(1, 1);
+                        options.TextPosition = options.Position;
                         options.Text = "Options";
                         MenuButtons.Add(newGame);
                         MenuButtons.Add(options);
                         break;
                     case CurrentMenu.OptionsMenu:
+                        var ret = new MenuButton(game);
+                        ret.SortId = 1;
+                        ret.Position = new Vector2(50, 200);
+                        ret.Text = "Return";
+                        ret.TextPosition = ret.Position;
+                        MenuButtons.Add(ret);
                         break;
                 }
             }

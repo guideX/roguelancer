@@ -15,7 +15,7 @@ namespace Roguelancer.Functionality {
         public GameObjects objects;
         public GameCamera cameraSnapshot;
         private BloomHandler bloom;
-        private GameMenu gameMenu;
+        public GameMenu gameMenu;
         //private clsParticleSystemHandler particleSystem;
         //private clsSound lEngineNoise;
         public RoguelancerGame() {

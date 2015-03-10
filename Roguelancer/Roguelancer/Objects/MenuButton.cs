@@ -20,6 +20,7 @@ namespace Roguelancer.Objects {
         private Color _color;
         private Vector2 _size;
         private SpriteFont Font;
+        private SpriteBatch SpriteBatch;
         public MenuButton(RoguelancerGame game) {
             try {
                 Font = game.Content.Load<SpriteFont>("FONTS\\" + game.settings.font);
@@ -39,6 +40,7 @@ namespace Roguelancer.Objects {
         public void Update(RoguelancerGame game) {
             try {
                 var mouseRectangle = new Rectangle(game.input.lInputItems.mouse.State.X, game.input.lInputItems.mouse.State.Y, 1, 1);
+                SpriteBatch = game.graphics.lSpriteBatch;
                 _rectangle = new Rectangle((int)Position.X, (int)Position.Y, (int)_size.X, (int)_size.Y);
                 mouseRectangle.Y = mouseRectangle.Y + 90;
                 if (mouseRectangle.Intersects(_rectangle)) {
@@ -55,6 +57,7 @@ namespace Roguelancer.Objects {
                     }
                     if (game.input.lInputItems.mouse.State.LeftButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed) {
                         Clicked = true;
+                        //game.gameMenu.MenuButton_Click(Text, game);
                     }
                 } else if (_color.A < 255) {
                     _color.A += 5;
@@ -63,10 +66,21 @@ namespace Roguelancer.Objects {
                 if (Clicked) {
                     switch (Text) {
                         case "New Game":
+                            game.debugText.text = "New Game Clicked";
                             if (game.gameState.currentGameState == GameState.GameStates.menu) {
                                 game.gameState.lastGameState = game.gameState.currentGameState;
                                 game.gameState.currentGameState = GameState.GameStates.playing;
                                 game.debugText.text = "";
+                            }
+                            break;
+                        case "Options":
+                            game.gameMenu.CurrentMenu = CurrentMenu.OptionsMenu;
+                            game.debugText.text = "Options Clicked";
+                            break;
+                        case "Return":
+                            game.debugText.text = "Return Clicked";
+                            if (game.gameMenu.CurrentMenu == CurrentMenu.OptionsMenu) {
+                                game.gameMenu.CurrentMenu = CurrentMenu.HomeMenu;
                             }
                             break;
                     }
@@ -82,8 +96,8 @@ namespace Roguelancer.Objects {
         public void Draw(RoguelancerGame game) {
             try {
                 var f = Font.MeasureString(Text);
-                game.graphics.lSpriteBatch.Draw(Texture, _rectangle, _color);
-                game.graphics.lSpriteBatch.DrawString(Font, Text, TextPosition, Color.Black, 0, f, 3.0f, SpriteEffects.None, 0.5f);
+                SpriteBatch.Draw(Texture, _rectangle, _color);
+                SpriteBatch.DrawString(Font, Text, TextPosition, Color.Black, 0, f, 3.0f, SpriteEffects.None, 0.5f);
             } catch (Exception ex) {
                 throw ex;
             }
