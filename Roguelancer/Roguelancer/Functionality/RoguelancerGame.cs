@@ -14,7 +14,7 @@ namespace Roguelancer.Functionality {
         public GameState gameState;
         public GameObjects objects;
         public GameCamera cameraSnapshot;
-        private clsBloomHandler bloom;
+        private BloomHandler bloom;
         private GameMenu gameMenu;
         //private clsParticleSystemHandler particleSystem;
         //private clsSound lEngineNoise;
@@ -26,18 +26,19 @@ namespace Roguelancer.Functionality {
             camera = new GameCamera();
             graphics = new GameGraphics(this);
             graphics.Initialize(this);
-            bloom = new clsBloomHandler(this);
+            bloom = new BloomHandler(this);
             input = new Input();
             debugText = new DebugText();
             objects = new GameObjects(this);
             gameMenu = new GameMenu();
+            gameMenu.CurrentMenu = CurrentMenu.HomeMenu;
             //particleSystem = new clsParticleSystemHandler(this);
             //lEngineNoise = new clsSound();
         }
         protected override void Initialize() {
             graphics.Initialize(this);
             camera.Initialize(this);
-            bloom.Initialize();
+            bloom.Initialize(this);
             input.Initialize(this);
             objects.Initialize(this);
             gameMenu.Initialize(this);

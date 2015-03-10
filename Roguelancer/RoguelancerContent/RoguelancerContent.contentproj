@@ -47,6 +47,11 @@
       <Importer>FbxImporter</Importer>
       <Processor>ModelProcessor</Processor>
     </Compile>
+    <Compile Include="BASES\CO_BASE_ROCK_LARGE01\CO_BASE_ROCK_LARGE01.fbx">
+      <Name>CO_BASE_ROCK_LARGE01</Name>
+      <Importer>FbxImporter</Importer>
+      <Processor>ModelProcessor</Processor>
+    </Compile>
     <Compile Include="BASES\PLAYERBASE_01\PLAYERBASE_01.fbx">
       <Name>PLAYERBASE_01</Name>
       <Importer>FbxImporter</Importer>
@@ -273,27 +278,6 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BASES\CO_BASE_ROCK_LARGE01\CO_BASE_ROCK_LARGE01.fbx">
-      <Name>CO_BASE_ROCK_LARGE01</Name>
-      <Importer>FbxImporter</Importer>
-      <Processor>ModelProcessor</Processor>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="BASES\CO_BASE_ROCK_LARGE01\CO_BASE_ROCK_LARGE02.fbx">
-      <Name>CO_BASE_ROCK_LARGE02</Name>
-      <Importer>FbxImporter</Importer>
-      <Processor>ModelProcessor</Processor>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="BASES\CO_BASE_ROCK_LARGE01\CO_BASE_ROCK_LARGE03.fbx">
-      <Name>CO_BASE_ROCK_LARGE03</Name>
-      <Importer>FbxImporter</Importer>
-      <Processor>ModelProcessor</Processor>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="BASES\CO_BASE_ROCK_LARGE02\CO_BASE_ROCK_LARGE02-2.fbx">
       <Name>CO_BASE_ROCK_LARGE02-2</Name>
       <Importer>FbxImporter</Importer>
@@ -317,6 +301,13 @@
       <Name>BERYL</Name>
       <Importer>FbxImporter</Importer>
       <Processor>ModelProcessor</Processor>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="BUTTONS\menubutton.png">
+      <Name>menubutton</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
     </Compile>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\$(XnaFrameworkVersion)\Microsoft.Xna.GameStudio.ContentPipeline.targets" />

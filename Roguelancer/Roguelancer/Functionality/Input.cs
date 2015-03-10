@@ -26,6 +26,7 @@ namespace Roguelancer.Functionality {
         public bool lLeftButton;
         public bool lRightButton;
         public Vector2 lVector;
+        public MouseState State;
     }
     public class clsKeys {
         public bool lSpace;
@@ -68,8 +69,8 @@ namespace Roguelancer.Functionality {
             if(_Game.settings.cameraSettings.fieldOfView < 80 && _Game.settings.cameraSettings.fieldOfView > 180) {
                 _Game.settings.cameraSettings.fieldOfView = +_Game.input.lInputItems.mouse.lScrollWheel;
             }
-            MouseState mouseState = Mouse.GetState();
-            lInputItems.mouse.lScrollWheel = mouseState.ScrollWheelValue * .0001f;
+            lInputItems.mouse.State = Mouse.GetState();
+            lInputItems.mouse.lScrollWheel = lInputItems.mouse.State.ScrollWheelValue * .0001f;
             lLastKeyboardState = lCurrentKeyboardState;
             lCurrentKeyboardState = Keyboard.GetState();
             if(lCurrentKeyboardState.IsKeyDown(Keys.F)) {
@@ -190,7 +191,7 @@ namespace Roguelancer.Functionality {
                 } else {
                     lInputItems.mouse.lLeftButton = false;
                 }
-                lInputItems.mouse.lVector = new Vector2(mouseState.X, mouseState.Y);
+                lInputItems.mouse.lVector = new Vector2(lInputItems.mouse.State.X, lInputItems.mouse.State.Y);
             }
             if(_Game.input.lInputItems.toggles.cameraSnapshot == true) {
                 _Game.input.lInputItems.toggles.cameraSnapshot = false;

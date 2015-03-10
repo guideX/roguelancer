@@ -108,12 +108,14 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Bloom\clsBloomComponent.cs" />
-    <Compile Include="Bloom\clsBloomSettings.cs" />
-    <Compile Include="Bloom\clsBloomHandler.cs" />
+    <Compile Include="Bloom\BloomComponent.cs" />
+    <Compile Include="Bloom\BloomSettings.cs" />
+    <Compile Include="Bloom\BloomHandler.cs" />
+    <None Include="configuration\objects\bullets.ini" />
     <Compile Include="Functionality\IniFile.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Functionality\Notifications.cs" />
     <Compile Include="Functionality\RoguelancerGame.cs" />
     <Compile Include="Functionality\Camera.cs" />
     <Compile Include="Functionality\DebugText.cs" />
@@ -123,8 +125,11 @@
     <Compile Include="Functionality\PlayerShipControl.cs" />
     <Compile Include="Functionality\GameState.cs" />
     <Compile Include="Interfaces\IGame.cs" />
+    <Compile Include="Interfaces\INotificationSettings.cs" />
+    <Compile Include="Objects\Bullets.cs" />
     <Compile Include="Objects\GameMenu.cs" />
     <Compile Include="Objects\Hardpoint.cs" />
+    <Compile Include="Objects\MenuButton.cs" />
     <Compile Include="Objects\Objects.cs" />
     <Compile Include="Objects\planet.cs">
       <SubType>Code</SubType>
@@ -169,6 +174,7 @@
     <Compile Include="Settings\CameraSettings.cs" />
     <Compile Include="Settings\GameSettings.cs" />
     <Compile Include="Settings\ModelWorldObjects.cs" />
+    <Compile Include="Settings\NotificationSettings.cs" />
     <Compile Include="Settings\SettingsModelObject.cs" />
     <Compile Include="Settings\StarSettings.cs" />
     <Compile Include="Settings\StarSystemSettings.cs" />
@@ -222,6 +228,7 @@
     <None Include="configuration\systems\test_system\ships.ini" />
     <None Include="configuration\systems\test_system\stations.ini" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\Microsoft.Xna.GameStudio.targets" />
   <!--

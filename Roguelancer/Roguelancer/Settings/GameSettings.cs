@@ -7,7 +7,8 @@ namespace Roguelancer.Settings {
         Ship = 1,
         Planet = 2,
         Station = 3,
-        TradeLanes = 4
+        TradeLanes = 4, 
+        Bullet = 5
     }
     public class GameSettings {
         public string menuBackgroundTexture;
@@ -26,16 +27,21 @@ namespace Roguelancer.Settings {
         private string playerIniFile;
         private string systemIniStartPath;
         private string cameraSettingsIniFile;
+        private string bulletSettingsIniFile;
         public GameSettings() {
-            LoadSettings();
-            cameraSettings = new CameraSettings(cameraSettingsIniFile);
-            LoadObjects();
-            LoadStarSystem();
+            try {
+                LoadSettings();
+                cameraSettings = new CameraSettings(cameraSettingsIniFile);
+                LoadObjects();
+                LoadStarSystem();
+            } catch (Exception ex) {
+                throw ex;
+            }
         }
-        public void Initialize(RoguelancerGame _Game) { }
-        private void LoadContent(RoguelancerGame _Game) { }
-        public void Update(RoguelancerGame _Game) { }
-        public void Draw(RoguelancerGame _Game) { }
+        //public void Initialize(RoguelancerGame _Game) { }
+        //private void LoadContent(RoguelancerGame _Game) { }
+        //public void Update(RoguelancerGame _Game) { }
+        //public void Draw(RoguelancerGame _Game) { }
         private void LoadSettings() {
             appPath = System.IO.Directory.GetCurrentDirectory();
             directoryCorrection = @"\..\..\..\";
@@ -43,6 +49,7 @@ namespace Roguelancer.Settings {
             modelSettingsIniFile = appPath + directoryCorrection + @"configuration\models.ini";
             systemsSettingsIniFile = appPath + directoryCorrection + @"configuration\systems\systems.ini";
             playerIniFile = appPath + directoryCorrection + @"configuration\player\settings.ini";
+            bulletSettingsIniFile = appPath + directoryCorrection + @"configuration\objects\bullets.ini";
             cameraSettingsIniFile = appPath + directoryCorrection + @"configuration\camera.ini";
             systemIniStartPath = appPath + directoryCorrection + @"configuration\systems\";
             menuBackgroundTexture = IniFile.ReadINI(gameSettingsIniFile, "Settings", "menu_background");
