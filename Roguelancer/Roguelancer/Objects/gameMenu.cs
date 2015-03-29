@@ -48,7 +48,7 @@ namespace Roguelancer.Objects {
                         MenuButtons.Add(new MenuButton(game) { 
                             SortId = 1, 
                             Position = new Vector2(50, 200), 
-                            Text = "New Game", 
+                            Text = "New Game",
                             TextPosition = new Vector2(50, 200), 
                             Enabled = true 
                         });

@@ -20,7 +20,6 @@ namespace Roguelancer.Objects {
         private Color _color;
         private Vector2 _size;
         private SpriteFont Font;
-        private SpriteBatch SpriteBatch;
         public MenuButton(RoguelancerGame game) {
             try {
                 Font = game.Content.Load<SpriteFont>("FONTS\\" + game.settings.font);
@@ -40,7 +39,6 @@ namespace Roguelancer.Objects {
         public void Update(RoguelancerGame game) {
             try {
                 var mouseRectangle = new Rectangle(game.input.lInputItems.mouse.State.X, game.input.lInputItems.mouse.State.Y, 1, 1);
-                SpriteBatch = game.graphics.lSpriteBatch;
                 _rectangle = new Rectangle((int)Position.X, (int)Position.Y, (int)_size.X, (int)_size.Y);
                 mouseRectangle.Y = mouseRectangle.Y + 90;
                 if (mouseRectangle.Intersects(_rectangle)) {
@@ -99,8 +97,8 @@ namespace Roguelancer.Objects {
         public void Draw(RoguelancerGame game) {
             try {
                 var f = Font.MeasureString(Text);
-                SpriteBatch.Draw(Texture, _rectangle, _color);
-                SpriteBatch.DrawString(Font, Text, TextPosition, Color.Black, 0, f, 3.0f, SpriteEffects.None, 0.5f);
+                game.graphics.lSpriteBatch.DrawString(Font, Text, TextPosition, Color.Red, 0, f, 3.0f, SpriteEffects.None, 0.5f);
+                game.graphics.lSpriteBatch.Draw(Texture, _rectangle, _color);
             } catch (Exception ex) {
                 throw ex;
             }
