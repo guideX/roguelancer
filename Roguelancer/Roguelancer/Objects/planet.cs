@@ -9,6 +9,7 @@ using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Settings;
+using Roguelancer.Models;
 namespace Roguelancer.Objects {
     public class PlanetCollection : IGame {
         public List<Planet> planets { get; set; }
@@ -43,13 +44,13 @@ namespace Roguelancer.Objects {
             }
         }
     }
-    public class Planet : IGame {
+    public class Planet : IGame, IDockable {
         public GameModel model;
         public Planet(RoguelancerGame _Game) {
             model = new GameModel(_Game);
         }
         public void Initialize(RoguelancerGame _Game) {
-            model.modelMode = GameModel.ModelMode.planet;
+            model.modelMode = Enum.ModelModeEnum.planet;
             
             model.Initialize(_Game);
         }
@@ -62,6 +63,12 @@ namespace Roguelancer.Objects {
         }
         public void Draw(RoguelancerGame _Game) {
             model.Draw(_Game);
+        }
+        public void Dock(RoguelancerGame game, Ship ship) {
+            
+        }
+        public void UnDock(RoguelancerGame game, Ship ship) {
+
         }
     }
 }

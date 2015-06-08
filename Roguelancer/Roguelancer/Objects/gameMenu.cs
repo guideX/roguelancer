@@ -7,14 +7,18 @@ using Roguelancer.Interfaces;
 using Roguelancer.Functionality;
 using Microsoft.Xna.Framework;
 namespace Roguelancer.Objects {
+    /*
+    public enum OptionsMenu {
+        KeyboardControls = 1,
+        ReturnToMainMenu = 2
+    }
     public enum HomeMenu {
-        Nothing = 0,
         NewGame = 1,
         LoadGame = 2,
         Multiplayer = 3,
         Options = 4,
         Exit = 5
-    }
+    }*/
     public enum CurrentMenu {
         HomeMenu = 1,
         OptionsMenu = 2
@@ -45,33 +49,35 @@ namespace Roguelancer.Objects {
                 MenuButtons = new List<MenuButton>();
                 switch (CurrentMenu) {
                     case Objects.CurrentMenu.HomeMenu:
-                        MenuButtons.Add(new MenuButton(game) { 
+                        MenuButtons.Add(new MenuButton(game, "Play") { 
                             SortId = 1, 
                             Position = new Vector2(50, 200), 
-                            Text = "New Game",
                             TextPosition = new Vector2(50, 200), 
                             Enabled = true 
                         });
-                        MenuButtons.Add(new MenuButton(game) { 
+                        MenuButtons.Add(new MenuButton(game, "Options") { 
                             SortId = 2, 
                             Position = new Vector2(50, 290), 
-                            Text = "Options",
                             TextPosition = new Vector2(50, 290), 
                             Enabled = true 
                         });
-                        MenuButtons.Add(new MenuButton(game) { 
+                        MenuButtons.Add(new MenuButton(game, "Exit") { 
                             SortId = 3, 
                             Position = new Vector2(50, 380), 
-                            Text = "Exit",
                             TextPosition = new Vector2(50, 380), 
                             Enabled = true 
                         });
                         break;
                     case Objects.CurrentMenu.OptionsMenu:
-                        MenuButtons.Add(new MenuButton(game) {
+                        MenuButtons.Add(new MenuButton(game, "Keyboard Controls") {
                             SortId = 1,
                             Position = new Vector2(50, 200),
-                            Text = "Return",
+                            TextPosition = new Vector2(50, 200),
+                            Enabled = true
+                        });
+                        MenuButtons.Add(new MenuButton(game, "Return") {
+                            SortId = 1,
+                            Position = new Vector2(50, 200),
                             TextPosition = new Vector2(50, 200),
                             Enabled = true
                         });
@@ -85,7 +91,7 @@ namespace Roguelancer.Objects {
         }
         public void Draw(RoguelancerGame game) {
             screenRectangle = new Rectangle(0, 0, screenWidth, screenHeight);
-            game.graphics.lSpriteBatch.Draw(backgroundTexture, screenRectangle, Color.White);
+            game.graphics.SpriteBatch.Draw(backgroundTexture, screenRectangle, Color.White);
             foreach (var button in MenuButtons) {
                 button.Draw(game);
             }

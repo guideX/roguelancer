@@ -10,6 +10,7 @@ using Roguelancer.Interfaces;
 using System.Collections.Generic;
 using System.Linq;
 using Roguelancer.Settings;
+using Roguelancer.Models;
 namespace Roguelancer.Objects {
     public class ShipCollection : IGame {
         public List<Ship> ships { get; set; }
@@ -28,7 +29,7 @@ namespace Roguelancer.Objects {
                 tempShip.model = new GameModel(_Game);
                 tempShip.model.worldObject = ModelWorldObjects.Clone(modelWorldObject);
                 tempShip.playerShipControl.useInput = false;
-                tempShip.model.modelMode = GameModel.ModelMode.ship;
+                tempShip.model.modelMode = Enum.ModelModeEnum.ship;
                 ships.Add(Ship.Clone(tempShip, _Game));
             }
         }
@@ -64,11 +65,9 @@ namespace Roguelancer.Objects {
     public class Ship : IGame {
         public GameModel model;
         public PlayerShipControl playerShipControl;
-        public List<HardPoint> hardPoints;
         public Ship(RoguelancerGame _Game) {
             model = new GameModel(_Game);
             playerShipControl = new PlayerShipControl();
-            hardPoints = new List<HardPoint>();
             model.particleSystemEnabled = true;
         }
         public static Ship Clone(Ship oldShip, RoguelancerGame _Game) {
@@ -80,7 +79,7 @@ namespace Roguelancer.Objects {
         }
         public void Initialize(RoguelancerGame _Game) {
             model.Initialize(_Game);
-            model.modelMode = GameModel.ModelMode.ship;
+            model.modelMode = Enum.ModelModeEnum.ship;
             if(playerShipControl.useInput) {
                 playerShipControl = new PlayerShipControl();
                 playerShipControl.Initialize(_Game);

@@ -10,7 +10,7 @@ using Roguelancer.Interfaces;
 namespace Roguelancer.Functionality {
     public class GameGraphics : IGame {
         public GraphicsDeviceManager graphicsDeviceManager;
-        public SpriteBatch lSpriteBatch;
+        public SpriteBatch SpriteBatch;
         public GameGraphics(RoguelancerGame _Game) {
             graphicsDeviceManager = new GraphicsDeviceManager(_Game);
             graphicsDeviceManager.PreferredBackBufferWidth = (int)_Game.settings.resolution.X;
@@ -20,7 +20,7 @@ namespace Roguelancer.Functionality {
         public void Initialize(RoguelancerGame _Game) {
         }
         public void LoadContent(RoguelancerGame _Game) {
-            lSpriteBatch = new SpriteBatch(graphicsDeviceManager.GraphicsDevice);
+            SpriteBatch = new SpriteBatch(graphicsDeviceManager.GraphicsDevice);
         }
         public void Update(RoguelancerGame _Game) {
         }
@@ -37,10 +37,10 @@ namespace Roguelancer.Functionality {
             return graphicsDeviceManager.PreferredBackBufferWidth;
         }
         public void BeginSpriteBatch() {
-            lSpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
+            SpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
         }
         public void EndSpriteBatch() {
-            lSpriteBatch.End();
+            SpriteBatch.End();
         }
     }
 }

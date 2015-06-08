@@ -5,6 +5,7 @@ using System.Text;
 using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Settings;
+using Roguelancer.Models;
 namespace Roguelancer.Objects {
     public class StationCollection : IGame {
         public List<Station> stations { get; set; }
@@ -38,13 +39,14 @@ namespace Roguelancer.Objects {
             }
         }
     }
-    public class Station : IGame {
+    public class Station : IGame, IDockable {
         public GameModel model;
+        private ShipCollection _shipsDocked;
         public Station(RoguelancerGame _Game) {
             model = new GameModel(_Game);
         }
         public void Initialize(RoguelancerGame _Game) {
-            model.modelMode = GameModel.ModelMode.station;
+            model.modelMode = Enum.ModelModeEnum.station;
             model.Initialize(_Game);
         }
         public void LoadContent(RoguelancerGame _Game) {
@@ -56,6 +58,12 @@ namespace Roguelancer.Objects {
         }
         public void Draw(RoguelancerGame _Game) {
             model.Draw(_Game);
+        }
+        public void Dock(RoguelancerGame game, Ship ship) {
+
+        }
+        public void UnDock(RoguelancerGame game, Ship ship) {
+
         }
     }
 }

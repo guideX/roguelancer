@@ -112,6 +112,7 @@
     <Compile Include="Bloom\BloomSettings.cs" />
     <Compile Include="Bloom\BloomHandler.cs" />
     <None Include="configuration\objects\bullets.ini" />
+    <Compile Include="Enum\ModelModeEnum.cs" />
     <Compile Include="Functionality\IniFile.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -121,25 +122,27 @@
     <Compile Include="Functionality\DebugText.cs" />
     <Compile Include="Functionality\GameGraphics.cs" />
     <Compile Include="Functionality\Input.cs" />
-    <Compile Include="Functionality\GameModel.cs" />
     <Compile Include="Functionality\PlayerShipControl.cs" />
     <Compile Include="Functionality\GameState.cs" />
+    <Compile Include="Interfaces\IBullets.cs" />
     <Compile Include="Interfaces\IGame.cs" />
     <Compile Include="Interfaces\INotificationSettings.cs" />
+    <Compile Include="Models\BulletModel.cs" />
+    <Compile Include="Models\BulletsModel.cs" />
+    <Compile Include="Models\GameModel.cs" />
+    <Compile Include="Objects\Bullet.cs" />
     <Compile Include="Objects\Bullets.cs" />
     <Compile Include="Objects\GameMenu.cs" />
-    <Compile Include="Objects\Hardpoint.cs" />
     <Compile Include="Objects\MenuButton.cs" />
-    <Compile Include="Objects\Objects.cs" />
+    <Compile Include="Objects\GameObjects.cs" />
     <Compile Include="Objects\planet.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Objects\Ship.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Objects\station.cs" />
     <Compile Include="Objects\StarSystem.cs" />
-    <Compile Include="Objects\TradeLane.cs" />
+    <Compile Include="Objects\station.cs" />
     <Compile Include="Particle\ParticleSystem\DynamicParticle.cs" />
     <Compile Include="Particle\ParticleSystem\DynamicParticleSystem.cs" />
     <Compile Include="Particle\ParticleSystem\IParticle.cs" />
@@ -171,6 +174,7 @@
     <Compile Include="Particle\System\Emitters\ParticleSystems\RandomHelper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Roguelancer.cs" />
+    <Compile Include="Settings\BulletSettings.cs" />
     <Compile Include="Settings\CameraSettings.cs" />
     <Compile Include="Settings\GameSettings.cs" />
     <Compile Include="Settings\ModelWorldObjects.cs" />

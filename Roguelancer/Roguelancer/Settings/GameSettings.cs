@@ -11,6 +11,7 @@ namespace Roguelancer.Settings {
         Bullet = 5
     }
     public class GameSettings {
+        //public string BulletTexture { get; set; }
         public string menuBackgroundTexture;
         public string menuText;
         public CameraSettings cameraSettings;
@@ -53,6 +54,8 @@ namespace Roguelancer.Settings {
             cameraSettingsIniFile = appPath + directoryCorrection + @"configuration\camera.ini";
             systemIniStartPath = appPath + directoryCorrection + @"configuration\systems\";
             menuBackgroundTexture = IniFile.ReadINI(gameSettingsIniFile, "Settings", "menu_background");
+            //BulletTexture = IniFile.ReadINI(gameSettingsIniFile, "Settings", "bullet_texture");
+            //BulletTexture = @"Earth";
             menuText = "Roguelancer" + Environment.NewLine + Environment.NewLine + "10 = Play Game" + Environment.NewLine + "F9 = Return to menu" + Environment.NewLine + "ESC = Quit";
         }
         private void LoadObjects() {
@@ -61,7 +64,7 @@ namespace Roguelancer.Settings {
             for(int i = 1; i < count + 1; ++i) {
                 modelSettings.Add(new SettingsModelObject(
                     IniFile.ReadINI(modelSettingsIniFile, i.ToString().Trim(), "path"),
-                    IniFile.ReadINIVector3(modelSettingsIniFile, i.ToString(), "model_scaling_x", "model_scaling_y", "model_scaling_z"),
+                    //IniFile.ReadINIVector3(modelSettingsIniFile, i.ToString(), "model_scaling_x", "model_scaling_y", "model_scaling_z"),
                     (ModelType)Convert.ToInt32(IniFile.ReadINI(modelSettingsIniFile, i.ToString().Trim(), "type", "0")),
                     Convert.ToBoolean(IniFile.ReadINI(modelSettingsIniFile, i.ToString().Trim(), "enabled", "false")),
                     i

@@ -9,13 +9,13 @@ namespace Roguelancer.Settings {
         private bool _isPlayer { get; set; }
         public SettingsModelObject(
                 string modelPath,
-                Vector3 modelScaling,
+                //Vector3 modelScaling,
                 ModelType modelType,
                 bool enabled,
                 int modelId
             ) {
             _modelPath = modelPath;
-            _modelScaling = modelScaling;
+            //_modelScaling = modelScaling; // 
             _modelType = modelType;
             _enabled = enabled;
             _modelId = modelId;
@@ -23,7 +23,7 @@ namespace Roguelancer.Settings {
         public static SettingsModelObject Clone(SettingsModelObject oldObject) {
             return new SettingsModelObject(
                 oldObject.modelPath,
-                oldObject.modelScaling,
+                //oldObject.modelScaling,
                 oldObject.modelType,
                 oldObject.enabled,
                 oldObject.modelId
@@ -31,7 +31,7 @@ namespace Roguelancer.Settings {
         }
         public string modelPath { get { return _modelPath; } }
         public ModelType modelType { get { return _modelType; } }
-        public Vector3 modelScaling { get { return _modelScaling; } }
+        //public Vector3 modelScaling { get { return _modelScaling; } }
         public bool enabled { get { return _enabled; } }
         public int modelId { get { return _modelId; } }
         public bool isPlayer { get { return _isPlayer; } set { _isPlayer = value; } }

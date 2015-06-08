@@ -10,7 +10,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
 namespace Roguelancer.Functionality {
     public class DebugText : IGame {
-        private SpriteBatch spriteBatch;
+        //private SpriteBatch spriteBatch;
         public String text;
         private SpriteFont font;
         private Vector2 fontPosition;
@@ -22,11 +22,11 @@ namespace Roguelancer.Functionality {
             fontPosition = new Vector2(_Game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / 2, _Game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
         }
         public void Update(RoguelancerGame _Game) {
-            spriteBatch = _Game.graphics.lSpriteBatch;
+            //spriteBatch = _Game.graphics.SpriteBatch;
         }
         public void Draw(RoguelancerGame _Game) {
             Vector2 _FontOrigin = font.MeasureString(text) / 2;
-            spriteBatch.DrawString(font, text, fontPosition, Color.White, 0, _FontOrigin, 3.0f, SpriteEffects.None, 0.5f);
+            _Game.graphics.SpriteBatch.DrawString(font, text, fontPosition, Color.White, 0, _FontOrigin, 3.0f, SpriteEffects.None, 0.5f);
         }
     }
 }

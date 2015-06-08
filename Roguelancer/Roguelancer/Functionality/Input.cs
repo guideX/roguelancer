@@ -49,6 +49,7 @@ namespace Roguelancer.Functionality {
         public bool lF9;
         public bool lM;
         public bool lF;
+        public bool lControlLeft;
     }
     public class Input : IGame {
         public InputItems lInputItems = new InputItems();
@@ -69,10 +70,16 @@ namespace Roguelancer.Functionality {
             if(_Game.settings.cameraSettings.fieldOfView < 80 && _Game.settings.cameraSettings.fieldOfView > 180) {
                 _Game.settings.cameraSettings.fieldOfView = +_Game.input.lInputItems.mouse.lScrollWheel;
             }
+            
             lInputItems.mouse.State = Mouse.GetState();
             lInputItems.mouse.lScrollWheel = lInputItems.mouse.State.ScrollWheelValue * .0001f;
             lLastKeyboardState = lCurrentKeyboardState;
             lCurrentKeyboardState = Keyboard.GetState();
+            if(lCurrentKeyboardState.IsKeyDown(Keys.LeftControl)) {
+                lInputItems.keys.lControlLeft = true;
+            } else {
+                lInputItems.keys.lControlLeft = false;
+            }
             if(lCurrentKeyboardState.IsKeyDown(Keys.F)) {
                 lInputItems.keys.lF = true;
             } else {
@@ -190,6 +197,11 @@ namespace Roguelancer.Functionality {
                     lInputItems.mouse.lLeftButton = true;
                 } else {
                     lInputItems.mouse.lLeftButton = false;
+                }
+                if (Mouse.GetState().RightButton == ButtonState.Pressed) {
+                    lInputItems.mouse.lRightButton = true;
+                } else {
+                    lInputItems.mouse.lRightButton = false;
                 }
                 lInputItems.mouse.lVector = new Vector2(lInputItems.mouse.State.X, lInputItems.mouse.State.Y);
             }

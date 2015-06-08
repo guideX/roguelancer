@@ -7,8 +7,9 @@ using System.Text;
 using Roguelancer.Particle.System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
-using Roguelancer.Functionality;
 using Roguelancer.Objects;
+using Roguelancer.Functionality;
+using Roguelancer.Models;
 namespace Roguelancer.Particle.System.ParticleSystems {
     public class clsParticleSystemHandler {
         private ParticleSystem.gParticleSystemSettings lSettings;
