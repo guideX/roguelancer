@@ -12,6 +12,7 @@ Content\BASES\CO_BASE_ROCK_LARGE02\CO_BASE_ROCK_LARGE02.xnb
 Content\BASES\TRACK_RING\TRACK_RING.xnb
 Content\ASTEROIDS\BERYL\BERYL.xnb
 Content\SHIPS\CSV\CSV.xnb
+Content\bullet.xnb
 Content\FONTS\Arial.xnb
 Content\FONTS\LucidaFont.xnb
 Content\FONTS\HudFont.xnb
@@ -97,4 +98,3 @@ Content\SHIPS\PI_TRANSPORT\hold_0.xnb
 Content\SHIPS\PI_TRANSPORT\equip_0.xnb
 Content\SHIPS\PI_TRANSPORT\skull_0.xnb
 Content\SHIPS\PI_TRANSPORT\windows_0.xnb
-Content\bullet.xnb
