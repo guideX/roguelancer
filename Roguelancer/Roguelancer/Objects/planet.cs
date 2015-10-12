@@ -18,9 +18,9 @@ namespace Roguelancer.Objects {
         }
         public void Initialize(RoguelancerGame _Game) {
             Planet tempPlanet;
-            foreach(ModelWorldObjects modelWorldObject in _Game.settings.starSystemSettings[0].planets) {
+            foreach(ModelWorldObjects modelWorldObject in _Game.Settings.starSystemSettings[0].planets) {
                 tempPlanet = new Planet(_Game);
-                tempPlanet.model.worldObject = modelWorldObject;
+                tempPlanet.model.WorldObject = modelWorldObject;
                 planets.Add(tempPlanet);
             }
 
@@ -50,7 +50,7 @@ namespace Roguelancer.Objects {
             model = new GameModel(_Game);
         }
         public void Initialize(RoguelancerGame _Game) {
-            model.modelMode = Enum.ModelModeEnum.planet;
+            model.ModelMode = Enum.ModelModeEnum.Planet;
             
             model.Initialize(_Game);
         }

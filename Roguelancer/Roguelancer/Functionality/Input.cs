@@ -49,7 +49,8 @@ namespace Roguelancer.Functionality {
         public bool lF9;
         public bool lM;
         public bool lF;
-        public bool lControlLeft;
+        public bool ControlLeft;
+        public bool ControlRight;
     }
     public class Input : IGame {
         public InputItems lInputItems = new InputItems();
@@ -66,9 +67,9 @@ namespace Roguelancer.Functionality {
         public void LoadContent(RoguelancerGame _Game) {
 
         }
-        public void Update(RoguelancerGame _Game) {
-            if(_Game.settings.cameraSettings.fieldOfView < 80 && _Game.settings.cameraSettings.fieldOfView > 180) {
-                _Game.settings.cameraSettings.fieldOfView = +_Game.input.lInputItems.mouse.lScrollWheel;
+        public void Update(RoguelancerGame game) {
+            if(game.Settings.cameraSettings.fieldOfView < 80 && game.Settings.cameraSettings.fieldOfView > 180) {
+                game.Settings.cameraSettings.fieldOfView = + game.Input.lInputItems.mouse.lScrollWheel;
             }
             
             lInputItems.mouse.State = Mouse.GetState();
@@ -76,11 +77,16 @@ namespace Roguelancer.Functionality {
             lLastKeyboardState = lCurrentKeyboardState;
             lCurrentKeyboardState = Keyboard.GetState();
             if(lCurrentKeyboardState.IsKeyDown(Keys.LeftControl)) {
-                lInputItems.keys.lControlLeft = true;
+                lInputItems.keys.ControlLeft = true;
             } else {
-                lInputItems.keys.lControlLeft = false;
+                lInputItems.keys.ControlLeft = false;
             }
-            if(lCurrentKeyboardState.IsKeyDown(Keys.F)) {
+            if (lCurrentKeyboardState.IsKeyDown(Keys.RightControl)) {
+                lInputItems.keys.ControlRight = true;
+            } else {
+                lInputItems.keys.ControlRight = false;
+            }
+            if (lCurrentKeyboardState.IsKeyDown(Keys.F)) {
                 lInputItems.keys.lF = true;
             } else {
                 lInputItems.keys.lF = false;
@@ -107,11 +113,11 @@ namespace Roguelancer.Functionality {
             }
             if(lCurrentKeyboardState.IsKeyDown(Keys.Escape)) {
                 lInputItems.keys.lEscape = true;
-                _Game.Exit();
+                game.Exit();
             } else {
                 lInputItems.keys.lEscape = false;
             }
-            if(_Game.gameState.currentGameState == GameState.GameStates.playing) {
+            if(game.GameState.currentGameState == GameState.GameStates.playing) {
                 if(lCurrentKeyboardState.IsKeyDown(Keys.C)) {
                     if(lLastKeyboardState.IsKeyUp(Keys.C)) {
                         if(lInputItems.toggles.cruise == true) {
@@ -205,36 +211,36 @@ namespace Roguelancer.Functionality {
                 }
                 lInputItems.mouse.lVector = new Vector2(lInputItems.mouse.State.X, lInputItems.mouse.State.Y);
             }
-            if(_Game.input.lInputItems.toggles.cameraSnapshot == true) {
-                _Game.input.lInputItems.toggles.cameraSnapshot = false;
-                _Game.cameraSnapshot = _Game.camera;
-            } else if(_Game.input.lInputItems.toggles.revertCamera == true) {
-                _Game.input.lInputItems.toggles.revertCamera = false;
-                _Game.camera = _Game.cameraSnapshot;
+            if(game.Input.lInputItems.toggles.cameraSnapshot == true) {
+                game.Input.lInputItems.toggles.cameraSnapshot = false;
+                game.CameraSnapshot = game.Camera;
+            } else if(game.Input.lInputItems.toggles.revertCamera == true) {
+                game.Input.lInputItems.toggles.revertCamera = false;
+                game.Camera = game.CameraSnapshot;
             }
-            if(_Game.input.lInputItems.keys.lM) {
-                _Game.input.lInputItems.toggles.mouseMode = true;
-                _Game.input.lInputItems.toggles.freeMouseMode = false;
+            if(game.Input.lInputItems.keys.lM) {
+                game.Input.lInputItems.toggles.mouseMode = true;
+                game.Input.lInputItems.toggles.freeMouseMode = false;
             }
-            if(_Game.input.lInputItems.keys.lF) {
-                _Game.input.lInputItems.toggles.mouseMode = false;
-                _Game.input.lInputItems.toggles.freeMouseMode = true;
+            if(game.Input.lInputItems.keys.lF) {
+                game.Input.lInputItems.toggles.mouseMode = false;
+                game.Input.lInputItems.toggles.freeMouseMode = true;
             }
-            if(_Game.input.lInputItems.keys.lF10) {
-                if(_Game.gameState.currentGameState == GameState.GameStates.menu) {
-                    _Game.gameState.lastGameState = _Game.gameState.currentGameState;
-                    _Game.gameState.currentGameState = GameState.GameStates.playing;
-                    _Game.debugText.text = "";
+            if(game.Input.lInputItems.keys.lF10) {
+                if(game.GameState.currentGameState == GameState.GameStates.menu) {
+                    game.GameState.lastGameState = game.GameState.currentGameState;
+                    game.GameState.currentGameState = GameState.GameStates.playing;
+                    game.DebugText.Text = "";
                 }
             }
-            if(_Game.input.lInputItems.keys.lF9) {
-                if(_Game.gameState.currentGameState == GameState.GameStates.playing) {
-                    _Game.gameState.lastGameState = _Game.gameState.currentGameState;
-                    _Game.gameState.currentGameState = GameState.GameStates.menu;
-                    _Game.debugText.text = _Game.settings.menuText;
+            if(game.Input.lInputItems.keys.lF9) {
+                if(game.GameState.currentGameState == GameState.GameStates.playing) {
+                    game.GameState.lastGameState = game.GameState.currentGameState;
+                    game.GameState.currentGameState = GameState.GameStates.menu;
+                    game.DebugText.Text = game.Settings.menuText;
                 }
             }
-            //if(_Game.input.lInputItems.keys.lF12) {
+            //if(_game.Input.lInputItems.keys.lF12) {
                 //if(_Game.gameState.currentGameState == GameState.GameStates.menu) {
                     //_Game.settings = new GameSettings();
                     //_Game.objects.Reset(_Game);

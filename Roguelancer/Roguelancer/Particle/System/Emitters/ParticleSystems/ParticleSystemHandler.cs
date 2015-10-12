@@ -41,7 +41,7 @@ namespace Roguelancer.Particle.System.ParticleSystems {
             lParticleSystem.LoadContent(_Game);
         }
         public void Update(RoguelancerGame game) {
-            lParticleSystem.Update(game.gameTime, lSettings, game.debugText, game.graphics);
+            lParticleSystem.Update(game.GameTime, lSettings, game.DebugText, game.Graphics);
         }
         public void Draw(RoguelancerGame _Game, GameModel model) {
             lParticleSystem.Draw(_Game);

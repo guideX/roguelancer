@@ -64,9 +64,9 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             try {
-                backgroundTexture = game.Content.Load<Texture2D>(game.settings.menuBackgroundTexture);
-                screenWidth = game.graphics.graphicsDeviceManager.GraphicsDevice.PresentationParameters.BackBufferWidth;
-                screenHeight = game.graphics.graphicsDeviceManager.GraphicsDevice.PresentationParameters.BackBufferHeight;
+                backgroundTexture = game.Content.Load<Texture2D>(game.Settings.menuBackgroundTexture);
+                screenWidth = game.Graphics.graphicsDeviceManager.GraphicsDevice.PresentationParameters.BackBufferWidth;
+                screenHeight = game.Graphics.graphicsDeviceManager.GraphicsDevice.PresentationParameters.BackBufferHeight;
                 CurrentMenu = CurrentMenu.HomeMenu;
             } catch {
                 throw;
@@ -152,7 +152,7 @@ namespace Roguelancer.Objects {
         public void Draw(RoguelancerGame game) {
             try {
                 screenRectangle = new Rectangle(0, 0, screenWidth, screenHeight);
-                game.graphics.SpriteBatch.Draw(backgroundTexture, screenRectangle, Color.White);
+                game.Graphics.SpriteBatch.Draw(backgroundTexture, screenRectangle, Color.White);
                 foreach (var button in MenuButtons) {
                     button.Draw(game);
                 }

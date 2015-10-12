@@ -127,6 +127,7 @@
     <Compile Include="Functionality\GameState.cs" />
     <Compile Include="Interfaces\IBullets.cs" />
     <Compile Include="Interfaces\IGame.cs" />
+    <Compile Include="Interfaces\IGameModel.cs" />
     <Compile Include="Interfaces\INotificationSettings.cs" />
     <Compile Include="Models\BulletModel.cs" />
     <Compile Include="Models\BulletsModel.cs" />

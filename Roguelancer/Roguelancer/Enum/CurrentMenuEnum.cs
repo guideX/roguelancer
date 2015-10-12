@@ -1,11 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace Roguelancer.Enum {
+﻿namespace Roguelancer.Enum {
+    /// <summary>
+    /// Current Menu
+    /// </summary>
     public enum CurrentMenu {
+        /// <summary>
+        /// Home Menu
+        /// </summary>
         HomeMenu = 1,
+        /// <summary>
+        /// Options Menu
+        /// </summary>
         OptionsMenu = 2
     }
 }

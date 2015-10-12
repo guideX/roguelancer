@@ -40,23 +40,23 @@ namespace Roguelancer.Particle {
             n = starSettings.maxPositionStartingY;
             for(int i = 0; i < stars.Length;++i) {
                 n = n - starSettings.maxPositionIncrementY;
-                stars[i] = new clsParticleStarSheet(_Game.graphics, new Vector3(starSettings.maxPositionX, starSettings.maxPositionY, n), starSettings.amountOfStarsPerSheet, starTexture, starEffect, starSettings.maxSize, _Game.camera);
+                stars[i] = new clsParticleStarSheet(_Game.Graphics, new Vector3(starSettings.maxPositionX, starSettings.maxPositionY, n), starSettings.amountOfStarsPerSheet, starTexture, starEffect, starSettings.maxSize, _Game.Camera);
             }
         }
         public void Draw(RoguelancerGame _Game) {
             for (int i = 0; i < stars.Length; ++i) {
                 stars[i].Draw();
                 foreach(clsParticleExplosion _Explosion in explosions) {
-                    _Explosion.Draw(_Game.camera);
+                    _Explosion.Draw(_Game.Camera);
                 }
             }
         }
         public void Update(RoguelancerGame _Game) {
             for(int i = 0; i < stars.Length; ++i) {
-                stars[i].Update(_Game.camera, _Game.graphics.graphicsDeviceManager.GraphicsDevice);
+                stars[i].Update(_Game.Camera, _Game.Graphics.graphicsDeviceManager.GraphicsDevice);
             }
             for(int i = 0; i < explosions.Count; ++i) {
-                explosions[i].Update(_Game.gameTime );
+                explosions[i].Update(_Game.GameTime );
                 if (explosions[i].IsDead) {
                     explosions.RemoveAt(i);
                     --i;

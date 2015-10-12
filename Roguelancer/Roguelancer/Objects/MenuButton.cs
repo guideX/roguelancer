@@ -26,9 +26,9 @@ namespace Roguelancer.Objects {
             try {
                 Text = text;
                 Texture = game.Content.Load<Texture2D>(texturePath);
-                Font = game.Content.Load<SpriteFont>("FONTS\\" + game.settings.font);
+                Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.font);
                 _color = new Color(255, 255, 255, 255);
-                _size = new Vector2(game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / 4, game.GraphicsDevice.Viewport.Height / 15);
+                _size = new Vector2(game.Graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / 4, game.GraphicsDevice.Viewport.Height / 15);
             } catch (Exception ex) {
                 throw ex;
             }
@@ -41,8 +41,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                if (game.gameState.currentGameState == GameState.GameStates.menu) {
-                    var mouseRectangle = new Rectangle(game.input.lInputItems.mouse.State.X, game.input.lInputItems.mouse.State.Y, 1, 1);
+                if (game.GameState.currentGameState == GameState.GameStates.menu) {
+                    var mouseRectangle = new Rectangle(game.Input.lInputItems.mouse.State.X, game.Input.lInputItems.mouse.State.Y, 1, 1);
                     _rectangle = new Rectangle((int)Position.X, (int)Position.Y, (int)_size.X, (int)_size.Y);
                     _textRectangle = new Rectangle((int)TextPosition.X, (int)TextPosition.Y, (int)_size.X - 80, (int)_size.Y - YOffset);
                     if (mouseRectangle.Intersects(_textRectangle)) {
@@ -57,7 +57,7 @@ namespace Roguelancer.Objects {
                         } else {
                             _color.A -= 5;
                         }
-                        if (game.input.lInputItems.mouse.State.LeftButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed) {
+                        if (game.Input.lInputItems.mouse.State.LeftButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed) {
                             Clicked = true;
                         }
                     } else if (_color.A < 255) {
@@ -67,31 +67,31 @@ namespace Roguelancer.Objects {
                     if (Clicked) {
                         switch (Text) {
                             case "New Game":
-                                game.debugText.text = "Play Clicked";
-                                if (game.gameState.currentGameState == GameState.GameStates.menu) {
-                                    game.gameState.lastGameState = game.gameState.currentGameState;
-                                    game.gameState.currentGameState = GameState.GameStates.playing;
-                                    game.debugText.text = "";
+                                game.DebugText.Text = "Play Clicked";
+                                if (game.GameState.currentGameState == GameState.GameStates.menu) {
+                                    game.GameState.lastGameState = game.GameState.currentGameState;
+                                    game.GameState.currentGameState = GameState.GameStates.playing;
+                                    game.DebugText.Text = "";
                                     Clicked = false;
                                 }
                                 break;
                             case "Load Game":
-                                game.debugText.text = "Load Game";
+                                game.DebugText.Text = "Load Game";
                                 break;
                             case "Multiplayer":
-                                game.debugText.text = "Multiplayer";
+                                game.DebugText.Text = "Multiplayer";
                                 break;
                             case "Options":
-                                game.gameMenu.CurrentMenu = CurrentMenu.OptionsMenu;
-                                game.debugText.text = "Options Clicked";
-                                game.gameState.currentGameState = GameState.GameStates.menu;
+                                game.GameMenu.CurrentMenu = CurrentMenu.OptionsMenu;
+                                game.DebugText.Text = "Options Clicked";
+                                game.GameState.currentGameState = GameState.GameStates.menu;
                                 Clicked = false;
                                 break;
                             case "Return":
-                                game.debugText.text = "Return Clicked";
-                                if (game.gameMenu.CurrentMenu == CurrentMenu.OptionsMenu) {
-                                    game.gameMenu.CurrentMenu = CurrentMenu.HomeMenu;
-                                    game.gameState.currentGameState = GameState.GameStates.menu;
+                                game.DebugText.Text = "Return Clicked";
+                                if (game.GameMenu.CurrentMenu == CurrentMenu.OptionsMenu) {
+                                    game.GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
+                                    game.GameState.currentGameState = GameState.GameStates.menu;
                                     Clicked = false;
                                 }
                                 break;
@@ -114,8 +114,8 @@ namespace Roguelancer.Objects {
             try {
                 if (Texture != null) {
                     var f = Font.MeasureString(Text);
-                    game.graphics.SpriteBatch.DrawString(Font, Text, TextPosition, Color.Red, 0, f, 3.0f, SpriteEffects.None, 0.5f);
-                    game.graphics.SpriteBatch.Draw(Texture, _rectangle, _color);
+                    game.Graphics.SpriteBatch.DrawString(Font, Text, TextPosition, Color.Red, 0, f, 3.0f, SpriteEffects.None, 0.5f);
+                    game.Graphics.SpriteBatch.Draw(Texture, _rectangle, _color);
                 }
             } catch (Exception ex) {
                 throw ex;

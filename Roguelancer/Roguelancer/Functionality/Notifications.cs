@@ -92,8 +92,8 @@ namespace Roguelancer.Functionality {
         }
         public void LoadContent(RoguelancerGame game) {
             try {
-                _font = game.Content.Load<SpriteFont>("FONTS\\" + game.settings.font);
-                _fontPosition = new Vector2(game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / 2, game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
+                _font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.font);
+                _fontPosition = new Vector2(game.Graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / 2, game.Graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
             } catch (Exception ex) {
                 throw ex;
             }

@@ -21,15 +21,15 @@ namespace Roguelancer.Objects {
             ships = new List<Ship>();
             Ship playerShip = new Ship(_Game);
             Ship tempShip;
-            playerShip.model.worldObject = _Game.settings.starSystemSettings[0].ships.Where(s => s.settingsModelObject.modelType == ModelType.Ship && s.settingsModelObject.isPlayer == true).FirstOrDefault();
+            playerShip.model.WorldObject = _Game.Settings.starSystemSettings[0].ships.Where(s => s.settingsModelObject.modelType == ModelType.Ship && s.settingsModelObject.isPlayer == true).FirstOrDefault();
             playerShip.playerShipControl.useInput = true;
             ships.Add(playerShip);
-            foreach(ModelWorldObjects modelWorldObject in _Game.settings.starSystemSettings[0].ships.Where(s => s.settingsModelObject.isPlayer == false).ToList()) {
+            foreach(ModelWorldObjects modelWorldObject in _Game.Settings.starSystemSettings[0].ships.Where(s => s.settingsModelObject.isPlayer == false).ToList()) {
                 tempShip = new Ship(_Game);
                 tempShip.model = new GameModel(_Game);
-                tempShip.model.worldObject = ModelWorldObjects.Clone(modelWorldObject);
+                tempShip.model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
                 tempShip.playerShipControl.useInput = false;
-                tempShip.model.modelMode = Enum.ModelModeEnum.ship;
+                tempShip.model.ModelMode = Enum.ModelModeEnum.Ship;
                 ships.Add(Ship.Clone(tempShip, _Game));
             }
         }
@@ -68,7 +68,7 @@ namespace Roguelancer.Objects {
         public Ship(RoguelancerGame _Game) {
             model = new GameModel(_Game);
             playerShipControl = new PlayerShipControl();
-            model.particleSystemEnabled = true;
+            model.ParticleSystemEnabled = true;
         }
         public static Ship Clone(Ship oldShip, RoguelancerGame _Game) {
             Ship ship;
@@ -79,7 +79,7 @@ namespace Roguelancer.Objects {
         }
         public void Initialize(RoguelancerGame _Game) {
             model.Initialize(_Game);
-            model.modelMode = Enum.ModelModeEnum.ship;
+            model.ModelMode = Enum.ModelModeEnum.Ship;
             if(playerShipControl.useInput) {
                 playerShipControl = new PlayerShipControl();
                 playerShipControl.Initialize(_Game);
@@ -92,10 +92,10 @@ namespace Roguelancer.Objects {
             }
         }
         public void Update(RoguelancerGame _Game) {
-            if(_Game.gameState.currentGameState == GameState.GameStates.playing) {
+            if(_Game.GameState.currentGameState == GameState.GameStates.playing) {
                 if(playerShipControl.useInput) {
                     playerShipControl.UpdateModel(model, _Game);
-                    if(_Game.input.lInputItems.toggles.toggleCamera == false) {
+                    if(_Game.Input.lInputItems.toggles.toggleCamera == false) {
                         model.Update(_Game);
                     }
                 } else {

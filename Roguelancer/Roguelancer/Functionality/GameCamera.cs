@@ -42,7 +42,7 @@ namespace Roguelancer.Functionality {
             }
         }
         public void Initialize(RoguelancerGame _Game) {
-            _Game.settings.cameraSettings.aspectRatio = _Game.graphics.ScreenDimensions();
+            _Game.Settings.cameraSettings.aspectRatio = _Game.Graphics.ScreenDimensions();
             UpdateCameraChaseTarget(_Game);
             Reset(_Game);
         }
@@ -52,12 +52,12 @@ namespace Roguelancer.Functionality {
             transform.Up = up;
             transform.Right = Vector3.Cross(up, chaseDirection);
             if (mode == 0) {
-                desiredPosition = chasePosition + Vector3.TransformNormal(_Game.settings.cameraSettings.desiredPositionOffset, transform);
-                lookAt = chasePosition + Vector3.TransformNormal(_Game.settings.cameraSettings.lookAtOffset, transform);
+                desiredPosition = chasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.desiredPositionOffset, transform);
+                lookAt = chasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.lookAtOffset, transform);
             }
             if (mode == 2) {
-                desiredPosition = chasePosition + Vector3.TransformNormal(_Game.settings.cameraSettings.desiredPositionOffset, transform);
-                lookAt = chasePosition + _Game.settings.cameraSettings.thrustViewAmount * chaseDirection;
+                desiredPosition = chasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.desiredPositionOffset, transform);
+                lookAt = chasePosition + _Game.Settings.cameraSettings.thrustViewAmount * chaseDirection;
             }
         }
         public void LoadContent(RoguelancerGame _Game) { 
@@ -70,10 +70,10 @@ namespace Roguelancer.Functionality {
             _Transform.Forward = chaseDirection;
             _Transform.Up = up;
             _Transform.Right = Vector3.Cross(up, chaseDirection);
-            Vector3 o = chasePosition + Vector3.TransformNormal(_Game.settings.cameraSettings.desiredPositionOffset, _Transform);
-            Vector3 d = chasePosition + Vector3.TransformNormal(_Game.settings.cameraSettings.lookAtOffset, _Transform);
+            Vector3 o = chasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.desiredPositionOffset, _Transform);
+            Vector3 d = chasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.lookAtOffset, _Transform);
             view = Matrix.CreateLookAt(o, d, up);
-            projection = Matrix.CreatePerspectiveFieldOfView(_Game.settings.cameraSettings.fieldOfView, _Game.settings.cameraSettings.aspectRatio, _Game.settings.cameraSettings.nearPlaneDistance, _Game.settings.cameraSettings.clippingDistance); //Builds a perspective projection matrix based on a field of view
+            projection = Matrix.CreatePerspectiveFieldOfView(_Game.Settings.cameraSettings.fieldOfView, _Game.Settings.cameraSettings.aspectRatio, _Game.Settings.cameraSettings.nearPlaneDistance, _Game.Settings.cameraSettings.clippingDistance); //Builds a perspective projection matrix based on a field of view
             BoundingFrustum f = new BoundingFrustum(this.view * this.projection);
             Vector3[] _Fcorners = new Vector3[8];
             f.GetCorners(_Fcorners);
@@ -91,12 +91,12 @@ namespace Roguelancer.Functionality {
             if (t != null) {
                 v = o + (float)t * _MouseDir;
                 v = (v - d);
-                lookAt = d + v / _Game.settings.cameraSettings.lookAtDivideBy;
+                lookAt = d + v / _Game.Settings.cameraSettings.lookAtDivideBy;
             }
         }
         public void UpdateMatrices(RoguelancerGame _Game) {
             view = Matrix.CreateLookAt(position, lookAt, up);
-            projection = Matrix.CreatePerspectiveFieldOfView(_Game.settings.cameraSettings.fieldOfView, _Game.settings.cameraSettings.aspectRatio, _Game.settings.cameraSettings.nearPlaneDistance, _Game.settings.cameraSettings.clippingDistance);
+            projection = Matrix.CreatePerspectiveFieldOfView(_Game.Settings.cameraSettings.fieldOfView, _Game.Settings.cameraSettings.aspectRatio, _Game.Settings.cameraSettings.nearPlaneDistance, _Game.Settings.cameraSettings.clippingDistance);
         }
         public void Reset(RoguelancerGame _Game) {
             UpdateWorldPositions(_Game);
@@ -105,13 +105,13 @@ namespace Roguelancer.Functionality {
             UpdateMatrices(_Game);
         }
         public void Update(RoguelancerGame _Game) {
-            if(_Game.gameTime == null) {
+            if(_Game.GameTime == null) {
                 throw new ArgumentNullException("gameTime");
             }
             if(shaking) {
                 float magnitude;
                 if(shakeUseDuration == true) {
-                    shakeTimer += (float)_Game.gameTime.ElapsedGameTime.TotalSeconds;
+                    shakeTimer += (float)_Game.GameTime.ElapsedGameTime.TotalSeconds;
                     if(shakeTimer >= shakeDuration) {
                         shaking = false;
                         shakeTimer = shakeDuration;
@@ -125,26 +125,26 @@ namespace Roguelancer.Functionality {
                 }
             }
             UpdateWorldPositions(_Game);
-            float elapsed = (float)_Game.gameTime.ElapsedGameTime.TotalSeconds;
+            float elapsed = (float)_Game.GameTime.ElapsedGameTime.TotalSeconds;
             Vector3 _Stretch = position - desiredPosition;
-            Vector3 _Force = -_Game.settings.cameraSettings.stiffness * _Stretch - _Game.settings.cameraSettings.damping * velocity;
-            Vector3 _Acceleration = _Force / _Game.settings.cameraSettings.mass;
+            Vector3 _Force = -_Game.Settings.cameraSettings.stiffness * _Stretch - _Game.Settings.cameraSettings.damping * velocity;
+            Vector3 _Acceleration = _Force / _Game.Settings.cameraSettings.mass;
             velocity += _Acceleration * elapsed;
             position += velocity * elapsed;
             UpdateMatrices(_Game);
         }
         public void UpdateCameraChaseTarget(RoguelancerGame _Game) {
-            Ship _ship = _Game.objects.ships.GetPlayerShip(_Game);
-            GraphicsDevice _GraphicsDevice = _Game.graphics.graphicsDeviceManager.GraphicsDevice;
+            Ship _ship = _Game.Objects.ships.GetPlayerShip(_Game);
+            GraphicsDevice _GraphicsDevice = _Game.Graphics.graphicsDeviceManager.GraphicsDevice;
             MouseState _MouseState = Mouse.GetState();
-            chasePosition = _ship.model.position;
-            chaseDirection = _ship.model.direction;
-            up = _ship.model.up;
+            chasePosition = _ship.model.Position;
+            chaseDirection = _ship.model.Direction;
+            up = _ship.model.Up;
             if (mode == 1) {
                 if (_MouseState.LeftButton == ButtonState.Pressed) {
                     UpdateNewCamera((float)_MouseState.X / (float)_GraphicsDevice.Viewport.Width, (float)_MouseState.Y / (float)_GraphicsDevice.Viewport.Height, _Game);
                 } else {
-                    UpdateNewCamera(_Game.settings.cameraSettings.newCameraX, _Game.settings.cameraSettings.newCameraY, _Game);
+                    UpdateNewCamera(_Game.Settings.cameraSettings.newCameraX, _Game.Settings.cameraSettings.newCameraY, _Game);
                 }
             }
         }

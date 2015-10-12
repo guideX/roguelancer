@@ -14,9 +14,9 @@ namespace Roguelancer.Objects {
         }
         public void Initialize(RoguelancerGame _Game) {
             Station tempStation;
-            foreach(ModelWorldObjects modelWorldObject in _Game.settings.starSystemSettings[0].stations) {
+            foreach(ModelWorldObjects modelWorldObject in _Game.Settings.starSystemSettings[0].stations) {
                 tempStation = new Station(_Game);
-                tempStation.model.worldObject = modelWorldObject;
+                tempStation.model.WorldObject = modelWorldObject;
                 stations.Add(tempStation);
             }
             for(int i = 0; i <= stations.Count - 1; i++) {
@@ -46,7 +46,7 @@ namespace Roguelancer.Objects {
             model = new GameModel(_Game);
         }
         public void Initialize(RoguelancerGame _Game) {
-            model.modelMode = Enum.ModelModeEnum.station;
+            model.ModelMode = Enum.ModelModeEnum.Station;
             model.Initialize(_Game);
         }
         public void LoadContent(RoguelancerGame _Game) {

@@ -6,7 +6,13 @@ using Roguelancer.Interfaces;
 using Roguelancer.Functionality;
 using Roguelancer.Models;
 namespace Roguelancer.Objects {
+    /// <summary>
+    /// Bullets
+    /// </summary>
     public class Bullets : IBullets {
+        /// <summary>
+        /// Player Ship
+        /// </summary>
         private Ship _playerShip { get; set; }
         /// <summary>
         /// Model
@@ -39,7 +45,7 @@ namespace Roguelancer.Objects {
         public void LoadContent(RoguelancerGame game) {
             try {
                 BulletsModel = game.Content.Load<Model>("bullet");
-                _playerShip = game.objects.ships.GetPlayerShip(game);
+                _playerShip = game.Objects.ships.GetPlayerShip(game);
             } catch {
                 throw;
             }
@@ -50,10 +56,11 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                if (game.input.lInputItems.keys.lControlLeft) {
+                if (game.Input.lInputItems.keys.ControlLeft || game.Input.lInputItems.keys.ControlRight || game.Input.lInputItems.mouse.lRightButton) {
                     if (_model.AreBulletsAvailable) {
-                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-300f, -200f, 0f), new Vector3(0f, 0f, 0f)));
-                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-300f, 500f, 0f), new Vector3(0f, 0f, 0f)));
+                        game.Camera.Shake(10f, 0f, false);
+                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-200f, 0f, 0f)));
+                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-200f, 700f, 0f)));
                         _model.AreBulletsAvailable = false;
                         _model.WeaponRechargedTime = DateTime.Now.AddMilliseconds(_model.RechargeRate);
                     }

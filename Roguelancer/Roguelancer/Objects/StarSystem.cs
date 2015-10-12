@@ -13,7 +13,7 @@ namespace Roguelancer.Objects {
         public StarSystem(RoguelancerGame game) {
             stations = new StationCollection();
             planets = new PlanetCollection();
-            stars = new Starfields(game.settings.starSystemSettings[0].starSettings);
+            stars = new Starfields(game.Settings.starSystemSettings[0].starSettings);
         }
         public void Initialize(RoguelancerGame game) {
             stations.Initialize(game);

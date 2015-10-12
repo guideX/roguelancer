@@ -4,6 +4,9 @@ using Roguelancer.Functionality;
 using Microsoft.Xna.Framework;
 using Roguelancer.Interfaces;
 namespace Roguelancer.Objects {
+    /// <summary>
+    /// Bullet
+    /// </summary>
     public class Bullet : IGame {
         /// <summary>
         /// Model
@@ -17,19 +20,19 @@ namespace Roguelancer.Objects {
         /// Entry Point
         /// </summary>
         /// <param name="texture"></param> 
-        public Bullet(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, Vector3 startupModelRotation, int deathSeconds = 3, int scale = 3, string modelPath = "bullet") {
+        public Bullet(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet") {
             try {
                 BulletModel = new BulletModel();
                 BulletModel.PlayerShip = playerShipModel;
                 BulletModel.DeathDate = DateTime.Now.AddSeconds(deathSeconds);
                 Model = new GameModel(game);
-                Model.useScale = true;
-                Model.particleSystemEnabled = true;
-                Model.scale = scale;
-                Model.modelMode = Enum.ModelModeEnum.bullet;
-                Model.worldObject = new Settings.ModelWorldObjects(
-                    BulletModel.PlayerShip.model.position + startupPosition,
-                    startupModelRotation,
+                Model.UseScale = true;
+                Model.ParticleSystemEnabled = true;
+                Model.Scale = scale;
+                Model.ModelMode = Enum.ModelModeEnum.Bullet;
+                Model.WorldObject = new Settings.ModelWorldObjects(
+                    BulletModel.PlayerShip.model.Position + startupPosition,
+                    new Vector3(0f, 0f, 0f),
                     new Settings.SettingsModelObject(
                         modelPath,
                         Settings.ModelType.Bullet,
@@ -37,11 +40,11 @@ namespace Roguelancer.Objects {
                         13
                     ),
                     1,
-                    BulletModel.PlayerShip.model.up,
-                    BulletModel.PlayerShip.model.right,
-                    BulletModel.PlayerShip.model.velocity,
-                    BulletModel.PlayerShip.model.currentThrust,
-                    BulletModel.PlayerShip.model.direction
+                    BulletModel.PlayerShip.model.Up,
+                    BulletModel.PlayerShip.model.Right,
+                    BulletModel.PlayerShip.model.Velocity,
+                    BulletModel.PlayerShip.model.CurrentThrust,
+                    BulletModel.PlayerShip.model.Direction
                 );
                 Initialize(game);
                 LoadContent(game);
@@ -78,21 +81,21 @@ namespace Roguelancer.Objects {
         public void Update(RoguelancerGame game) {
             try {
                 Vector3 force, acceleration;
-                var elapsed = (float)game.gameTime.ElapsedGameTime.TotalSeconds;
+                var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds;
                 var rotationAmount = new Vector2();
                 if (BulletModel.PlayerShip == null) {
-                    BulletModel.PlayerShip = game.objects.ships.GetPlayerShip(game);
+                    BulletModel.PlayerShip = game.Objects.ships.GetPlayerShip(game);
                 }
-                Model.currentThrust = .5f + BulletModel.PlayerShip.model.currentThrust;
-                Model.rotation = rotationAmount;
+                Model.CurrentThrust = .5f + BulletModel.PlayerShip.model.CurrentThrust;
+                Model.Rotation = rotationAmount;
                 Model.UpdatePosition();
-                force = Model.direction * Model.currentThrust * BulletModel.ThrustForce;
+                force = Model.Direction * Model.CurrentThrust * BulletModel.ThrustForce;
                 acceleration = force / BulletModel.Mass;
-                Model.velocity += acceleration * elapsed;
-                Model.velocity *= BulletModel.DragFactor;
-                Model.position += Model.velocity * elapsed;
+                Model.Velocity += acceleration * elapsed;
+                Model.Velocity *= BulletModel.DragFactor;
+                Model.Position += Model.Velocity * elapsed;
                 if (BulletModel.LimitAltitude == true) {
-                    Model.position.Y = Math.Max(Model.position.Y, Model.minimumAltitude);
+                    Model.Position.Y = Math.Max(Model.Position.Y, Model.MinimumAltitude);
                 }
                 Model.Update(game);
             } catch {
@@ -104,8 +107,12 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            if (Model != null) {
-                Model.Draw(game);
+            try {
+                if (Model != null) {
+                    Model.Draw(game);
+                }
+            } catch {
+                throw;
             }
         }
     }

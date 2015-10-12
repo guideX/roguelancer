@@ -1,32 +1,59 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
 namespace Roguelancer.Functionality {
+    /// <summary>
+    /// Debug Text
+    /// </summary>
     public class DebugText : IGame {
-        //private SpriteBatch spriteBatch;
-        public String text;
-        private SpriteFont font;
-        private Vector2 fontPosition;
-        public void Initialize(RoguelancerGame _Game) {
-
-        }
+        /// <summary>
+        /// Text
+        /// </summary>
+        public String Text;
+        /// <summary>
+        /// Font
+        /// </summary>
+        private SpriteFont Font;
+        /// <summary>
+        /// Font Position
+        /// </summary>
+        private Vector2 FontPosition;
+        /// <summary>
+        /// Initialize
+        /// </summary>
+        /// <param name="_Game"></param>
+        public void Initialize(RoguelancerGame _Game) {}
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="_Game"></param>
         public void LoadContent(RoguelancerGame _Game) {
-            font = _Game.Content.Load<SpriteFont>("FONTS\\" + _Game.settings.font);
-            fontPosition = new Vector2(_Game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / 2, _Game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
+            try {
+                Font = _Game.Content.Load<SpriteFont>("FONTS\\" + _Game.Settings.font);
+                FontPosition = new Vector2(_Game.Graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / 2, _Game.Graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
+            } catch {
+                throw;
+            }
         }
-        public void Update(RoguelancerGame _Game) {
-            //spriteBatch = _Game.graphics.SpriteBatch;
-        }
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="_Game"></param>
+        public void Update(RoguelancerGame _Game) {}
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="_Game"></param>
         public void Draw(RoguelancerGame _Game) {
-            Vector2 _FontOrigin = font.MeasureString(text) / 2;
-            _Game.graphics.SpriteBatch.DrawString(font, text, fontPosition, Color.White, 0, _FontOrigin, 3.0f, SpriteEffects.None, 0.5f);
+            try {
+                var fontOrigin = Font.MeasureString(Text) / 2;
+                _Game.Graphics.SpriteBatch.DrawString(Font, Text, FontPosition, Color.White, 0, fontOrigin, 3.0f, SpriteEffects.None, 0.5f);
+            } catch {
+                throw;
+            }
         }
     }
 }
