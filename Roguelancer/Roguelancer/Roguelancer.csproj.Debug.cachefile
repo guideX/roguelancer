@@ -98,3 +98,8 @@ Content\SHIPS\PI_TRANSPORT\hold_0.xnb
 Content\SHIPS\PI_TRANSPORT\equip_0.xnb
 Content\SHIPS\PI_TRANSPORT\skull_0.xnb
 Content\SHIPS\PI_TRANSPORT\windows_0.xnb
+Content\BUTTONS\loadgame.xnb
+Content\BUTTONS\menubutton.xnb
+Content\BUTTONS\newgame.xnb
+Content\BUTTONS\multiplayer.xnb
+Content\BUTTONS\keyboard.xnb

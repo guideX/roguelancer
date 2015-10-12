@@ -3,8 +3,12 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
+using Roguelancer.Enum;
 namespace Roguelancer.Objects {
     public class MenuButton : IGame {
+        //public bool AutoDown;
+        //public int HeightIntegral;
+        public int YOffset;
         public bool Enabled;
         public Texture2D Texture;
         public int SortId;
@@ -14,27 +18,14 @@ namespace Roguelancer.Objects {
         public Vector2 Position;
         public Vector2 TextPosition;
         private Rectangle _rectangle;
+        private Rectangle _textRectangle;
         private Color _color;
         private Vector2 _size;
         private SpriteFont Font;
-        public MenuButton(RoguelancerGame game, string text) {
+        public MenuButton(RoguelancerGame game, string text, string texturePath) {
             try {
                 Text = text;
-                switch (Text) {
-                    case "Play":
-                        Texture = game.Content.Load<Texture2D>("BUTTONS\\play");
-                        break;
-                    case "Options":
-                        Texture = game.Content.Load<Texture2D>("BUTTONS\\options");
-                        break;
-                    case "Return":
-                        Texture = game.Content.Load<Texture2D>("BUTTONS\\return");
-                        break;
-                    case "Exit":
-                        Texture = game.Content.Load<Texture2D>("BUTTONS\\exit");
-                        break;
-
-                }
+                Texture = game.Content.Load<Texture2D>(texturePath);
                 Font = game.Content.Load<SpriteFont>("FONTS\\" + game.settings.font);
                 _color = new Color(255, 255, 255, 255);
                 _size = new Vector2(game.graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / 4, game.GraphicsDevice.Viewport.Height / 15);
@@ -53,8 +44,8 @@ namespace Roguelancer.Objects {
                 if (game.gameState.currentGameState == GameState.GameStates.menu) {
                     var mouseRectangle = new Rectangle(game.input.lInputItems.mouse.State.X, game.input.lInputItems.mouse.State.Y, 1, 1);
                     _rectangle = new Rectangle((int)Position.X, (int)Position.Y, (int)_size.X, (int)_size.Y);
-                    mouseRectangle.Y = mouseRectangle.Y + 90;
-                    if (mouseRectangle.Intersects(_rectangle)) {
+                    _textRectangle = new Rectangle((int)TextPosition.X, (int)TextPosition.Y, (int)_size.X - 80, (int)_size.Y - YOffset);
+                    if (mouseRectangle.Intersects(_textRectangle)) {
                         if (_color.A == 255) {
                             Down = false;
                         }
@@ -75,7 +66,7 @@ namespace Roguelancer.Objects {
                     }
                     if (Clicked) {
                         switch (Text) {
-                            case "Play":
+                            case "New Game":
                                 game.debugText.text = "Play Clicked";
                                 if (game.gameState.currentGameState == GameState.GameStates.menu) {
                                     game.gameState.lastGameState = game.gameState.currentGameState;
@@ -83,6 +74,12 @@ namespace Roguelancer.Objects {
                                     game.debugText.text = "";
                                     Clicked = false;
                                 }
+                                break;
+                            case "Load Game":
+                                game.debugText.text = "Load Game";
+                                break;
+                            case "Multiplayer":
+                                game.debugText.text = "Multiplayer";
                                 break;
                             case "Options":
                                 game.gameMenu.CurrentMenu = CurrentMenu.OptionsMenu;
@@ -114,15 +111,15 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            //try {
-            if (Texture != null) {
-                var f = Font.MeasureString(Text);
-                game.graphics.SpriteBatch.DrawString(Font, Text, TextPosition, Color.Red, 0, f, 3.0f, SpriteEffects.None, 0.5f);
-                game.graphics.SpriteBatch.Draw(Texture, _rectangle, _color);
+            try {
+                if (Texture != null) {
+                    var f = Font.MeasureString(Text);
+                    game.graphics.SpriteBatch.DrawString(Font, Text, TextPosition, Color.Red, 0, f, 3.0f, SpriteEffects.None, 0.5f);
+                    game.graphics.SpriteBatch.Draw(Texture, _rectangle, _color);
+                }
+            } catch (Exception ex) {
+                throw ex;
             }
-            //} catch (Exception ex) {
-                //throw ex;
-            //}
         }
     }
 }

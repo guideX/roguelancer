@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Roguelancer.Bloom;
+using Roguelancer.Enum;
 using Roguelancer.Objects;
 using Roguelancer.Particle.System.ParticleSystems;
 using Roguelancer.Settings;
@@ -17,7 +18,7 @@ namespace Roguelancer.Functionality {
         private BloomHandler bloom;
         public GameMenu gameMenu;
         //private clsParticleSystemHandler particleSystem;
-        //private clsSound lEngineNoise;
+        //private clsSound lEngin12=5Noise;
         public RoguelancerGame() {
             settings = new GameSettings();
             Content.RootDirectory = "Content";

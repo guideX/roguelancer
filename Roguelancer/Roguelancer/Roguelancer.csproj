@@ -112,13 +112,14 @@
     <Compile Include="Bloom\BloomSettings.cs" />
     <Compile Include="Bloom\BloomHandler.cs" />
     <None Include="configuration\objects\bullets.ini" />
+    <Compile Include="Enum\CurrentMenuEnum.cs" />
     <Compile Include="Enum\ModelModeEnum.cs" />
     <Compile Include="Functionality\IniFile.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Functionality\Notifications.cs" />
     <Compile Include="Functionality\RoguelancerGame.cs" />
-    <Compile Include="Functionality\Camera.cs" />
+    <Compile Include="Functionality\GameCamera.cs" />
     <Compile Include="Functionality\DebugText.cs" />
     <Compile Include="Functionality\GameGraphics.cs" />
     <Compile Include="Functionality\Input.cs" />
@@ -185,6 +186,7 @@
     <Compile Include="Settings\TradeLaneSettings.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="configuration\menus.ini" />
     <Content Include="Game.ico" />
     <Content Include="GameThumbnail.png" />
   </ItemGroup>
