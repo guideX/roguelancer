@@ -194,8 +194,8 @@ namespace Roguelancer.Models {
                             } else {
                                 basicEffect.World = transforms[modelMesh.ParentBone.Index] * World;
                             }
-                            basicEffect.View = _Game.Camera.view;
-                            basicEffect.Projection = _Game.Camera.projection;
+                            basicEffect.View = _Game.Camera.View;
+                            basicEffect.Projection = _Game.Camera.Projection;
 
                         }
                         modelMesh.Draw();

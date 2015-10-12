@@ -59,8 +59,8 @@ namespace Roguelancer.Objects {
                 if (game.Input.lInputItems.keys.ControlLeft || game.Input.lInputItems.keys.ControlRight || game.Input.lInputItems.mouse.lRightButton) {
                     if (_model.AreBulletsAvailable) {
                         game.Camera.Shake(10f, 0f, false);
-                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-200f, 0f, 0f)));
-                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-200f, 700f, 0f)));
+                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, -200f, 0f)));
+                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, 700f, 0f)));
                         _model.AreBulletsAvailable = false;
                         _model.WeaponRechargedTime = DateTime.Now.AddMilliseconds(_model.RechargeRate);
                     }

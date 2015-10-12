@@ -45,7 +45,7 @@ namespace Roguelancer.Particle {
         public void Draw() {
             lGraphicsDevice.SetVertexBuffer(lParticleVertexBuffer);
             for (int i = 0; i < lMaxParticles; ++i) {
-                lParticleEffect.Parameters["WorldViewProjection"].SetValue(lCamera.view * lCamera.projection);
+                lParticleEffect.Parameters["WorldViewProjection"].SetValue(lCamera.View * lCamera.Projection);
                 lParticleEffect.Parameters["particleColor"].SetValue(lVertexColorArray[i].ToVector4());
                 foreach (EffectPass _EffectPass in lParticleEffect.CurrentTechnique.Passes) {
                     _EffectPass.Apply();
@@ -139,7 +139,7 @@ namespace Roguelancer.Particle {
             lGraphicsDevice.SetVertexBuffer(lParticleVertexBuffer);
             if (lEndOfLiveParticlesIndex - lEndOfDeadParticlesIndex > 0) {
                 for (int i = lEndOfDeadParticlesIndex; i < lEndOfLiveParticlesIndex; ++i) {
-                    lParticleEffect.Parameters["WorldViewProjection"].SetValue(_Camera.view * _Camera.projection);
+                    lParticleEffect.Parameters["WorldViewProjection"].SetValue(_Camera.View * _Camera.Projection);
                     lParticleEffect.Parameters["particleColor"].SetValue(lVertexColorArray[i].ToVector4());
                     foreach (EffectPass _EffectPass in lParticleEffect.CurrentTechnique.Passes) {
                         _EffectPass.Apply();

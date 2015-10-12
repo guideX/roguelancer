@@ -8,37 +8,41 @@ using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Objects;
 using Roguelancer.Interfaces;
 namespace Roguelancer.Functionality {
+    /// <summary>
+    /// Game Camera
+    /// </summary>
     public class GameCamera : IGame {
-        public Matrix projection;
-        public Matrix view;
-        private int mode = 2;
-        private Vector3 chasePosition;
-        private Vector3 chaseDirection;
-        private Vector3 lookAt;
-        private Vector3 position;
-        private Vector3 up = Vector3.Up;
-        private Vector3 desiredPosition;
-        private Vector3 velocity;
-        private Vector3 shakeOffset;
-        private float shakeMagnitude;
-        private float shakeDuration;
-        private float shakeTimer;
-        private bool shaking;
-        private bool shakeUseDuration;
+
+        public Matrix Projection;
+        public Matrix View;
+        private int Mode = 2;
+        private Vector3 ChasePosition;
+        private Vector3 ChaseDirection;
+        private Vector3 LookAt;
+        private Vector3 Position;
+        private Vector3 Up = Vector3.Up;
+        private Vector3 DesiredPosition;
+        private Vector3 Velocity;
+        private Vector3 ShakeOffset;
+        private float ShakeMagnitude;
+        private float ShakeDuration;
+        private float ShakeTimer;
+        private bool Shaking;
+        private bool ShakeUseDuration;
         private static readonly Random shakeRandom = new Random();
         private float NextShakeFloat() {
             return (float)shakeRandom.NextDouble() * 2f - 1f;
         }
         public void StopShaking() {
-            shaking = false;
+            Shaking = false;
         }
         public void Shake(float magnitude, float duration, bool _shakeUseDuration) {
-            shaking = true;
-            shakeMagnitude = magnitude;
-            shakeUseDuration = _shakeUseDuration;
-            if(shakeUseDuration == true) {
-                shakeDuration = duration;
-                shakeTimer = 0f;
+            Shaking = true;
+            ShakeMagnitude = magnitude;
+            ShakeUseDuration = _shakeUseDuration;
+            if(ShakeUseDuration == true) {
+                ShakeDuration = duration;
+                ShakeTimer = 0f;
             }
         }
         public void Initialize(RoguelancerGame _Game) {
@@ -48,41 +52,41 @@ namespace Roguelancer.Functionality {
         }
         public void UpdateWorldPositions(RoguelancerGame _Game) {
             Matrix transform = Matrix.Identity;
-            transform.Forward = chaseDirection;
-            transform.Up = up;
-            transform.Right = Vector3.Cross(up, chaseDirection);
-            if (mode == 0) {
-                desiredPosition = chasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.desiredPositionOffset, transform);
-                lookAt = chasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.lookAtOffset, transform);
+            transform.Forward = ChaseDirection;
+            transform.Up = Up;
+            transform.Right = Vector3.Cross(Up, ChaseDirection);
+            if (Mode == 0) {
+                DesiredPosition = ChasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.desiredPositionOffset, transform);
+                LookAt = ChasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.lookAtOffset, transform);
             }
-            if (mode == 2) {
-                desiredPosition = chasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.desiredPositionOffset, transform);
-                lookAt = chasePosition + _Game.Settings.cameraSettings.thrustViewAmount * chaseDirection;
+            if (Mode == 2) {
+                DesiredPosition = ChasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.desiredPositionOffset, transform);
+                LookAt = ChasePosition + _Game.Settings.cameraSettings.thrustViewAmount * ChaseDirection;
             }
         }
         public void LoadContent(RoguelancerGame _Game) { 
         }
         public void UpdateNewCamera(float _X, float _Y, RoguelancerGame _Game) {
-            if (mode != 1) {
+            if (Mode != 1) {
                 return;
             }
             Matrix _Transform = Matrix.Identity;
-            _Transform.Forward = chaseDirection;
-            _Transform.Up = up;
-            _Transform.Right = Vector3.Cross(up, chaseDirection);
-            Vector3 o = chasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.desiredPositionOffset, _Transform);
-            Vector3 d = chasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.lookAtOffset, _Transform);
-            view = Matrix.CreateLookAt(o, d, up);
-            projection = Matrix.CreatePerspectiveFieldOfView(_Game.Settings.cameraSettings.fieldOfView, _Game.Settings.cameraSettings.aspectRatio, _Game.Settings.cameraSettings.nearPlaneDistance, _Game.Settings.cameraSettings.clippingDistance); //Builds a perspective projection matrix based on a field of view
-            BoundingFrustum f = new BoundingFrustum(this.view * this.projection);
+            _Transform.Forward = ChaseDirection;
+            _Transform.Up = Up;
+            _Transform.Right = Vector3.Cross(Up, ChaseDirection);
+            var o = ChasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.desiredPositionOffset, _Transform);
+            var d = ChasePosition + Vector3.TransformNormal(_Game.Settings.cameraSettings.lookAtOffset, _Transform);
+            View = Matrix.CreateLookAt(o, d, Up);
+            Projection = Matrix.CreatePerspectiveFieldOfView(_Game.Settings.cameraSettings.fieldOfView, _Game.Settings.cameraSettings.aspectRatio, _Game.Settings.cameraSettings.nearPlaneDistance, _Game.Settings.cameraSettings.clippingDistance); //Builds a perspective projection matrix based on a field of view
+            var f = new BoundingFrustum(this.View * this.Projection);
             Vector3[] _Fcorners = new Vector3[8];
             f.GetCorners(_Fcorners);
             Vector3 _Fnx = _Fcorners[1] - _Fcorners[0];
             Vector3 _Fny = _Fcorners[3] - _Fcorners[0];
             Vector3 _MousePos = _Fcorners[0] + (_X * _Fnx) + (_Y * _Fny);
             Vector3 _MouseDir = _MousePos - o;
-            desiredPosition = o;
-            lookAt = d;
+            DesiredPosition = o;
+            LookAt = d;
             Vector3 v, v2 = (d - o);
             Vector3.Normalize(ref v2, out v);
             Plane p = new Plane(v, -Vector3.Dot(v, d));
@@ -91,58 +95,58 @@ namespace Roguelancer.Functionality {
             if (t != null) {
                 v = o + (float)t * _MouseDir;
                 v = (v - d);
-                lookAt = d + v / _Game.Settings.cameraSettings.lookAtDivideBy;
+                LookAt = d + v / _Game.Settings.cameraSettings.lookAtDivideBy;
             }
         }
         public void UpdateMatrices(RoguelancerGame _Game) {
-            view = Matrix.CreateLookAt(position, lookAt, up);
-            projection = Matrix.CreatePerspectiveFieldOfView(_Game.Settings.cameraSettings.fieldOfView, _Game.Settings.cameraSettings.aspectRatio, _Game.Settings.cameraSettings.nearPlaneDistance, _Game.Settings.cameraSettings.clippingDistance);
+            View = Matrix.CreateLookAt(Position, LookAt, Up);
+            Projection = Matrix.CreatePerspectiveFieldOfView(_Game.Settings.cameraSettings.fieldOfView, _Game.Settings.cameraSettings.aspectRatio, _Game.Settings.cameraSettings.nearPlaneDistance, _Game.Settings.cameraSettings.clippingDistance);
         }
         public void Reset(RoguelancerGame _Game) {
             UpdateWorldPositions(_Game);
-            velocity = Vector3.Zero;
-            position = desiredPosition;
+            Velocity = Vector3.Zero;
+            Position = DesiredPosition;
             UpdateMatrices(_Game);
         }
         public void Update(RoguelancerGame _Game) {
             if(_Game.GameTime == null) {
                 throw new ArgumentNullException("gameTime");
             }
-            if(shaking) {
+            if(Shaking) {
                 float magnitude;
-                if(shakeUseDuration == true) {
-                    shakeTimer += (float)_Game.GameTime.ElapsedGameTime.TotalSeconds;
-                    if(shakeTimer >= shakeDuration) {
-                        shaking = false;
-                        shakeTimer = shakeDuration;
-                        float lProgress = shakeTimer / shakeDuration;
-                        magnitude = shakeMagnitude * (1f - (lProgress * lProgress));
+                if(ShakeUseDuration == true) {
+                    ShakeTimer += (float)_Game.GameTime.ElapsedGameTime.TotalSeconds;
+                    if(ShakeTimer >= ShakeDuration) {
+                        Shaking = false;
+                        ShakeTimer = ShakeDuration;
+                        float lProgress = ShakeTimer / ShakeDuration;
+                        magnitude = ShakeMagnitude * (1f - (lProgress * lProgress));
                     }
                 } else {
-                    magnitude = shakeMagnitude * (1f - (2f));
-                    shakeOffset = new Vector3(NextShakeFloat(), NextShakeFloat(), NextShakeFloat()) * magnitude;
-                    position += shakeOffset;
+                    magnitude = ShakeMagnitude * (1f - (2f));
+                    ShakeOffset = new Vector3(NextShakeFloat(), NextShakeFloat(), NextShakeFloat()) * magnitude;
+                    Position += ShakeOffset;
                 }
             }
             UpdateWorldPositions(_Game);
             float elapsed = (float)_Game.GameTime.ElapsedGameTime.TotalSeconds;
-            Vector3 _Stretch = position - desiredPosition;
-            Vector3 _Force = -_Game.Settings.cameraSettings.stiffness * _Stretch - _Game.Settings.cameraSettings.damping * velocity;
-            Vector3 _Acceleration = _Force / _Game.Settings.cameraSettings.mass;
-            velocity += _Acceleration * elapsed;
-            position += velocity * elapsed;
+            var _Stretch = Position - DesiredPosition;
+            var _Force = -_Game.Settings.cameraSettings.stiffness * _Stretch - _Game.Settings.cameraSettings.damping * Velocity;
+            var _Acceleration = _Force / _Game.Settings.cameraSettings.mass;
+            Velocity += _Acceleration * elapsed;
+            Position += Velocity * elapsed;
             UpdateMatrices(_Game);
         }
         public void UpdateCameraChaseTarget(RoguelancerGame _Game) {
-            Ship _ship = _Game.Objects.ships.GetPlayerShip(_Game);
-            GraphicsDevice _GraphicsDevice = _Game.Graphics.graphicsDeviceManager.GraphicsDevice;
+            var ship = _Game.Objects.ships.GetPlayerShip(_Game);
+            var gd = _Game.Graphics.graphicsDeviceManager.GraphicsDevice;
             MouseState _MouseState = Mouse.GetState();
-            chasePosition = _ship.model.Position;
-            chaseDirection = _ship.model.Direction;
-            up = _ship.model.Up;
-            if (mode == 1) {
+            ChasePosition = ship.model.Position;
+            ChaseDirection = ship.model.Direction;
+            Up = ship.model.Up;
+            if (Mode == 1) {
                 if (_MouseState.LeftButton == ButtonState.Pressed) {
-                    UpdateNewCamera((float)_MouseState.X / (float)_GraphicsDevice.Viewport.Width, (float)_MouseState.Y / (float)_GraphicsDevice.Viewport.Height, _Game);
+                    UpdateNewCamera((float)_MouseState.X / (float)gd.Viewport.Width, (float)_MouseState.Y / (float)gd.Viewport.Height, _Game);
                 } else {
                     UpdateNewCamera(_Game.Settings.cameraSettings.newCameraX, _Game.Settings.cameraSettings.newCameraY, _Game);
                 }
