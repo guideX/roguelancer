@@ -36,9 +36,9 @@ namespace Roguelancer.Functionality {
             float w2 = (float)_Game.graphics.ReturnBackBufferWidth() / updateDirectionX;
             float h2 = (float)_Game.graphics.ReturnBackBufferHeight() / updateDirectionY;
             if(useInput == true) {
-                if (_Game.input.lInputItems.keys.lControlLeft || _Game.input.lInputItems.mouse.lRightButton) { // SHOOT!
-                    _Game.objects.Bullets.Shoot(_Game);
-                }
+                //if (_Game.input.lInputItems.keys.lControlLeft || _Game.input.lInputItems.mouse.lRightButton) { // SHOOT!
+                    //_Game.objects.Bullets.Shoot(_Game);
+                //}
                 if(_Game.input.lInputItems.toggles.mouseMode == true && _Game.input.lInputItems.toggles.freeMouseMode == false) {
                     if(_Game.input.lInputItems.mouse.lLeftButton == true) {
                         rotationAmount.X = (_Game.input.lInputItems.mouse.lVector.X - w2) / -w2;

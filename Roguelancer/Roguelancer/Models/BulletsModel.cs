@@ -10,6 +10,6 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Player Ship
         /// </summary>
-        public Ship PlayerShip { get; set; }
+        //public Ship PlayerShip { get; set; }
     }
 }

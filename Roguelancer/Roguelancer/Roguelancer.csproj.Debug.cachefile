@@ -44,6 +44,11 @@ Content\BUTTONS\exit.xnb
 Content\BUTTONS\options.xnb
 Content\BUTTONS\play.xnb
 Content\BUTTONS\return.xnb
+Content\BUTTONS\loadgame.xnb
+Content\BUTTONS\menubutton.xnb
+Content\BUTTONS\newgame.xnb
+Content\BUTTONS\multiplayer.xnb
+Content\BUTTONS\keyboard.xnb
 Content\Effects\Particle.xnb
 Content\Effects\BloomExtract.xnb
 Content\Effects\GaussianBlur.xnb
@@ -98,8 +103,3 @@ Content\SHIPS\PI_TRANSPORT\hold_0.xnb
 Content\SHIPS\PI_TRANSPORT\equip_0.xnb
 Content\SHIPS\PI_TRANSPORT\skull_0.xnb
 Content\SHIPS\PI_TRANSPORT\windows_0.xnb
-Content\BUTTONS\loadgame.xnb
-Content\BUTTONS\menubutton.xnb
-Content\BUTTONS\newgame.xnb
-Content\BUTTONS\multiplayer.xnb
-Content\BUTTONS\keyboard.xnb
