@@ -193,6 +193,7 @@
     <Compile Include="Settings\TradeLaneSettings.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="configuration\menus.ini" />
     <Content Include="Game.ico" />
     <Content Include="GameThumbnail.png" />
   </ItemGroup>

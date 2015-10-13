@@ -23,40 +23,40 @@ namespace Roguelancer.Particle {
         public Starfields(StarSettings _starSettings) {
             starSettings = _starSettings;
         }
-        public void Initialize(RoguelancerGame _Game) {
+        public void Initialize(RoguelancerGame game) {
             stars = new clsParticleStarSheet[starSettings.numberOfStarSheets];
         }
-        public void LoadContent(RoguelancerGame _Game) {
+        public void LoadContent(RoguelancerGame game) {
             int n = 0;
-            explosionTexture = _Game.Content.Load<Texture2D>("Textures\\Particle");
-            explosionColorsTexture = _Game.Content.Load<Texture2D>("Textures\\ParticleColors");
-            explosionEffect = _Game.Content.Load<Effect>("Effects\\Particle");
+            explosionTexture = game.Content.Load<Texture2D>("Textures\\Particle");
+            explosionColorsTexture = game.Content.Load<Texture2D>("Textures\\ParticleColors");
+            explosionEffect = game.Content.Load<Effect>("Effects\\Particle");
             explosionEffect.CurrentTechnique = explosionEffect.Techniques["Technique1"];
             explosionEffect.Parameters["theTexture"].SetValue(explosionTexture);
-            starTexture = _Game.Content.Load<Texture2D>("textures\\stars");
+            starTexture = game.Content.Load<Texture2D>("textures\\stars");
             starEffect = explosionEffect.Clone();
             starEffect.CurrentTechnique = starEffect.Techniques["Technique1"];
             starEffect.Parameters["theTexture"].SetValue(explosionTexture);
             n = starSettings.maxPositionStartingY;
             for(int i = 0; i < stars.Length;++i) {
                 n = n - starSettings.maxPositionIncrementY;
-                stars[i] = new clsParticleStarSheet(_Game, new Vector3(starSettings.maxPositionX, starSettings.maxPositionY, n), starSettings.amountOfStarsPerSheet, starTexture, starEffect, starSettings.maxSize);
+                stars[i] = new clsParticleStarSheet(game, new Vector3(starSettings.maxPositionX, starSettings.maxPositionY, n), starSettings.amountOfStarsPerSheet, starTexture, starEffect, starSettings.maxSize);
             }
         }
-        public void Draw(RoguelancerGame _Game) {
+        public void Draw(RoguelancerGame game) {
             for (int i = 0; i < stars.Length; ++i) {
-                stars[i].Draw(_Game);
+                stars[i].Draw(game);
                 foreach(clsParticleExplosion _Explosion in explosions) {
-                    _Explosion.Draw(_Game);
+                    _Explosion.Draw(game);
                 }
             }
         }
-        public void Update(RoguelancerGame _Game) {
+        public void Update(RoguelancerGame game) {
             for(int i = 0; i < stars.Length; ++i) {
-                stars[i].Update(_Game);
+                stars[i].Update(game);
             }
             for(int i = 0; i < explosions.Count; ++i) {
-                explosions[i].Update(_Game.GameTime );
+                explosions[i].Update(game.GameTime );
                 if (explosions[i].IsDead) {
                     explosions.RemoveAt(i);
                     --i;

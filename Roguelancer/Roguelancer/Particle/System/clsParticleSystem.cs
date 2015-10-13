@@ -117,9 +117,9 @@ namespace Roguelancer.Particle.System {
                 lParticleManager.SetMatrices(view, projection);
             }
         }
-        public void Draw(RoguelancerGame _Game) {
+        public void Draw(RoguelancerGame game) {
             if(settings.pEnabled == true) {
-                float lAspectRatio = (float)_Game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Width / (float)_Game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height;
+                float lAspectRatio = (float)game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Width / (float)game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height;
                 view = Matrix.CreateTranslation(0, -25, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(settings.pCameraRotation)) * Matrix.CreateRotationX(MathHelper.ToRadians(settings.pCameraArc)) * Matrix.CreateLookAt(new Vector3(0, 0, - settings.pCameraDistance), new Vector3(0, 0, 0), Vector3.Up);
                 projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10000);
             }

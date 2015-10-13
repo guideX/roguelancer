@@ -79,8 +79,8 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Entry Point
         /// </summary>
-        /// <param name="_Game"></param>
-        public GameModel(RoguelancerGame _Game) {
+        /// <param name="game"></param>
+        public GameModel(RoguelancerGame game) {
             try {
                 Velocity = Vector3.Zero;
                 Position = new Vector3(.5f, MinimumAltitude, 0);
@@ -88,7 +88,7 @@ namespace Roguelancer.Models {
                 Right = Vector3.Right;
                 CurrentThrust = 0.0f;
                 Direction = Vector3.Forward;
-                particleSystem = new clsParticleSystemHandler(_Game);
+                particleSystem = new clsParticleSystemHandler(game);
                 ParticleSystemEnabled = false;
                 Scale = 0f;
             } catch {
@@ -98,11 +98,11 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Initialize
         /// </summary>
-        /// <param name="_Game"></param>
-        public void Initialize(RoguelancerGame _Game) {
+        /// <param name="game"></param>
+        public void Initialize(RoguelancerGame game) {
             try {
                 if (ParticleSystemEnabled) {
-                    particleSystem.Initialize(_Game);
+                    particleSystem.Initialize(game);
                 }
             } catch {
                 throw;
@@ -111,13 +111,13 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Load Content
         /// </summary>
-        /// <param name="_Game"></param>
-        public void LoadContent(RoguelancerGame _Game) {
+        /// <param name="game"></param>
+        public void LoadContent(RoguelancerGame game) {
             try {
                 if (WorldObject.settingsModelObject.modelPath == "bullet") {
-                    model = _Game.Objects.Bullets.BulletsModel;
+                    model = game.Objects.Bullets.BulletsModel;
                 } else {
-                    model = _Game.Content.Load<Model>(WorldObject.settingsModelObject.modelPath);
+                    model = game.Content.Load<Model>(WorldObject.settingsModelObject.modelPath);
                 }
                 Position = WorldObject.startupPosition;
                 Up = WorldObject.initialModelUp;
@@ -127,7 +127,7 @@ namespace Roguelancer.Models {
                 CurrentThrust = WorldObject.initialCurrentThrust;
                 Direction = WorldObject.initialDirection;
                 if (ParticleSystemEnabled) {
-                    particleSystem.LoadContent(_Game);
+                    particleSystem.LoadContent(game);
                 }
             } catch {
                 throw;
@@ -152,22 +152,22 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Update
         /// </summary>
-        /// <param name="_Game"></param>
-        public void Update(RoguelancerGame _Game) {
+        /// <param name="game"></param>
+        public void Update(RoguelancerGame game) {
             try {
-                if (_Game.Input.InputItems.Toggles.ToggleCamera == false) {
+                if (game.Input.InputItems.Toggles.ToggleCamera == false) {
                     World = Matrix.Identity;
                     World.Forward = Direction;
                     World.Up = Up;
                     World.Right = Right;
                     World.Translation = Position;
                 }
-                if (_Game.GameState.CurrentGameState != GameStates.Playing) {
+                if (game.GameState.CurrentGameState != GameStates.Playing) {
                     CurrentThrust = 0.0f;
-                    _Game.Input.InputItems.Toggles.Cruise = false;
+                    game.Input.InputItems.Toggles.Cruise = false;
                 }
                 if (ParticleSystemEnabled) {
-                    particleSystem.Update(_Game);
+                    particleSystem.Update(game);
                 }
             } catch {
                 throw;
@@ -176,14 +176,14 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Draw
         /// </summary>
-        /// <param name="_Game"></param>
-        public void Draw(RoguelancerGame _Game) {
+        /// <param name="game"></param>
+        public void Draw(RoguelancerGame game) {
             try {
-                if (_Game.GameState.CurrentGameState == GameStates.Playing) {
+                if (game.GameState.CurrentGameState == GameStates.Playing) {
                     var transforms = new Matrix[model.Bones.Count];
                     model.CopyAbsoluteBoneTransformsTo(transforms);
                     if (ParticleSystemEnabled) {
-                        particleSystem.Draw(_Game, this);
+                        particleSystem.Draw(game, this);
                     }
                     foreach (ModelMesh modelMesh in model.Meshes) {
                         foreach (BasicEffect basicEffect in modelMesh.Effects) {
@@ -194,8 +194,8 @@ namespace Roguelancer.Models {
                             } else {
                                 basicEffect.World = transforms[modelMesh.ParentBone.Index] * World;
                             }
-                            basicEffect.View = _Game.Camera.View;
-                            basicEffect.Projection = _Game.Camera.Projection;
+                            basicEffect.View = game.Camera.View;
+                            basicEffect.Projection = game.Camera.Projection;
 
                         }
                         modelMesh.Draw();

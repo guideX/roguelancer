@@ -27,14 +27,14 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Initialize
         /// </summary>
-        /// <param name="_Game"></param>
+        /// <param name="game"></param>
         #endregion
         #region "public functions"
         public void Initialize(RoguelancerGame game) {}
         /// <summary>
         /// Load Content
         /// </summary>
-        /// <param name="_Game"></param>
+        /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             try {
                 _font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.font);
@@ -46,12 +46,12 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Update
         /// </summary>
-        /// <param name="_Game"></param>
+        /// <param name="game"></param>
         public void Update(RoguelancerGame game) {}
         /// <summary>
         /// Draw
         /// </summary>
-        /// <param name="_Game"></param>
+        /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             try {
                 var fontOrigin = _font.MeasureString(Text) / 2;

@@ -228,12 +228,12 @@ namespace Roguelancer.Functionality {
                 }
             }
             //if(_game.Input.InputItems.Keys.lF12) {
-            //if(_Game.gameState.currentGameState == GameState.GameStates.menu) {
-            //_Game.settings = new GameSettings();
-            //_Game.objects.Reset(_Game);
-            //_Game.gameState.lastGameState = _Game.gameState.currentGameState;
-            //_Game.gameState.currentGameState = GameState.GameStates.playing;
-            //_Game.debugText.text = "";
+            //if(game.gameState.currentGameState == GameState.GameStates.menu) {
+            //game.settings = new GameSettings();
+            //game.objects.Reset(game);
+            //game.gameState.lastGameState = game.gameState.currentGameState;
+            //game.gameState.currentGameState = GameState.GameStates.playing;
+            //game.debugText.text = "";
             //}
             //}
         }

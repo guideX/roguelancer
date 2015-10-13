@@ -16,53 +16,53 @@ namespace Roguelancer.Objects {
         public PlanetCollection() {
             planets = new List<Planet>();
         }
-        public void Initialize(RoguelancerGame _Game) {
+        public void Initialize(RoguelancerGame game) {
             Planet tempPlanet;
-            foreach(ModelWorldObjects modelWorldObject in _Game.Settings.starSystemSettings[0].planets) {
-                tempPlanet = new Planet(_Game);
+            foreach(ModelWorldObjects modelWorldObject in game.Settings.starSystemSettings[0].planets) {
+                tempPlanet = new Planet(game);
                 tempPlanet.model.WorldObject = modelWorldObject;
                 planets.Add(tempPlanet);
             }
 
             for(int i = 0; i <= planets.Count - 1; i++) {
-                planets[i].Initialize(_Game);
+                planets[i].Initialize(game);
             }
         }
-        public void LoadContent(RoguelancerGame _Game) {
+        public void LoadContent(RoguelancerGame game) {
             for(int i = 0; i <= planets.Count - 1; i++) {
-                planets[i].LoadContent(_Game);
+                planets[i].LoadContent(game);
             }
         }
-        public void Update(RoguelancerGame _Game) {
+        public void Update(RoguelancerGame game) {
             for(int i = 0; i <= planets.Count - 1; i++) {
-                planets[i].Update(_Game);
+                planets[i].Update(game);
             }
         }
-        public void Draw(RoguelancerGame _Game) {
+        public void Draw(RoguelancerGame game) {
             for(int i = 0; i <= planets.Count - 1; i++) {
-                planets[i].Draw(_Game);
+                planets[i].Draw(game);
             }
         }
     }
     public class Planet : IGame, IDockable {
         public GameModel model;
-        public Planet(RoguelancerGame _Game) {
-            model = new GameModel(_Game);
+        public Planet(RoguelancerGame game) {
+            model = new GameModel(game);
         }
-        public void Initialize(RoguelancerGame _Game) {
+        public void Initialize(RoguelancerGame game) {
             model.ModelMode = Enum.ModelModeEnum.Planet;
             
-            model.Initialize(_Game);
+            model.Initialize(game);
         }
-        public void LoadContent(RoguelancerGame _Game) {
-            model.LoadContent(_Game);
+        public void LoadContent(RoguelancerGame game) {
+            model.LoadContent(game);
         }
-        public void Update(RoguelancerGame _Game) {
+        public void Update(RoguelancerGame game) {
             model.UpdatePosition();
-            model.Update(_Game);
+            model.Update(game);
         }
-        public void Draw(RoguelancerGame _Game) {
-            model.Draw(_Game);
+        public void Draw(RoguelancerGame game) {
+            model.Draw(game);
         }
         public void Dock(RoguelancerGame game, Ship ship) {
             

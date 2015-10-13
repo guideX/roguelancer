@@ -39,10 +39,10 @@ namespace Roguelancer.Settings {
                 throw ex;
             }
         }
-        //public void Initialize(RoguelancerGame _Game) { }
-        //private void LoadContent(RoguelancerGame _Game) { }
-        //public void Update(RoguelancerGame _Game) { }
-        //public void Draw(RoguelancerGame _Game) { }
+        //public void Initialize(RoguelancerGame game) { }
+        //private void LoadContent(RoguelancerGame game) { }
+        //public void Update(RoguelancerGame game) { }
+        //public void Draw(RoguelancerGame game) { }
         private void LoadSettings() {
             appPath = System.IO.Directory.GetCurrentDirectory();
             directoryCorrection = @"\..\..\..\";

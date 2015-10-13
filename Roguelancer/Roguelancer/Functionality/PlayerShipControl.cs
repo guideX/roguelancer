@@ -52,23 +52,23 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Initialize
         /// </summary>
-        /// <param name="_Game"></param>
-        public void Initialize(RoguelancerGame _Game) {}
+        /// <param name="game"></param>
+        public void Initialize(RoguelancerGame game) {}
         /// <summary>
         /// Load Content
         /// </summary>
-        /// <param name="_Game"></param>
-        public void LoadContent(RoguelancerGame _Game) {}
+        /// <param name="game"></param>
+        public void LoadContent(RoguelancerGame game) {}
         /// <summary>
         /// Update
         /// </summary>
-        /// <param name="_Game"></param>
-        public void Update(RoguelancerGame _Game) {}
+        /// <param name="game"></param>
+        public void Update(RoguelancerGame game) {}
         /// <summary>
         /// Draw
         /// </summary>
-        /// <param name="_Game"></param>
-        public void Draw(RoguelancerGame _Game) {}
+        /// <param name="game"></param>
+        public void Draw(RoguelancerGame game) {}
         /// <summary>
         /// Update Model
         /// </summary>
