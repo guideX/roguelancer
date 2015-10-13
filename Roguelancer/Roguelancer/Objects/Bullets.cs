@@ -6,6 +6,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
 using Roguelancer.Functionality;
 using Roguelancer.Models;
+using Roguelancer.Particle.System;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Bullets
@@ -30,10 +31,27 @@ namespace Roguelancer.Objects {
         /// Entry Point
         /// </summary>
         /// <param name="game"></param>
+        private ParticleSystemSettingsModel _particleSystemSettings;
         public Bullets(RoguelancerGame game) {
             try {
                 _model = new BulletsModel();
                 _model.Bullets = new List<IBullet>();
+                _particleSystemSettings = new ParticleSystemSettingsModel();
+                _particleSystemSettings.FireRingSystemParticles = 20;
+                _particleSystemSettings.SmokePlumeParticles = 20;
+                _particleSystemSettings.SmokeRingParticles = 20;
+                _particleSystemSettings.CameraArc = 2;
+                _particleSystemSettings.CameraRotation = 0f;
+                _particleSystemSettings.CameraDistance = 20;
+                _particleSystemSettings.Fire = true;
+                _particleSystemSettings.Enabled = true;
+                _particleSystemSettings.Smoke = true;
+                _particleSystemSettings.SmokeRing = true;
+                _particleSystemSettings.Explosions = true;
+                _particleSystemSettings.Projectiles = true;
+                _particleSystemSettings.ExplosionTexture = "Textures\\Explosion";
+                _particleSystemSettings.FireTexture = "Textures\\Fire";
+                _particleSystemSettings.SmokeTexture = "Textures\\Smoke";
             } catch {
                 throw;
             }
@@ -72,8 +90,8 @@ namespace Roguelancer.Objects {
                 if (game.Input.InputItems.Keys.ControlLeft || game.Input.InputItems.Keys.ControlRight || game.Input.InputItems.Mouse.RightButton) {
                     if (_model.AreBulletsAvailable) {
                         game.Camera.Shake(10f, 0f, false);
-                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, -200f, 0f)));
-                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, 700f, 0f)));
+                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, -200f, 0f), particleSystemSettings: _particleSystemSettings));
+                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, 700f, 0f), particleSystemSettings: _particleSystemSettings));
                         _model.AreBulletsAvailable = false;
                         _model.WeaponRechargedTime = DateTime.Now.AddMilliseconds(_model.RechargeRate);
                     }

@@ -1,50 +1,27 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Roguelancer.Particle.System;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Content;
-using Roguelancer.Objects;
 using Roguelancer.Functionality;
 using Roguelancer.Models;
 namespace Roguelancer.Particle.System.ParticleSystems {
-    public class clsParticleSystemHandler {
-        private ParticleSystem.gParticleSystemSettings lSettings;
-        private ParticleSystem lParticleSystem;
-        public clsParticleSystemHandler(RoguelancerGame game) {
-            lSettings = new ParticleSystem.gParticleSystemSettings();
-            lSettings.pFireRingSystemParticles = 200;
-            lSettings.pSmokePlumeParticles = 100;
-            lSettings.pSmokeRingParticles = 100;
-            lSettings.pCameraArc = -1;
-            lSettings.pCameraRotation = 0;
-            lSettings.pCameraDistance = 300;
-            lSettings.pFire = false;
-            lSettings.pEnabled = true;
-            lSettings.pSmoke = false;
-            lSettings.pSmokeRing = false;
-            lSettings.pExplosions = false;
-            lSettings.pProjectiles = false;
-            lSettings.pExplosionTexture = "Textures\\Explosion";
-            lSettings.pFireTexture = "Textures\\Fire";
-            lSettings.pSmokeTexture = "Textures\\Smoke";
-            lParticleSystem = new ParticleSystem(game);
-            lParticleSystem.settings = lSettings;
+    public class ParticleSystemHandler {
+        public ParticleSystemSettingsModel Settings { get; set; }
+        private ParticleSystem _particleSystem;
+        public ParticleSystemHandler(RoguelancerGame game, ParticleSystemSettingsModel particleSystemSettings) {
+            Settings = particleSystemSettings;
+            _particleSystem = new ParticleSystem(game);
+            _particleSystem.Settings = Settings;
         }
         public void Initialize(RoguelancerGame game) {
-            lParticleSystem.Initialize(game);
+            _particleSystem.Initialize(game);
         }
         public void LoadContent(RoguelancerGame game) {
-            lParticleSystem.LoadContent(game);
+            _particleSystem.LoadContent(game);
         }
         public void Update(RoguelancerGame game) {
-            lParticleSystem.Update(game.GameTime, lSettings, game.DebugText, game.Graphics);
+            _particleSystem.Update(game, Settings);
         }
         public void Draw(RoguelancerGame game, GameModel model) {
-            lParticleSystem.Draw(game);
+            _particleSystem.Draw(game);
         }
     }
 }

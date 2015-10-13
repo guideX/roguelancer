@@ -58,7 +58,7 @@ namespace Roguelancer.Functionality {
         /// Bloom
         /// </summary>
         private BloomHandler _bloom;
-        private clsParticleSystemHandler particleSystem;
+        private ParticleSystemHandler particleSystem;
         //private clsSound lEngineNoise;
         /// <summary>
         /// Entry Point
@@ -79,7 +79,7 @@ namespace Roguelancer.Functionality {
             Objects = new GameObjects(this);
             GameMenu = new GameMenu();
             GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
-            particleSystem = new clsParticleSystemHandler(this);
+            //particleSystem = new ParticleSystemHandler(this);
             //lEngineNoise = new clsSound();
         }
         /// <summary>

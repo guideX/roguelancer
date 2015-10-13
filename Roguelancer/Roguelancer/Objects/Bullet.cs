@@ -4,6 +4,7 @@ using Roguelancer.Models;
 using Roguelancer.Functionality;
 using Microsoft.Xna.Framework;
 using Roguelancer.Interfaces;
+using Roguelancer.Particle.System;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Bullet
@@ -28,15 +29,14 @@ namespace Roguelancer.Objects {
         /// Entry Point
         /// </summary>
         /// <param name="texture"></param> 
-        public Bullet(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f) {
+        public Bullet(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
             try {
                 _bulletThrust = bulletThrust;
                 BulletModel = new BulletModel();
                 BulletModel.PlayerShip = playerShipModel;
                 BulletModel.DeathDate = DateTime.Now.AddSeconds(deathSeconds);
-                Model = new GameModel(game);
+                Model = new GameModel(game, particleSystemSettings);
                 Model.UseScale = true;
-                Model.ParticleSystemEnabled = true;
                 Model.Scale = scale;
                 Model.ModelMode = Enum.ModelModeEnum.Bullet;
                 Model.WorldObject = new Settings.ModelWorldObjects(

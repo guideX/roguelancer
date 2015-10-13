@@ -7,6 +7,7 @@ using Roguelancer.Interfaces;
 using Roguelancer.Settings;
 using Roguelancer.Models;
 using Roguelancer.Enum;
+using Roguelancer.Particle.System;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Ship Collection
@@ -92,7 +93,7 @@ namespace Roguelancer.Objects {
                 Ships.Add(playerShip);
                 foreach (ModelWorldObjects modelWorldObject in game.Settings.starSystemSettings[0].ships.Where(s => s.settingsModelObject.isPlayer == false).ToList()) {
                     tempShip = new Ship(game);
-                    tempShip.model = new GameModel(game);
+                    tempShip.model = new GameModel(game, null);
                     tempShip.model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
                     tempShip.PlayerShipControl.UseInput = false;
                     tempShip.model.ModelMode = Enum.ModelModeEnum.Ship;
@@ -122,9 +123,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public Ship(RoguelancerGame game) {
             try {
-                model = new GameModel(game);
+                model = new GameModel(game, null);
                 PlayerShipControl = new PlayerShipControl();
-                model.ParticleSystemEnabled = true;
             } catch {
                 throw;
             }

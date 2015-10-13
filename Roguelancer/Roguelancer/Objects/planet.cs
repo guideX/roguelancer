@@ -4,6 +4,7 @@ using Roguelancer.Interfaces;
 using Roguelancer.Functionality;
 using Roguelancer.Settings;
 using Roguelancer.Models;
+using Roguelancer.Particle.System;
 namespace Roguelancer.Objects {
     public class PlanetCollection : IGame {
         #region "public variables"
@@ -97,7 +98,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public Planet(RoguelancerGame game) {
             try {
-                Model = new GameModel(game);
+                Model = new GameModel(game, null);
             } catch {
                 throw;
             }

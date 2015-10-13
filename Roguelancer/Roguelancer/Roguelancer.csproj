@@ -144,6 +144,7 @@
     <Compile Include="Models\InputItemsModel.cs" />
     <Compile Include="Models\KeyInputModel.cs" />
     <Compile Include="Models\MouseInputModel.cs" />
+    <Compile Include="Models\ParticleSystemSettingsModel.cs" />
     <Compile Include="Models\TogglesModel.cs" />
     <Compile Include="Objects\Bullet.cs" />
     <Compile Include="Objects\Bullets.cs" />
@@ -170,7 +171,7 @@
     <Compile Include="Particle\System\Affectors\Affectors.cs" />
     <Compile Include="Particle\System\Affectors\FadeOut.cs" />
     <Compile Include="Particle\System\Affectors\VelocityAffector.cs" />
-    <Compile Include="Particle\System\clsParticleSystem.cs" />
+    <Compile Include="Particle\System\ParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\ExplosionParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\ExplosionSmokeParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\FireParticleSystem.cs" />
