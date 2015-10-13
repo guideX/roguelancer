@@ -1,11 +1,8 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Microsoft.Xna.Framework;
 using Roguelancer.Particle.ParticleSystem;
+using Roguelancer.Interfaces;
 namespace Roguelancer.Particle.System.Affector {
     public class clsVelocityAffector : IParticleAffector{
         public Vector3 VelocityChange { get; set; }
@@ -13,8 +10,8 @@ namespace Roguelancer.Particle.System.Affector {
             VelocityChange = velocityChange;
         }
         public void Affect(GameTime gameTime, DynamicParticle particle) {
-            if (particle.velocity.HasValue) {
-                particle.velocity += (float)gameTime.ElapsedGameTime.TotalSeconds * VelocityChange;
+            if (particle.Velocity.HasValue) {
+                particle.Velocity += (float)gameTime.ElapsedGameTime.TotalSeconds * VelocityChange;
             }
         }
     }

@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Roguelancer.Interfaces;
 namespace Roguelancer.Particle.ParticleSystem {
     public abstract class ParticleSystem<T> : IParticleSystem where T : IParticle, new() {
         protected List<T> liveParticles;

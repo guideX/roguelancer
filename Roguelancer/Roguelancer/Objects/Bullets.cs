@@ -9,7 +9,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Bullets
     /// </summary>
-    public class Bullets : IBullets {
+    public class Bullets : IGame {
         /// <summary>
         /// Player Ship
         /// </summary>
@@ -24,7 +24,7 @@ namespace Roguelancer.Objects {
         public Model BulletsModel { get; set; }
         public Bullets(RoguelancerGame game) {
             _model = new BulletsModel();
-            _model.Bullets = new List<Bullet>();
+            _model.Bullets = new List<IBullet>();
         }
         /// <summary>
         /// Initialize
@@ -56,7 +56,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                if (game.Input.lInputItems.keys.ControlLeft || game.Input.lInputItems.keys.ControlRight || game.Input.lInputItems.mouse.lRightButton) {
+                if (game.Input.InputItems.Keys.ControlLeft || game.Input.InputItems.Keys.ControlRight || game.Input.InputItems.Mouse.RightButton) {
                     if (_model.AreBulletsAvailable) {
                         game.Camera.Shake(10f, 0f, false);
                         _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, -200f, 0f)));

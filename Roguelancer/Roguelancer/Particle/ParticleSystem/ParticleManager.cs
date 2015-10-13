@@ -10,6 +10,8 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
 using Roguelancer.Particle.ParticleSystem;
+using Roguelancer.Interfaces;
+
 namespace Roguelancer.Particle.System {
     public class clsParticleManager : DrawableGameComponent {
         public readonly BlendState DefaultBlendState = BlendState.NonPremultiplied;
@@ -66,8 +68,8 @@ namespace Roguelancer.Particle.System {
                     if(particleSystem.Enabled) {
                         for(int i = 0; i < particleSystem.ParticleCount; i++) {
                             IParticle particle = particleSystem[i];
-                            Vector3 viewSpacePosition = Vector3.Transform(particle.position, View);
-                            spriteBatch.Draw(particleSystem.Texture, new Vector2(viewSpacePosition.X, viewSpacePosition.Y), null, particle.color, particle.angle, particleSystem.TextureOrigin, particle.scale, 0, viewSpacePosition.Z);
+                            var viewSpacePosition = Vector3.Transform(particle.Position, View);
+                            spriteBatch.Draw(particleSystem.Texture, new Vector2(viewSpacePosition.X, viewSpacePosition.Y), null, particle.Color, particle.Angle, particleSystem.TextureOrigin, particle.Scale, 0, viewSpacePosition.Z);
                         }
                     }
                 }

@@ -1,5 +1,5 @@
-﻿using Roguelancer.Models;
-using System;
+﻿using System;
+using Roguelancer.Models;
 using Roguelancer.Functionality;
 using Microsoft.Xna.Framework;
 using Roguelancer.Interfaces;
@@ -7,7 +7,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Bullet
     /// </summary>
-    public class Bullet : IGame {
+    public class Bullet : IBullet {
         /// <summary>
         /// Model
         /// </summary>
@@ -17,11 +17,16 @@ namespace Roguelancer.Objects {
         /// </summary>
         public BulletModel BulletModel { get; set; }
         /// <summary>
+        /// Bullet Thrust
+        /// </summary>
+        private float _bulletThrust;
+        /// <summary>
         /// Entry Point
         /// </summary>
         /// <param name="texture"></param> 
-        public Bullet(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet") {
+        public Bullet(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f) {
             try {
+                _bulletThrust = bulletThrust;
                 BulletModel = new BulletModel();
                 BulletModel.PlayerShip = playerShipModel;
                 BulletModel.DeathDate = DateTime.Now.AddSeconds(deathSeconds);
@@ -86,7 +91,7 @@ namespace Roguelancer.Objects {
                 if (BulletModel.PlayerShip == null) {
                     BulletModel.PlayerShip = game.Objects.ships.GetPlayerShip(game);
                 }
-                Model.CurrentThrust = .5f + BulletModel.PlayerShip.model.CurrentThrust;
+                Model.CurrentThrust = _bulletThrust + BulletModel.PlayerShip.model.CurrentThrust;
                 Model.Rotation = rotationAmount;
                 Model.UpdatePosition();
                 force = Model.Direction * Model.CurrentThrust * BulletModel.ThrustForce;

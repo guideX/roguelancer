@@ -12,10 +12,10 @@ namespace Roguelancer.Particle.ParticleSystem {
         public void AddParticle(Vector3 position, Color color, float angle, float scale) {
             if(lDeadParticles.Count != 0) {
                 StaticParticle particle = lDeadParticles.Pop();
-                particle.position = position;
-                particle.color = color;
-                particle.angle = angle;
-                particle.scale = scale;
+                particle.Position = position;
+                particle.Color = color;
+                particle.Angle = angle;
+                particle.Scale = scale;
                 liveParticles.Add(particle);
             }
         }

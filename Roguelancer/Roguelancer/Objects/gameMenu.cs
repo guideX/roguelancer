@@ -65,8 +65,8 @@ namespace Roguelancer.Objects {
         public void LoadContent(RoguelancerGame game) {
             try {
                 backgroundTexture = game.Content.Load<Texture2D>(game.Settings.menuBackgroundTexture);
-                screenWidth = game.Graphics.graphicsDeviceManager.GraphicsDevice.PresentationParameters.BackBufferWidth;
-                screenHeight = game.Graphics.graphicsDeviceManager.GraphicsDevice.PresentationParameters.BackBufferHeight;
+                screenWidth = game.Graphics.GraphicsDeviceManager.GraphicsDevice.PresentationParameters.BackBufferWidth;
+                screenHeight = game.Graphics.GraphicsDeviceManager.GraphicsDevice.PresentationParameters.BackBufferHeight;
                 CurrentMenu = CurrentMenu.HomeMenu;
             } catch {
                 throw;

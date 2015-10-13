@@ -1,69 +1,164 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Settings;
 using Roguelancer.Models;
 namespace Roguelancer.Objects {
     public class StationCollection : IGame {
-        public List<Station> stations { get; set; }
+        #region "public variables"
+        /// <summary>
+        /// Stations
+        /// </summary>
+        public List<Station> Stations { get; set; }
+        #endregion
+        #region "public functions"
+        /// <summary>
+        /// Station Collection
+        /// </summary>
         public StationCollection() {
-            stations = new List<Station>();
-        }
-        public void Initialize(RoguelancerGame _Game) {
-            Station tempStation;
-            foreach(ModelWorldObjects modelWorldObject in _Game.Settings.starSystemSettings[0].stations) {
-                tempStation = new Station(_Game);
-                tempStation.model.WorldObject = modelWorldObject;
-                stations.Add(tempStation);
-            }
-            for(int i = 0; i <= stations.Count - 1; i++) {
-                stations[i].Initialize(_Game);
+            try {
+                Stations = new List<Station>();
+            } catch {
+                throw;
             }
         }
-        public void LoadContent(RoguelancerGame _Game) {
-            for(int i = 0; i <= stations.Count - 1; i++) {
-                stations[i].LoadContent(_Game);
+        /// <summary>
+        /// Initialize
+        /// </summary>
+        /// <param name="game"></param>
+        public void Initialize(RoguelancerGame game) {
+            try {
+                Station tempStation;
+                foreach (ModelWorldObjects modelWorldObject in game.Settings.starSystemSettings[0].stations) {
+                    tempStation = new Station(game);
+                    tempStation.model.WorldObject = modelWorldObject;
+                    Stations.Add(tempStation);
+                }
+                for (int i = 0; i <= Stations.Count - 1; i++) {
+                    Stations[i].Initialize(game);
+                }
+            } catch {
+                throw;
             }
         }
-        public void Update(RoguelancerGame _Game) {
-            for(int i = 0; i <= stations.Count - 1; i++) {
-                stations[i].Update(_Game);
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="game"></param>
+        public void LoadContent(RoguelancerGame game) {
+            try {
+                for (int i = 0; i <= Stations.Count - 1; i++) {
+                    Stations[i].LoadContent(game);
+                }
+            } catch {
+                throw;
             }
         }
-        public void Draw(RoguelancerGame _Game) {
-            for(int i = 0; i <= stations.Count - 1; i++) {
-                stations[i].Draw(_Game);
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="game"></param>
+        public void Update(RoguelancerGame game) {
+            try {
+                for (int i = 0; i <= Stations.Count - 1; i++) {
+                    Stations[i].Update(game);
+                }
+            } catch {
+                throw;
             }
         }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
+        public void Draw(RoguelancerGame game) {
+            try {
+                for (int i = 0; i <= Stations.Count - 1; i++) {
+                    Stations[i].Draw(game);
+                }
+            } catch {
+                throw;
+            }
+        }
+        #endregion
     }
     public class Station : IGame, IDockable {
+        #region "public variables"
+        /// <summary>
+        /// Game Model
+        /// </summary>
         public GameModel model;
-        private ShipCollection _shipsDocked;
-        public Station(RoguelancerGame _Game) {
-            model = new GameModel(_Game);
+        #endregion
+        #region "public functions"
+        /// <summary>
+        /// Entry Point
+        /// </summary>
+        /// <param name="game"></param>
+        public Station(RoguelancerGame game) {
+            try {
+                model = new GameModel(game);
+            } catch {
+                throw;
+            }
         }
-        public void Initialize(RoguelancerGame _Game) {
-            model.ModelMode = Enum.ModelModeEnum.Station;
-            model.Initialize(_Game);
+        /// <summary>
+        /// Initialize
+        /// </summary>
+        /// <param name="game"></param>
+        public void Initialize(RoguelancerGame game) {
+            try {
+                model.ModelMode = Enum.ModelModeEnum.Station;
+                model.Initialize(game);
+            } catch {
+                throw;
+            }
         }
-        public void LoadContent(RoguelancerGame _Game) {
-            model.LoadContent(_Game);
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="game"></param>
+        public void LoadContent(RoguelancerGame game) {
+            try {
+                model.LoadContent(game);
+            } catch {
+                throw;
+            }
         }
-        public void Update(RoguelancerGame _Game) {
-            model.UpdatePosition();
-            model.Update(_Game);
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="game"></param>
+        public void Update(RoguelancerGame game) {
+            try {
+                model.UpdatePosition();
+                model.Update(game);
+            } catch {
+                throw;
+            }
         }
-        public void Draw(RoguelancerGame _Game) {
-            model.Draw(_Game);
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
+        public void Draw(RoguelancerGame game) {
+            try {
+                model.Draw(game);
+            } catch {
+                throw;
+            }
         }
-        public void Dock(RoguelancerGame game, Ship ship) {
-
-        }
-        public void UnDock(RoguelancerGame game, Ship ship) {
-
-        }
+        /// <summary>
+        /// Dock
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="ship"></param>
+        public void Dock(RoguelancerGame game, Ship ship) {}
+        /// <summary>
+        /// Undock
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="ship"></param>
+        public void UnDock(RoguelancerGame game, Ship ship) {}
+        #endregion
     }
 }

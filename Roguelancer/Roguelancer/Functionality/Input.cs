@@ -1,256 +1,247 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Roguelancer.Interfaces;
+using Roguelancer.Enum;
+using Roguelancer.Models;
 namespace Roguelancer.Functionality {
-    public class InputItems {
-        public clsMouse mouse;
-        public clsKeys keys;
-        public Toggles toggles;
-    }
-    public class Toggles {
-        public bool freeMouseMode = false;
-        public bool mouseMode = true;
-        public bool toggleCamera = false;
-        public bool revertCamera = false;
-        public bool cameraSnapshot = false;
-        public bool cruise = false;
-    }
-    public class clsMouse {
-        public float lScrollWheel;
-        public bool lLeftButton;
-        public bool lRightButton;
-        public Vector2 lVector;
-        public MouseState State;
-    }
-    public class clsKeys {
-        public bool lSpace;
-        public bool lEscape;
-        public bool lLeft;
-        public bool lRight;
-        public bool lUp;
-        public bool lDown;
-        public bool lW;
-        public bool lS;
-        public bool lTab;
-        public bool lX;
-        public bool lP;
-        public bool lL;
-        public bool lK;
-        public bool lJ;
-        public bool lC;
-        public bool lF10;
-        public bool lF12;
-        public bool lF9;
-        public bool lM;
-        public bool lF;
-        public bool ControlLeft;
-        public bool ControlRight;
-    }
+    /// <summary>
+    /// Input
+    /// </summary>
     public class Input : IGame {
-        public InputItems lInputItems = new InputItems();
-        private KeyboardState lLastKeyboardState = new KeyboardState();
-        private KeyboardState lCurrentKeyboardState = new KeyboardState();
+        #region "public variables"
+        /// <summary>
+        /// Input Items
+        /// </summary>
+        public InputItemsModel InputItems { get; set; }
+        #endregion
+        #region "private variables"
+        /// <summary>
+        /// Last Keyboard State
+        /// </summary>
+        private KeyboardState LastKeyboardState { get; set; }
+        /// <summary>
+        /// Current Keyboard State
+        /// </summary>
+        private KeyboardState CurrentKeyboardState { get; set; }
+        #endregion
+        #region "public functions"
+        /// <summary>
+        /// Entry Point
+        /// </summary>
         public Input() {
-            lInputItems.toggles = new Toggles();
-            lInputItems.keys = new clsKeys();
-            lInputItems.mouse = new clsMouse();
+            try {
+                InputItems = new InputItemsModel();
+                InputItems.Toggles = new TogglesModel();
+                InputItems.Keys = new KeyInputModel();
+                InputItems.Mouse = new MouseInputModel();
+                LastKeyboardState = new KeyboardState();
+                CurrentKeyboardState = new KeyboardState();
+            } catch {
+                throw;
+            }
         }
-        public void Initialize(RoguelancerGame _Game) {
-
-        }
-        public void LoadContent(RoguelancerGame _Game) {
-
-        }
+        /// <summary>
+        /// Initialize
+        /// </summary>
+        /// <param name="game"></param>
+        public void Initialize(RoguelancerGame game) { }
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="game"></param>
+        public void LoadContent(RoguelancerGame game) { }
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if(game.Settings.cameraSettings.fieldOfView < 80 && game.Settings.cameraSettings.fieldOfView > 180) {
-                game.Settings.cameraSettings.fieldOfView = + game.Input.lInputItems.mouse.lScrollWheel;
+            if (game.Settings.cameraSettings.fieldOfView < 80 && game.Settings.cameraSettings.fieldOfView > 180) {
+                game.Settings.cameraSettings.fieldOfView = +game.Input.InputItems.Mouse.ScrollWheel;
             }
-            
-            lInputItems.mouse.State = Mouse.GetState();
-            lInputItems.mouse.lScrollWheel = lInputItems.mouse.State.ScrollWheelValue * .0001f;
-            lLastKeyboardState = lCurrentKeyboardState;
-            lCurrentKeyboardState = Keyboard.GetState();
-            if(lCurrentKeyboardState.IsKeyDown(Keys.LeftControl)) {
-                lInputItems.keys.ControlLeft = true;
+            InputItems.Mouse.State = Mouse.GetState();
+            InputItems.Mouse.ScrollWheel = InputItems.Mouse.State.ScrollWheelValue * .0001f;
+            LastKeyboardState = CurrentKeyboardState;
+            CurrentKeyboardState = Keyboard.GetState();
+            if (CurrentKeyboardState.IsKeyDown(Keys.LeftControl)) {
+                InputItems.Keys.ControlLeft = true;
             } else {
-                lInputItems.keys.ControlLeft = false;
+                InputItems.Keys.ControlLeft = false;
             }
-            if (lCurrentKeyboardState.IsKeyDown(Keys.RightControl)) {
-                lInputItems.keys.ControlRight = true;
+            if (CurrentKeyboardState.IsKeyDown(Keys.RightControl)) {
+                InputItems.Keys.ControlRight = true;
             } else {
-                lInputItems.keys.ControlRight = false;
+                InputItems.Keys.ControlRight = false;
             }
-            if (lCurrentKeyboardState.IsKeyDown(Keys.F)) {
-                lInputItems.keys.lF = true;
+            if (CurrentKeyboardState.IsKeyDown(Keys.F)) {
+                InputItems.Keys.F = true;
             } else {
-                lInputItems.keys.lF = false;
+                InputItems.Keys.F = false;
             }
-            if(lCurrentKeyboardState.IsKeyDown(Keys.M)) {
-                lInputItems.keys.lM = true;
+            if (CurrentKeyboardState.IsKeyDown(Keys.M)) {
+                InputItems.Keys.M = true;
             } else {
-                lInputItems.keys.lM = false;
+                InputItems.Keys.M = false;
             }
-            if(lCurrentKeyboardState.IsKeyDown(Keys.F12)) {
-                lInputItems.keys.lF12 = true;
+            if (CurrentKeyboardState.IsKeyDown(Keys.F12)) {
+                InputItems.Keys.F12 = true;
             } else {
-                lInputItems.keys.lF12 = false;
+                InputItems.Keys.F12 = false;
             }
-            if(lCurrentKeyboardState.IsKeyDown(Keys.F10)) {
-                lInputItems.keys.lF10 = true;
+            if (CurrentKeyboardState.IsKeyDown(Keys.F10)) {
+                InputItems.Keys.F10 = true;
             } else {
-                lInputItems.keys.lF10 = false;
+                InputItems.Keys.F10 = false;
             }
-            if(lCurrentKeyboardState.IsKeyDown(Keys.F9)) {
-                lInputItems.keys.lF9 = true;
+            if (CurrentKeyboardState.IsKeyDown(Keys.F9)) {
+                InputItems.Keys.F9 = true;
             } else {
-                lInputItems.keys.lF9 = false;
+                InputItems.Keys.F9 = false;
             }
-            if(lCurrentKeyboardState.IsKeyDown(Keys.Escape)) {
-                lInputItems.keys.lEscape = true;
+            if (CurrentKeyboardState.IsKeyDown(Keys.Escape)) {
+                InputItems.Keys.Escape = true;
                 game.Exit();
             } else {
-                lInputItems.keys.lEscape = false;
+                InputItems.Keys.Escape = false;
             }
-            if(game.GameState.currentGameState == GameState.GameStates.playing) {
-                if(lCurrentKeyboardState.IsKeyDown(Keys.C)) {
-                    if(lLastKeyboardState.IsKeyUp(Keys.C)) {
-                        if(lInputItems.toggles.cruise == true) {
-                            lInputItems.toggles.cruise = false;
+            if (game.GameState.CurrentGameState == GameStates.Playing) {
+                if (CurrentKeyboardState.IsKeyDown(Keys.C)) {
+                    if (LastKeyboardState.IsKeyUp(Keys.C)) {
+                        if (InputItems.Toggles.Cruise == true) {
+                            InputItems.Toggles.Cruise = false;
                         } else {
-                            lInputItems.toggles.cruise = true;
+                            InputItems.Toggles.Cruise = true;
                         }
                     }
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.Space)) {
-                    if(lLastKeyboardState.IsKeyUp(Keys.Space)) {
-                        if(lInputItems.toggles.toggleCamera == true) {
-                            lInputItems.toggles.toggleCamera = false;
-                            lInputItems.toggles.revertCamera = true;
+                if (CurrentKeyboardState.IsKeyDown(Keys.Space)) {
+                    if (LastKeyboardState.IsKeyUp(Keys.Space)) {
+                        if (InputItems.Toggles.ToggleCamera == true) {
+                            InputItems.Toggles.ToggleCamera = false;
+                            InputItems.Toggles.RevertCamera = true;
                         } else {
-                            lInputItems.toggles.toggleCamera = true;
-                            lInputItems.toggles.cameraSnapshot = true;
+                            InputItems.Toggles.ToggleCamera = true;
+                            InputItems.Toggles.CameraSnapshot = true;
                         }
                     }
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.P)) {
-                    lInputItems.keys.lP = true;
+                if (CurrentKeyboardState.IsKeyDown(Keys.P)) {
+                    InputItems.Keys.P = true;
                 } else {
-                    lInputItems.keys.lP = false;
+                    InputItems.Keys.P = false;
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.L)) {
-                    lInputItems.keys.lL = true;
+                if (CurrentKeyboardState.IsKeyDown(Keys.L)) {
+                    InputItems.Keys.L = true;
                 } else {
-                    lInputItems.keys.lL = false;
+                    InputItems.Keys.L = false;
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.J)) {
-                    lInputItems.keys.lJ = true;
+                if (CurrentKeyboardState.IsKeyDown(Keys.J)) {
+                    InputItems.Keys.J = true;
                 } else {
-                    lInputItems.keys.lJ = false;
+                    InputItems.Keys.J = false;
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.K)) {
-                    lInputItems.keys.lK = true;
+                if (CurrentKeyboardState.IsKeyDown(Keys.K)) {
+                    InputItems.Keys.K = true;
                 } else {
-                    lInputItems.keys.lK = false;
+                    InputItems.Keys.K = false;
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.Left)) {
-                    lInputItems.keys.lLeft = true;
+                if (CurrentKeyboardState.IsKeyDown(Keys.Left)) {
+                    InputItems.Keys.Left = true;
                 } else {
-                    lInputItems.keys.lLeft = false;
+                    InputItems.Keys.Left = false;
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.Right)) {
-                    lInputItems.keys.lRight = true;
+                if (CurrentKeyboardState.IsKeyDown(Keys.Right)) {
+                    InputItems.Keys.Right = true;
                 } else {
-                    lInputItems.keys.lRight = false;
+                    InputItems.Keys.Right = false;
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.Up)) {
-                    lInputItems.keys.lUp = true;
+                if (CurrentKeyboardState.IsKeyDown(Keys.Up)) {
+                    InputItems.Keys.Up = true;
                 } else {
-                    lInputItems.keys.lUp = false;
+                    InputItems.Keys.Up = false;
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.Down)) {
-                    lInputItems.keys.lDown = true;
+                if (CurrentKeyboardState.IsKeyDown(Keys.Down)) {
+                    InputItems.Keys.Down = true;
                 } else {
-                    lInputItems.keys.lDown = false;
+                    InputItems.Keys.Down = false;
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.Tab)) {
-                    lInputItems.keys.lTab = true;
+                if (CurrentKeyboardState.IsKeyDown(Keys.Tab)) {
+                    InputItems.Keys.Tab = true;
                 } else {
-                    lInputItems.keys.lTab = false;
+                    InputItems.Keys.Tab = false;
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.S)) {
-                    lInputItems.keys.lS = true;
+                if (CurrentKeyboardState.IsKeyDown(Keys.S)) {
+                    InputItems.Keys.S = true;
                 } else {
-                    lInputItems.keys.lS = false;
+                    InputItems.Keys.S = false;
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.X)) {
-                    lInputItems.keys.lX = true;
+                if (CurrentKeyboardState.IsKeyDown(Keys.X)) {
+                    InputItems.Keys.X = true;
                 } else {
-                    lInputItems.keys.lX = false;
+                    InputItems.Keys.X = false;
                 }
-                if(lCurrentKeyboardState.IsKeyDown(Keys.W)) {
-                    lInputItems.keys.lW = true;
-
+                if (CurrentKeyboardState.IsKeyDown(Keys.W)) {
+                    InputItems.Keys.W = true;
                 } else {
-                    lInputItems.keys.lW = false;
+                    InputItems.Keys.W = false;
                 }
-                if(Mouse.GetState().LeftButton == ButtonState.Pressed) {
-                    lInputItems.mouse.lLeftButton = true;
+                if (InputItems.Mouse.State.LeftButton == ButtonState.Pressed) {
+                    InputItems.Mouse.LeftButton = true;
                 } else {
-                    lInputItems.mouse.lLeftButton = false;
+                    InputItems.Mouse.LeftButton = false;
                 }
-                if (Mouse.GetState().RightButton == ButtonState.Pressed) {
-                    lInputItems.mouse.lRightButton = true;
+                if (InputItems.Mouse.State.RightButton == ButtonState.Pressed) {
+                    InputItems.Mouse.RightButton = true;
                 } else {
-                    lInputItems.mouse.lRightButton = false;
+                    InputItems.Mouse.RightButton = false;
                 }
-                lInputItems.mouse.lVector = new Vector2(lInputItems.mouse.State.X, lInputItems.mouse.State.Y);
+                InputItems.Mouse.Vector = new Vector2(InputItems.Mouse.State.X, InputItems.Mouse.State.Y);
             }
-            if(game.Input.lInputItems.toggles.cameraSnapshot == true) {
-                game.Input.lInputItems.toggles.cameraSnapshot = false;
+            if (game.Input.InputItems.Toggles.CameraSnapshot == true) {
+                game.Input.InputItems.Toggles.CameraSnapshot = false;
                 game.CameraSnapshot = game.Camera;
-            } else if(game.Input.lInputItems.toggles.revertCamera == true) {
-                game.Input.lInputItems.toggles.revertCamera = false;
+            } else if (game.Input.InputItems.Toggles.RevertCamera == true) {
+                game.Input.InputItems.Toggles.RevertCamera = false;
                 game.Camera = game.CameraSnapshot;
             }
-            if(game.Input.lInputItems.keys.lM) {
-                game.Input.lInputItems.toggles.mouseMode = true;
-                game.Input.lInputItems.toggles.freeMouseMode = false;
+            if (game.Input.InputItems.Keys.M) {
+                game.Input.InputItems.Toggles.MouseMode = true;
+                game.Input.InputItems.Toggles.FreeMouseMode = false;
             }
-            if(game.Input.lInputItems.keys.lF) {
-                game.Input.lInputItems.toggles.mouseMode = false;
-                game.Input.lInputItems.toggles.freeMouseMode = true;
+            if (game.Input.InputItems.Keys.F) {
+                game.Input.InputItems.Toggles.MouseMode = false;
+                game.Input.InputItems.Toggles.FreeMouseMode = true;
             }
-            if(game.Input.lInputItems.keys.lF10) {
-                if(game.GameState.currentGameState == GameState.GameStates.menu) {
-                    game.GameState.lastGameState = game.GameState.currentGameState;
-                    game.GameState.currentGameState = GameState.GameStates.playing;
+            if (game.Input.InputItems.Keys.F10) {
+                if (game.GameState.CurrentGameState == GameStates.Menu) {
+                    game.GameState.LastGameState = game.GameState.CurrentGameState;
+                    game.GameState.CurrentGameState = GameStates.Playing;
                     game.DebugText.Text = "";
                 }
             }
-            if(game.Input.lInputItems.keys.lF9) {
-                if(game.GameState.currentGameState == GameState.GameStates.playing) {
-                    game.GameState.lastGameState = game.GameState.currentGameState;
-                    game.GameState.currentGameState = GameState.GameStates.menu;
+            if (game.Input.InputItems.Keys.F9) {
+                if (game.GameState.CurrentGameState == GameStates.Playing) {
+                    game.GameState.LastGameState = game.GameState.CurrentGameState;
+                    game.GameState.CurrentGameState = GameStates.Menu;
                     game.DebugText.Text = game.Settings.menuText;
                 }
             }
-            //if(_game.Input.lInputItems.keys.lF12) {
-                //if(_Game.gameState.currentGameState == GameState.GameStates.menu) {
-                    //_Game.settings = new GameSettings();
-                    //_Game.objects.Reset(_Game);
-                    //_Game.gameState.lastGameState = _Game.gameState.currentGameState;
-                    //_Game.gameState.currentGameState = GameState.GameStates.playing;
-                    //_Game.debugText.text = "";
-                //}
+            //if(_game.Input.InputItems.Keys.lF12) {
+            //if(_Game.gameState.currentGameState == GameState.GameStates.menu) {
+            //_Game.settings = new GameSettings();
+            //_Game.objects.Reset(_Game);
+            //_Game.gameState.lastGameState = _Game.gameState.currentGameState;
+            //_Game.gameState.currentGameState = GameState.GameStates.playing;
+            //_Game.debugText.text = "";
+            //}
             //}
         }
-        public void Draw(RoguelancerGame _Game) {
-        }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
+        public void Draw(RoguelancerGame game) { }
+        #endregion
     }
 }

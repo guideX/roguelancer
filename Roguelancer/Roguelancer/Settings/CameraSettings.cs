@@ -1,12 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Roguelancer.Functionality;
 namespace Roguelancer.Settings {
+    /// <summary>
+    /// Camera Settings
+    /// </summary>
     public class CameraSettings {
-        public Vector3 desiredPositionOffset { get; set; }
+        /// <summary>
+        /// Desired Position
+        /// </summary>
+        public Vector3 DesiredPositionOffset { get; set; }
         public float stiffness { get; set; }
         public float damping { get; set; }
         public float mass { get; set; }
@@ -21,7 +23,7 @@ namespace Roguelancer.Settings {
         public float aspectRatio { get; set; }
         public CameraSettings(string cameraSettingsIniFile) {
             int temp;
-            desiredPositionOffset = IniFile.ReadINIVector3(cameraSettingsIniFile, "settings", "desired_position_offset_x", "desired_position_offset_y", "desired_position_offset_z");
+            DesiredPositionOffset = IniFile.ReadINIVector3(cameraSettingsIniFile, "settings", "desired_position_offset_x", "desired_position_offset_y", "desired_position_offset_z");
             stiffness = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "stiffness");
             damping = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "damping");
             mass = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "mass");

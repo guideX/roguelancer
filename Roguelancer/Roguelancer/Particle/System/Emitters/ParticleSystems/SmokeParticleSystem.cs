@@ -13,8 +13,8 @@ namespace Roguelancer.Particle.System.ParticleSystems {
         }
         public override void Update(GameTime gameTime) {
             foreach (DynamicParticle particle in liveParticles) {
-                particle.color = Color.Lerp(particle.initialColor, new Color(1.0f, 1.0f, 1.0f, 0.0f), 1.0f - particle.Age.Value);
-                particle.scale += 0.002f;
+                particle.Color = Color.Lerp(particle.InitialColor, new Color(1.0f, 1.0f, 1.0f, 0.0f), 1.0f - particle.Age.Value);
+                particle.Scale += 0.002f;
             }
             base.Update(gameTime);
         }

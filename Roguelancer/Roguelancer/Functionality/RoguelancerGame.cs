@@ -1,63 +1,69 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Bloom;
 using Roguelancer.Enum;
+using Roguelancer.Interfaces;
 using Roguelancer.Objects;
-using Roguelancer.Particle.System.ParticleSystems;
 using Roguelancer.Settings;
 namespace Roguelancer.Functionality {
     /// <summary>
     /// Roguelancer Game
     /// </summary>
-    public class RoguelancerGame : Microsoft.Xna.Framework.Game {
+    public class RoguelancerGame : Game {
+        #region "public variables"
         /// <summary>
         /// Graphics
         /// </summary>
-        public GameGraphics Graphics;
+        public GameGraphics Graphics { get; set; }
         /// <summary>
         /// Settings
         /// </summary>
-        public GameSettings Settings;
+        public GameSettings Settings { get; set; }
         /// <summary>
         /// Camera
         /// </summary>
-        public GameCamera Camera;
+        public IGameCamera Camera { get; set; }
         /// <summary>
         /// Input
         /// </summary>
-        public Input Input;
+        public Input Input { get; set; }
         /// <summary>
         /// Game Time
         /// </summary>
-        public GameTime GameTime;
+        public GameTime GameTime { get; set; }
         /// <summary>
         /// Debug Text
         /// </summary>
-        public DebugText DebugText;
+        public DebugText DebugText { get; set; }
         /// <summary>
         /// Game State
         /// </summary>
-        public GameState GameState;
+        public GameState GameState { get; set; }
         /// <summary>
         /// Objects
         /// </summary>
-        public GameObjects Objects;
+        public GameObjects Objects { get; set; }
         /// <summary>
         /// Camera Snapshot
         /// </summary>
-        public GameCamera CameraSnapshot;
-        /// <summary>
-        /// Bloom
-        /// </summary>
-        private BloomHandler Bloom;
+        public IGameCamera CameraSnapshot { get; set; }
         /// <summary>
         /// Game Menu
         /// </summary>
-        public GameMenu GameMenu;
+        public GameMenu GameMenu { get; set; }
+        #endregion
+        #region "private variables"
+        /// <summary>
+        /// Bloom
+        /// </summary>
+        private BloomHandler _bloom;
         //private clsParticleSystemHandler particleSystem;
         //private clsSound lEngineNoise;
         /// <summary>
         /// Entry Point
         /// </summary>
+        #endregion
+        #region "public functions"
         public RoguelancerGame() {
             Settings = new GameSettings();
             Content.RootDirectory = "Content";
@@ -66,7 +72,7 @@ namespace Roguelancer.Functionality {
             Camera = new GameCamera();
             Graphics = new GameGraphics(this);
             Graphics.Initialize(this);
-            Bloom = new BloomHandler(this);
+            _bloom = new BloomHandler(this);
             Input = new Input();
             DebugText = new DebugText();
             Objects = new GameObjects(this);
@@ -81,7 +87,7 @@ namespace Roguelancer.Functionality {
         protected override void Initialize() {
             Graphics.Initialize(this);
             Camera.Initialize(this);
-            Bloom.Initialize(this);
+            _bloom.Initialize(this);
             Input.Initialize(this);
             Objects.Initialize(this);
             GameMenu.Initialize(this);
@@ -95,7 +101,7 @@ namespace Roguelancer.Functionality {
         protected override void LoadContent() {
             Camera.LoadContent(this);
             Graphics.LoadContent(this);
-            Bloom.LoadContent();
+            _bloom.LoadContent();
             DebugText.LoadContent(this);
             DebugText.Update(this);
             Objects.LoadContent(this);
@@ -110,42 +116,53 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="_GameTime"></param>
         protected override void Update(GameTime _GameTime) {
-            GameTime = _GameTime;
-            Input.Update(this);
-            Bloom.Update(true);
-            Objects.Update(this);
-            Camera.UpdateCameraChaseTarget(this);
-            Camera.Update(this);
-            DebugText.Update(this);
-            GameMenu.Update(this);
-            //particleSystem.Update(_GameTime, debugText, graphics);
-            base.Update(_GameTime);
+            try {
+                GameTime = _GameTime;
+                Input.Update(this);
+                _bloom.Update(true);
+                Objects.Update(this);
+                //Camera.UpdateCameraChaseTarget(this);
+                Camera.Update(this);
+                DebugText.Update(this);
+                GameMenu.Update(this);
+                //particleSystem.Update(_GameTime, debugText, graphics);
+                base.Update(_GameTime);
+            } catch {
+                throw;
+            }
         }
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="_GameTime"></param>
         protected override void Draw(GameTime _GameTime) {
-            GameTime = _GameTime;
-            Graphics.BeginSpriteBatch();
-            Bloom.Draw();
-            if(GameState.currentGameState == GameState.GameStates.playing) {
-                if(GameState.lastGameState != GameState.currentGameState) {
-                    Graphics.graphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
+            try {
+                GameTime = _GameTime;
+                Graphics.SpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
+                //Graphics.BeginSpriteBatch();
+                _bloom.Draw();
+                if (GameState.CurrentGameState == GameStates.Playing) {
+                    if (GameState.LastGameState != GameState.CurrentGameState) {
+                        Graphics.GraphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
+                    }
+                    Graphics.Draw(this);
+                    //particleSystem.Draw(this);
+                    Objects.Draw(this);
+                } else if (GameState.CurrentGameState == GameStates.Menu) {
+                    if (GameState.LastGameState != GameState.CurrentGameState) {
+                        Graphics.GraphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
+                    }
+                    GameMenu.Draw(this);
+                    Graphics.Draw(this);
                 }
-                Graphics.Draw(this);
-                //particleSystem.Draw(this);
-                Objects.Draw(this);
-            } else if(GameState.currentGameState == GameState.GameStates.menu) {
-                if(GameState.lastGameState != GameState.currentGameState) {
-                    Graphics.graphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
-                }
-                GameMenu.Draw(this);
-                Graphics.Draw(this);
+                DebugText.Draw(this);
+                //Graphics.EndSpriteBatch();
+                Graphics.SpriteBatch.End();
+                base.Draw(_GameTime);
+            } catch {
+                throw;
             }
-            DebugText.Draw(this);
-            Graphics.EndSpriteBatch();
-            base.Draw(_GameTime);
         }
+        #endregion
     }
 }

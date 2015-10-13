@@ -28,7 +28,7 @@ namespace Roguelancer.Objects {
                 Texture = game.Content.Load<Texture2D>(texturePath);
                 Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.font);
                 _color = new Color(255, 255, 255, 255);
-                _size = new Vector2(game.Graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / 4, game.GraphicsDevice.Viewport.Height / 15);
+                _size = new Vector2(game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Width / 4, game.GraphicsDevice.Viewport.Height / 15);
             } catch (Exception ex) {
                 throw ex;
             }
@@ -41,8 +41,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                if (game.GameState.currentGameState == GameState.GameStates.menu) {
-                    var mouseRectangle = new Rectangle(game.Input.lInputItems.mouse.State.X, game.Input.lInputItems.mouse.State.Y, 1, 1);
+                if (game.GameState.CurrentGameState == GameStates.Menu) {
+                    var mouseRectangle = new Rectangle(game.Input.InputItems.Mouse.State.X, game.Input.InputItems.Mouse.State.Y, 1, 1);
                     _rectangle = new Rectangle((int)Position.X, (int)Position.Y, (int)_size.X, (int)_size.Y);
                     _textRectangle = new Rectangle((int)TextPosition.X, (int)TextPosition.Y, (int)_size.X - 80, (int)_size.Y - YOffset);
                     if (mouseRectangle.Intersects(_textRectangle)) {
@@ -57,7 +57,7 @@ namespace Roguelancer.Objects {
                         } else {
                             _color.A -= 5;
                         }
-                        if (game.Input.lInputItems.mouse.State.LeftButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed) {
+                        if (game.Input.InputItems.Mouse.State.LeftButton == Microsoft.Xna.Framework.Input.ButtonState.Pressed) {
                             Clicked = true;
                         }
                     } else if (_color.A < 255) {
@@ -68,9 +68,9 @@ namespace Roguelancer.Objects {
                         switch (Text) {
                             case "New Game":
                                 game.DebugText.Text = "Play Clicked";
-                                if (game.GameState.currentGameState == GameState.GameStates.menu) {
-                                    game.GameState.lastGameState = game.GameState.currentGameState;
-                                    game.GameState.currentGameState = GameState.GameStates.playing;
+                                if (game.GameState.CurrentGameState == GameStates.Menu) {
+                                    game.GameState.LastGameState = game.GameState.CurrentGameState;
+                                    game.GameState.CurrentGameState = GameStates.Playing;
                                     game.DebugText.Text = "";
                                     Clicked = false;
                                 }
@@ -84,14 +84,14 @@ namespace Roguelancer.Objects {
                             case "Options":
                                 game.GameMenu.CurrentMenu = CurrentMenu.OptionsMenu;
                                 game.DebugText.Text = "Options Clicked";
-                                game.GameState.currentGameState = GameState.GameStates.menu;
+                                game.GameState.CurrentGameState = GameStates.Menu;
                                 Clicked = false;
                                 break;
                             case "Return":
                                 game.DebugText.Text = "Return Clicked";
                                 if (game.GameMenu.CurrentMenu == CurrentMenu.OptionsMenu) {
                                     game.GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
-                                    game.GameState.currentGameState = GameState.GameStates.menu;
+                                    game.GameState.CurrentGameState = GameStates.Menu;
                                     Clicked = false;
                                 }
                                 break;

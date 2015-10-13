@@ -9,31 +9,36 @@ namespace Roguelancer.Functionality {
     /// Debug Text
     /// </summary>
     public class DebugText : IGame {
+        #region "public variables"
         /// <summary>
         /// Text
         /// </summary>
-        public String Text;
+        public String Text { get; set; }
+        #endregion
+        #region "private variables"
         /// <summary>
         /// Font
         /// </summary>
-        private SpriteFont Font;
+        private SpriteFont _font;
         /// <summary>
         /// Font Position
         /// </summary>
-        private Vector2 FontPosition;
+        private Vector2 _fontPosition;
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="_Game"></param>
-        public void Initialize(RoguelancerGame _Game) {}
+        #endregion
+        #region "public functions"
+        public void Initialize(RoguelancerGame game) {}
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="_Game"></param>
-        public void LoadContent(RoguelancerGame _Game) {
+        public void LoadContent(RoguelancerGame game) {
             try {
-                Font = _Game.Content.Load<SpriteFont>("FONTS\\" + _Game.Settings.font);
-                FontPosition = new Vector2(_Game.Graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Width / 2, _Game.Graphics.graphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
+                _font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.font);
+                _fontPosition = new Vector2(game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Width / 2, game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
             } catch {
                 throw;
             }
@@ -42,18 +47,19 @@ namespace Roguelancer.Functionality {
         /// Update
         /// </summary>
         /// <param name="_Game"></param>
-        public void Update(RoguelancerGame _Game) {}
+        public void Update(RoguelancerGame game) {}
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="_Game"></param>
-        public void Draw(RoguelancerGame _Game) {
+        public void Draw(RoguelancerGame game) {
             try {
-                var fontOrigin = Font.MeasureString(Text) / 2;
-                _Game.Graphics.SpriteBatch.DrawString(Font, Text, FontPosition, Color.White, 0, fontOrigin, 3.0f, SpriteEffects.None, 0.5f);
+                var fontOrigin = _font.MeasureString(Text) / 2;
+                game.Graphics.SpriteBatch.DrawString(_font, Text, _fontPosition, Color.White, 0, fontOrigin, 3.0f, SpriteEffects.None, 0.5f);
             } catch {
                 throw;
             }
         }
+        #endregion
     }
 }

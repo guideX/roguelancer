@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using Roguelancer.Objects;
+using Roguelancer.Interfaces;
 namespace Roguelancer.Models {
     public class BulletsModel {
-        public List<Bullet> Bullets { get; set; }
+        public List<IBullet> Bullets { get; set; }
         public int RechargeRate { get; set; }
         public DateTime WeaponRechargedTime { get; set; }
         public bool AreBulletsAvailable { get; set; }

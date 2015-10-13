@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Roguelancer.Particle.ParticleSystem;
+using Roguelancer.Interfaces;
 namespace Roguelancer.Particle.ParticleSystem {
     public class DynamicParticleSystem : ParticleSystem<DynamicParticle> {
         protected List<IParticleEmitter> emitters;
@@ -19,20 +19,20 @@ namespace Roguelancer.Particle.ParticleSystem {
             }
             for(int i = 0; i < liveParticles.Count; i++) {
                 DynamicParticle particle = liveParticles[i];
-                if(particle.remainingLifetime.HasValue) {
-                    if(particle.remainingLifetime.Value.TotalMilliseconds > 0.0) {
-                        particle.remainingLifetime -= gameTime.ElapsedGameTime;
+                if(particle.RemainingLifetime.HasValue) {
+                    if(particle.RemainingLifetime.Value.TotalMilliseconds > 0.0) {
+                        particle.RemainingLifetime -= gameTime.ElapsedGameTime;
                     } else {
                         RemoveAt(i);
                         i--;
                         continue;
                     }
                 }
-                if(particle.velocity.HasValue) {
-                    particle.position += particle.velocity.Value;
+                if(particle.Velocity.HasValue) {
+                    particle.Position += particle.Velocity.Value;
                 }
                 if(particle.Rotation.HasValue) {
-                    particle.angle += particle.Rotation.Value;
+                    particle.Angle += particle.Rotation.Value;
                 }
                 if(particle.IsAffectable) {
                     foreach(IParticleAffector affector in affectors) {
@@ -57,12 +57,12 @@ namespace Roguelancer.Particle.ParticleSystem {
         public void AddParticle(Vector3 position, Color color, Vector3? velocity, float? rotation, TimeSpan? lifespan, bool isAffectable, float angle, float scale) {
             if(lDeadParticles.Count != 0) {
                 DynamicParticle particle = lDeadParticles.Pop();
-                particle.initialPosition = particle.position = position;
-                particle.initialVelocity = particle.velocity = velocity;
-                particle.initialColor = particle.color = color;
-                particle.initialAngle = particle.angle = angle;
+                particle.InitialPosition = particle.Position = position;
+                particle.InitialVelocity = particle.Velocity = velocity;
+                particle.InitialColor = particle.Color = color;
+                particle.InitialAngle = particle.Angle = angle;
                 particle.InitialRotation = particle.Rotation = rotation;
-                particle.initialScale = particle.scale = scale;
+                particle.InitialScale = particle.Scale = scale;
                 particle.IsAffectable = isAffectable;
                 particle.lifespan = lifespan;
                 liveParticles.Add(particle);

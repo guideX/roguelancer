@@ -155,16 +155,16 @@ namespace Roguelancer.Models {
         /// <param name="_Game"></param>
         public void Update(RoguelancerGame _Game) {
             try {
-                if (_Game.Input.lInputItems.toggles.toggleCamera == false) {
+                if (_Game.Input.InputItems.Toggles.ToggleCamera == false) {
                     World = Matrix.Identity;
                     World.Forward = Direction;
                     World.Up = Up;
                     World.Right = Right;
                     World.Translation = Position;
                 }
-                if (_Game.GameState.currentGameState != GameState.GameStates.playing) {
+                if (_Game.GameState.CurrentGameState != GameStates.Playing) {
                     CurrentThrust = 0.0f;
-                    _Game.Input.lInputItems.toggles.cruise = false;
+                    _Game.Input.InputItems.Toggles.Cruise = false;
                 }
                 if (ParticleSystemEnabled) {
                     particleSystem.Update(_Game);
@@ -179,7 +179,7 @@ namespace Roguelancer.Models {
         /// <param name="_Game"></param>
         public void Draw(RoguelancerGame _Game) {
             try {
-                if (_Game.GameState.currentGameState == GameState.GameStates.playing) {
+                if (_Game.GameState.CurrentGameState == GameStates.Playing) {
                     var transforms = new Matrix[model.Bones.Count];
                     model.CopyAbsoluteBoneTransformsTo(transforms);
                     if (ParticleSystemEnabled) {

@@ -6,6 +6,8 @@ using System.Linq;
 using System.Text;
 using Microsoft.Xna.Framework;
 using Roguelancer.Particle.ParticleSystem;
+using Roguelancer.Interfaces;
+
 namespace Roguelancer.Particle.System.Emitters {
     public class SmokeRingEmitter : IParticleEmitter {
         public DynamicParticleSystem ParticleSystem { get; set; }

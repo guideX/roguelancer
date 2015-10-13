@@ -7,11 +7,13 @@ using System.Text;
 using Microsoft.Xna.Framework;
 using Tranquillity;
 using Roguelancer.Particle.ParticleSystem;
+using Roguelancer.Interfaces;
+
 namespace Tranquillity {
     public class Fadeout : IParticleAffector {
         public void Affect(GameTime _GameTime, DynamicParticle particle) {
             if(particle.Age.HasValue) {
-                particle.color = Color.Lerp(particle.initialColor, new Color(particle.initialColor.R, particle.initialColor.G, particle.initialColor.B, 0), 1.0f - particle.Age.Value);
+                particle.Color = Color.Lerp(particle.InitialColor, new Color(particle.InitialColor.R, particle.InitialColor.G, particle.InitialColor.B, 0), 1.0f - particle.Age.Value);
             }
         }
     }

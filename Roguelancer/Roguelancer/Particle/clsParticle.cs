@@ -7,8 +7,8 @@ using Roguelancer.Functionality;
 using Roguelancer.Objects;
 namespace Roguelancer.Particle {
     class clsParticleStarSheet {
-        GraphicsDevice lGraphicsDevice;
-        GameCamera lCamera;
+        //GraphicsDevice lGraphicsDevice;
+        //GameCamera lCamera;
         VertexPositionTexture[] lVerts;
         Color[] lVertexColorArray;
         VertexBuffer lParticleVertexBuffer;
@@ -17,7 +17,7 @@ namespace Roguelancer.Particle {
         static Random lRnd = new Random();
         Effect lParticleEffect;
         Texture2D lParticleColorsTexture;
-        public clsParticleStarSheet(GameGraphics _Graphics, Vector3 _MaxPosition, int _MaxParticles, Texture2D _ParticleColorsTexture, Effect _ParticleEffect, int _MaxSize, GameCamera _Camera) {
+        public clsParticleStarSheet(RoguelancerGame game, Vector3 _MaxPosition, int _MaxParticles, Texture2D _ParticleColorsTexture, Effect _ParticleEffect, int _MaxSize) {
             lMaxParticles = _MaxParticles;
             lParticleEffect = _ParticleEffect;
             lParticleColorsTexture = _ParticleColorsTexture;
@@ -36,20 +36,20 @@ namespace Roguelancer.Particle {
                 lVerts[(i * 4) + 3] = new VertexPositionTexture(new Vector3(position.X + size, position.Y + size, position.Z), new Vector2(1, 1));
                 lVertexColorArray[i] = colors[(lRnd.Next(0, lParticleColorsTexture.Height) * lParticleColorsTexture.Width) + lRnd.Next(0, lParticleColorsTexture.Width)];
             }
-            lParticleVertexBuffer = new VertexBuffer(_Graphics.graphicsDeviceManager.GraphicsDevice, typeof(VertexPositionTexture), lVerts.Length, BufferUsage.None);
+            lParticleVertexBuffer = new VertexBuffer(game.GraphicsDevice, typeof(VertexPositionTexture), lVerts.Length, BufferUsage.None);
         }
-        public void Update(GameCamera _Camera, GraphicsDevice _GraphicsDevice) {
-            lCamera = _Camera;
-            lGraphicsDevice = _GraphicsDevice;
+        public void Update(RoguelancerGame game) {
+            //lCamera = game.Camera;
+            //lGraphicsDevice = _GraphicsDevice;
         }
-        public void Draw() {
-            lGraphicsDevice.SetVertexBuffer(lParticleVertexBuffer);
+        public void Draw(RoguelancerGame game) {
+            game.GraphicsDevice.SetVertexBuffer(lParticleVertexBuffer);
             for (int i = 0; i < lMaxParticles; ++i) {
-                lParticleEffect.Parameters["WorldViewProjection"].SetValue(lCamera.View * lCamera.Projection);
+                lParticleEffect.Parameters["WorldViewProjection"].SetValue(game.Camera.View * game.Camera.Projection);
                 lParticleEffect.Parameters["particleColor"].SetValue(lVertexColorArray[i].ToVector4());
                 foreach (EffectPass _EffectPass in lParticleEffect.CurrentTechnique.Passes) {
                     _EffectPass.Apply();
-                    lGraphicsDevice.DrawUserPrimitives<VertexPositionTexture>(PrimitiveType.TriangleStrip, lVerts, i * 4, 2);
+                    game.GraphicsDevice.DrawUserPrimitives<VertexPositionTexture>(PrimitiveType.TriangleStrip, lVerts, i * 4, 2);
                 }
             }
         }
@@ -135,11 +135,11 @@ namespace Roguelancer.Particle {
                 lVerts[(i * 4) + 3].Position += lVertexDirectionArray[i];
             }
         }
-        public void Draw(GameCamera _Camera) {
+        public void Draw(RoguelancerGame game) {
             lGraphicsDevice.SetVertexBuffer(lParticleVertexBuffer);
             if (lEndOfLiveParticlesIndex - lEndOfDeadParticlesIndex > 0) {
                 for (int i = lEndOfDeadParticlesIndex; i < lEndOfLiveParticlesIndex; ++i) {
-                    lParticleEffect.Parameters["WorldViewProjection"].SetValue(_Camera.View * _Camera.Projection);
+                    lParticleEffect.Parameters["WorldViewProjection"].SetValue(game.Camera.View * game.Camera.Projection);
                     lParticleEffect.Parameters["particleColor"].SetValue(lVertexColorArray[i].ToVector4());
                     foreach (EffectPass _EffectPass in lParticleEffect.CurrentTechnique.Passes) {
                         _EffectPass.Apply();
