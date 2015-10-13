@@ -4,6 +4,7 @@ using Roguelancer.Bloom;
 using Roguelancer.Enum;
 using Roguelancer.Interfaces;
 using Roguelancer.Objects;
+using Roguelancer.Particle.System.ParticleSystems;
 using Roguelancer.Settings;
 namespace Roguelancer.Functionality {
     /// <summary>
@@ -57,7 +58,7 @@ namespace Roguelancer.Functionality {
         /// Bloom
         /// </summary>
         private BloomHandler _bloom;
-        //private clsParticleSystemHandler particleSystem;
+        private clsParticleSystemHandler particleSystem;
         //private clsSound lEngineNoise;
         /// <summary>
         /// Entry Point
@@ -78,7 +79,7 @@ namespace Roguelancer.Functionality {
             Objects = new GameObjects(this);
             GameMenu = new GameMenu();
             GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
-            //particleSystem = new clsParticleSystemHandler(this);
+            particleSystem = new clsParticleSystemHandler(this);
             //lEngineNoise = new clsSound();
         }
         /// <summary>

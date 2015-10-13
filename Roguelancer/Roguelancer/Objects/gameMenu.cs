@@ -9,10 +9,13 @@ namespace Roguelancer.Objects {
     /// Game Menu
     /// </summary>
     public class GameMenu : IGame {
+        #region "public variables"
         /// <summary>
         /// Current Menu
         /// </summary>
         public CurrentMenu CurrentMenu;
+        #endregion
+        #region "private variables"
         /// <summary>
         /// Last Menu
         /// </summary>
@@ -37,6 +40,8 @@ namespace Roguelancer.Objects {
         /// Menu Buttons
         /// </summary>
         public List<MenuButton> MenuButtons;
+        #endregion
+        #region "public functions"
         /// <summary>
         /// Entry Point
         /// </summary>
@@ -88,7 +93,7 @@ namespace Roguelancer.Objects {
                                 Position = new Vector2(50, 200),
                                 TextPosition = new Vector2(50, 140),
                                 Enabled = true,
-                                YOffset  = 14
+                                YOffset = 14
                             });
                             MenuButtons.Add(new MenuButton(game, "Load Game", "BUTTONS\\loadgame") {
                                 SortId = 2,
@@ -160,5 +165,6 @@ namespace Roguelancer.Objects {
                 throw;
             }
         }
+        #endregion
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -10,6 +11,7 @@ namespace Roguelancer.Objects {
     /// Bullets
     /// </summary>
     public class Bullets : IGame {
+        #region "private variables"
         /// <summary>
         /// Player Ship
         /// </summary>
@@ -18,13 +20,23 @@ namespace Roguelancer.Objects {
         /// Model
         /// </summary>
         private BulletsModel _model { get; set; }
+        #endregion
+        #region "public functions"
         /// <summary>
         /// Entry Point
         /// </summary>
         public Model BulletsModel { get; set; }
+        /// <summary>
+        /// Entry Point
+        /// </summary>
+        /// <param name="game"></param>
         public Bullets(RoguelancerGame game) {
-            _model = new BulletsModel();
-            _model.Bullets = new List<IBullet>();
+            try {
+                _model = new BulletsModel();
+                _model.Bullets = new List<IBullet>();
+            } catch {
+                throw;
+            }
         }
         /// <summary>
         /// Initialize
@@ -45,7 +57,8 @@ namespace Roguelancer.Objects {
         public void LoadContent(RoguelancerGame game) {
             try {
                 BulletsModel = game.Content.Load<Model>("bullet");
-                _playerShip = game.Objects.ships.GetPlayerShip(game);
+                _playerShip = game.Objects.ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                //_playerShip = game.Objects.ships.GetPlayerShip(game);
             } catch {
                 throw;
             }
@@ -94,5 +107,6 @@ namespace Roguelancer.Objects {
                 throw;
             }
         }
+        #endregion
     }
 }

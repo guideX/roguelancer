@@ -3,15 +3,16 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
-using Roguelancer.Particle.System.ParticleSystems;
 using Roguelancer.Settings;
 using Roguelancer.Enum;
 using Roguelancer.Functionality;
+using Roguelancer.Particle.System.ParticleSystems;
 namespace Roguelancer.Models {
     /// <summary>
     /// Game Model
     /// </summary>
     public class GameModel : IGameModel {
+        #region "public variables"
         /// <summary>
         /// Scale
         /// </summary>
@@ -68,6 +69,8 @@ namespace Roguelancer.Models {
         /// Particle System Enabled
         /// </summary>
         public bool ParticleSystemEnabled { get; set; }
+        #endregion
+        #region "private variables"
         /// <summary>
         /// Model
         /// </summary>
@@ -76,6 +79,8 @@ namespace Roguelancer.Models {
         /// Particle System
         /// </summary>
         private clsParticleSystemHandler particleSystem;
+        #endregion
+        #region "public functions"
         /// <summary>
         /// Entry Point
         /// </summary>
@@ -205,5 +210,6 @@ namespace Roguelancer.Models {
                 throw;
             }
         }
+        #endregion
     }
 }

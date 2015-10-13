@@ -7,8 +7,6 @@ using Roguelancer.Functionality;
 using Roguelancer.Objects;
 namespace Roguelancer.Particle {
     class clsParticleStarSheet {
-        //GraphicsDevice lGraphicsDevice;
-        //GameCamera lCamera;
         VertexPositionTexture[] lVerts;
         Color[] lVertexColorArray;
         VertexBuffer lParticleVertexBuffer;

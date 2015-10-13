@@ -5,26 +5,80 @@ using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Enum;
 namespace Roguelancer.Objects {
+    /// <summary>
+    /// Menu Button
+    /// </summary>
     public class MenuButton : IGame {
-        //public bool AutoDown;
-        //public int HeightIntegral;
-        public int YOffset;
-        public bool Enabled;
-        public Texture2D Texture;
-        public int SortId;
-        public bool Clicked;
-        public bool Down;
-        private string Text;
-        public Vector2 Position;
+        #region "public variables"
+        /// <summary>
+        /// Y Offset
+        /// </summary>
+        public int YOffset { get; set; }
+        /// <summary>
+        /// Enabled
+        /// </summary>
+        public bool Enabled { get; set; }
+        /// <summary>
+        /// Texture
+        /// </summary>
+        public Texture2D Texture { get; set; }
+        /// <summary>
+        /// Sort Id
+        /// </summary>
+        public int SortId { get; set; }
+        /// <summary>
+        /// Clicked
+        /// </summary>
+        public bool Clicked { get; set; }
+        /// <summary>
+        /// Down
+        /// </summary>
+        public bool Down { get; set; }
+        /// <summary>
+        /// Position
+        /// </summary>
+        public Vector2 Position { get; set; }
+        /// <summary>
+        /// Text Position
+        /// </summary>
         public Vector2 TextPosition;
+        #endregion
+        #region "private variables"
+        /// <summary>
+        /// Text
+        /// </summary>
+        private string _text;
+        /// <summary>
+        /// Rectangle
+        /// </summary>
         private Rectangle _rectangle;
+        /// <summary>
+        /// Text Rectangle
+        /// </summary>
         private Rectangle _textRectangle;
+        /// <summary>
+        /// Color
+        /// </summary>
         private Color _color;
+        /// <summary>
+        /// Size
+        /// </summary>
         private Vector2 _size;
+        /// <summary>
+        /// Font
+        /// </summary>
         private SpriteFont Font;
+        #endregion
+        #region "public functions"
+        /// <summary>
+        /// Menu Button
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="text"></param>
+        /// <param name="texturePath"></param>
         public MenuButton(RoguelancerGame game, string text, string texturePath) {
             try {
-                Text = text;
+                _text = text;
                 Texture = game.Content.Load<Texture2D>(texturePath);
                 Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.font);
                 _color = new Color(255, 255, 255, 255);
@@ -65,7 +119,7 @@ namespace Roguelancer.Objects {
                         Clicked = false;
                     }
                     if (Clicked) {
-                        switch (Text) {
+                        switch (_text) {
                             case "New Game":
                                 game.DebugText.Text = "Play Clicked";
                                 if (game.GameState.CurrentGameState == GameStates.Menu) {
@@ -113,13 +167,14 @@ namespace Roguelancer.Objects {
         public void Draw(RoguelancerGame game) {
             try {
                 if (Texture != null) {
-                    var f = Font.MeasureString(Text);
-                    game.Graphics.SpriteBatch.DrawString(Font, Text, TextPosition, Color.Red, 0, f, 3.0f, SpriteEffects.None, 0.5f);
+                    var f = Font.MeasureString(_text);
+                    game.Graphics.SpriteBatch.DrawString(Font, _text, TextPosition, Color.Red, 0, f, 3.0f, SpriteEffects.None, 0.5f);
                     game.Graphics.SpriteBatch.Draw(Texture, _rectangle, _color);
                 }
             } catch (Exception ex) {
                 throw ex;
             }
         }
+        #endregion
     }
 }

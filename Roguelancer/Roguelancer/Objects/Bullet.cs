@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using Roguelancer.Models;
 using Roguelancer.Functionality;
 using Microsoft.Xna.Framework;
@@ -8,6 +9,7 @@ namespace Roguelancer.Objects {
     /// Bullet
     /// </summary>
     public class Bullet : IBullet {
+        #region "public variables"
         /// <summary>
         /// Model
         /// </summary>
@@ -20,6 +22,8 @@ namespace Roguelancer.Objects {
         /// Bullet Thrust
         /// </summary>
         private float _bulletThrust;
+        #endregion
+        #region "public functions"
         /// <summary>
         /// Entry Point
         /// </summary>
@@ -89,7 +93,8 @@ namespace Roguelancer.Objects {
                 var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds;
                 var rotationAmount = new Vector2();
                 if (BulletModel.PlayerShip == null) {
-                    BulletModel.PlayerShip = game.Objects.ships.GetPlayerShip(game);
+                    BulletModel.PlayerShip = game.Objects.ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                    //BulletModel.PlayerShip = game.Objects.ships.GetPlayerShip(game);
                 }
                 Model.CurrentThrust = _bulletThrust + BulletModel.PlayerShip.model.CurrentThrust;
                 Model.Rotation = rotationAmount;
@@ -120,5 +125,6 @@ namespace Roguelancer.Objects {
                 throw;
             }
         }
+        #endregion
     }
 }

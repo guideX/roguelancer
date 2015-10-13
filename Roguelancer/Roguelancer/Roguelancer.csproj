@@ -131,10 +131,13 @@
     <Compile Include="Interfaces\IGame.cs" />
     <Compile Include="Interfaces\IGameCamera.cs" />
     <Compile Include="Interfaces\IGameModel.cs" />
+    <Compile Include="Interfaces\IGameObjects.cs" />
     <Compile Include="Interfaces\IParticle.cs" />
     <Compile Include="Interfaces\IParticleAffector.cs" />
+    <Compile Include="Interfaces\IParticleEmitter.cs" />
+    <Compile Include="Interfaces\IParticleSystem.cs" />
     <Compile Include="Interfaces\IPlayerShipControl.cs" />
-    <Compile Include="Interfaces\IRoguelancerGame.cs" />
+    <Compile Include="Interfaces\IShipCollection.cs" />
     <Compile Include="Models\BulletModel.cs" />
     <Compile Include="Models\BulletsModel.cs" />
     <Compile Include="Models\GameModel.cs" />
@@ -147,41 +150,38 @@
     <Compile Include="Objects\GameMenu.cs" />
     <Compile Include="Objects\MenuButton.cs" />
     <Compile Include="Objects\GameObjects.cs" />
-    <Compile Include="Objects\planet.cs">
+    <Compile Include="Objects\Planet.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Objects\Ship.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Objects\StarSystem.cs" />
     <Compile Include="Objects\Station.cs" />
+    <Compile Include="Particle\clsParticle.cs" />
     <Compile Include="Particle\ParticleSystem\DynamicParticle.cs" />
     <Compile Include="Particle\ParticleSystem\DynamicParticleSystem.cs" />
-    <Compile Include="Interfaces\IParticleEmitter.cs" />
-    <Compile Include="Interfaces\IParticleSystem.cs" />
     <Compile Include="Particle\ParticleSystem\ParticleManager.cs" />
     <Compile Include="Particle\ParticleSystem\ParticleSystem.cs" />
     <Compile Include="Particle\ParticleSystem\StaticParticle.cs" />
     <Compile Include="Particle\ParticleSystem\StaticParticleSystem.cs" />
+    <Compile Include="Particle\Starfields.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Particle\System\Affectors\Affectors.cs" />
     <Compile Include="Particle\System\Affectors\FadeOut.cs" />
+    <Compile Include="Particle\System\Affectors\VelocityAffector.cs" />
     <Compile Include="Particle\System\clsParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\ExplosionParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\ExplosionSmokeParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\FireParticleSystem.cs" />
-    <Compile Include="Particle\System\Projectile.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\ParticleSystemHandler.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\ProjectileTrailParticleSystem.cs" />
+    <Compile Include="Particle\System\Emitters\ParticleSystems\RandomHelper.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\SmokeParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\SmokePlumeEmitter.cs" />
     <Compile Include="Particle\System\Emitters\SmokeRingEmitter.cs" />
     <Compile Include="Particle\System\Emitters\TrailEmitter.cs" />
-    <Compile Include="Particle\clsParticle.cs" />
-    <Compile Include="Particle\clsStarfields.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Particle\System\Affectors\VelocityAffector.cs" />
-    <Compile Include="Particle\System\Emitters\ParticleSystems\RandomHelper.cs" />
+    <Compile Include="Particle\System\Projectile.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Roguelancer.cs" />
     <Compile Include="Settings\CameraSettings.cs" />

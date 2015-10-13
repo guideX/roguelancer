@@ -1,74 +1,165 @@
 ﻿// Roguelancer Planet
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Roguelancer.Interfaces;
 using Roguelancer.Functionality;
-using Microsoft.Xna.Framework.Content;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Settings;
 using Roguelancer.Models;
 namespace Roguelancer.Objects {
     public class PlanetCollection : IGame {
-        public List<Planet> planets { get; set; }
+        #region "public variables"
+        /// <summary>
+        /// Planets
+        /// </summary>
+        public List<Planet> Planets { get; set; }
+        #endregion
+        #region "public functions"
+        /// <summary>
+        /// Planet Collection
+        /// </summary>
         public PlanetCollection() {
-            planets = new List<Planet>();
+            try {
+                Planets = new List<Planet>();
+            } catch {
+                throw;
+            }
         }
+        /// <summary>
+        /// Initialize
+        /// </summary>
+        /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            Planet tempPlanet;
-            foreach(ModelWorldObjects modelWorldObject in game.Settings.starSystemSettings[0].planets) {
-                tempPlanet = new Planet(game);
-                tempPlanet.model.WorldObject = modelWorldObject;
-                planets.Add(tempPlanet);
-            }
-
-            for(int i = 0; i <= planets.Count - 1; i++) {
-                planets[i].Initialize(game);
+            try {
+                Planet tempPlanet;
+                foreach (ModelWorldObjects modelWorldObject in game.Settings.starSystemSettings[0].planets) {
+                    tempPlanet = new Planet(game);
+                    tempPlanet.Model.WorldObject = modelWorldObject;
+                    Planets.Add(tempPlanet);
+                }
+                for (int i = 0; i <= Planets.Count - 1; i++) {
+                    Planets[i].Initialize(game);
+                }
+            } catch {
+                throw;
             }
         }
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            for(int i = 0; i <= planets.Count - 1; i++) {
-                planets[i].LoadContent(game);
+            try {
+                for (int i = 0; i <= Planets.Count - 1; i++) {
+                    Planets[i].LoadContent(game);
+                }
+            } catch {
+                throw;
             }
         }
+        /// <summary>
+        /// Upate
+        /// </summary>
+        /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            for(int i = 0; i <= planets.Count - 1; i++) {
-                planets[i].Update(game);
+            try {
+                for (int i = 0; i <= Planets.Count - 1; i++) {
+                    Planets[i].Update(game);
+                }
+            } catch {
+                throw;
             }
         }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            for(int i = 0; i <= planets.Count - 1; i++) {
-                planets[i].Draw(game);
+            try {
+                for (int i = 0; i <= Planets.Count - 1; i++) {
+                    Planets[i].Draw(game);
+                }
+            } catch {
+                throw;
             }
         }
+        #endregion
     }
     public class Planet : IGame, IDockable {
-        public GameModel model;
+        #region "public variables"
+        /// <summary>
+        /// Model
+        /// </summary>
+        public GameModel Model { get; set; }
+        #endregion
+        #region "public functions"
+        /// <summary>
+        /// Planet
+        /// </summary>
+        /// <param name="game"></param>
         public Planet(RoguelancerGame game) {
-            model = new GameModel(game);
+            try {
+                Model = new GameModel(game);
+            } catch {
+                throw;
+            }
         }
+        /// <summary>
+        /// Initialize
+        /// </summary>
+        /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            model.ModelMode = Enum.ModelModeEnum.Planet;
-            
-            model.Initialize(game);
+            try {
+                Model.ModelMode = Enum.ModelModeEnum.Planet;
+                Model.Initialize(game);
+            } catch {
+                throw;
+            }
         }
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            model.LoadContent(game);
+            try {
+                Model.LoadContent(game);
+            } catch {
+                throw;
+            }
         }
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            model.UpdatePosition();
-            model.Update(game);
+            try {
+                Model.UpdatePosition();
+                Model.Update(game);
+            } catch {
+                throw;
+            }
         }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            model.Draw(game);
+            try {
+                Model.Draw(game);
+            } catch {
+                throw;
+            }
         }
-        public void Dock(RoguelancerGame game, Ship ship) {
-            
-        }
-        public void UnDock(RoguelancerGame game, Ship ship) {
-
-        }
+        /// <summary>
+        /// Dock
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="ship"></param>
+        public void Dock(RoguelancerGame game, Ship ship) {}
+        /// <summary>
+        /// Un-Doc
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="ship"></param>
+        public void UnDock(RoguelancerGame game, Ship ship) {}
+        #endregion
     }
 }

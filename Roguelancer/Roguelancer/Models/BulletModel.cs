@@ -1,10 +1,10 @@
-﻿using System;
-using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.org
+using System;
 using Roguelancer.Objects;
-using System.Collections.Generic;
 namespace Roguelancer.Models {
     public class BulletModel {
+        #region "public variables"
         /// <summary>
         /// Player Ship
         /// </summary>
@@ -29,13 +29,20 @@ namespace Roguelancer.Models {
         /// Limit Altitude
         /// </summary>
         public bool LimitAltitude { get; set; }
+        #endregion
+        #region "public functions"
         /// <summary>
         /// Bullet Model
         /// </summary>
-        public BulletModel() {
-            Mass = 1.0f;
-            ThrustForce = 44000.0f;
-            DragFactor = 0.97f;
+        public BulletModel(float mass = 1.0f, float thrustForce = 44000.0f, float dragFactor = 0.97f) {
+            try {
+                Mass = mass;
+                ThrustForce = thrustForce;
+                DragFactor = dragFactor;
+            } catch {
+                throw;
+            }
         }
+        #endregion
     }
 }

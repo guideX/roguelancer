@@ -1,72 +1,129 @@
-﻿using Roguelancer.Particle;
-using Roguelancer.Functionality;
+﻿using Roguelancer.Functionality;
+using Roguelancer.Interfaces;
+using Roguelancer.Particle;
 using Roguelancer.Settings;
 namespace Roguelancer.Objects {
-    public class GameObjects {
+    /// <summary>
+    /// Game Objects
+    /// </summary>
+    public class GameObjects : IGameObjects {
+        #region "public variables"
         /// <summary>
         /// Ships
         /// </summary>
-        public ShipCollection ships;
+        public IShipCollection ships { get; set; }
         /// <summary>
         /// Bullets
         /// </summary>
-        public Bullets Bullets;
+        public Bullets Bullets { get; set; }
+        #endregion
+        #region "private variables"
         /// <summary>
         /// Stations
         /// </summary>
-        private StarSystem _starSystem { get; set; }
+        private StationCollection _stations;
+        /// <summary>
+        /// Planets
+        /// </summary>
+        private PlanetCollection _planets;
+        /// <summary>
+        /// Stars
+        /// </summary>
+        private Starfields _stars;
+        /// <summary>
+        /// Stations
+        /// </summary>
+        #endregion
+        #region "public functions"
         /// <summary>
         /// Entry Point
         /// </summary>
         /// <param name="game"></param>
         public GameObjects(RoguelancerGame game) {
-            _starSystem = new StarSystem(game);
-            ships = new ShipCollection(game);
-            Bullets = new Bullets(game);
+            try {
+                _stations = new StationCollection();
+                _planets = new PlanetCollection();
+                _stars = new Starfields(game.Settings.starSystemSettings[0].starSettings);
+                ships = new ShipCollection(game);
+                Bullets = new Bullets(game);
+            } catch {
+                throw;
+            }
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            _starSystem.Initialize(game);
-            ships.Initialize(game);
-            Bullets.Initialize(game);
+            try {
+                _stations.Initialize(game);
+                _planets.Initialize(game);
+                _stars.Initialize(game);
+                ships.Initialize(game);
+                Bullets.Initialize(game);
+            } catch {
+                throw;
+            }
         }
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            _starSystem.LoadContent(game);
-            ships.LoadContent(game);
-            Bullets.LoadContent(game);
+            try {
+                _stations.LoadContent(game);
+                _planets.LoadContent(game);
+                _stars.LoadContent(game);
+                ships.LoadContent(game);
+                Bullets.LoadContent(game);
+            } catch {
+                throw;
+            }
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            _starSystem.Update(game);
-            ships.Update(game);
-            Bullets.Update(game);
+            try {
+                _stations.Update(game);
+                _planets.Update(game);
+                _stars.Update(game);
+                ships.Update(game);
+                Bullets.Update(game);
+            } catch {
+                throw;
+            }
         }
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            _starSystem.Draw(game);
-            ships.Draw(game);
-            Bullets.Draw(game);
+            try {
+                _stations.Draw(game);
+                _planets.Draw(game);
+                _stars.Draw(game);
+                ships.Draw(game);
+                Bullets.Draw(game);
+            } catch {
+                throw;
+            }
         }
         /// <summary>
         /// Reset
         /// </summary>
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
-            _starSystem.Reset(game);
-            ships.Reset(game);
+            try {
+                _stations = new StationCollection();
+                _planets = new PlanetCollection();
+                _stars = new Starfields(new StarSettings(false, 0, 0, 0, 0, 0, 0, 0));
+                ships.Reset(game);
+            } catch {
+                throw;
+            }
         }
+        #endregion
     }
 }

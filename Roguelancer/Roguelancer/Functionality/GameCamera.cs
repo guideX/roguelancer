@@ -1,6 +1,7 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
 using System;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Roguelancer.Interfaces;
@@ -281,7 +282,8 @@ namespace Roguelancer.Functionality {
         /// <param name="game"></param>
         private void UpdateCameraChaseTarget(RoguelancerGame game) {
             try {
-                var ship = game.Objects.ships.GetPlayerShip(game);
+                var ship = game.Objects.ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                //var ship = game.Objects.ships.GetPlayerShip(game);
                 var gd = game.Graphics.GraphicsDeviceManager.GraphicsDevice;
                 _chasePosition = ship.model.Position;
                 _chaseDirection = ship.model.Direction;
