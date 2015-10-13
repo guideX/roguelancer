@@ -69,7 +69,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Particle System
         /// </summary>
-        public ParticleSystemHandler ParticleSystem { get; set; }
+        public ParticleSystem ParticleSystem { get; set; }
         #endregion
         #region "private variables"
         /// <summary>
@@ -92,7 +92,8 @@ namespace Roguelancer.Models {
                 Direction = Vector3.Forward;
                 if (particleSystemSettings == null) { particleSystemSettings = new ParticleSystemSettingsModel(); }
                 if (particleSystemSettings.Enabled) {
-                    ParticleSystem = new ParticleSystemHandler(game, particleSystemSettings);
+                    ParticleSystem = new ParticleSystem(game);
+                    ParticleSystem.Settings = particleSystemSettings;
                 }
                 Scale = 0f;
             } catch {
@@ -178,8 +179,7 @@ namespace Roguelancer.Models {
                     if (ParticleSystem.Settings.Enabled) {
                         ParticleSystem.Update(game);
                         ParticleSystem.Settings.Position = Position;
-                        //ParticleSystem.Settings.View = game.Camera.View;
-                        //ParticleSystem.Settings.Projection = game.Camera.Projection;
+                        ParticleSystem.Settings.Rotation = Rotation;
                     }
                 }
             } catch {
@@ -197,7 +197,7 @@ namespace Roguelancer.Models {
                     _model.CopyAbsoluteBoneTransformsTo(transforms);
                     if (ParticleSystem != null) {
                         if (ParticleSystem.Settings.Enabled) {
-                            ParticleSystem.Draw(game, this);
+                            ParticleSystem.Draw(game);
                         }
                     }
                     foreach (ModelMesh modelMesh in _model.Meshes) {
@@ -211,11 +211,19 @@ namespace Roguelancer.Models {
                             }
                             basicEffect.View = game.Camera.View;
                             basicEffect.Projection = game.Camera.Projection;
-
                         }
                         modelMesh.Draw();
                     }
                 }
+            } catch {
+                throw;
+            }
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
+            try {
             } catch {
                 throw;
             }

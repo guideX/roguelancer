@@ -125,6 +125,13 @@ namespace Roguelancer.Objects {
                 throw;
             }
         }
+        public void Dispose() {
+            try {
+
+            } catch {
+                throw;
+            }
+        }
         #endregion
     }
 }

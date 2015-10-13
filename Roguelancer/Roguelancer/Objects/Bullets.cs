@@ -7,6 +7,9 @@ using Roguelancer.Interfaces;
 using Roguelancer.Functionality;
 using Roguelancer.Models;
 using Roguelancer.Particle.System;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+
 namespace Roguelancer.Objects {
     /// <summary>
     /// Bullets
@@ -35,14 +38,13 @@ namespace Roguelancer.Objects {
         public Bullets(RoguelancerGame game) {
             try {
                 _model = new BulletsModel();
-                _model.Bullets = new List<IBullet>();
                 _particleSystemSettings = new ParticleSystemSettingsModel();
                 _particleSystemSettings.FireRingSystemParticles = 20;
                 _particleSystemSettings.SmokePlumeParticles = 20;
                 _particleSystemSettings.SmokeRingParticles = 20;
-                _particleSystemSettings.CameraArc = 2;
-                _particleSystemSettings.CameraRotation = 0f;
-                _particleSystemSettings.CameraDistance = 20;
+                //_particleSystemSettings.CameraArc = 2;
+                //_particleSystemSettings.CameraRotation = 0f;
+                _particleSystemSettings.CameraDistance = 110;
                 _particleSystemSettings.Fire = true;
                 _particleSystemSettings.Enabled = true;
                 _particleSystemSettings.Smoke = true;
@@ -52,6 +54,24 @@ namespace Roguelancer.Objects {
                 _particleSystemSettings.ExplosionTexture = "Textures\\Explosion";
                 _particleSystemSettings.FireTexture = "Textures\\Fire";
                 _particleSystemSettings.SmokeTexture = "Textures\\Smoke";
+                _model.Bullets = new ObservableCollection<IBullet>();
+                _model.Bullets.CollectionChanged += Bullets_CollectionChanged;
+            } catch {
+                throw;
+            }
+        }
+        /// <summary>
+        /// Bullets Collection Changed
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void Bullets_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) {
+            try {
+                if (e.Action == NotifyCollectionChangedAction.Remove) { 
+                    foreach (var bullet in _model.Bullets) {
+                        
+                    }
+                }
             } catch {
                 throw;
             }

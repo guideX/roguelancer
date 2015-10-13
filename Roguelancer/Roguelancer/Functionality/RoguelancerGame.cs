@@ -4,7 +4,7 @@ using Roguelancer.Bloom;
 using Roguelancer.Enum;
 using Roguelancer.Interfaces;
 using Roguelancer.Objects;
-using Roguelancer.Particle.System.ParticleSystems;
+using Roguelancer.Particle.System;
 using Roguelancer.Settings;
 namespace Roguelancer.Functionality {
     /// <summary>
@@ -58,7 +58,7 @@ namespace Roguelancer.Functionality {
         /// Bloom
         /// </summary>
         private BloomHandler _bloom;
-        private ParticleSystemHandler particleSystem;
+        private ParticleSystem particleSystem;
         //private clsSound lEngineNoise;
         /// <summary>
         /// Entry Point

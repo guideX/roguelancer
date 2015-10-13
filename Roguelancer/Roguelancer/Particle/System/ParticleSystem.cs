@@ -89,8 +89,7 @@ namespace Roguelancer.Particle.System {
                 }
             }
         }
-        public void Update(RoguelancerGame game, ParticleSystemSettingsModel settings) {
-            Settings = settings;
+        public void Update(RoguelancerGame game) {
             if(Settings.Enabled == true) {
                 if(Settings.SmokeRing == true) {
                     _smokeRingEmitter.EmissionRate = Settings.SmokeRingParticles;
@@ -113,10 +112,16 @@ namespace Roguelancer.Particle.System {
         public void Draw(RoguelancerGame game) {
             if(Settings.Enabled == true) {
                 float lAspectRatio = (float)game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Width / (float)game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height;
-                _view = Matrix.CreateTranslation(Settings.Position);
-                _projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 100);
-                //_view = Matrix.CreateTranslation(0, -25, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(Settings.CameraRotation)) * Matrix.CreateRotationX(MathHelper.ToRadians(Settings.CameraArc)) * Matrix.CreateLookAt(new Vector3(0, 0, - Settings.CameraDistance), new Vector3(0, 0, 0), Vector3.Up);
-                //_projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10000);
+                //_view = Matrix.CreateTranslation(Settings.Position);
+                //_projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10);
+                _view = Matrix.CreateTranslation(0, -25, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(0f)) * Matrix.CreateRotationX(MathHelper.ToRadians(2)) * Matrix.CreateLookAt(new Vector3(0, 0, - Settings.CameraDistance), new Vector3(0, 0, 0), Vector3.Up);
+                //_view = 
+                //Matrix.CreateTranslation(Settings.Position.X, Settings.Position.Y, Settings.Position.Z) * 
+                //Matrix.CreateRotationY(MathHelper.ToRadians(Settings.Rotation.Y)) * 
+                //Matrix.CreateRotationX(MathHelper.ToRadians(Settings.Rotation.X)) * 
+                //Matrix.CreateLookAt(new Vector3(0, 0, - Settings.CameraDistance),
+                //new Vector3(0, 0, 0), Vector3.Up);
+                _projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10000);
                 //_view = Settings.View;
                 //_projection = Settings.Projection;
             }
