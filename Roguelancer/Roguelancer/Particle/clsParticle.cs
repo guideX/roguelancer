@@ -105,11 +105,11 @@ namespace Roguelancer.Particle {
             }
             lParticleVertexBuffer = new VertexBuffer(lGraphicsDevice, typeof(VertexPositionTexture), lVerts.Length, BufferUsage.None);
         }
-        public void Update(GameTime _GameTime) {
+        public void Update(GameTime gameTime) {
             if (lLifeLeft > 0) {
-                lLifeLeft -= _GameTime.ElapsedGameTime.Milliseconds;
+                lLifeLeft -= gameTime.ElapsedGameTime.Milliseconds;
             }
-            lTimeSinceLastRound += _GameTime.ElapsedGameTime.Milliseconds;
+            lTimeSinceLastRound += gameTime.ElapsedGameTime.Milliseconds;
             if (lTimeSinceLastRound > lRoundTime) {
                 lTimeSinceLastRound -= lRoundTime;
                 if (lEndOfLiveParticlesIndex < lMaxParticles) {

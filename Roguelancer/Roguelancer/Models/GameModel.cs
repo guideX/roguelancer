@@ -222,8 +222,25 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
             try {
+                Scale = new float();
+                UseScale = false;
+                ModelMode = ModelModeEnum.Unknown;
+                CurrentThrust = new float();
+                Velocity = new Vector3();
+                Rotation = new Vector2();
+                Up = new Vector3();
+                Right = new Vector3();
+                Position = new Vector3();
+                Direction = new Vector3();
+                World = new Matrix();
+                MinimumAltitude = new float();
+                if (ParticleSystem != null) {
+                    ParticleSystem.Settings = new ParticleSystemSettingsModel();
+                    ParticleSystem = new ParticleSystem(game);
+                }
+                _model = null;
             } catch {
                 throw;
             }

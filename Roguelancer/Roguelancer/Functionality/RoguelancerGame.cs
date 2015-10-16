@@ -4,7 +4,6 @@ using Roguelancer.Bloom;
 using Roguelancer.Enum;
 using Roguelancer.Interfaces;
 using Roguelancer.Objects;
-using Roguelancer.Particle.System;
 using Roguelancer.Settings;
 namespace Roguelancer.Functionality {
     /// <summary>
@@ -58,7 +57,6 @@ namespace Roguelancer.Functionality {
         /// Bloom
         /// </summary>
         private BloomHandler _bloom;
-        private ParticleSystem particleSystem;
         //private clsSound lEngineNoise;
         /// <summary>
         /// Entry Point
@@ -79,7 +77,6 @@ namespace Roguelancer.Functionality {
             Objects = new GameObjects(this);
             GameMenu = new GameMenu();
             GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
-            //particleSystem = new ParticleSystemHandler(this);
             //lEngineNoise = new clsSound();
         }
         /// <summary>
@@ -92,7 +89,6 @@ namespace Roguelancer.Functionality {
             Input.Initialize(this);
             Objects.Initialize(this);
             GameMenu.Initialize(this);
-            //particleSystem.Initialize();
             //lEngineNoise.Initialize(this);
             base.Initialize();
         }
@@ -108,26 +104,23 @@ namespace Roguelancer.Functionality {
             Objects.LoadContent(this);
             DebugText.Text = Settings.menuText;
             GameMenu.LoadContent(this);
-            //particleSystem.LoadContent(this);
             //lEngineNoise.soundPath = "engine";
             base.LoadContent();
         }
         /// <summary>
         /// Update
         /// </summary>
-        /// <param name="_GameTime"></param>
-        protected override void Update(GameTime _GameTime) {
+        /// <param name="gameTime"></param>
+        protected override void Update(GameTime gameTime) {
             try {
-                GameTime = _GameTime;
+                GameTime = gameTime;
                 Input.Update(this);
                 _bloom.Update(true);
                 Objects.Update(this);
-                //Camera.UpdateCameraChaseTarget(this);
                 Camera.Update(this);
                 DebugText.Update(this);
                 GameMenu.Update(this);
-                //particleSystem.Update(_GameTime, debugText, graphics);
-                base.Update(_GameTime);
+                base.Update(gameTime);
             } catch {
                 throw;
             }
@@ -135,19 +128,17 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Draw
         /// </summary>
-        /// <param name="_GameTime"></param>
-        protected override void Draw(GameTime _GameTime) {
+        /// <param name="gameTime"></param>
+        protected override void Draw(GameTime gameTime) {
             try {
-                GameTime = _GameTime;
+                GameTime = gameTime;
                 Graphics.SpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
-                //Graphics.BeginSpriteBatch();
                 _bloom.Draw();
                 if (GameState.CurrentGameState == GameStates.Playing) {
                     if (GameState.LastGameState != GameState.CurrentGameState) {
                         Graphics.GraphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
                     }
                     Graphics.Draw(this);
-                    //particleSystem.Draw(this);
                     Objects.Draw(this);
                 } else if (GameState.CurrentGameState == GameStates.Menu) {
                     if (GameState.LastGameState != GameState.CurrentGameState) {
@@ -157,9 +148,8 @@ namespace Roguelancer.Functionality {
                     Graphics.Draw(this);
                 }
                 DebugText.Draw(this);
-                //Graphics.EndSpriteBatch();
                 Graphics.SpriteBatch.End();
-                base.Draw(_GameTime);
+                base.Draw(gameTime);
             } catch {
                 throw;
             }

@@ -1,15 +1,11 @@
 ﻿using System;
 using System.Linq;
-using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
 using Roguelancer.Functionality;
 using Roguelancer.Models;
-using Roguelancer.Particle.System;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-
+using System.Collections.Generic;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Bullets
@@ -39,12 +35,12 @@ namespace Roguelancer.Objects {
             try {
                 _model = new BulletsModel();
                 _particleSystemSettings = new ParticleSystemSettingsModel();
+                _particleSystemSettings.CameraArc = 2;
+                _particleSystemSettings.CameraRotation = 0f;
+                _particleSystemSettings.CameraDistance = 110;
                 _particleSystemSettings.FireRingSystemParticles = 20;
                 _particleSystemSettings.SmokePlumeParticles = 20;
                 _particleSystemSettings.SmokeRingParticles = 20;
-                //_particleSystemSettings.CameraArc = 2;
-                //_particleSystemSettings.CameraRotation = 0f;
-                _particleSystemSettings.CameraDistance = 110;
                 _particleSystemSettings.Fire = true;
                 _particleSystemSettings.Enabled = true;
                 _particleSystemSettings.Smoke = true;
@@ -54,24 +50,7 @@ namespace Roguelancer.Objects {
                 _particleSystemSettings.ExplosionTexture = "Textures\\Explosion";
                 _particleSystemSettings.FireTexture = "Textures\\Fire";
                 _particleSystemSettings.SmokeTexture = "Textures\\Smoke";
-                _model.Bullets = new ObservableCollection<IBullet>();
-                _model.Bullets.CollectionChanged += Bullets_CollectionChanged;
-            } catch {
-                throw;
-            }
-        }
-        /// <summary>
-        /// Bullets Collection Changed
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void Bullets_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) {
-            try {
-                if (e.Action == NotifyCollectionChangedAction.Remove) { 
-                    foreach (var bullet in _model.Bullets) {
-                        
-                    }
-                }
+                _model.Bullets = new List<IBullet>();
             } catch {
                 throw;
             }
@@ -96,7 +75,6 @@ namespace Roguelancer.Objects {
             try {
                 BulletsModel = game.Content.Load<Model>("bullet");
                 _playerShip = game.Objects.ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
-                //_playerShip = game.Objects.ships.GetPlayerShip(game);
             } catch {
                 throw;
             }
@@ -125,6 +103,7 @@ namespace Roguelancer.Objects {
                 for (int i = 0; i <= _model.Bullets.Count - 1; i++) {
                     _model.Bullets[i].Update(game); // Update Bullet
                     if (_model.Bullets[i].BulletModel.DeathDate <= DateTime.Now) {
+                        _model.Bullets[i].Dispose(game);
                         _model.Bullets.RemoveAt(i); // Remove old bullets
                     }
                 }

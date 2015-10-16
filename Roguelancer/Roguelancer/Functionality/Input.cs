@@ -224,18 +224,8 @@ namespace Roguelancer.Functionality {
                 if (game.GameState.CurrentGameState == GameStates.Playing) {
                     game.GameState.LastGameState = game.GameState.CurrentGameState;
                     game.GameState.CurrentGameState = GameStates.Menu;
-                    game.DebugText.Text = game.Settings.menuText;
                 }
             }
-            //if(_game.Input.InputItems.Keys.lF12) {
-            //if(game.gameState.currentGameState == GameState.GameStates.menu) {
-            //game.settings = new GameSettings();
-            //game.objects.Reset(game);
-            //game.gameState.lastGameState = game.gameState.currentGameState;
-            //game.gameState.currentGameState = GameState.GameStates.playing;
-            //game.debugText.text = "";
-            //}
-            //}
         }
         /// <summary>
         /// Draw

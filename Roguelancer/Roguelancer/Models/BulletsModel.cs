@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using Roguelancer.Interfaces;
-using System.Collections.ObjectModel;
 namespace Roguelancer.Models {
     /// <summary>
     /// Bullets Model
@@ -12,7 +11,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Bullets
         /// </summary>
-        public ObservableCollection<IBullet> Bullets { get; set; }
+        public List<IBullet> Bullets { get; set; }
         /// <summary>
         /// Recharge Rate
         /// </summary>

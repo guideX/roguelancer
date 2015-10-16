@@ -10,6 +10,8 @@ namespace Roguelancer.Models {
         public bool Fire { get; set; }
         public bool Explosions { get; set; }
         public bool Projectiles { get; set; }
+        public float CameraArc { get; set; }
+        public float CameraRotation { get; set; }
         public float CameraDistance { get; set; }
         public string ExplosionTexture { get; set; }
         public string FireTexture { get; set; }

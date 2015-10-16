@@ -42,19 +42,34 @@ namespace Roguelancer.Particle.System {
             public float fScale;
             public float fRadius;
             public float fHeight;
-        }
+        } 
+        /// <summary>
+        /// Particle System
+        /// </summary>
+        /// <param name="game"></param>
         public ParticleSystem(RoguelancerGame game) {
             _targetElapsedTime = TimeSpan.FromTicks(333333);
             _particleManager = new clsParticleManager(game);
             game.Components.Add(_particleManager);
         }
+        /// <summary>
+        /// Initialize
+        /// </summary>
+        /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
         }
+        /// <summary>
+        /// Load Textures
+        /// </summary>
+        /// <param name="game"></param>
         private void LoadTextures(RoguelancerGame game) {
             _explosion = game.Content.Load<Texture2D>(Settings.ExplosionTexture);
             _fire = game.Content.Load<Texture2D>(Settings.FireTexture);
             _smoke = game.Content.Load<Texture2D>(Settings.SmokeTexture);
         }
+        /// <summary>
+        /// Initialize System
+        /// </summary>
         public void InitializeSystem() {
             _explosionSmokeParticleSystem = new ExplosionSmokeParticleSystem(100, _smoke);
             _fireParticleSystem = new FireParticleSystem(500, _fire);
@@ -66,6 +81,10 @@ namespace Roguelancer.Particle.System {
             _explosionParticleSystem.AddAffector(new clsVelocityAffector(Vector3.Down));
             _smokeRingEmitter = new SmokeRingEmitter(Vector3.Zero, 0);
         }
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             if(Settings.Enabled == true) {
                 LoadTextures(game);
@@ -89,6 +108,10 @@ namespace Roguelancer.Particle.System {
                 }
             }
         }
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             if(Settings.Enabled == true) {
                 if(Settings.SmokeRing == true) {
@@ -109,23 +132,26 @@ namespace Roguelancer.Particle.System {
                 _particleManager.SetMatrices(_view, _projection);
             }
         }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             if(Settings.Enabled == true) {
                 float lAspectRatio = (float)game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Width / (float)game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height;
-                //_view = Matrix.CreateTranslation(Settings.Position);
-                //_projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10);
-                _view = Matrix.CreateTranslation(0, -25, 0) * Matrix.CreateRotationY(MathHelper.ToRadians(0f)) * Matrix.CreateRotationX(MathHelper.ToRadians(2)) * Matrix.CreateLookAt(new Vector3(0, 0, - Settings.CameraDistance), new Vector3(0, 0, 0), Vector3.Up);
-                //_view = 
-                //Matrix.CreateTranslation(Settings.Position.X, Settings.Position.Y, Settings.Position.Z) * 
-                //Matrix.CreateRotationY(MathHelper.ToRadians(Settings.Rotation.Y)) * 
-                //Matrix.CreateRotationX(MathHelper.ToRadians(Settings.Rotation.X)) * 
-                //Matrix.CreateLookAt(new Vector3(0, 0, - Settings.CameraDistance),
-                //new Vector3(0, 0, 0), Vector3.Up);
+                _view = 
+                    Matrix.CreateTranslation(0, -25, 0) * 
+                    Matrix.CreateRotationY(MathHelper.ToRadians(Settings.CameraRotation)) * 
+                    Matrix.CreateRotationX(MathHelper.ToRadians(Settings.CameraArc)) * 
+                    Matrix.CreateLookAt(new Vector3(0, 0, - Settings.CameraDistance), 
+                    new Vector3(0, 0, 0), Vector3.Up);
                 _projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, lAspectRatio, 1, 10000);
-                //_view = Settings.View;
-                //_projection = Settings.Projection;
             }
         }
+        /// <summary>
+        /// Update Explosions
+        /// </summary>
+        /// <param name="game"></param>
         public void UpdateExplosions(RoguelancerGame game) {
             _timeToNextProjectile -= game.GameTime.ElapsedGameTime;
             if(_timeToNextProjectile <= TimeSpan.Zero) {
@@ -133,6 +159,10 @@ namespace Roguelancer.Particle.System {
                 _timeToNextProjectile += TimeSpan.FromSeconds(1);
             }
         }
+        /// <summary>
+        /// Update Projectiles
+        /// </summary>
+        /// <param name="game"></param>
         public void UpdateProjectiles(RoguelancerGame game) {
             int i = 0;
             while(i < _projectiles.Count) {
