@@ -7,7 +7,6 @@ using Roguelancer.Interfaces;
 using Roguelancer.Settings;
 using Roguelancer.Models;
 using Roguelancer.Enum;
-using Roguelancer.Particle.System;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Ship Collection
@@ -88,15 +87,15 @@ namespace Roguelancer.Objects {
                 Ships = new List<Ship>();
                 var playerShip = new Ship(game);
                 Ship tempShip;
-                playerShip.model.WorldObject = game.Settings.starSystemSettings[0].ships.Where(s => s.settingsModelObject.modelType == ModelType.Ship && s.settingsModelObject.isPlayer == true).FirstOrDefault();
+                playerShip.model.WorldObject = game.Settings.StarSystemSettings[0].ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer == true).FirstOrDefault();
                 playerShip.PlayerShipControl.UseInput = true;
                 Ships.Add(playerShip);
-                foreach (ModelWorldObjects modelWorldObject in game.Settings.starSystemSettings[0].ships.Where(s => s.settingsModelObject.isPlayer == false).ToList()) {
+                foreach (ModelWorldObjects modelWorldObject in game.Settings.StarSystemSettings[0].ships.Where(s => s.SettingsModelObject.isPlayer == false).ToList()) {
                     tempShip = new Ship(game);
                     tempShip.model = new GameModel(game, null);
                     tempShip.model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
                     tempShip.PlayerShipControl.UseInput = false;
-                    tempShip.model.ModelMode = Enum.ModelModeEnum.Ship;
+                    //tempShip.model.ModelMode = Enum.ModelModeEnum.Ship;
                     Ships.Add(Ship.Clone(tempShip, game));
                 }
             } catch {
@@ -153,7 +152,7 @@ namespace Roguelancer.Objects {
         public void Initialize(RoguelancerGame game) {
             try {
                 model.Initialize(game);
-                model.ModelMode = Enum.ModelModeEnum.Ship;
+                //model.ModelMode = Enum.ModelModeEnum.Ship;
                 if (PlayerShipControl.UseInput) {
                     PlayerShipControl = new PlayerShipControl();
                     PlayerShipControl.Initialize(game);

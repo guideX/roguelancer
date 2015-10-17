@@ -7,7 +7,7 @@ namespace Roguelancer.Functionality {
     /// <summary>
     /// Game Graphics
     /// </summary>
-    public class GameGraphics : IGame {
+    public class GameGraphics : IGameGraphics {
         #region "public variables"
         /// <summary>
         /// Graphics Device Manager
@@ -26,8 +26,8 @@ namespace Roguelancer.Functionality {
         public GameGraphics(RoguelancerGame game) {
             try {
                 GraphicsDeviceManager = new GraphicsDeviceManager(game);
-                GraphicsDeviceManager.PreferredBackBufferWidth = (int)game.Settings.resolution.X;
-                GraphicsDeviceManager.PreferredBackBufferHeight = (int)game.Settings.resolution.Y;
+                GraphicsDeviceManager.PreferredBackBufferWidth = (int)game.Settings.Resolution.X;
+                GraphicsDeviceManager.PreferredBackBufferHeight = (int)game.Settings.Resolution.Y;
                 GraphicsDeviceManager.IsFullScreen = false;
             } catch {
                 throw;

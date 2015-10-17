@@ -1,4 +1,5 @@
-﻿namespace Roguelancer.Enum {
+﻿/*
+namespace Roguelancer.Enum {
     /// <summary>
     /// Model Mode Enum
     /// </summary>
@@ -22,6 +23,10 @@
         /// <summary>
         /// Bullet
         /// </summary>
-        Bullet = 4
+        Bullet = 4,
+        /// <summary>
+        /// Trade Lane Ring
+        /// </summary>
+        TradeLaneRing = 5
     }
-}
+}*/

@@ -30,7 +30,7 @@ namespace Roguelancer.Objects {
         public void Initialize(RoguelancerGame game) {
             try {
                 Station tempStation;
-                foreach (ModelWorldObjects modelWorldObject in game.Settings.starSystemSettings[0].stations) {
+                foreach (ModelWorldObjects modelWorldObject in game.Settings.StarSystemSettings[0].stations) {
                     tempStation = new Station(game);
                     tempStation.model.WorldObject = modelWorldObject;
                     Stations.Add(tempStation);
@@ -108,7 +108,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             try {
-                model.ModelMode = Enum.ModelModeEnum.Station;
+                //model.ModelMode = Enum.ModelModeEnum.Station;
                 model.Initialize(game);
             } catch {
                 throw;

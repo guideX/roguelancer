@@ -9,7 +9,7 @@ namespace Roguelancer.Functionality {
     /// <summary>
     /// Input
     /// </summary>
-    public class Input : IGame {
+    public class Input : IInput {
         #region "public variables"
         /// <summary>
         /// Input Items
@@ -57,8 +57,8 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (game.Settings.cameraSettings.fieldOfView < 80 && game.Settings.cameraSettings.fieldOfView > 180) {
-                game.Settings.cameraSettings.fieldOfView = +game.Input.InputItems.Mouse.ScrollWheel;
+            if (game.Settings.CameraSettings.FieldOfView < 80 && game.Settings.CameraSettings.FieldOfView > 180) {
+                game.Settings.CameraSettings.FieldOfView = +game.Input.InputItems.Mouse.ScrollWheel;
             }
             InputItems.Mouse.State = Mouse.GetState();
             InputItems.Mouse.ScrollWheel = InputItems.Mouse.State.ScrollWheelValue * .0001f;

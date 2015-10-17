@@ -25,7 +25,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Model Mode
         /// </summary>
-        public ModelModeEnum ModelMode { get; set; }
+        //public ModelModeEnum ModelMode { get; set; }
         /// <summary>
         /// Current Thrust
         /// </summary>
@@ -121,18 +121,18 @@ namespace Roguelancer.Models {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             try {
-                if (WorldObject.settingsModelObject.modelPath == "bullet") {
+                if (WorldObject.SettingsModelObject.modelPath == "bullet") {
                     _model = game.Objects.Bullets.BulletsModel;
                 } else {
-                    _model = game.Content.Load<Model>(WorldObject.settingsModelObject.modelPath);
+                    _model = game.Content.Load<Model>(WorldObject.SettingsModelObject.modelPath);
                 }
-                Position = WorldObject.startupPosition;
-                Up = WorldObject.initialModelUp;
-                Right = WorldObject.initialModelRight;
-                Rotation = new Vector2(WorldObject.startupModelRotation.X, WorldObject.startupModelRotation.Y);
-                Velocity = WorldObject.initialVelocity;
-                CurrentThrust = WorldObject.initialCurrentThrust;
-                Direction = WorldObject.initialDirection;
+                Position = WorldObject.StartupPosition;
+                Up = WorldObject.InitialModelUp;
+                Right = WorldObject.InitialModelRight;
+                Rotation = new Vector2(WorldObject.StartupModelRotation.X, WorldObject.StartupModelRotation.Y);
+                Velocity = WorldObject.InitialVelocity;
+                CurrentThrust = WorldObject.InitialCurrentThrust;
+                Direction = WorldObject.InitialDirection;
                 if (ParticleSystem != null) {
                     if (ParticleSystem.Settings.Enabled) {
                         ParticleSystem.LoadContent(game);
@@ -226,7 +226,7 @@ namespace Roguelancer.Models {
             try {
                 Scale = new float();
                 UseScale = false;
-                ModelMode = ModelModeEnum.Unknown;
+                //ModelMode = ModelModeEnum.Unknown;
                 CurrentThrust = new float();
                 Velocity = new Vector3();
                 Rotation = new Vector2();

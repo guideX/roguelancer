@@ -2,10 +2,11 @@
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Bloom;
 using Roguelancer.Enum;
+using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Objects;
 using Roguelancer.Settings;
-namespace Roguelancer.Functionality {
+namespace Roguelancer {
     /// <summary>
     /// Roguelancer Game
     /// </summary>
@@ -14,11 +15,11 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Graphics
         /// </summary>
-        public GameGraphics Graphics { get; set; }
+        public IGameGraphics Graphics { get; set; }
         /// <summary>
         /// Settings
         /// </summary>
-        public GameSettings Settings { get; set; }
+        public IGameSettings Settings { get; set; }
         /// <summary>
         /// Camera
         /// </summary>
@@ -26,15 +27,11 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Input
         /// </summary>
-        public Input Input { get; set; }
-        /// <summary>
-        /// Game Time
-        /// </summary>
-        public GameTime GameTime { get; set; }
+        public IInput Input { get; set; }
         /// <summary>
         /// Debug Text
         /// </summary>
-        public DebugText DebugText { get; set; }
+        public IDebugText DebugText { get; set; }
         /// <summary>
         /// Game State
         /// </summary>
@@ -48,6 +45,10 @@ namespace Roguelancer.Functionality {
         /// </summary>
         public IGameCamera CameraSnapshot { get; set; }
         /// <summary>
+        /// Game Time
+        /// </summary>
+        public GameTime GameTime { get; set; }
+        /// <summary>
         /// Game Menu
         /// </summary>
         public GameMenu GameMenu { get; set; }
@@ -57,7 +58,6 @@ namespace Roguelancer.Functionality {
         /// Bloom
         /// </summary>
         private BloomHandler _bloom;
-        //private clsSound lEngineNoise;
         /// <summary>
         /// Entry Point
         /// </summary>
@@ -77,7 +77,6 @@ namespace Roguelancer.Functionality {
             Objects = new GameObjects(this);
             GameMenu = new GameMenu();
             GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
-            //lEngineNoise = new clsSound();
         }
         /// <summary>
         /// Initialize
@@ -89,7 +88,6 @@ namespace Roguelancer.Functionality {
             Input.Initialize(this);
             Objects.Initialize(this);
             GameMenu.Initialize(this);
-            //lEngineNoise.Initialize(this);
             base.Initialize();
         }
         /// <summary>
@@ -102,9 +100,8 @@ namespace Roguelancer.Functionality {
             DebugText.LoadContent(this);
             DebugText.Update(this);
             Objects.LoadContent(this);
-            DebugText.Text = Settings.menuText;
+            DebugText.Text = Settings.MenuText;
             GameMenu.LoadContent(this);
-            //lEngineNoise.soundPath = "engine";
             base.LoadContent();
         }
         /// <summary>

@@ -80,7 +80,7 @@ namespace Roguelancer.Objects {
             try {
                 _text = text;
                 Texture = game.Content.Load<Texture2D>(texturePath);
-                Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.font);
+                Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.Font);
                 _color = new Color(255, 255, 255, 255);
                 _size = new Vector2(game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Width / 4, game.GraphicsDevice.Viewport.Height / 15);
             } catch (Exception ex) {
