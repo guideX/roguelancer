@@ -125,6 +125,7 @@
     <Compile Include="Interfaces\IGameGraphics.cs" />
     <Compile Include="Interfaces\IGameSettings.cs" />
     <Compile Include="Interfaces\IInput.cs" />
+    <Compile Include="Interfaces\ISensorObject.cs" />
     <Compile Include="Models\HudModel.cs" />
     <Compile Include="Objects\HudObject.cs" />
     <Compile Include="RoguelancerGame.cs" />

@@ -30,7 +30,7 @@ namespace Roguelancer.Objects {
                 Station tempStation;
                 foreach (var modelWorldObject in game.Settings.StarSystemSettings[0].stations) {
                     tempStation = new Station(game);
-                    tempStation.model.WorldObject = modelWorldObject;
+                    tempStation.Model.WorldObject = modelWorldObject;
                     Stations.Add(tempStation);
                 }
                 for (var i = 0; i <= Stations.Count - 1; i++) {
@@ -81,12 +81,13 @@ namespace Roguelancer.Objects {
         }
         #endregion
     }
-    public class Station : IGame, IDockable {
+    public class Station : IGame, IDockable, ISensorObject {
         #region "public variables"
+        public string Description { get; set; }
         /// <summary>
         /// Game Model
         /// </summary>
-        public GameModel model;
+        public GameModel Model { get; set; }
         #endregion
         #region "public functions"
         /// <summary>
@@ -95,7 +96,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public Station(RoguelancerGame game) {
             try {
-                model = new GameModel(game, null);
+                Model = new GameModel(game, null);
             } catch {
                 throw;
             }
@@ -107,7 +108,7 @@ namespace Roguelancer.Objects {
         public void Initialize(RoguelancerGame game) {
             try {
                 //model.ModelMode = Enum.ModelModeEnum.Station;
-                model.Initialize(game);
+                Model.Initialize(game);
             } catch {
                 throw;
             }
@@ -118,7 +119,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             try {
-                model.LoadContent(game);
+                Model.LoadContent(game);
             } catch {
                 throw;
             }
@@ -129,8 +130,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                model.UpdatePosition();
-                model.Update(game);
+                Model.UpdatePosition();
+                Model.Update(game);
             } catch {
                 throw;
             }
@@ -141,7 +142,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             try {
-                model.Draw(game);
+                Model.Draw(game);
             } catch {
                 throw;
             }

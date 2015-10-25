@@ -217,7 +217,6 @@ namespace Roguelancer.Functionality {
                 if (game.GameState.CurrentGameState == GameStates.Menu) {
                     game.GameState.LastGameState = game.GameState.CurrentGameState;
                     game.GameState.CurrentGameState = GameStates.Playing;
-                    game.DebugText.Text = "";
                 }
             }
             if (game.Input.InputItems.Keys.F9) {

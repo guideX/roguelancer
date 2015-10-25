@@ -24,12 +24,22 @@ namespace Roguelancer.Functionality {
         /// Font Position
         /// </summary>
         private Vector2 _fontPosition;
+        #endregion
+        #region "public functions"
+        /// <summary>
+        /// Debug Text
+        /// </summary>
+        public DebugText() {
+            try {
+                Text = "";
+            } catch {
+                throw;
+            }
+        }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        #endregion
-        #region "public functions"
         public void Initialize(RoguelancerGame game) {}
         /// <summary>
         /// Load Content

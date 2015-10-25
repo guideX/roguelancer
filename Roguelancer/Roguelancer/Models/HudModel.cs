@@ -1,6 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using System.Collections.Generic;
-using Roguelancer.Objects;
+using Roguelancer.Interfaces;
 namespace Roguelancer.Models {
     /// <summary>
     /// Hud Model
@@ -9,23 +9,13 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Ships
         /// </summary>
-        public List<HudObjectShip> Ships { get; set; }
-        /// <summary>
-        /// Stations
-        /// </summary>
-        //public List<HudObjectStation> Stations { get; set; }
-        /// <summary>
-        /// Docking Rings
-        /// </summary>
-        //public List<HudObjectTradelaneRing> Tradelanes { get; set; }
+        public List<HudSensorObject> SensorObjects { get; set; }
         /// <summary>
         /// Hud Model
         /// </summary>
         public HudModel() {
             try {
-                Ships = new List<HudObjectShip>();
-                //Stations = new List<HudObjectStation>();
-                //Tradelanes = new List<HudObjectTradelaneRing>();
+                SensorObjects = new List<HudSensorObject>();
             } catch {
                 throw;
             }
@@ -35,6 +25,17 @@ namespace Roguelancer.Models {
     /// Hud Object Common
     /// </summary>
     public class HudObjectCommon {
+
+    }
+    /// <summary>
+    /// Hud Object Ship
+    /// </summary>
+    public class HudSensorObject {
+        /// <summary>
+        /// Common
+        /// </summary>
+        //public HudObjectCommon Common { get; set; }
+
         /// <summary>
         /// Distance
         /// </summary>
@@ -47,44 +48,35 @@ namespace Roguelancer.Models {
         /// Text
         /// </summary>
         public string Text { get; set; }
-    }
-    /// <summary>
-    /// Hud Object Ship
-    /// </summary>
-    public class HudObjectShip {
-        /// <summary>
-        /// Common
-        /// </summary>
-        public HudObjectCommon Common { get; set; }
         /// <summary>
         /// Ship
         /// </summary>
-        public Ship Ship { get; set; }
+        public ISensorObject Obj { get; set; }
     }
     /// <summary>
     /// Hud Object Station
     /// </summary>
-    public class HudObjectStation {
+    //public class HudObjectStation {
         /// <summary>
         /// Common
         /// </summary>
-        public HudObjectCommon Common { get; set; }
+        //public HudObjectCommon Common { get; set; }
         /// <summary>
         /// Station
         /// </summary>
-        public Station Station { get; set; }
-    }
+        //public ISensorObject Station { get; set; }
+    //}
     /// <summary>
     /// Hud Object Docking Ring
     /// </summary>
-    public class HudObjectTradelaneRing {
+    //public class HudObjectTradelaneRing {
         /// <summary>
         /// Common
         /// </summary>
-        public HudObjectCommon Common { get; set; }
+        //public HudObjectCommon Common { get; set; }
         /// <summary>
         /// Trade Lane
         /// </summary>
-        public TradeLane Tradelane { get; set; }
-    }
+        //public TradeLane Tradelane { get; set; }
+    //}
 }

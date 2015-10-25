@@ -87,13 +87,13 @@ namespace Roguelancer.Objects {
                 Ships = new List<Ship>();
                 var playerShip = new Ship(null, game);
                 Ship tempShip;
-                playerShip.model.WorldObject = game.Settings.StarSystemSettings[0].ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer == true).FirstOrDefault();
+                playerShip.Model.WorldObject = game.Settings.StarSystemSettings[0].ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer == true).FirstOrDefault();
                 playerShip.PlayerShipControl.UseInput = true;
                 Ships.Add(playerShip);
                 foreach (ModelWorldObjects modelWorldObject in game.Settings.StarSystemSettings[0].ships.Where(s => s.SettingsModelObject.isPlayer == false).ToList()) {
                     tempShip = new Ship(null, game);
-                    tempShip.model = new GameModel(game, null);
-                    tempShip.model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
+                    tempShip.Model = new GameModel(game, null);
+                    tempShip.Model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
                     tempShip.PlayerShipControl.UseInput = false;
                     //tempShip.model.ModelMode = Enum.ModelModeEnum.Ship;
                     Ships.Add(Ship.Clone(tempShip, game));
@@ -104,13 +104,13 @@ namespace Roguelancer.Objects {
         }
         #endregion
     }
-    public class Ship : IGame {
+    public class Ship : IGame, ISensorObject {
         #region "public variables"
         public string Description { get; set; }
         /// <summary>
         /// Game Model
         /// </summary>
-        public GameModel model;
+        public GameModel Model { get; set; }
         /// <summary>
         /// Player Ship Control
         /// </summary>
@@ -123,7 +123,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public Ship(string description, RoguelancerGame game) {
             try {
-                model = new GameModel(game, null);
+                Model = new GameModel(game, null);
                 PlayerShipControl = new PlayerShipControl();
             } catch {
                 throw;
@@ -140,7 +140,7 @@ namespace Roguelancer.Objects {
                 Ship ship;
                 ship = new Ship(oldShip.Description, game);
                 ship.PlayerShipControl = oldShip.PlayerShipControl;
-                ship.model = oldShip.model;
+                ship.Model = oldShip.Model;
                 return ship;
             } catch {
                 throw;
@@ -152,7 +152,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             try {
-                model.Initialize(game);
+                Model.Initialize(game);
                 //model.ModelMode = Enum.ModelModeEnum.Ship;
                 if (PlayerShipControl.UseInput) {
                     PlayerShipControl = new PlayerShipControl();
@@ -168,7 +168,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             try {
-                model.LoadContent(game);
+                Model.LoadContent(game);
                 if (PlayerShipControl.UseInput) {
                     PlayerShipControl.LoadContent(game);
                 }
@@ -184,12 +184,12 @@ namespace Roguelancer.Objects {
             try {
                 if (game.GameState.CurrentGameState == GameStates.Playing) {
                     if (PlayerShipControl.UseInput) {
-                        PlayerShipControl.UpdateModel(model, game);
+                        PlayerShipControl.UpdateModel(Model, game);
                         if (game.Input.InputItems.Toggles.ToggleCamera == false) {
-                            model.Update(game);
+                            Model.Update(game);
                         }
                     } else {
-                        model.Update(game);
+                        Model.Update(game);
                     }
                 }
             } catch {
@@ -202,7 +202,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             try {
-                model.Draw(game);
+                Model.Draw(game);
                 if (PlayerShipControl.UseInput) {
                     PlayerShipControl.Draw(game);
                 }

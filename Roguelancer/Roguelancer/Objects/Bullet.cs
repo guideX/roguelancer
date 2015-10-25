@@ -41,7 +41,7 @@ namespace Roguelancer.Objects {
                 Model.Scale = scale;
                 //Model.ModelMode = Enum.ModelModeEnum.Bullet;
                 Model.WorldObject = new Settings.ModelWorldObjects(
-                    BulletModel.PlayerShip.model.Position + startupPosition,
+                    BulletModel.PlayerShip.Model.Position + startupPosition,
                     new Vector3(0f, 0f, 0f),
                     new Settings.SettingsModelObject(
                         modelPath,
@@ -50,11 +50,11 @@ namespace Roguelancer.Objects {
                         13
                     ),
                     1,
-                    BulletModel.PlayerShip.model.Up,
-                    BulletModel.PlayerShip.model.Right,
-                    BulletModel.PlayerShip.model.Velocity,
-                    BulletModel.PlayerShip.model.CurrentThrust,
-                    BulletModel.PlayerShip.model.Direction
+                    BulletModel.PlayerShip.Model.Up,
+                    BulletModel.PlayerShip.Model.Right,
+                    BulletModel.PlayerShip.Model.Velocity,
+                    BulletModel.PlayerShip.Model.CurrentThrust,
+                    BulletModel.PlayerShip.Model.Direction
                 );
                 Initialize(game);
                 LoadContent(game);
@@ -94,7 +94,7 @@ namespace Roguelancer.Objects {
                 var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds;
                 var rotationAmount = new Vector2();
                 if (BulletModel.PlayerShip == null) { BulletModel.PlayerShip = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault(); }
-                Model.CurrentThrust = _bulletThrust + BulletModel.PlayerShip.model.CurrentThrust;
+                Model.CurrentThrust = _bulletThrust + BulletModel.PlayerShip.Model.CurrentThrust;
                 Model.Rotation = rotationAmount;
                 Model.UpdatePosition();
                 force = Model.Direction * Model.CurrentThrust * BulletModel.ThrustForce;
