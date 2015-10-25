@@ -11,7 +11,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Ships
         /// </summary>
-        public IShipCollection ships { get; set; }
+        public IShipCollection Ships { get; set; }
         /// <summary>
         /// Bullets
         /// </summary>
@@ -21,15 +21,15 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Trade Lanes
         /// </summary>
-        private TradeLaneCollection _tradeLanes { get; set; }
+        public TradeLaneCollection TradeLanes { get; set; }
         /// <summary>
         /// Stations
         /// </summary>
-        private StationCollection _stations;
+        public StationCollection Stations;
         /// <summary>
         /// Planets
         /// </summary>
-        private PlanetCollection _planets;
+        public PlanetCollection Planets;
         /// <summary>
         /// Stars
         /// </summary>
@@ -45,11 +45,11 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public GameObjects(RoguelancerGame game) {
             try {
-                _stations = new StationCollection();
-                _planets = new PlanetCollection();
+                Stations = new StationCollection();
+                Planets = new PlanetCollection();
                 _stars = new Starfields(game.Settings.StarSystemSettings[0].starSettings);
-                _tradeLanes = new TradeLaneCollection();
-                ships = new ShipCollection(game);
+                TradeLanes = new TradeLaneCollection();
+                Ships = new ShipCollection(game);
                 Bullets = new Bullets(game);
             } catch {
                 throw;
@@ -61,11 +61,11 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             try {
-                _stations.Initialize(game);
-                _planets.Initialize(game);
+                Stations.Initialize(game);
+                Planets.Initialize(game);
                 _stars.Initialize(game);
-                _tradeLanes.Initialize(game);
-                ships.Initialize(game);
+                TradeLanes.Initialize(game);
+                Ships.Initialize(game);
                 Bullets.Initialize(game);
             } catch {
                 throw;
@@ -77,11 +77,11 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             try {
-                _stations.LoadContent(game);
-                _planets.LoadContent(game);
+                Stations.LoadContent(game);
+                Planets.LoadContent(game);
                 _stars.LoadContent(game);
-                _tradeLanes.LoadContent(game);
-                ships.LoadContent(game);
+                TradeLanes.LoadContent(game);
+                Ships.LoadContent(game);
                 Bullets.LoadContent(game);
             } catch {
                 throw;
@@ -93,11 +93,11 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                _stations.Update(game);
-                _planets.Update(game);
+                Stations.Update(game);
+                Planets.Update(game);
                 _stars.Update(game);
-                _tradeLanes.Update(game);
-                ships.Update(game);
+                TradeLanes.Update(game);
+                Ships.Update(game);
                 Bullets.Update(game);
             } catch {
                 throw;
@@ -109,11 +109,11 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             try {
-                _stations.Draw(game);
-                _planets.Draw(game);
+                Stations.Draw(game);
+                Planets.Draw(game);
                 _stars.Draw(game);
-                _tradeLanes.Draw(game);
-                ships.Draw(game);
+                TradeLanes.Draw(game);
+                Ships.Draw(game);
                 Bullets.Draw(game);
             } catch {
                 throw;
@@ -125,10 +125,10 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
             try {
-                _tradeLanes.Reset(game);
-                ships.Reset(game);
-                _stations = new StationCollection();
-                _planets = new PlanetCollection();
+                TradeLanes.Reset(game);
+                Ships.Reset(game);
+                Stations = new StationCollection();
+                Planets = new PlanetCollection();
                 _stars = new Starfields(new StarSettings(false, 0, 0, 0, 0, 0, 0, 0));
             } catch {
                 throw;

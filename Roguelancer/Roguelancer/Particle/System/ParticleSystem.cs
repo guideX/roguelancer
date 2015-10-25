@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Roguelancer.Functionality;
 using Roguelancer.Particle.System.Affector;
 using Roguelancer.Particle.System.ParticleSystems;
 using Roguelancer.Particle.System.Emitters;

@@ -2,7 +2,6 @@
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using Roguelancer.Interfaces;
-using Roguelancer.Functionality;
 using Roguelancer.Enum;
 namespace Roguelancer.Objects {
     /// <summary>

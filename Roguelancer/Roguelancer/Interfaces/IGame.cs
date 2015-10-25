@@ -44,5 +44,10 @@ namespace Roguelancer.Interfaces {
         /// </summary>
         /// <param name="game"></param>
         void Draw(RoguelancerGame game);
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        //void Reset(RoguelancerGame game);
     }
 }

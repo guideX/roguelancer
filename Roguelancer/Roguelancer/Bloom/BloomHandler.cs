@@ -1,25 +1,65 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
-using Roguelancer.Functionality;
 namespace Roguelancer.Bloom {
+    /// <summary>
+    /// Bloom Handler
+    /// </summary>
     public class BloomHandler {
-        private int lBloomSettings = 0;
+        /// <summary>
+        /// Bloom Settings
+        /// </summary>
+        private int _bloomSettings = 0;
+        /// <summary>
+        /// Bloom Component
+        /// </summary>
         private BloomComponent _bloom;
+        /// <summary>
+        /// Bloom Handler
+        /// </summary>
+        /// <param name="game"></param>
         public BloomHandler(RoguelancerGame game) {
-            _bloom = new BloomComponent(game);
+            try {
+                _bloom = new BloomComponent(game);
+            } catch {
+                throw;
+            }
         }
+        /// <summary>
+        /// Initialize
+        /// </summary>
+        /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            game.Components.Add(_bloom);
+            try {
+                game.Components.Add(_bloom);
+            } catch {
+                throw;
+            }
         }
-        public void LoadContent() {
-            // TODO
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        public void LoadContent() { }
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="_BloomVisible"></param>
+        public void Update(bool visible) {
+            try {
+                _bloom.Settings = BloomSettings.PresetSettings[_bloomSettings];
+                _bloom.Visible = visible;
+            } catch {
+                throw;
+            }
         }
-        public void Update(bool _BloomVisible) {
-            _bloom.Settings = BloomSettings.PresetSettings[lBloomSettings];
-            _bloom.Visible = _BloomVisible;
-        }
+        /// <summary>
+        /// Draw
+        /// </summary>
         public void Draw() {
-            _bloom.BeginDraw();
+            try {
+                _bloom.BeginDraw();
+            } catch {
+                throw;
+            }
         }
     }
 }

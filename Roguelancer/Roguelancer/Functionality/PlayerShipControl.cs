@@ -9,6 +9,10 @@ namespace Roguelancer.Functionality {
     public class PlayerShipControl : IPlayerShipControl {
         #region "public variables"
         /// <summary>
+        /// Shake Value
+        /// </summary>
+        public float ShakeValue { get; set; }
+        /// <summary>
         /// Use Input
         /// </summary>
         public bool UseInput { get; set; }
@@ -17,8 +21,8 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Update Direction X
         /// </summary>
-        private float _updateDirectionX = 2.0f;
-        private float _updateDirectionY = 2.0f;
+        private float _updateDirectionX = 3.0f;
+        private float _updateDirectionY = 3.0f;
         private float _rotationXLeftAdd = 1.0f;
         private float _rotationXRightAdd = -1.0f;
         private float _rotationYUpAdd = -1.0f;
@@ -35,7 +39,7 @@ namespace Roguelancer.Functionality {
         private float _thrustReverseSpeed = -0.009f;
         private float _maxThrustReverse = -0.10f;
         private float _maxCruiseSpeed = 2.0f;
-        private bool _limitAltitude = false;
+        private bool _limitAltitude = true;
         private float _thrustMinNotZero = .00001f;
         #endregion
         #region "public functions"
@@ -44,6 +48,7 @@ namespace Roguelancer.Functionality {
         /// </summary>
         public PlayerShipControl() {
             try {
+                ShakeValue = .8f;
                 UseInput = true;
             } catch {
                 throw;
@@ -111,7 +116,7 @@ namespace Roguelancer.Functionality {
             model.UpdatePosition();
             if (UseInput == true) {
                 if (game.Input.InputItems.Keys.W == true) {
-                    game.Camera.Shake(.8f, 0f, false);
+                    game.Camera.Shake(ShakeValue, 0f, false);
                     if (model.CurrentThrust == _maxThrustAmount) {
                         model.CurrentThrust = _maxThrustAmount;
                     } else if (model.CurrentThrust < _maxThrustAmount) {
@@ -131,7 +136,7 @@ namespace Roguelancer.Functionality {
                     }
                 } else {
                     if (game.Input.InputItems.Keys.Tab == true) {
-                        game.Camera.Shake(10f, 0f, false);
+                        game.Camera.Shake(ShakeValue, 0f, false);
                         if (model.CurrentThrust == _maxThrustAfterburnerAmount) {
                             model.CurrentThrust = _maxThrustAfterburnerAmount;
                         } else if (model.CurrentThrust < _maxThrustAfterburnerAmount) {
@@ -142,10 +147,10 @@ namespace Roguelancer.Functionality {
                     } else {
                         if (model.CurrentThrust > _maxThrustAmount) {
                             model.CurrentThrust = model.CurrentThrust - _thrustSlowDownSpeed;
-                            game.Camera.Shake(.8f, 0f, false);
+                            game.Camera.Shake(ShakeValue, 0f, false);
                         } else {
                             if (game.Input.InputItems.Keys.W == true) {
-                                game.Camera.Shake(.8f, 0f, false);
+                                game.Camera.Shake(ShakeValue, 0f, false);
                                 if (model.CurrentThrust == _maxThrustAmount) {
                                     model.CurrentThrust = _maxThrustAmount;
                                 } else if (model.CurrentThrust < _maxThrustAmount) {

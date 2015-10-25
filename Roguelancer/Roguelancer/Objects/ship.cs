@@ -85,13 +85,13 @@ namespace Roguelancer.Objects {
         public void Reset(RoguelancerGame game) {
             try {
                 Ships = new List<Ship>();
-                var playerShip = new Ship(game);
+                var playerShip = new Ship(null, game);
                 Ship tempShip;
                 playerShip.model.WorldObject = game.Settings.StarSystemSettings[0].ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer == true).FirstOrDefault();
                 playerShip.PlayerShipControl.UseInput = true;
                 Ships.Add(playerShip);
                 foreach (ModelWorldObjects modelWorldObject in game.Settings.StarSystemSettings[0].ships.Where(s => s.SettingsModelObject.isPlayer == false).ToList()) {
-                    tempShip = new Ship(game);
+                    tempShip = new Ship(null, game);
                     tempShip.model = new GameModel(game, null);
                     tempShip.model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
                     tempShip.PlayerShipControl.UseInput = false;
@@ -106,6 +106,7 @@ namespace Roguelancer.Objects {
     }
     public class Ship : IGame {
         #region "public variables"
+        public string Description { get; set; }
         /// <summary>
         /// Game Model
         /// </summary>
@@ -120,7 +121,7 @@ namespace Roguelancer.Objects {
         /// Ship
         /// </summary>
         /// <param name="game"></param>
-        public Ship(RoguelancerGame game) {
+        public Ship(string description, RoguelancerGame game) {
             try {
                 model = new GameModel(game, null);
                 PlayerShipControl = new PlayerShipControl();
@@ -137,7 +138,7 @@ namespace Roguelancer.Objects {
         public static Ship Clone(Ship oldShip, RoguelancerGame game) {
             try {
                 Ship ship;
-                ship = new Ship(game);
+                ship = new Ship(oldShip.Description, game);
                 ship.PlayerShipControl = oldShip.PlayerShipControl;
                 ship.model = oldShip.model;
                 return ship;

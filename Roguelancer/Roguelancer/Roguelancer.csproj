@@ -112,10 +112,10 @@
     <Compile Include="Bloom\BloomSettings.cs" />
     <Compile Include="Bloom\BloomHandler.cs" />
     <None Include="configuration\objects\bullets.ini" />
+    <Compile Include="Enum\IntermediateBuffer.cs" />
     <Compile Include="Enum\ModelTypeEnum.cs" />
     <Compile Include="Enum\GameStates.cs" />
     <Compile Include="Enum\CurrentMenuEnum.cs" />
-    <Compile Include="Enum\ModelModeEnum.cs" />
     <Compile Include="Enum\NotificationType.cs" />
     <Compile Include="Functionality\IniFile.cs">
       <SubType>Code</SubType>
@@ -125,6 +125,8 @@
     <Compile Include="Interfaces\IGameGraphics.cs" />
     <Compile Include="Interfaces\IGameSettings.cs" />
     <Compile Include="Interfaces\IInput.cs" />
+    <Compile Include="Models\HudModel.cs" />
+    <Compile Include="Objects\HudObject.cs" />
     <Compile Include="RoguelancerGame.cs" />
     <Compile Include="Functionality\GameCamera.cs" />
     <Compile Include="Functionality\DebugText.cs" />

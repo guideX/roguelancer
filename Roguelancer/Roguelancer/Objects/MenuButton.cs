@@ -1,7 +1,6 @@
 ﻿using System;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
-using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Enum;
 namespace Roguelancer.Objects {
@@ -121,28 +120,22 @@ namespace Roguelancer.Objects {
                     if (Clicked) {
                         switch (_text) {
                             case "New Game":
-                                game.DebugText.Text = "Play Clicked";
                                 if (game.GameState.CurrentGameState == GameStates.Menu) {
                                     game.GameState.LastGameState = game.GameState.CurrentGameState;
                                     game.GameState.CurrentGameState = GameStates.Playing;
-                                    game.DebugText.Text = "";
                                     Clicked = false;
                                 }
                                 break;
                             case "Load Game":
-                                game.DebugText.Text = "Load Game";
                                 break;
                             case "Multiplayer":
-                                game.DebugText.Text = "Multiplayer";
                                 break;
                             case "Options":
                                 game.GameMenu.CurrentMenu = CurrentMenu.OptionsMenu;
-                                game.DebugText.Text = "Options Clicked";
                                 game.GameState.CurrentGameState = GameStates.Menu;
                                 Clicked = false;
                                 break;
                             case "Return":
-                                game.DebugText.Text = "Return Clicked";
                                 if (game.GameMenu.CurrentMenu == CurrentMenu.OptionsMenu) {
                                     game.GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
                                     game.GameState.CurrentGameState = GameStates.Menu;

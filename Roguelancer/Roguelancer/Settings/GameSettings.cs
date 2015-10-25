@@ -37,6 +37,10 @@ namespace Roguelancer.Settings {
         /// Star System Settings
         /// </summary>
         public List<StarSystemSettings> StarSystemSettings { get; set; }
+        /// <summary>
+        /// Sensor Texture
+        /// </summary>
+        public string SensorTexture { get; set; }
         #endregion
         #region "private variables"
         /// <summary>
@@ -82,6 +86,7 @@ namespace Roguelancer.Settings {
                 _bulletSettingsIniFile = rootDir + @"configuration\objects\bullets.ini";
                 _cameraSettingsIniFile = rootDir + @"configuration\camera.ini";
                 _systemIniStartPath = rootDir + @"configuration\systems\";
+                SensorTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "SensorTexture");
                 MenuBackgroundTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "menu_background");
                 CameraSettings = new CameraSettings(_cameraSettingsIniFile);
                 ModelSettings = new List<SettingsModelObject>();

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 namespace Roguelancer.Interfaces {
     public interface IGameSettings {
         #region "public variables"
+        string SensorTexture { get; set; }
         /// <summary>
         /// Menu Background Texture
         /// </summary>

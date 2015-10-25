@@ -1,9 +1,7 @@
 ﻿using System.Collections.Generic;
-using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Settings;
 using Roguelancer.Models;
-using Roguelancer.Particle.System;
 namespace Roguelancer.Objects {
     public class StationCollection : IGame {
         #region "public variables"
@@ -30,12 +28,12 @@ namespace Roguelancer.Objects {
         public void Initialize(RoguelancerGame game) {
             try {
                 Station tempStation;
-                foreach (ModelWorldObjects modelWorldObject in game.Settings.StarSystemSettings[0].stations) {
+                foreach (var modelWorldObject in game.Settings.StarSystemSettings[0].stations) {
                     tempStation = new Station(game);
                     tempStation.model.WorldObject = modelWorldObject;
                     Stations.Add(tempStation);
                 }
-                for (int i = 0; i <= Stations.Count - 1; i++) {
+                for (var i = 0; i <= Stations.Count - 1; i++) {
                     Stations[i].Initialize(game);
                 }
             } catch {
@@ -48,7 +46,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             try {
-                for (int i = 0; i <= Stations.Count - 1; i++) {
+                for (var i = 0; i <= Stations.Count - 1; i++) {
                     Stations[i].LoadContent(game);
                 }
             } catch {
@@ -61,7 +59,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                for (int i = 0; i <= Stations.Count - 1; i++) {
+                for (var i = 0; i <= Stations.Count - 1; i++) {
                     Stations[i].Update(game);
                 }
             } catch {
@@ -74,7 +72,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             try {
-                for (int i = 0; i <= Stations.Count - 1; i++) {
+                for (var i = 0; i <= Stations.Count - 1; i++) {
                     Stations[i].Draw(game);
                 }
             } catch {
@@ -153,7 +151,12 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
-        public void Dock(RoguelancerGame game, Ship ship) {}
+        public void Dock(RoguelancerGame game, Ship ship) {
+            try {
+            } catch {
+                throw;
+            }
+        }
         /// <summary>
         /// Undock
         /// </summary>

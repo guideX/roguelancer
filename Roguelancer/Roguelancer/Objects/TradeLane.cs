@@ -1,9 +1,9 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Settings;
-
 namespace Roguelancer.Objects {
     /// <summary>
     /// Trade Lane Collection
@@ -29,7 +29,12 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             try {
-                foreach(var item in _tradeLanes) {
+                foreach (var r in game.Settings.StarSystemSettings[0].tradeLanes.ToList()) {
+                    var n = new TradeLane(game);
+                    n.WorldObject = r;
+                    _tradeLanes.Add(n);
+                }
+                foreach (var item in _tradeLanes) {
                     item.LoadContent(game);
                 }
             } catch {
@@ -94,6 +99,10 @@ namespace Roguelancer.Objects {
     /// </summary>
     public class TradeLane : IGame {
         /// <summary>
+        /// World Object
+        /// </summary>
+        public ModelWorldObjects WorldObject { get; set; }
+        /// <summary>
         /// Trade Lane Rings
         /// </summary>
         public List<TradeLaneRing> TradeLaneRings { get; set; }
@@ -114,8 +123,25 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             try {
-                foreach (var ring in TradeLaneRings) {
-                    ring.LoadContent(game);
+                for (var i = 0; i <= 8 - 1; i++) {
+                    var ring = new TradeLaneRing(game);
+                    var model = new GameModel(game, null);
+                    if (i != 0) {
+                        var newModelWorldObject = ModelWorldObjects.Clone(WorldObject);
+                        var pos = newModelWorldObject.StartupPosition;
+                        pos.X = newModelWorldObject.StartupPosition.X;
+                        pos.Y = newModelWorldObject.StartupPosition.Y + (100000 * i);
+                        pos.Y = newModelWorldObject.StartupPosition.Z;
+                        newModelWorldObject.StartupPosition = pos;
+                        model.WorldObject = newModelWorldObject;
+                        model.UseScale = true;
+                        model.Scale = 200f;
+                        ring.Models.Add(model);
+                        TradeLaneRings.Add(ring);
+                    }
+                }
+                foreach (var r in TradeLaneRings) {
+                    r.LoadContent(game);
                 }
             } catch {
                 throw;
@@ -127,8 +153,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             try {
-                foreach (var ring in TradeLaneRings) {
-                    ring.Initialize(game);
+                foreach (var r in TradeLaneRings) {
+                    r.Initialize(game);
                 }
             } catch {
                 throw;
@@ -140,8 +166,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                foreach (var ring in TradeLaneRings) {
-                    ring.Update(game);
+                foreach (var r in TradeLaneRings) {
+                    r.Update(game);
                 }
             } catch {
                 throw;
@@ -153,8 +179,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             try {
-                foreach (var ring in TradeLaneRings) {
-                    ring.Draw(game);
+                foreach (var r in TradeLaneRings) {
+                    r.Draw(game);
                 }
             } catch {
                 throw;
@@ -166,8 +192,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
             try {
-                foreach (var ring in TradeLaneRings) {
-                    ring.Reset(game);
+                foreach (var r in TradeLaneRings) {
+                    r.Reset(game);
                 }
             } catch {
                 throw;
@@ -186,7 +212,6 @@ namespace Roguelancer.Objects {
         /// Entry Point
         /// </summary>
         /// <param name="game"></param>
-        public ModelWorldObjects Object { get; set; }
         public TradeLaneRing(RoguelancerGame game) {
             try {
                 Models = new List<IGameModel>();
@@ -194,93 +219,85 @@ namespace Roguelancer.Objects {
                 throw;
             }
         }
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             try {
-                for (var i = 0; i <= 8 - 1; i++) {
-                    var model = new GameModel(game, null);
-                    if (i != 0) {
-                        var pos = Object.StartupPosition;
-                        pos.X = Object.StartupPosition.X + (300 * i);
-                        pos.Y = Object.StartupPosition.Y;
-                        pos.Y = Object.StartupPosition.Z;
-                        Object.StartupPosition = pos;
-                    }
-                
 
-                    model.WorldObject = Object;
-                    //model.WorldObject = new Settings.ModelWorldObjects(
-                    //new Microsoft.Xna.Framework.Vector3(0, 0, 0)
-                    //);
-                    //model.ModelMode = Enum.ModelModeEnum.TradeLaneRing;
-                    //Models.Add(model);
-                    //game.Settings.StarSystemSettings[0].tradeLanes;
-                    /*
-                    Model.WorldObject = new Settings.ModelWorldObjects(
-        BulletModel.PlayerShip.model.Position + startupPosition,
-        new Vector3(0f, 0f, 0f),
-        new Settings.SettingsModelObject(
-            modelPath,
-            Settings.ModelType.Bullet,
-            true,
-            13
-        ),
-        1,
-        BulletModel.PlayerShip.model.Up,
-        BulletModel.PlayerShip.model.Right,
-        BulletModel.PlayerShip.model.Velocity,
-        BulletModel.PlayerShip.model.CurrentThrust,
-        BulletModel.PlayerShip.model.Direction
-    );
-    */
-                }
-                foreach (var model in Models) {
-                    model.LoadContent(game);
+                foreach (var r in Models) {
+                    r.LoadContent(game);
                 }
             } catch {
                 throw;
             }
         }
+        /// <summary>
+        /// Initialize
+        /// </summary>
+        /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             try {
-                foreach (var model in Models) {
-                    model.Initialize(game);
+                foreach (var r in Models) {
+                    r.Initialize(game);
                 }
             } catch {
                 throw;
             }
         }
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                foreach (var model in Models) {
-                    model.Update(game);
+                foreach (var r in Models) {
+                    r.Update(game);
                 }
             } catch {
                 throw;
             }
         }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             try {
-                foreach (var model in Models) {
-                    model.Draw(game);
+                foreach (var r in Models) {
+                    r.Draw(game);
                 }
             } catch {
                 throw;
             }
         }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
             try {
-                foreach (var model in Models) {
-                    //model.Reset(game);
+                foreach (var r in Models) {
+                    //r.Reset(game);
                 }
             } catch {
                 throw;
             }
         }
-
+        /// <summary>
+        /// Dock
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="ship"></param>
         public void Dock(RoguelancerGame game, Ship ship) {
             throw new NotImplementedException();
         }
-
+        /// <summary>
+        /// Undock
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="ship"></param>
         public void UnDock(RoguelancerGame game, Ship ship) {
             throw new NotImplementedException();
         }

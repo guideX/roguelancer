@@ -93,7 +93,7 @@ namespace Roguelancer.Objects {
                 Vector3 force, acceleration;
                 var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds;
                 var rotationAmount = new Vector2();
-                if (BulletModel.PlayerShip == null) { BulletModel.PlayerShip = game.Objects.ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault(); }
+                if (BulletModel.PlayerShip == null) { BulletModel.PlayerShip = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault(); }
                 Model.CurrentThrust = _bulletThrust + BulletModel.PlayerShip.model.CurrentThrust;
                 Model.Rotation = rotationAmount;
                 Model.UpdatePosition();
@@ -203,7 +203,7 @@ namespace Roguelancer.Objects {
         public void LoadContent(RoguelancerGame game) {
             try {
                 BulletsModel = game.Content.Load<Model>("bullet");
-                _playerShip = game.Objects.ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                _playerShip = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
             } catch {
                 throw;
             }

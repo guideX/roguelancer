@@ -12,6 +12,7 @@ namespace Roguelancer {
     /// </summary>
     public class RoguelancerGame : Game {
         #region "public variables"
+        public HudObject Hud { get; set; }
         /// <summary>
         /// Graphics
         /// </summary>
@@ -76,6 +77,7 @@ namespace Roguelancer {
             DebugText = new DebugText();
             Objects = new GameObjects(this);
             GameMenu = new GameMenu();
+            Hud = new HudObject();
             GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
         }
         /// <summary>
@@ -88,6 +90,7 @@ namespace Roguelancer {
             Input.Initialize(this);
             Objects.Initialize(this);
             GameMenu.Initialize(this);
+            Hud.Initialize(this);
             base.Initialize();
         }
         /// <summary>
@@ -102,6 +105,7 @@ namespace Roguelancer {
             Objects.LoadContent(this);
             DebugText.Text = Settings.MenuText;
             GameMenu.LoadContent(this);
+            Hud.LoadContent(this);
             base.LoadContent();
         }
         /// <summary>
@@ -117,6 +121,9 @@ namespace Roguelancer {
                 Camera.Update(this);
                 DebugText.Update(this);
                 GameMenu.Update(this);
+                if (GameState.CurrentGameState == GameStates.Playing) {
+                    Hud.Update(this);
+                }
                 base.Update(gameTime);
             } catch {
                 throw;
@@ -137,6 +144,7 @@ namespace Roguelancer {
                     }
                     Graphics.Draw(this);
                     Objects.Draw(this);
+                    Hud.Draw(this);
                 } else if (GameState.CurrentGameState == GameStates.Menu) {
                     if (GameState.LastGameState != GameState.CurrentGameState) {
                         Graphics.GraphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
