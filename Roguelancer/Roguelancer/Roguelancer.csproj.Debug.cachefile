@@ -13,6 +13,7 @@ Content\BASES\TRACK_RING\TRACK_RING.xnb
 Content\ASTEROIDS\BERYL\BERYL.xnb
 Content\SHIPS\CSV\CSV.xnb
 Content\bullet.xnb
+Content\docking_ring.xnb
 Content\FONTS\Arial.xnb
 Content\FONTS\LucidaFont.xnb
 Content\FONTS\HudFont.xnb
@@ -103,4 +104,4 @@ Content\SHIPS\PI_TRANSPORT\hold_0.xnb
 Content\SHIPS\PI_TRANSPORT\equip_0.xnb
 Content\SHIPS\PI_TRANSPORT\skull_0.xnb
 Content\SHIPS\PI_TRANSPORT\windows_0.xnb
-Content\docking_ring.xnb
+Content\sensor.xnb
