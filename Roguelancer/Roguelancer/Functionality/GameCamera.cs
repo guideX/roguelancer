@@ -283,7 +283,6 @@ namespace Roguelancer.Functionality {
         private void UpdateCameraChaseTarget(RoguelancerGame game) {
             try {
                 var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
-                //game.DebugText.Text = ship.model.Position.X.ToString() + " - " + ship.model.Position.Y.ToString() + " - " + ship.model.Position.Z.ToString();
                 var gd = game.Graphics.GraphicsDeviceManager.GraphicsDevice;
                 _chasePosition = ship.Model.Position;
                 _chaseDirection = ship.Model.Direction;

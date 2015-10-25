@@ -22,6 +22,10 @@ namespace Roguelancer.Settings {
         /// </summary>
         public CameraSettings CameraSettings { get; set; }
         /// <summary>
+        /// Font Small
+        /// </summary>
+        public string FontSmall { get; set; }
+        /// <summary>
         /// Font
         /// </summary>
         public string Font { get; set; }
@@ -77,6 +81,7 @@ namespace Roguelancer.Settings {
             try {
                 MenuText = "Roguelancer" + Environment.NewLine + Environment.NewLine + "10 = Play Game" + Environment.NewLine + "F9 = Return to menu" + Environment.NewLine + "ESC = Quit";
                 Font = "LucidaFont";
+                FontSmall = "LucidiaFontSmall";
                 Resolution = new Vector2(1280, 1024);
                 var rootDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\..\";
                 _gameSettingsIniFile = rootDir + @"configuration\settings\settings.ini";

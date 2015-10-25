@@ -22,6 +22,10 @@ namespace Roguelancer.Interfaces {
         /// </summary>
         string Font { get; set; }
         /// <summary>
+        /// Font Small
+        /// </summary>
+        string FontSmall { get; set; }
+        /// <summary>
         /// Resolution
         /// </summary>
         Vector2 Resolution { get; set; }
