@@ -22,20 +22,9 @@ namespace Roguelancer.Models {
         }
     }
     /// <summary>
-    /// Hud Object Common
-    /// </summary>
-    public class HudObjectCommon {
-
-    }
-    /// <summary>
     /// Hud Object Ship
     /// </summary>
     public class HudSensorObject {
-        /// <summary>
-        /// Common
-        /// </summary>
-        //public HudObjectCommon Common { get; set; }
-
         /// <summary>
         /// Distance
         /// </summary>
@@ -53,30 +42,4 @@ namespace Roguelancer.Models {
         /// </summary>
         public ISensorObject Obj { get; set; }
     }
-    /// <summary>
-    /// Hud Object Station
-    /// </summary>
-    //public class HudObjectStation {
-        /// <summary>
-        /// Common
-        /// </summary>
-        //public HudObjectCommon Common { get; set; }
-        /// <summary>
-        /// Station
-        /// </summary>
-        //public ISensorObject Station { get; set; }
-    //}
-    /// <summary>
-    /// Hud Object Docking Ring
-    /// </summary>
-    //public class HudObjectTradelaneRing {
-        /// <summary>
-        /// Common
-        /// </summary>
-        //public HudObjectCommon Common { get; set; }
-        /// <summary>
-        /// Trade Lane
-        /// </summary>
-        //public TradeLane Tradelane { get; set; }
-    //}
 }
