@@ -25,6 +25,7 @@ namespace Roguelancer.Models {
     /// Hud Object Ship
     /// </summary>
     public class HudSensorObject {
+        public Vector2 FontOrigin { get; set; }
         /// <summary>
         /// Distance
         /// </summary>

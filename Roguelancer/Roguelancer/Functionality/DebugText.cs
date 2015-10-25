@@ -1,6 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
-using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
@@ -10,10 +9,51 @@ namespace Roguelancer.Functionality {
     /// </summary>
     public class DebugText : IDebugText {
         #region "public variables"
+        private bool _timerEnabled = false;
+        /// <summary>
+        /// Show Enabled
+        /// </summary>
+        private bool _showEnabled = false;
+        /// <summary>
+        /// Show Time
+        /// </summary>
+        private const int _showTime = 100;
+        /// <summary>
+        /// Current Show Time
+        /// </summary>
+        private int _currentShowTime { get; set; }
         /// <summary>
         /// Text
         /// </summary>
-        public string Text { get; set; }
+        private string _text;
+        /// <summary>
+        /// Get Text
+        /// </summary>
+        /// <returns></returns>
+        public string GetText() {
+            try {
+                return _text;
+            } catch {
+                throw;
+            }
+        }
+        /// <summary>
+        /// Set Text
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="value"></param>
+        public void SetText(RoguelancerGame game, string value, bool timerEnabled) {
+            try {
+                _timerEnabled = timerEnabled;
+                if (value != null) {
+                    _currentShowTime = 0;
+                    _showEnabled = true;
+                    _text = value;
+                }
+            } catch {
+                throw;
+            }
+        }
         #endregion
         #region "private variables"
         /// <summary>
@@ -31,7 +71,7 @@ namespace Roguelancer.Functionality {
         /// </summary>
         public DebugText() {
             try {
-                Text = "";
+                _text = "";
             } catch {
                 throw;
             }
@@ -57,15 +97,33 @@ namespace Roguelancer.Functionality {
         /// Update
         /// </summary>
         /// <param name="game"></param>
-        public void Update(RoguelancerGame game) {}
+        public void Update(RoguelancerGame game) {
+            try {
+                if (_showEnabled) {
+                    if (_timerEnabled) {
+                        _currentShowTime++;
+                        if (_currentShowTime > _showTime) {
+                            _showEnabled = false;
+                            _currentShowTime = 0;
+                            _text = "";
+                        }
+                    }
+
+                }
+            } catch {
+                throw;
+            }
+        }
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             try {
-                var fontOrigin = _font.MeasureString(Text) / 2;
-                game.Graphics.SpriteBatch.DrawString(_font, Text, _fontPosition, Color.White, 0, fontOrigin, 3.0f, SpriteEffects.None, 0.5f);
+                if(_showEnabled) {
+                    var fontOrigin = _font.MeasureString(_text) / 2;
+                    game.Graphics.SpriteBatch.DrawString(_font, _text, _fontPosition, Color.White, 0, fontOrigin, 3.0f, SpriteEffects.None, 0.5f);
+                }
             } catch {
                 throw;
             }

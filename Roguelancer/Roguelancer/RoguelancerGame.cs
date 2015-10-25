@@ -103,7 +103,7 @@ namespace Roguelancer {
             DebugText.LoadContent(this);
             DebugText.Update(this);
             Objects.LoadContent(this);
-            DebugText.Text = Settings.MenuText;
+            DebugText.SetText(this, ".", false);
             GameMenu.LoadContent(this);
             Hud.LoadContent(this);
             base.LoadContent();
