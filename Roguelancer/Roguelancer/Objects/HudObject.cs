@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.org
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;

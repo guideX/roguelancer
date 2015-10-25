@@ -1,4 +1,6 @@
-﻿using Microsoft.Xna.Framework;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.org
+using Microsoft.Xna.Framework;
 using Roguelancer.Functionality;
 namespace Roguelancer.Settings {
     /// <summary>

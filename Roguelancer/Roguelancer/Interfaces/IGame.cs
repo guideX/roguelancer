@@ -1,12 +1,16 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
-using Roguelancer.Functionality;
 using Roguelancer.Objects;
+using System.Collections.Generic;
 namespace Roguelancer.Interfaces {
     /// <summary>
     /// IDockable
     /// </summary>
-    public interface IDockable {
+    public interface IDockable : IGame {
+        /// <summary>
+        /// Docked Ships
+        /// </summary>
+        List<ISensorObject> DockedShips { get; set; }
         /// <summary>
         /// Dock
         /// </summary>

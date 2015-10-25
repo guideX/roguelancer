@@ -1,4 +1,6 @@
-﻿using Microsoft.Xna.Framework;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.org
+using Microsoft.Xna.Framework;
 namespace Roguelancer.Models {
     public class ParticleSystemSettingsModel {
         public int SmokePlumeParticles { get; set; }

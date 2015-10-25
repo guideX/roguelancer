@@ -1,4 +1,5 @@
-﻿using System;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.org
 using System.Linq;
 using System.Collections.Generic;
 using Roguelancer.Interfaces;
@@ -203,7 +204,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Trade Lane Ring
     /// </summary>
-    public class TradeLaneRing : IGame, IDockable { // : IGame {
+    public class TradeLaneRing : IGame/*,IDockable*/ { // : IGame {
         /// <summary>
         /// Game Models
         /// </summary>
@@ -285,6 +286,7 @@ namespace Roguelancer.Objects {
                 throw;
             }
         }
+        /*
         /// <summary>
         /// Dock
         /// </summary>
@@ -301,5 +303,6 @@ namespace Roguelancer.Objects {
         public void UnDock(RoguelancerGame game, Ship ship) {
             throw new NotImplementedException();
         }
+        */
     }
 }

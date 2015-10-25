@@ -1,8 +1,13 @@
-﻿using System.Collections.Generic;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.org
+using System.Collections.Generic;
 using Roguelancer.Interfaces;
-using Roguelancer.Settings;
 using Roguelancer.Models;
+using Microsoft.Xna.Framework;
 namespace Roguelancer.Objects {
+    /// <summary>
+    /// Station Collection
+    /// </summary>
     public class StationCollection : IGame {
         #region "public variables"
         /// <summary>
@@ -81,8 +86,18 @@ namespace Roguelancer.Objects {
         }
         #endregion
     }
+    /// <summary>
+    /// Station
+    /// </summary>
     public class Station : IGame, IDockable, ISensorObject {
         #region "public variables"
+        /// <summary>
+        /// Docked Ships
+        /// </summary>
+        public List<ISensorObject> DockedShips { get; set; }
+        /// <summary>
+        /// Description
+        /// </summary>
         public string Description { get; set; }
         /// <summary>
         /// Game Model
@@ -97,6 +112,7 @@ namespace Roguelancer.Objects {
         public Station(RoguelancerGame game) {
             try {
                 Model = new GameModel(game, null);
+                DockedShips = new List<ISensorObject>();
             } catch {
                 throw;
             }
@@ -107,7 +123,6 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             try {
-                //model.ModelMode = Enum.ModelModeEnum.Station;
                 Model.Initialize(game);
             } catch {
                 throw;
@@ -154,6 +169,11 @@ namespace Roguelancer.Objects {
         /// <param name="ship"></param>
         public void Dock(RoguelancerGame game, Ship ship) {
             try {
+                var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position);
+                game.DebugText.SetText(game, distance.ToString(), true);
+                if (game.Input.InputItems.Keys.D && distance < 3) {
+                    DockedShips.Add(ship);
+                }
             } catch {
                 throw;
             }
@@ -163,7 +183,13 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
-        public void UnDock(RoguelancerGame game, Ship ship) {}
+        public void UnDock(RoguelancerGame game, Ship ship) {
+            try {
+                DockedShips.Remove(ship);
+            } catch {
+                throw;
+            }
+        }
         #endregion
     }
 }

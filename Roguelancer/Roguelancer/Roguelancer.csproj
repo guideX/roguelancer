@@ -182,7 +182,6 @@
     <Compile Include="Particle\System\Emitters\ParticleSystems\ExplosionParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\ExplosionSmokeParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\FireParticleSystem.cs" />
-    <Compile Include="Particle\System\Emitters\ParticleSystems\ParticleSystemHandler.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\ProjectileTrailParticleSystem.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\RandomHelper.cs" />
     <Compile Include="Particle\System\Emitters\ParticleSystems\SmokeParticleSystem.cs" />

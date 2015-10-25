@@ -1,6 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
-using System;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Globalization;

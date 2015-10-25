@@ -1,4 +1,6 @@
-﻿namespace Roguelancer.Models {
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.org
+namespace Roguelancer.Models {
     /// <summary>
     /// Toggles Model
     /// </summary>

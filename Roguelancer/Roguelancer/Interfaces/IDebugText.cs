@@ -1,4 +1,6 @@
-﻿namespace Roguelancer.Interfaces {
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.org
+namespace Roguelancer.Interfaces {
     public interface IDebugText : IGame {
         #region "public variables"
         /// <summary>

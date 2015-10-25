@@ -3,15 +3,9 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Audio;
-using Microsoft.Xna.Framework.Content;
-using Microsoft.Xna.Framework.GamerServices;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
-using Microsoft.Xna.Framework.Media;
 using Roguelancer.Particle.ParticleSystem;
 using Roguelancer.Interfaces;
-
 namespace Roguelancer.Particle.System {
     public class clsParticleManager : DrawableGameComponent {
         public readonly BlendState DefaultBlendState = BlendState.NonPremultiplied;

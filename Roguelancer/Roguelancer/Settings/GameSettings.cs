@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.org
+using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Roguelancer.Functionality;

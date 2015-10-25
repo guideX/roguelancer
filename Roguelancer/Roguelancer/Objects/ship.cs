@@ -35,7 +35,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            foreach (Ship _ship in Ships) {
+            foreach (var _ship in Ships) {
                 _ship.Initialize(game);
             }
         }
@@ -45,7 +45,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             try {
-                foreach (Ship _ship in Ships) {
+                foreach (var _ship in Ships) {
                     _ship.LoadContent(game);
                 }
             } catch {
@@ -58,7 +58,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                foreach (Ship _ship in Ships) {
+                foreach (var _ship in Ships) {
                     _ship.Update(game);
                 }
             } catch {
@@ -71,7 +71,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             try {
-                foreach (Ship _ship in Ships) {
+                foreach (var _ship in Ships) {
                     _ship.Draw(game);
                 }
             } catch {
@@ -85,17 +85,17 @@ namespace Roguelancer.Objects {
         public void Reset(RoguelancerGame game) {
             try {
                 Ships = new List<Ship>();
-                var playerShip = new Ship(null, game);
+                var playerShip = new Ship(game);
                 Ship tempShip;
                 playerShip.Model.WorldObject = game.Settings.StarSystemSettings[0].ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer == true).FirstOrDefault();
                 playerShip.PlayerShipControl.UseInput = true;
                 Ships.Add(playerShip);
-                foreach (ModelWorldObjects modelWorldObject in game.Settings.StarSystemSettings[0].ships.Where(s => s.SettingsModelObject.isPlayer == false).ToList()) {
-                    tempShip = new Ship(null, game);
+                foreach (var modelWorldObject in game.Settings.StarSystemSettings[0].ships.Where(s => s.SettingsModelObject.isPlayer == false).ToList()) {
+                    tempShip = new Ship(game);
+                    tempShip.Description = "";
                     tempShip.Model = new GameModel(game, null);
                     tempShip.Model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
                     tempShip.PlayerShipControl.UseInput = false;
-                    //tempShip.model.ModelMode = Enum.ModelModeEnum.Ship;
                     Ships.Add(Ship.Clone(tempShip, game));
                 }
             } catch {
@@ -121,7 +121,7 @@ namespace Roguelancer.Objects {
         /// Ship
         /// </summary>
         /// <param name="game"></param>
-        public Ship(string description, RoguelancerGame game) {
+        public Ship(RoguelancerGame game) {
             try {
                 Model = new GameModel(game, null);
                 PlayerShipControl = new PlayerShipControl();
@@ -138,7 +138,8 @@ namespace Roguelancer.Objects {
         public static Ship Clone(Ship oldShip, RoguelancerGame game) {
             try {
                 Ship ship;
-                ship = new Ship(oldShip.Description, game);
+                ship = new Ship(game);
+                ship.Description = oldShip.Description;
                 ship.PlayerShipControl = oldShip.PlayerShipControl;
                 ship.Model = oldShip.Model;
                 return ship;
@@ -153,7 +154,6 @@ namespace Roguelancer.Objects {
         public void Initialize(RoguelancerGame game) {
             try {
                 Model.Initialize(game);
-                //model.ModelMode = Enum.ModelModeEnum.Ship;
                 if (PlayerShipControl.UseInput) {
                     PlayerShipControl = new PlayerShipControl();
                     PlayerShipControl.Initialize(game);

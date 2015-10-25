@@ -1,4 +1,6 @@
-﻿namespace Roguelancer.Enum {
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.org
+namespace Roguelancer.Enum {
     /// <summary>
     /// Game States
     /// </summary>
@@ -18,6 +20,10 @@
         /// <summary>
         /// Playing
         /// </summary>
-        Playing = 3
+        Playing = 3,
+        /// <summary>
+        /// Docked
+        /// </summary>
+        Docked = 4
     }
 }

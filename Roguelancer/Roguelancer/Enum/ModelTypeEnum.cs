@@ -1,6 +1,5 @@
-﻿/// <summary>
-/// Model Type
-/// </summary>
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.org
 namespace Roguelancer.Enum {
     /// <summary>
     /// Model Type

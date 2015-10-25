@@ -1,4 +1,6 @@
-﻿using Roguelancer.Functionality;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.org
+using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Particle;
 using Roguelancer.Settings;

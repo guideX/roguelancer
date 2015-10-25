@@ -9,6 +9,9 @@ namespace Roguelancer.Functionality {
     /// </summary>
     public class DebugText : IDebugText {
         #region "public variables"
+        /// <summary>
+        /// Timer Enabled
+        /// </summary>
         private bool _timerEnabled = false;
         /// <summary>
         /// Show Enabled
