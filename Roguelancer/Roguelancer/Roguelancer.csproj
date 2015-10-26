@@ -122,6 +122,7 @@
     </Compile>
     <Compile Include="Functionality\Notifications.cs" />
     <Compile Include="Interfaces\IDebugText.cs" />
+    <Compile Include="Interfaces\IDockable.cs" />
     <Compile Include="Interfaces\IDockableShip.cs" />
     <Compile Include="Interfaces\IGameGraphics.cs" />
     <Compile Include="Interfaces\IGameSettings.cs" />

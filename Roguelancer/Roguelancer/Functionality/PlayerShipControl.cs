@@ -19,30 +19,87 @@ namespace Roguelancer.Functionality {
         /// </summary>
         public bool UseInput { get; set; }
         #endregion
-        #region "private variables"
+        #region "private const"
         /// <summary>
         /// Update Direction X
         /// </summary>
-        private float _updateDirectionX = 3.0f;
-        private float _updateDirectionY = 3.0f;
-        private float _rotationXLeftAdd = 1.0f;
-        private float _rotationXRightAdd = -1.0f;
-        private float _rotationYUpAdd = -1.0f;
-        private float _rotationYDownAdd = 1.0f;
+        private const float _updateDirectionX = 3.0f;
+        /// <summary>
+        /// Update Direction Y
+        /// </summary>
+        private const float _updateDirectionY = 3.0f;
+        /// <summary>
+        /// Rotation X Left Add
+        /// </summary>
+        private const float _rotationXLeftAdd = 1.0f;
+        /// <summary>
+        /// Rotation X Right Add
+        /// </summary>
+        private const float _rotationXRightAdd = -1.0f;
+        /// <summary>
+        /// Rotation Y Up Add
+        /// </summary>
+        private const float _rotationYUpAdd = -1.0f;
+        /// <summary>
+        /// Rotation Y Down Add
+        /// </summary>
+        private const float _rotationYDownAdd = 1.0f;
+        /// <summary>
+        /// Rotation Rate
+        /// </summary>
         private const float _rotationRate = 1.5f;
+        /// <summary>
+        /// Mass
+        /// </summary>
         private const float _mass = 1.0f;
+        /// <summary>
+        /// Thrust Force
+        /// </summary>
         private const float _thrustForce = 44000.0f;
+        /// <summary>
+        /// Drag Factor
+        /// </summary>
         private const float _dragFactor = 0.97f;
-        private float _maxThrustAmount = 0.3f;
-        private float _maxThrustAfterburnerAmount = 1.0f;
-        private float _thrustAddSpeed = 0.006f;
-        private float _thrustAfterBurnerAddAmount = 0.1f;
-        private float _thrustSlowDownSpeed = 0.005f;
-        private float _thrustReverseSpeed = -0.009f;
-        private float _maxThrustReverse = -0.10f;
-        private float _maxCruiseSpeed = 2.0f;
-        private bool _limitAltitude = true;
-        private float _thrustMinNotZero = .00001f;
+        /// <summary>
+        /// Max Thrust Amount
+        /// </summary>
+        private const float _maxThrustAmount = 0.3f;
+        /// <summary>
+        /// Max Thrust Afterburner Amount
+        /// </summary>
+        private const float _maxThrustAfterburnerAmount = 1.0f;
+        /// <summary>
+        /// thrust Add Speed
+        /// </summary>
+        private const float _thrustAddSpeed = 0.006f;
+        /// <summary>
+        /// Thrust After Burner Add Amount
+        /// </summary>
+        private const float _thrustAfterBurnerAddAmount = 0.1f;
+        /// <summary>
+        /// Thrust Slow Down Speed
+        /// </summary>
+        private const float _thrustSlowDownSpeed = 0.005f;
+        /// <summary>
+        /// Thrust Reverse Speed
+        /// </summary>
+        private const float _thrustReverseSpeed = -0.009f;
+        /// <summary>
+        /// Max thrust Reverse
+        /// </summary>
+        private const float _maxThrustReverse = -0.10f;
+        /// <summary>
+        /// Max Cruise Speed
+        /// </summary>
+        private const float _maxCruiseSpeed = 2.0f;
+        /// <summary>
+        /// Limit Altitude
+        /// </summary>
+        private const bool _limitAltitude = true;
+        /// <summary>
+        /// Thrust Min Not Zero
+        /// </summary>
+        private const float _thrustMinNotZero = .00001f;
         #endregion
         #region "public functions"
         /// <summary>
@@ -87,7 +144,7 @@ namespace Roguelancer.Functionality {
             var rotationAmount = new Vector2();
             var w2 = (float)game.Graphics.GraphicsDeviceManager.PreferredBackBufferWidth / _updateDirectionX;
             var h2 = (float)game.Graphics.GraphicsDeviceManager.PreferredBackBufferHeight / _updateDirectionY;
-            if (UseInput == true) {
+            if (UseInput) {
                 if (game.Input.InputItems.Toggles.MouseMode == true && game.Input.InputItems.Toggles.FreeMouseMode == false) {
                     if (game.Input.InputItems.Mouse.LeftButton == true) {
                         rotationAmount.X = (game.Input.InputItems.Mouse.Vector.X - w2) / -w2;
@@ -116,7 +173,7 @@ namespace Roguelancer.Functionality {
             }
             model.Rotation = rotationAmount;
             model.UpdatePosition();
-            if (UseInput == true) {
+            if (UseInput) {
                 if (game.Input.InputItems.Keys.W == true) {
                     game.Camera.Shake(ShakeValue, 0f, false);
                     if (model.CurrentThrust == _maxThrustAmount) {

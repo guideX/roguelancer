@@ -5,10 +5,6 @@ namespace Roguelancer.Interfaces {
     public interface ISensorObject : IGame {
         #region "public variables"
         /// <summary>
-        /// Description
-        /// </summary>
-        //string Description { get; set; }
-        /// <summary>
         /// Game Model
         /// </summary>
         GameModel Model { get; set; }

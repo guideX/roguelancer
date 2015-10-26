@@ -97,10 +97,6 @@ namespace Roguelancer.Objects {
         /// </summary>
         public List<ISensorObject> DockedShips { get; set; }
         /// <summary>
-        /// Description
-        /// </summary>
-        //public string Description { get; set; }
-        /// <summary>
         /// Game Model
         /// </summary>
         public GameModel Model { get; set; }
@@ -148,7 +144,8 @@ namespace Roguelancer.Objects {
             try {
                 Model.UpdatePosition();
                 Model.Update(game);
-                if (game.Input.InputItems.Keys.U) {
+                if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.U) {
+                    game.Input.InputItems.Keys.U = false;
                     var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
                     if (ship.Docked) {
                         var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
@@ -157,12 +154,15 @@ namespace Roguelancer.Objects {
                         }
                     }
                 }
-                if (game.Input.InputItems.Keys.D) {
+                if (game.GameState.CurrentGameState == Enum.GameStates.Playing && game.Input.InputItems.Keys.D) {
+                    game.Input.InputItems.Keys.D = false;
                     var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
                     if (!ship.Docked) {
                         var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
                         if (distance < HudObject.DockDistanceAccept) {
                             Dock(game, ship);
+                            ship.Model.Velocity = new Vector3(0f, 0f, 0f);
+                            ship.Model.CurrentThrust = 0f;
                         }
                     }
                 }
@@ -188,9 +188,13 @@ namespace Roguelancer.Objects {
         /// <param name="ship"></param>
         public void Dock(RoguelancerGame game, Ship ship) {
             try {
+                var _ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                if (_ship == ship) {
+                    game.GameState.CurrentGameState = Enum.GameStates.Docked;
+                }
                 ship.Docked = true;
                 DockedShips.Add(ship);
-                game.DebugText.SetText(game, "Docked at '" + Model.WorldObject.Description + "'. " + ((int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue).ToString(), true);
+                game.DebugText.SetText(game, "Docked at '" + Model.WorldObject.Description + "'.", true);
             } catch {
                 throw;
             }
@@ -202,8 +206,13 @@ namespace Roguelancer.Objects {
         /// <param name="ship"></param>
         public void UnDock(RoguelancerGame game, Ship ship) {
             try {
+                var _ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                if (_ship == ship) {
+                    game.GameState.CurrentGameState = Enum.GameStates.Playing;
+                }
                 ship.Docked = false;
                 DockedShips.Remove(ship);
+                game.DebugText.SetText(game, "Undocked from '" + Model.WorldObject.Description + "'.", true);
             } catch {
                 throw;
             }

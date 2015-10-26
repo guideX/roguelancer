@@ -12,12 +12,10 @@ namespace Roguelancer.Objects {
     /// Ship Collection
     /// </summary>
     public class ShipCollection : IShipCollection {
-        #region "public variables"
         /// <summary>
         /// Ships
         /// </summary>
         public List<Ship> Ships { get; set; }
-        #endregion
         #region "public functions"
         /// <summary>
         /// Entry Point
@@ -185,16 +183,14 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                if (!Docked) {
-                    if (game.GameState.CurrentGameState == GameStates.Playing) {
-                        if (PlayerShipControl.UseInput) {
-                            PlayerShipControl.UpdateModel(Model, game);
-                            if (game.Input.InputItems.Toggles.ToggleCamera == false) {
-                                Model.Update(game);
-                            }
-                        } else {
+                if (game.GameState.CurrentGameState == GameStates.Playing) {
+                    if (PlayerShipControl.UseInput) {
+                        PlayerShipControl.UpdateModel(Model, game);
+                        if (game.Input.InputItems.Toggles.ToggleCamera == false) {
                             Model.Update(game);
                         }
+                    } else {
+                        Model.Update(game);
                     }
                 }
             } catch {

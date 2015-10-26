@@ -161,6 +161,8 @@ namespace Roguelancer {
                     }
                     GameMenu.Draw(this);
                     Graphics.Draw(this);
+                } else if (GameState.CurrentGameState == GameStates.Docked) {
+                    
                 }
                 DebugText.Draw(this);
                 Graphics.SpriteBatch.End();
