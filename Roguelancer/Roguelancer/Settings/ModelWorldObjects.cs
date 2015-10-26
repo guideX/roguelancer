@@ -63,6 +63,10 @@ namespace Roguelancer.Settings {
         /// </summary>
         public Vector3 InitialDirection { get; set; }
         /// <summary>
+        /// Cargo Space
+        /// </summary>
+        public int CargoSpace { get; set; }
+        /// <summary>
         /// Entry Point
         /// </summary>
         /// <param name="startupPosition"></param>
@@ -85,7 +89,8 @@ namespace Roguelancer.Settings {
                 Vector3 initialVelocity,
                 float initialCurrentThrust,
                 Vector3 initialDirection,
-                float scaling
+                float scaling,
+                int cargoSpace
             ) {
             try {
                 Description = description;
@@ -99,6 +104,7 @@ namespace Roguelancer.Settings {
                 InitialCurrentThrust = initialCurrentThrust;
                 InitialDirection = initialDirection;
                 Scaling = scaling;
+                CargoSpace = cargoSpace;
             } catch {
                 throw;
             }
@@ -121,7 +127,8 @@ namespace Roguelancer.Settings {
                         oldObject.InitialVelocity,
                         oldObject.InitialCurrentThrust,
                         oldObject.InitialDirection,
-                        oldObject.Scaling
+                        oldObject.Scaling,
+                        oldObject.CargoSpace
                     );
             } catch {
                 throw;
@@ -147,7 +154,8 @@ namespace Roguelancer.Settings {
                     IniFile.ReadINIVector3(iniFile, section, "initial_velocity_x", "initial_velocity_y", "initial_velocity_z"),
                     float.Parse(IniFile.ReadINI(iniFile, section, "initial_current_thrust", "0")),
                     IniFile.ReadINIVector3(iniFile, section, "initial_direction_x", "initial_direction_y", "initial_direction_z"),
-                    IniFile.ReadINIFloat(iniFile, section, "model_scaling")
+                    IniFile.ReadINIFloat(iniFile, section, "model_scaling"),
+                    int.Parse(IniFile.ReadINI(iniFile, section, "cargo_space", "0"))
                 );
             } catch {
                 throw;

@@ -112,6 +112,7 @@
     <Compile Include="Bloom\BloomSettings.cs" />
     <Compile Include="Bloom\BloomHandler.cs" />
     <None Include="configuration\objects\bullets.ini" />
+    <None Include="configuration\commodities_station.ini" />
     <Compile Include="Enum\IntermediateBuffer.cs" />
     <Compile Include="Enum\ModelTypeEnum.cs" />
     <Compile Include="Enum\GameStates.cs" />
@@ -128,7 +129,9 @@
     <Compile Include="Interfaces\IGameSettings.cs" />
     <Compile Include="Interfaces\IInput.cs" />
     <Compile Include="Interfaces\ISensorObject.cs" />
+    <Compile Include="Models\CommodityModel.cs" />
     <Compile Include="Models\HudModel.cs" />
+    <Compile Include="Models\StationPriceModel.cs" />
     <Compile Include="Objects\DockableObject.cs" />
     <Compile Include="Objects\HudObject.cs" />
     <Compile Include="RoguelancerGame.cs" />
@@ -196,6 +199,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Roguelancer.cs" />
     <Compile Include="Settings\CameraSettings.cs" />
+    <Compile Include="Settings\CommoditiesSettings.cs" />
     <Compile Include="Settings\GameSettings.cs" />
     <Compile Include="Settings\ModelWorldObjects.cs" />
     <Compile Include="Settings\SettingsModelObject.cs" />
@@ -205,6 +209,7 @@
     <None Include="configuration\systems\test_system\tradelanes.ini" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="configuration\commodities.ini" />
     <Content Include="configuration\menus.ini" />
     <Content Include="Game.ico" />
     <Content Include="GameThumbnail.png" />

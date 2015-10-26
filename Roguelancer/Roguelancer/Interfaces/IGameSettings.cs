@@ -6,6 +6,13 @@ using System.Collections.Generic;
 namespace Roguelancer.Interfaces {
     public interface IGameSettings {
         #region "public variables"
+        /// <summary>
+        /// Commodities Settings
+        /// </summary>
+        CommoditiesSettings CommoditiesSettings { get; set; }
+        /// <summary>
+        /// Sensor Texture
+        /// </summary>
         string SensorTexture { get; set; }
         /// <summary>
         /// Menu Background Texture

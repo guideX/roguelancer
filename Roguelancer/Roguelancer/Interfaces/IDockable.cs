@@ -1,5 +1,7 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
+using Roguelancer.Enum;
+using Roguelancer.Models;
 using Roguelancer.Objects;
 using Roguelancer.Settings;
 using System.Collections.Generic;
@@ -24,5 +26,13 @@ namespace Roguelancer.Interfaces {
         /// <param name="game"></param>
         /// <param name="ship"></param>
         void UnDock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject);
+        /// <summary>
+        /// Commodities for Sale
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="id"></param>
+        /// <param name="modelType"></param>
+        /// <returns></returns>
+        List<StationPriceModel> CommoditiesForSale(RoguelancerGame game, int id, ModelType modelType);
     }
 }

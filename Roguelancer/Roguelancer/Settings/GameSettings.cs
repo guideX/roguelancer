@@ -12,6 +12,10 @@ namespace Roguelancer.Settings {
     public class GameSettings : IGameSettings {
         #region "public variables"
         /// <summary>
+        /// Commodities Settings
+        /// </summary>
+        public CommoditiesSettings CommoditiesSettings { get; set; }
+        /// <summary>
         /// Menu Background Texture
         /// </summary>
         public string MenuBackgroundTexture { get; set; }
@@ -125,6 +129,7 @@ namespace Roguelancer.Settings {
                         )
                     ));
                 }
+                CommoditiesSettings = new CommoditiesSettings(rootDir + @"configuration\commodities.ini", rootDir + @"configuration\commodities_station.ini");
                 //BulletTexture = IniFile.ReadINI(gameSettingsIniFile, "Settings", "bullet_texture");
                 //BulletTexture = @"Earth";
             } catch (Exception ex) {

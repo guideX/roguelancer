@@ -140,6 +140,9 @@ namespace Roguelancer.Objects {
             try {
                 Model.UpdatePosition();
                 Model.Update(game);
+                if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.C) {
+
+                }
                 if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.U) {
                     game.Input.InputItems.Keys.U = false;
                     var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();

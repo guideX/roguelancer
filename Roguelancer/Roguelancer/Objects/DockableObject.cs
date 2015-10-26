@@ -4,12 +4,21 @@ using System.Linq;
 using Roguelancer.Interfaces;
 using System.Collections.Generic;
 using Roguelancer.Settings;
+using Roguelancer.Models;
+using Roguelancer.Enum;
 namespace Roguelancer.Objects {
+    /// <summary>
+    /// Dockable Object
+    /// </summary>
     public abstract class DockableObject {
+        /// <summary>
+        /// Model Type
+        /// </summary>
+        //public virtual ModelType ModelType { get; set; }
         /// <summary>
         /// Docked Ships
         /// </summary>
-        public List<ISensorObject> DockedShips { get; set; }
+        public virtual List<ISensorObject> DockedShips { get; set; }
         /// <summary>
         /// Dock
         /// </summary>
@@ -42,6 +51,23 @@ namespace Roguelancer.Objects {
                 ship.Docked = false;
                 DockedShips.Remove(ship);
                 game.DebugText.SetText(game, "Undocked from '" + worldObject.Description + "'.", true);
+            } catch {
+                throw;
+            }
+        }
+        /// <summary>
+        /// Commodities for Sale
+        /// </summary>
+        /// <param name="game"></param>
+        /// <returns></returns>
+        public virtual List<StationPriceModel> CommoditiesForSale(RoguelancerGame game, int id, ModelType modelType) {
+            try {
+                switch (modelType) {
+                    case ModelType.Station:
+                        return game.Settings.CommoditiesSettings.StationPriceModels.Where(p => p.StarSystemId == game.StarSystemId && p.StationId == id).ToList();
+                    default:
+                        return null;
+                }
             } catch {
                 throw;
             }
