@@ -101,13 +101,15 @@ namespace Roguelancer.Objects {
         }
         #endregion
     }
+    /// <summary>
+    /// Ship
+    /// </summary>
     public class Ship : IGame, ISensorObject, IDockableShip {
         #region "public variables"
-        public bool Docked { get; set; }
         /// <summary>
-        /// Description
+        /// Docked
         /// </summary>
-        //public string Description { get; set; }
+        public bool Docked { get; set; }
         /// <summary>
         /// Game Model
         /// </summary>
@@ -140,7 +142,6 @@ namespace Roguelancer.Objects {
             try {
                 Ship ship;
                 ship = new Ship(game);
-                //ship.Description = oldShip.Description;
                 ship.PlayerShipControl = oldShip.PlayerShipControl;
                 ship.Model = oldShip.Model;
                 return ship;

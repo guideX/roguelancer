@@ -204,7 +204,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Trade Lane Ring
     /// </summary>
-    public class TradeLaneRing : IGame/*,IDockable*/ { // : IGame {
+    public class TradeLaneRing : IGame {
         /// <summary>
         /// Game Models
         /// </summary>
@@ -286,23 +286,5 @@ namespace Roguelancer.Objects {
                 throw;
             }
         }
-        /*
-        /// <summary>
-        /// Dock
-        /// </summary>
-        /// <param name="game"></param>
-        /// <param name="ship"></param>
-        public void Dock(RoguelancerGame game, Ship ship) {
-            throw new NotImplementedException();
-        }
-        /// <summary>
-        /// Undock
-        /// </summary>
-        /// <param name="game"></param>
-        /// <param name="ship"></param>
-        public void UnDock(RoguelancerGame game, Ship ship) {
-            throw new NotImplementedException();
-        }
-        */
     }
 }

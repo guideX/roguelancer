@@ -1,6 +1,7 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
 using Roguelancer.Objects;
+using Roguelancer.Settings;
 using System.Collections.Generic;
 namespace Roguelancer.Interfaces {
     /// <summary>
@@ -16,12 +17,12 @@ namespace Roguelancer.Interfaces {
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
-        void Dock(RoguelancerGame game, Ship ship);
+        void Dock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject);
         /// <summary>
         /// UnDoc
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
-        void UnDock(RoguelancerGame game, Ship ship);
+        void UnDock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject);
     }
 }

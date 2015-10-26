@@ -2,7 +2,6 @@
 // http://www.team-nexgen.org
 using System.Collections.Generic;
 using Roguelancer.Interfaces;
-using Roguelancer.Settings;
 using Roguelancer.Models;
 namespace Roguelancer.Objects {
     public class PlanetCollection : IGame {
@@ -82,7 +81,10 @@ namespace Roguelancer.Objects {
         }
         #endregion
     }
-    public class Planet : IGame/*, IDockable*/ {
+    /// <summary>
+    /// Planet
+    /// </summary>
+    public class Planet : DockableObject, IGame, IDockable, ISensorObject {
         #region "public variables"
         /// <summary>
         /// Model
@@ -147,20 +149,6 @@ namespace Roguelancer.Objects {
                 throw;
             }
         }
-        /*
-        /// <summary>
-        /// Dock
-        /// </summary>
-        /// <param name="game"></param>
-        /// <param name="ship"></param>
-        public void Dock(RoguelancerGame game, Ship ship) {}
-        /// <summary>
-        /// Un-Doc
-        /// </summary>
-        /// <param name="game"></param>
-        /// <param name="ship"></param>
-        public void UnDock(RoguelancerGame game, Ship ship) {}
-        */
         #endregion
     }
 }
