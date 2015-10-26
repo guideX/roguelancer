@@ -103,8 +103,9 @@ namespace Roguelancer.Objects {
         }
         #endregion
     }
-    public class Ship : IGame, ISensorObject {
+    public class Ship : IGame, ISensorObject, IDockableShip {
         #region "public variables"
+        public bool Docked { get; set; }
         /// <summary>
         /// Description
         /// </summary>
@@ -184,14 +185,16 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                if (game.GameState.CurrentGameState == GameStates.Playing) {
-                    if (PlayerShipControl.UseInput) {
-                        PlayerShipControl.UpdateModel(Model, game);
-                        if (game.Input.InputItems.Toggles.ToggleCamera == false) {
+                if (!Docked) {
+                    if (game.GameState.CurrentGameState == GameStates.Playing) {
+                        if (PlayerShipControl.UseInput) {
+                            PlayerShipControl.UpdateModel(Model, game);
+                            if (game.Input.InputItems.Toggles.ToggleCamera == false) {
+                                Model.Update(game);
+                            }
+                        } else {
                             Model.Update(game);
                         }
-                    } else {
-                        Model.Update(game);
                     }
                 }
             } catch {
@@ -204,9 +207,11 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             try {
-                Model.Draw(game);
-                if (PlayerShipControl.UseInput) {
-                    PlayerShipControl.Draw(game);
+                if (!Docked) {
+                    Model.Draw(game);
+                    if (PlayerShipControl.UseInput) {
+                        PlayerShipControl.Draw(game);
+                    }
                 }
             } catch {
                 throw;

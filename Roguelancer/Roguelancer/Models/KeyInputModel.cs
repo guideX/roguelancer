@@ -6,6 +6,10 @@ namespace Roguelancer.Models {
     /// </summary>
     public class KeyInputModel {
         /// <summary>
+        /// U
+        /// </summary>
+        public bool U { get; set; }
+        /// <summary>
         /// Space
         /// </summary>
         public bool Space { get; set; }

@@ -37,15 +37,18 @@ namespace Roguelancer.Objects {
         /// </summary>
         private HudModel _model;
         #endregion
+        #region "public const"
+        public const int DockDistanceAccept = 20;
+        /// <summary>
+        /// Division Distance Value
+        /// </summary>
+        public const int DivisionDistanceValue = 2000;
+        #endregion
         #region "private const"
         /// <summary>
         /// Font Increment
         /// </summary>
         private const int _fontIncrement = 30;
-        /// <summary>
-        /// Division Distance Value
-        /// </summary>
-        private const int _divisionDistanceValue = 300;
         /// <summary>
         /// Max Sensor Objects
         /// </summary>
@@ -117,13 +120,13 @@ namespace Roguelancer.Objects {
                 _updateOrderInt++;
                 if (_updateOrderInt > _updateOrderInterval) {
                     if (_playerShip == null) { _playerShip = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault(); }
-                    game.DebugText.SetText(game, "X: " +  Convert.ToInt32(_playerShip.Model.Position.X).ToString() + ", Y: " + Convert.ToInt32(_playerShip.Model.Position.Y).ToString() + ", Z: " + Convert.ToInt32(_playerShip.Model.Position.Z).ToString() + "DX: " + Convert.ToInt32(_playerShip.Model.Direction.X).ToString() + "DY: " + Convert.ToInt32(_playerShip.Model.Direction.Y).ToString() + "DZ: " + Convert.ToInt32(_playerShip.Model.Direction.Z).ToString(), false);
+                    //game.DebugText.SetText(game, "X: " +  Convert.ToInt32(_playerShip.Model.Position.X).ToString() + ", Y: " + Convert.ToInt32(_playerShip.Model.Position.Y).ToString() + ", Z: " + Convert.ToInt32(_playerShip.Model.Position.Z).ToString() + "DX: " + Convert.ToInt32(_playerShip.Model.Direction.X).ToString() + "DY: " + Convert.ToInt32(_playerShip.Model.Direction.Y).ToString() + "DZ: " + Convert.ToInt32(_playerShip.Model.Direction.Z).ToString(), false);
                     _screenRectangle = new Rectangle(_imageLeft, _imageTop, _imageWidth, _imageHeight);
                     if (((game.Objects.Ships.Ships.Count + game.Objects.Stations.Stations.Count) - 1) != _model.SensorObjects.Count) {
                         _model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();
                         foreach (var ship in game.Objects.Ships.Ships) {
                             shipId++;
-                            d = Vector3.Distance(_playerShip.Model.Position, ship.Model.Position) / _divisionDistanceValue;
+                            d = Vector3.Distance(_playerShip.Model.Position, ship.Model.Position) / DivisionDistanceValue;
                             text = "Ship " + shipId.ToString();
                             if (d != 0f) {
                                 _model.SensorObjects.Add(new HudSensorObject() {
@@ -137,7 +140,7 @@ namespace Roguelancer.Objects {
                             }
                         }
                         foreach (var station in game.Objects.Stations.Stations) {
-                            d = (double)Vector3.Distance(_playerShip.Model.Position, station.Model.Position) / _divisionDistanceValue;
+                            d = (double)Vector3.Distance(_playerShip.Model.Position, station.Model.Position) / DivisionDistanceValue;
                             text = station.Model.WorldObject.Description;
                             _model.SensorObjects.Add(new HudSensorObject() {
                                 Obj = station,
@@ -151,7 +154,7 @@ namespace Roguelancer.Objects {
                         _updateOrderInt = _updateOrderInterval - 1;
                     } else {
                         foreach (var so in _model.SensorObjects) {
-                            so.Distance = (double)Vector3.Distance(_playerShip.Model.Position, so.Obj.Model.Position) / _divisionDistanceValue;
+                            so.Distance = (double)Vector3.Distance(_playerShip.Model.Position, so.Obj.Model.Position) / DivisionDistanceValue;
                             so.FontOrigin = _font.MeasureString(so.Text) / 2;
                             if (so.Distance < _maxDistance) {
                                 so.FontPosition = new Vector2(_textLeft, _imageTop + n);

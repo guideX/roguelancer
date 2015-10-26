@@ -1,5 +1,6 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
+using System.Linq;
 using System.Collections.Generic;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
@@ -147,6 +148,24 @@ namespace Roguelancer.Objects {
             try {
                 Model.UpdatePosition();
                 Model.Update(game);
+                if (game.Input.InputItems.Keys.U) {
+                    var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                    if (ship.Docked) {
+                        var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
+                        if (distance < HudObject.DockDistanceAccept) {
+                            UnDock(game, ship);
+                        }
+                    }
+                }
+                if (game.Input.InputItems.Keys.D) {
+                    var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                    if (!ship.Docked) {
+                        var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
+                        if (distance < HudObject.DockDistanceAccept) {
+                            Dock(game, ship);
+                        }
+                    }
+                }
             } catch {
                 throw;
             }
@@ -169,11 +188,9 @@ namespace Roguelancer.Objects {
         /// <param name="ship"></param>
         public void Dock(RoguelancerGame game, Ship ship) {
             try {
-                var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position);
-                game.DebugText.SetText(game, distance.ToString(), true);
-                if (game.Input.InputItems.Keys.D && distance < 3) {
-                    DockedShips.Add(ship);
-                }
+                ship.Docked = true;
+                DockedShips.Add(ship);
+                game.DebugText.SetText(game, "Docked at '" + Model.WorldObject.Description + "'. " + ((int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue).ToString(), true);
             } catch {
                 throw;
             }
@@ -185,6 +202,7 @@ namespace Roguelancer.Objects {
         /// <param name="ship"></param>
         public void UnDock(RoguelancerGame game, Ship ship) {
             try {
+                ship.Docked = false;
                 DockedShips.Remove(ship);
             } catch {
                 throw;
