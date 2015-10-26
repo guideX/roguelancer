@@ -92,7 +92,6 @@ namespace Roguelancer.Objects {
                 Ships.Add(playerShip);
                 foreach (var modelWorldObject in game.Settings.StarSystemSettings[0].ships.Where(s => s.SettingsModelObject.isPlayer == false).ToList()) {
                     tempShip = new Ship(game);
-                    tempShip.Description = "";
                     tempShip.Model = new GameModel(game, null);
                     tempShip.Model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
                     tempShip.PlayerShipControl.UseInput = false;
@@ -106,7 +105,10 @@ namespace Roguelancer.Objects {
     }
     public class Ship : IGame, ISensorObject {
         #region "public variables"
-        public string Description { get; set; }
+        /// <summary>
+        /// Description
+        /// </summary>
+        //public string Description { get; set; }
         /// <summary>
         /// Game Model
         /// </summary>
@@ -139,7 +141,7 @@ namespace Roguelancer.Objects {
             try {
                 Ship ship;
                 ship = new Ship(game);
-                ship.Description = oldShip.Description;
+                //ship.Description = oldShip.Description;
                 ship.PlayerShipControl = oldShip.PlayerShipControl;
                 ship.Model = oldShip.Model;
                 return ship;

@@ -43,6 +43,7 @@ namespace Roguelancer.Objects {
                 Model.Scale = scale;
                 //Model.ModelMode = Enum.ModelModeEnum.Bullet;
                 Model.WorldObject = new Settings.ModelWorldObjects(
+                    ":)",
                     BulletModel.PlayerShip.Model.Position + startupPosition,
                     new Vector3(0f, 0f, 0f),
                     new Settings.SettingsModelObject(

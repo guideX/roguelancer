@@ -5,8 +5,6 @@ using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
 using Roguelancer.Settings;
 using Roguelancer.Enum;
-using Roguelancer.Functionality;
-using Roguelancer.Particle.System.ParticleSystems;
 using Roguelancer.Particle.System;
 namespace Roguelancer.Models {
     /// <summary>

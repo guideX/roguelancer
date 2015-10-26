@@ -7,7 +7,7 @@ namespace Roguelancer.Interfaces {
         /// <summary>
         /// Description
         /// </summary>
-        string Description { get; set; }
+        //string Description { get; set; }
         /// <summary>
         /// Game Model
         /// </summary>

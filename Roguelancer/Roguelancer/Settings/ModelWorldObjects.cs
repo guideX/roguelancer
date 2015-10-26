@@ -11,6 +11,10 @@ namespace Roguelancer.Settings {
     /// </summary>
     public class ModelWorldObjects {
         /// <summary>
+        /// Description
+        /// </summary>
+        public string Description { get; set; }
+        /// <summary>
         /// Startup Position
         /// </summary>
         public Vector3 StartupPosition { get; set; }
@@ -67,6 +71,7 @@ namespace Roguelancer.Settings {
         /// <param name="initialCurrentThrust"></param>
         /// <param name="initialDirection"></param>
         public ModelWorldObjects(
+                string description,
                 Vector3 startupPosition,
                 Vector3 startupModelRotation,
                 SettingsModelObject settingsModelObject,
@@ -78,6 +83,7 @@ namespace Roguelancer.Settings {
                 Vector3 initialDirection
             ) {
             try {
+                Description = description;
                 StartupPosition = startupPosition;
                 StartupModelRotation = startupModelRotation;
                 SettingsModelObject = settingsModelObject;
@@ -99,6 +105,7 @@ namespace Roguelancer.Settings {
         public static ModelWorldObjects Clone(ModelWorldObjects oldObject) {
             try {
                 return new ModelWorldObjects(
+                        oldObject.Description,
                         oldObject.StartupPosition,
                         oldObject.StartupModelRotation,
                         SettingsModelObject.Clone(oldObject.SettingsModelObject),
@@ -123,6 +130,7 @@ namespace Roguelancer.Settings {
         public static ModelWorldObjects Read(List<SettingsModelObject> modelSettings, string iniFile, string section) {
             try {
                 return new ModelWorldObjects(
+                    IniFile.ReadINI(iniFile, section, "description", ""),
                     IniFile.ReadINIVector3(iniFile, section, "startup_position_x", "startup_position_y", "startup_position_z"),
                     IniFile.ReadINIVector3(iniFile, section, "startup_model_rotation_x", "startup_model_rotation_y", "startup_model_rotation_z"),
                     SettingsModelObject.Clone(modelSettings.Where(s => s.enabled == true && s.modelId == Convert.ToInt32(IniFile.ReadINI(iniFile, section, "model_index", "0"))).FirstOrDefault()),

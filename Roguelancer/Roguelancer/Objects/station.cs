@@ -33,9 +33,9 @@ namespace Roguelancer.Objects {
         public void Initialize(RoguelancerGame game) {
             try {
                 Station tempStation;
-                foreach (var modelWorldObject in game.Settings.StarSystemSettings[0].stations) {
+                foreach (var obj in game.Settings.StarSystemSettings[0].stations) {
                     tempStation = new Station(game);
-                    tempStation.Model.WorldObject = modelWorldObject;
+                    tempStation.Model.WorldObject = obj;
                     Stations.Add(tempStation);
                 }
                 for (var i = 0; i <= Stations.Count - 1; i++) {
@@ -98,7 +98,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Description
         /// </summary>
-        public string Description { get; set; }
+        //public string Description { get; set; }
         /// <summary>
         /// Game Model
         /// </summary>

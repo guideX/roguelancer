@@ -12,29 +12,9 @@ namespace Roguelancer.Objects {
     public class HudObject : IGame {
         #region "private variables"
         /// <summary>
-        /// Font Increment
-        /// </summary>
-        private const int _fontIncrement = 30;
-        /// <summary>
-        /// Division Distance Value
-        /// </summary>
-        private const int _divisionDistanceValue = 300;
-        /// <summary>
-        /// Max Sensor Objects
-        /// </summary>
-        private const int _maxSensorObjects = 5;
-        /// <summary>
         /// Player Ship
         /// </summary>
         private Ship _playerShip;
-        /// <summary>
-        /// Max Distance
-        /// </summary>
-        private int _maxDistance = 500;
-        /// <summary>
-        /// Update order Interval
-        /// </summary>
-        private const int _updateOrderInterval = 60;
         /// <summary>
         /// Update Order Int
         /// </summary>
@@ -47,6 +27,40 @@ namespace Roguelancer.Objects {
         /// Sensor
         /// </summary>
         private Texture2D _sensor;
+        /// <summary>
+        /// Screen Rectangle
+        /// </summary>
+        private Rectangle _screenRectangle;
+        /// <summary>
+        /// Model
+        /// </summary>
+        private HudModel _model;
+        #endregion
+        #region "private const"
+        /// <summary>
+        /// Font Increment
+        /// </summary>
+        private const int _fontIncrement = 30;
+        /// <summary>
+        /// Division Distance Value
+        /// </summary>
+        private const int _divisionDistanceValue = 300;
+        /// <summary>
+        /// Max Sensor Objects
+        /// </summary>
+        private const int _maxSensorObjects = 5;
+        /// <summary>
+        /// Max Distance
+        /// </summary>
+        private const int _maxDistance = 650;
+        /// <summary>
+        /// Update order Interval
+        /// </summary>
+        private const int _updateOrderInterval = 20;
+        /// <summary>
+        /// Text Left
+        /// </summary>
+        private const int _textLeft = 200;
         /// <summary>
         /// Image Left
         /// </summary>
@@ -63,14 +77,6 @@ namespace Roguelancer.Objects {
         /// Screen Height
         /// </summary>
         private const int _imageHeight = 244;
-        /// <summary>
-        /// Screen Rectangle
-        /// </summary>
-        private Rectangle _screenRectangle;
-        /// <summary>
-        /// Model
-        /// </summary>
-        private HudModel _model;
         #endregion
         #region "public functions"
         /// <summary>
@@ -103,58 +109,57 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
-                var text = "";
-                var n = 0;
-                var d = (double)0;
-                var shipId = 0;
-                var stationId = 0;
-                if (_playerShip == null) { _playerShip = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault(); }
-                _screenRectangle = new Rectangle(_imageLeft, _imageTop, _imageWidth, _imageHeight);
-                if (((game.Objects.Ships.Ships.Count + game.Objects.Stations.Stations.Count) - 1) != _model.SensorObjects.Count) {
-                    _model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();
-                    foreach (var ship in game.Objects.Ships.Ships) {
-                        shipId++;
-                        d = Vector3.Distance(_playerShip.Model.Position, ship.Model.Position) / _divisionDistanceValue;
-                        text = "Ship " + shipId.ToString();
-                        if (d != 0f) {
+                _updateOrderInt++;
+                if (_updateOrderInt > _updateOrderInterval) {
+                    var text = "";
+                    var n = 0;
+                    var d = (double)0;
+                    var shipId = 0;
+                    //var stationId = 0;
+                    if (_playerShip == null) { _playerShip = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault(); }
+                    _screenRectangle = new Rectangle(_imageLeft, _imageTop, _imageWidth, _imageHeight);
+                    if (((game.Objects.Ships.Ships.Count + game.Objects.Stations.Stations.Count) - 1) != _model.SensorObjects.Count) {
+                        _model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();
+                        foreach (var ship in game.Objects.Ships.Ships) {
+                            shipId++;
+                            d = Vector3.Distance(_playerShip.Model.Position, ship.Model.Position) / _divisionDistanceValue;
+                            text = "Ship " + shipId.ToString();
+                            if (d != 0f) {
+                                _model.SensorObjects.Add(new HudSensorObject() {
+                                    Obj = ship,
+                                    Text = text,
+                                    FontPosition = new Vector2(_textLeft, _imageTop + n),
+                                    Distance = d,
+                                    FontOrigin = _font.MeasureString(text) / 2
+                                });
+                                n = n + _fontIncrement;
+                            }
+                        }
+                        foreach (var station in game.Objects.Stations.Stations) {
+                            d = (double)Vector3.Distance(_playerShip.Model.Position, station.Model.Position) / _divisionDistanceValue;
+                            text = station.Model.WorldObject.Description;
                             _model.SensorObjects.Add(new HudSensorObject() {
-                                Obj = ship,
+                                Obj = station,
                                 Text = text,
-                                FontPosition = new Vector2(_imageLeft, _imageTop + n),
+                                FontPosition = new Vector2(_textLeft, _imageTop + n),
                                 Distance = d,
                                 FontOrigin = _font.MeasureString(text) / 2
                             });
                             n = n + _fontIncrement;
                         }
-                    }
-                    foreach (var station in game.Objects.Stations.Stations) {
-                        stationId++;
-                        d = (double)Vector3.Distance(_playerShip.Model.Position, station.Model.Position) / _divisionDistanceValue;
-                        text = "Station " + stationId.ToString();
-                        _model.SensorObjects.Add(new HudSensorObject() {
-                            Obj = station,
-                            Text = text,
-                            FontPosition = new Vector2(_imageLeft, _imageTop + n),
-                            Distance = d,
-                            FontOrigin = _font.MeasureString(text) / 2
-                        });
-                        n = n + _fontIncrement;
-                    }
-                    _updateOrderInt = _updateOrderInterval - 1;
-                } else {
-                    foreach (var so in _model.SensorObjects) {
-                        so.Distance = (double)Vector3.Distance(_playerShip.Model.Position, so.Obj.Model.Position) / _divisionDistanceValue;
-                        so.FontOrigin = _font.MeasureString(so.Text) / 2;
-                        if (so.Distance < _maxDistance) {
-                            so.FontPosition = new Vector2(_imageLeft, _imageTop + n);
-                            n = n + _fontIncrement;
+                        _updateOrderInt = _updateOrderInterval - 1;
+                    } else {
+                        foreach (var so in _model.SensorObjects) {
+                            so.Distance = (double)Vector3.Distance(_playerShip.Model.Position, so.Obj.Model.Position) / _divisionDistanceValue;
+                            so.FontOrigin = _font.MeasureString(so.Text) / 2;
+                            if (so.Distance < _maxDistance) {
+                                so.FontPosition = new Vector2(_textLeft, _imageTop + n);
+                                n = n + _fontIncrement;
+                            }
                         }
-                    }
-                    _updateOrderInt++;
-                    if (_updateOrderInt > _updateOrderInterval) {
                         _model.SensorObjects = _model.SensorObjects.OrderBy(s => s.Distance).ToList();
-                        _updateOrderInt = 0;
                     }
+                    _updateOrderInt = 0;
                 }
             } catch {
                 throw;
@@ -172,9 +177,9 @@ namespace Roguelancer.Objects {
                     if (n < _maxSensorObjects) {
                         var fontOrigin = _font.MeasureString(sensorObject.Text) / 2;
                         if (sensorObject.Distance != (double)0) {
-                            //if (sensorObject.Distance < _maxDistance) {
+                            if (sensorObject.Distance < _maxDistance) {
                                 game.Graphics.SpriteBatch.DrawString(_font, sensorObject.Text + ": " + sensorObject.Distance.ToString("#.##"), sensorObject.FontPosition, Color.LightBlue, 0, sensorObject.FontOrigin, 2.0f, SpriteEffects.None, 0.5f);
-                            //}
+                            }
                         }
                     }
                     n++;
