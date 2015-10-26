@@ -93,7 +93,6 @@ namespace Roguelancer.Models {
                     ParticleSystem = new ParticleSystem(game);
                     ParticleSystem.Settings = particleSystemSettings;
                 }
-                Scale = 0f;
             } catch {
                 throw;
             }
@@ -127,9 +126,13 @@ namespace Roguelancer.Models {
                 Position = WorldObject.StartupPosition;
                 Up = WorldObject.InitialModelUp;
                 Right = WorldObject.InitialModelRight;
-                Rotation = new Vector2(WorldObject.StartupModelRotation.X, WorldObject.StartupModelRotation.Y);
+                Rotation = new Vector2(WorldObject.StartupRotation.X, WorldObject.StartupRotation.Y);
                 Velocity = WorldObject.InitialVelocity;
                 CurrentThrust = WorldObject.InitialCurrentThrust;
+                Scale = WorldObject.Scaling;
+                if(Scale != 0f) {
+                    UseScale = true;
+                }
                 Direction = WorldObject.InitialDirection;
                 if (ParticleSystem != null) {
                     if (ParticleSystem.Settings.Enabled) {

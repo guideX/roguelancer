@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
+using System;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Hud Object
@@ -56,7 +57,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Update order Interval
         /// </summary>
-        private const int _updateOrderInterval = 20;
+        private const int _updateOrderInterval = 30;
         /// <summary>
         /// Text Left
         /// </summary>
@@ -109,14 +110,14 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             try {
+                var text = "";
+                var n = 0;
+                var d = (double)0;
+                var shipId = 0;
                 _updateOrderInt++;
                 if (_updateOrderInt > _updateOrderInterval) {
-                    var text = "";
-                    var n = 0;
-                    var d = (double)0;
-                    var shipId = 0;
-                    //var stationId = 0;
                     if (_playerShip == null) { _playerShip = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault(); }
+                    game.DebugText.SetText(game, "X: " +  Convert.ToInt32(_playerShip.Model.Position.X).ToString() + ", Y: " + Convert.ToInt32(_playerShip.Model.Position.Y).ToString() + ", Z: " + Convert.ToInt32(_playerShip.Model.Position.Z).ToString() + "DX: " + Convert.ToInt32(_playerShip.Model.Direction.X).ToString() + "DY: " + Convert.ToInt32(_playerShip.Model.Direction.Y).ToString() + "DZ: " + Convert.ToInt32(_playerShip.Model.Direction.Z).ToString(), false);
                     _screenRectangle = new Rectangle(_imageLeft, _imageTop, _imageWidth, _imageHeight);
                     if (((game.Objects.Ships.Ships.Count + game.Objects.Stations.Stations.Count) - 1) != _model.SensorObjects.Count) {
                         _model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();

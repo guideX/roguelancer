@@ -29,7 +29,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             try {
-                foreach (ModelWorldObjects modelWorldObject in game.Settings.StarSystemSettings[0].planets) {
+                foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].planets) {
                     var planet = new Planet(game);
                     planet.Model.WorldObject = modelWorldObject;
                     Planets.Add(planet);

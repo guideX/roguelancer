@@ -49,7 +49,7 @@ namespace Roguelancer.Objects {
             try {
                 Stations = new StationCollection();
                 Planets = new PlanetCollection();
-                _stars = new Starfields(game.Settings.StarSystemSettings[0].starSettings);
+                _stars = new Starfields(game.Settings.StarSystemSettings[game.StarSystemId].starSettings);
                 TradeLanes = new TradeLaneCollection();
                 Ships = new ShipCollection(game);
                 Bullets = new Bullets(game);

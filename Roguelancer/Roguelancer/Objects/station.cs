@@ -33,7 +33,7 @@ namespace Roguelancer.Objects {
         public void Initialize(RoguelancerGame game) {
             try {
                 Station tempStation;
-                foreach (var obj in game.Settings.StarSystemSettings[0].stations) {
+                foreach (var obj in game.Settings.StarSystemSettings[game.StarSystemId].stations) {
                     tempStation = new Station(game);
                     tempStation.Model.WorldObject = obj;
                     Stations.Add(tempStation);

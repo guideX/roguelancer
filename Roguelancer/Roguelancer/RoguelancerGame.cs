@@ -14,6 +14,13 @@ namespace Roguelancer {
     /// </summary>
     public class RoguelancerGame : Game {
         #region "public variables"
+        /// <summary>
+        /// Star System
+        /// </summary>
+        public int StarSystemId { get; set; }
+        /// <summary>
+        /// Hud
+        /// </summary>
         public HudObject Hud { get; set; }
         /// <summary>
         /// Graphics
@@ -81,6 +88,7 @@ namespace Roguelancer {
             GameMenu = new GameMenu();
             Hud = new HudObject();
             GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
+            StarSystemId = 0;
         }
         /// <summary>
         /// Initialize

@@ -57,7 +57,8 @@ namespace Roguelancer.Objects {
                     BulletModel.PlayerShip.Model.Right,
                     BulletModel.PlayerShip.Model.Velocity,
                     BulletModel.PlayerShip.Model.CurrentThrust,
-                    BulletModel.PlayerShip.Model.Direction
+                    BulletModel.PlayerShip.Model.Direction,
+                    0f
                 );
                 Initialize(game);
                 LoadContent(game);

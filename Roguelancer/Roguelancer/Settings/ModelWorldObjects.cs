@@ -19,9 +19,13 @@ namespace Roguelancer.Settings {
         /// </summary>
         public Vector3 StartupPosition { get; set; }
         /// <summary>
+        /// Scaling
+        /// </summary>
+        public float Scaling { get; set; }
+        /// <summary>
         /// Startup Model Rotation
         /// </summary>
-        public Vector3 StartupModelRotation { get; set; }
+        public Vector3 StartupRotation { get; set; }
         /// <summary>
         /// Settings Model Object
         /// </summary>
@@ -80,12 +84,13 @@ namespace Roguelancer.Settings {
                 Vector3 initialModelRight,
                 Vector3 initialVelocity,
                 float initialCurrentThrust,
-                Vector3 initialDirection
+                Vector3 initialDirection,
+                float scaling
             ) {
             try {
                 Description = description;
                 StartupPosition = startupPosition;
-                StartupModelRotation = startupModelRotation;
+                StartupRotation = startupModelRotation;
                 SettingsModelObject = settingsModelObject;
                 StarSystemId = starSystemId;
                 InitialModelUp = initialModelUp;
@@ -93,6 +98,7 @@ namespace Roguelancer.Settings {
                 InitialVelocity = initialVelocity;
                 InitialCurrentThrust = initialCurrentThrust;
                 InitialDirection = initialDirection;
+                Scaling = scaling;
             } catch {
                 throw;
             }
@@ -107,14 +113,15 @@ namespace Roguelancer.Settings {
                 return new ModelWorldObjects(
                         oldObject.Description,
                         oldObject.StartupPosition,
-                        oldObject.StartupModelRotation,
+                        oldObject.StartupRotation,
                         SettingsModelObject.Clone(oldObject.SettingsModelObject),
                         oldObject.StarSystemId,
                         oldObject.InitialModelUp,
                         oldObject.InitialModelRight,
                         oldObject.InitialVelocity,
                         oldObject.InitialCurrentThrust,
-                        oldObject.InitialDirection
+                        oldObject.InitialDirection,
+                        oldObject.Scaling
                     );
             } catch {
                 throw;
@@ -139,7 +146,8 @@ namespace Roguelancer.Settings {
                     IniFile.ReadINIVector3(iniFile, section, "initial_model_right_x", "initial_model_right_y", "initial_model_right_z"),
                     IniFile.ReadINIVector3(iniFile, section, "initial_velocity_x", "initial_velocity_y", "initial_velocity_z"),
                     float.Parse(IniFile.ReadINI(iniFile, section, "initial_current_thrust", "0")),
-                    IniFile.ReadINIVector3(iniFile, section, "initial_direction_x", "initial_direction_y", "initial_direction_z")
+                    IniFile.ReadINIVector3(iniFile, section, "initial_direction_x", "initial_direction_y", "initial_direction_z"),
+                    IniFile.ReadINIFloat(iniFile, section, "model_scaling")
                 );
             } catch {
                 throw;
