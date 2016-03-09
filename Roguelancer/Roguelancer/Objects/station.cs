@@ -33,11 +33,11 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             try {
-                Station tempStation;
                 foreach (var obj in game.Settings.StarSystemSettings[game.StarSystemId].stations) {
-                    tempStation = new Station(game);
-                    tempStation.Model.WorldObject = obj;
-                    Stations.Add(tempStation);
+                    var s = new Station(game);
+                    s.Model.WorldObject = obj;
+                    s.StationPrices = game.Settings.CommoditiesSettings.StationPriceModels.Where(p => p.StarSystemId == game.StarSystemId && p.StationId == obj.ID).ToList();
+                    Stations.Add(s);
                 }
                 for (var i = 0; i <= Stations.Count - 1; i++) {
                     Stations[i].Initialize(game);
@@ -141,7 +141,8 @@ namespace Roguelancer.Objects {
                 Model.UpdatePosition();
                 Model.Update(game);
                 if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.C) {
-
+                    // LIST COMMODITIES
+                    
                 }
                 if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.U) {
                     game.Input.InputItems.Keys.U = false;

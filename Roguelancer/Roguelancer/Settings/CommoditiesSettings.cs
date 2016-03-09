@@ -25,26 +25,36 @@ namespace Roguelancer.Settings {
             try {
                 StationPriceModels = new List<StationPriceModel>();
                 CommoditiesModels = new List<CommodityModel>();
-                for (var i = 1; i < Convert.ToInt32(IniFile.ReadINI(iniFileCommodities, "Settings", "Count", "0")) + 1; ++i) {
-                    CommoditiesModels.Add(new CommodityModel() {
-                        CommodityId = i,
-                        Description = IniFile.ReadINI(iniFileCommodities, i.ToString(), "Description", ""),
-                        Body = IniFile.ReadINI(iniFileCommodities, i.ToString(), "Body", "")
-                    });
+                //if (System.IO.File.Exists(iniFileCommodities)) {
+                    //var n = Convert.ToInt32(IniFile.ReadINI(iniFileCommodities, "Settings", "Count", "0"));
+                    //for (var i = 1; i <= n - 1; ++i) {
+
+                    //}
+                //}
+                if (System.IO.File.Exists(iniFilePrices)) {
+                    var n = IniFile.ReadINIInt(iniFilePrices, "Settings", "Count", 0);
+                    for (var i = 1; i <= n - 1; ++i) {
+                        StationPriceModels.Add(new StationPriceModel() {
+                            IsSelling = Convert.ToBoolean(IniFile.ReadINI(iniFilePrices, i.ToString(), "IsSelling", "false")),
+                            Price = Convert.ToDecimal(IniFile.ReadINI(iniFilePrices, i.ToString(), "Price", "0.00")),
+                            Selling = Convert.ToDecimal(IniFile.ReadINI(iniFilePrices, i.ToString(), "Selling", "0.00")),
+                            StarSystemId = IniFile.ReadINIInt(iniFilePrices, i.ToString(), "system_index", 0),
+                            StationId = IniFile.ReadINIInt(iniFilePrices, i.ToString(), "station_index", 0),
+                            CommoditiesId = IniFile.ReadINIInt(iniFilePrices, i.ToString(), "commodities_index", 0),
+                            StationPriceId = i
+                        });
+                    }
                 }
-                for (var i = 1; i < Convert.ToInt32(IniFile.ReadINI(iniFilePrices, "Settings", "Count", "0")) + 1; ++i) {
-                    StationPriceModels.Add(new StationPriceModel() {
-                        IsSelling = Convert.ToBoolean(IniFile.ReadINI(iniFilePrices, i.ToString(), "IsSelling", "false")),
-                        Price = Convert.ToDecimal(IniFile.ReadINI(iniFilePrices, i.ToString(), "Price", "0.00")),
-                        Selling = Convert.ToDecimal(IniFile.ReadINI(iniFilePrices, i.ToString(), "Selling", "0.00")),
-                        StarSystemId = Convert.ToInt32(IniFile.ReadINI(iniFilePrices, i.ToString(), "system_index", "0")),
-                        StationId = Convert.ToInt32(IniFile.ReadINI(iniFilePrices, i.ToString(), "station_index", "0")),
-                        CommoditiesId = Convert.ToInt32(IniFile.ReadINI(iniFilePrices, i.ToString(), "commodities_index", "0")),
-                        StationPriceId = i
-                    });
-                }
-                for (var i = 1; i < Convert.ToInt32(IniFile.ReadINI(iniFileCommodities, "Settings", "Count", "0")) + 1; ++i) {
-                    CommoditiesModels[i].Prices = StationPriceModels.Where(p => p.CommoditiesId == i).ToList();
+                if (System.IO.File.Exists(iniFileCommodities)) {
+                    var n = IniFile.ReadINIInt(iniFileCommodities, "Settings", "Count", 0);
+                    for (var i = 1; i <= n - 1; ++i) {
+                        CommoditiesModels.Add(new CommodityModel() {
+                            CommodityId = i,
+                            Description = IniFile.ReadINI(iniFileCommodities, i.ToString(), "Description", ""),
+                            Body = IniFile.ReadINI(iniFileCommodities, i.ToString(), "Body", "")
+                        });
+                        //CommoditiesModels[i].Prices = StationPriceModels.Where(p => p.CommoditiesId == i).ToList();
+                    }
                 }
             } catch {
                 throw;

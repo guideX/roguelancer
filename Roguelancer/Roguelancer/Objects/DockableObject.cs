@@ -4,21 +4,31 @@ using System.Linq;
 using Roguelancer.Interfaces;
 using System.Collections.Generic;
 using Roguelancer.Settings;
+using System;
 using Roguelancer.Models;
-using Roguelancer.Enum;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Dockable Object
     /// </summary>
     public abstract class DockableObject {
         /// <summary>
-        /// Model Type
+        /// Guid
         /// </summary>
-        //public virtual ModelType ModelType { get; set; }
+        public virtual string ID { get; set; }
         /// <summary>
         /// Docked Ships
         /// </summary>
         public virtual List<ISensorObject> DockedShips { get; set; }
+        /// <summary>
+        /// Commodities
+        /// </summary>
+        public virtual List<StationPriceModel> StationPrices { get; set; }
+        /// <summary>
+        /// Dockable Object
+        /// </summary>
+        public DockableObject() {
+            ID = Guid.NewGuid().ToString();
+        }
         /// <summary>
         /// Dock
         /// </summary>
@@ -60,17 +70,17 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         /// <returns></returns>
-        public virtual List<StationPriceModel> CommoditiesForSale(RoguelancerGame game, int id, ModelType modelType) {
-            try {
-                switch (modelType) {
-                    case ModelType.Station:
-                        return game.Settings.CommoditiesSettings.StationPriceModels.Where(p => p.StarSystemId == game.StarSystemId && p.StationId == id).ToList();
-                    default:
-                        return null;
-                }
-            } catch {
-                throw;
-            }
-        }
+        //public virtual List<StationPriceModel> CommoditiesForSale(RoguelancerGame game, ModelType modelType) {
+            //try {
+            //switch (modelType) {
+            //case ModelType.Station:
+            //return game.Settings.CommoditiesSettings.StationPriceModels.Where(p => p.StarSystemId == game.StarSystemId && p.StationId == stationID).ToList();
+            //default:
+            //return null;
+            //}
+            //} catch {
+            //throw;
+            //}
+        //}
     }
 }

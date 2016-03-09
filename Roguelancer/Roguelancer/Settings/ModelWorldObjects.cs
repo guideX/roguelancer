@@ -11,6 +11,10 @@ namespace Roguelancer.Settings {
     /// </summary>
     public class ModelWorldObjects {
         /// <summary>
+        /// ID
+        /// </summary>
+        public int ID { get; set; }
+        /// <summary>
         /// Description
         /// </summary>
         public string Description { get; set; }
@@ -90,24 +94,22 @@ namespace Roguelancer.Settings {
                 float initialCurrentThrust,
                 Vector3 initialDirection,
                 float scaling,
-                int cargoSpace
+                int cargoSpace,
+                int id
             ) {
-            try {
-                Description = description;
-                StartupPosition = startupPosition;
-                StartupRotation = startupModelRotation;
-                SettingsModelObject = settingsModelObject;
-                StarSystemId = starSystemId;
-                InitialModelUp = initialModelUp;
-                InitialModelRight = initialModelRight;
-                InitialVelocity = initialVelocity;
-                InitialCurrentThrust = initialCurrentThrust;
-                InitialDirection = initialDirection;
-                Scaling = scaling;
-                CargoSpace = cargoSpace;
-            } catch {
-                throw;
-            }
+            Description = description;
+            StartupPosition = startupPosition;
+            StartupRotation = startupModelRotation;
+            SettingsModelObject = settingsModelObject;
+            StarSystemId = starSystemId;
+            InitialModelUp = initialModelUp;
+            InitialModelRight = initialModelRight;
+            InitialVelocity = initialVelocity;
+            InitialCurrentThrust = initialCurrentThrust;
+            InitialDirection = initialDirection;
+            Scaling = scaling;
+            CargoSpace = cargoSpace;
+            ID = id;
         }
         /// <summary>
         /// Clone
@@ -115,24 +117,21 @@ namespace Roguelancer.Settings {
         /// <param name="oldObject"></param>
         /// <returns></returns>
         public static ModelWorldObjects Clone(ModelWorldObjects oldObject) {
-            try {
-                return new ModelWorldObjects(
-                        oldObject.Description,
-                        oldObject.StartupPosition,
-                        oldObject.StartupRotation,
-                        SettingsModelObject.Clone(oldObject.SettingsModelObject),
-                        oldObject.StarSystemId,
-                        oldObject.InitialModelUp,
-                        oldObject.InitialModelRight,
-                        oldObject.InitialVelocity,
-                        oldObject.InitialCurrentThrust,
-                        oldObject.InitialDirection,
-                        oldObject.Scaling,
-                        oldObject.CargoSpace
-                    );
-            } catch {
-                throw;
-            }
+            return new ModelWorldObjects(
+                    oldObject.Description,
+                    oldObject.StartupPosition,
+                    oldObject.StartupRotation,
+                    SettingsModelObject.Clone(oldObject.SettingsModelObject),
+                    oldObject.StarSystemId,
+                    oldObject.InitialModelUp,
+                    oldObject.InitialModelRight,
+                    oldObject.InitialVelocity,
+                    oldObject.InitialCurrentThrust,
+                    oldObject.InitialDirection,
+                    oldObject.Scaling,
+                    oldObject.CargoSpace,
+                    oldObject.ID
+                );
         }
         /// <summary>
         /// Read
@@ -141,25 +140,34 @@ namespace Roguelancer.Settings {
         /// <param name="iniFile"></param>
         /// <param name="section"></param>
         /// <returns></returns>
-        public static ModelWorldObjects Read(List<SettingsModelObject> modelSettings, string iniFile, string section) {
-            try {
-                return new ModelWorldObjects(
-                    IniFile.ReadINI(iniFile, section, "description", ""),
-                    IniFile.ReadINIVector3(iniFile, section, "startup_position_x", "startup_position_y", "startup_position_z"),
-                    IniFile.ReadINIVector3(iniFile, section, "startup_model_rotation_x", "startup_model_rotation_y", "startup_model_rotation_z"),
-                    SettingsModelObject.Clone(modelSettings.Where(s => s.enabled == true && s.modelId == Convert.ToInt32(IniFile.ReadINI(iniFile, section, "model_index", "0"))).FirstOrDefault()),
-                    Convert.ToInt32(IniFile.ReadINI(iniFile, section, "system_index", "0")),
-                    IniFile.ReadINIVector3(iniFile, section, "initial_model_up_x", "initial_model_up_y", "initial_model_up_z"),
-                    IniFile.ReadINIVector3(iniFile, section, "initial_model_right_x", "initial_model_right_y", "initial_model_right_z"),
-                    IniFile.ReadINIVector3(iniFile, section, "initial_velocity_x", "initial_velocity_y", "initial_velocity_z"),
-                    float.Parse(IniFile.ReadINI(iniFile, section, "initial_current_thrust", "0")),
-                    IniFile.ReadINIVector3(iniFile, section, "initial_direction_x", "initial_direction_y", "initial_direction_z"),
-                    IniFile.ReadINIFloat(iniFile, section, "model_scaling"),
-                    int.Parse(IniFile.ReadINI(iniFile, section, "cargo_space", "0"))
-                );
-            } catch {
-                throw;
-            }
+        public static ModelWorldObjects Read(int ID, List<SettingsModelObject> modelSettings, string iniFile, string section) {
+            var description = IniFile.ReadINI(iniFile, section, "description", "");
+            var startupPosition = IniFile.ReadINIVector3(iniFile, section, "startup_position_x", "startup_position_y", "startup_position_z");
+            var startupModelRotation = IniFile.ReadINIVector3(iniFile, section, "startup_model_rotation_x", "startup_model_rotation_y", "startup_model_rotation_z");
+            var settingsModelObject = SettingsModelObject.Clone(modelSettings.Where(s => s.enabled == true && s.modelId == Convert.ToInt32(IniFile.ReadINI(iniFile, section, "model_index", "0"))).FirstOrDefault());
+            var starSystemID = IniFile.ReadINIInt(iniFile, section, "system_index", 0);
+            var initialModelUp = IniFile.ReadINIVector3(iniFile, section, "initial_model_up_x", "initial_model_up_y", "initial_model_up_z");
+            var initialModelRight = IniFile.ReadINIVector3(iniFile, section, "initial_model_right_x", "initial_model_right_y", "initial_model_right_z");
+            var initialVelocity = IniFile.ReadINIVector3(iniFile, section, "initial_velocity_x", "initial_velocity_y", "initial_velocity_z");
+            var initialCurrentThrust = float.Parse(IniFile.ReadINI(iniFile, section, "initial_current_thrust", "0"));
+            var initialDirection = IniFile.ReadINIVector3(iniFile, section, "initial_direction_x", "initial_direction_y", "initial_direction_z");
+            var scaling = IniFile.ReadINIFloat(iniFile, section, "model_scaling");
+            var cargoSpace = IniFile.ReadINIInt(iniFile, section, "cargo_space", 0);
+            return new ModelWorldObjects(
+                description,
+                startupPosition,
+                startupModelRotation,
+                settingsModelObject,
+                starSystemID,
+                initialModelUp,
+                initialModelRight,
+                initialVelocity,
+                initialCurrentThrust,
+                initialDirection,
+                scaling,
+                cargoSpace,
+                ID
+            );
         }
     }
 }

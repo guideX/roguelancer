@@ -84,57 +84,54 @@ namespace Roguelancer.Settings {
         #endregion
         #region "public functions"
         public GameSettings() {
-            try {
-                MenuText = "Roguelancer" + Environment.NewLine + Environment.NewLine + "10 = Play Game" + Environment.NewLine + "F9 = Return to menu" + Environment.NewLine + "ESC = Quit";
-                Font = "LucidaFont";
-                FontSmall = "LucidiaFontSmall";
-                Resolution = new Vector2(1280, 1024);
-                var rootDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\..\";
-                _gameSettingsIniFile = rootDir + @"configuration\settings\settings.ini";
-                _modelSettingsIniFile = rootDir + @"configuration\models.ini";
-                _systemsSettingsIniFile = rootDir + @"configuration\systems\systems.ini";
-                _playerIniFile = rootDir + @"configuration\player\settings.ini";
-                _bulletSettingsIniFile = rootDir + @"configuration\objects\bullets.ini";
-                _cameraSettingsIniFile = rootDir + @"configuration\camera.ini";
-                _systemIniStartPath = rootDir + @"configuration\systems\";
-                SensorTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "SensorTexture");
-                MenuBackgroundTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "menu_background");
-                CameraSettings = new CameraSettings(_cameraSettingsIniFile);
-                ModelSettings = new List<SettingsModelObject>();
-                for (var i = 1; i < Convert.ToInt32(IniFile.ReadINI(_modelSettingsIniFile, "settings", "count", "0")) + 1; ++i) {
-                    ModelSettings.Add(new SettingsModelObject(
-                        IniFile.ReadINI(_modelSettingsIniFile, i.ToString().Trim(), "path"),
-                        (Enum.ModelType)Convert.ToInt32(IniFile.ReadINI(_modelSettingsIniFile, i.ToString().Trim(), "type", "0")),
-                        Convert.ToBoolean(IniFile.ReadINI(_modelSettingsIniFile, i.ToString().Trim(), "enabled", "false")),
-                        i
-                    ));
-                }
-                StarSystemSettings = new List<StarSystemSettings>();
-                for (var i = 1; i < Convert.ToInt32(IniFile.ReadINI(_systemsSettingsIniFile, "settings", "count", "0")) + 1; ++i) {
-                    StarSystemSettings.Add(new StarSystemSettings(
-                        i,
-                        IniFile.ReadINI(_systemsSettingsIniFile, i.ToString().Trim(), "path", ""),
-                        _systemIniStartPath,
-                        ModelSettings,
-                        ModelWorldObjects.Read(ModelSettings, _playerIniFile, "settings"),
-                        new StarSettings(
-                            Convert.ToBoolean(IniFile.ReadINI(_systemsSettingsIniFile, i.ToString(), "starsEnabled", "")),
-                            Convert.ToInt32(IniFile.ReadINI(_systemsSettingsIniFile, i.ToString(), "amountOfStarsPerSheet", "0")),
-                            Convert.ToInt32(IniFile.ReadINI(_systemsSettingsIniFile, i.ToString(), "maxPositionX", "0")),
-                            Convert.ToInt32(IniFile.ReadINI(_systemsSettingsIniFile, i.ToString(), "maxPositionY", "0")),
-                            Convert.ToInt32(IniFile.ReadINI(_systemsSettingsIniFile, i.ToString(), "maxSize", "0")),
-                            Convert.ToInt32(IniFile.ReadINI(_systemsSettingsIniFile, i.ToString(), "maxPositionIncrementY", "0")),
-                            Convert.ToInt32(IniFile.ReadINI(_systemsSettingsIniFile, i.ToString(), "maxPositionStartingY", "0")),
-                            Convert.ToInt32(IniFile.ReadINI(_systemsSettingsIniFile, i.ToString(), "numberOfStarSheets", "0"))
-                        )
-                    ));
-                }
-                CommoditiesSettings = new CommoditiesSettings(rootDir + @"configuration\commodities.ini", rootDir + @"configuration\commodities_station.ini");
-                //BulletTexture = IniFile.ReadINI(gameSettingsIniFile, "Settings", "bullet_texture");
-                //BulletTexture = @"Earth";
-            } catch (Exception ex) {
-                throw ex;
+            MenuText = "Roguelancer" + Environment.NewLine + Environment.NewLine + "10 = Play Game" + Environment.NewLine + "F9 = Return to menu" + Environment.NewLine + "ESC = Quit";
+            Font = "LucidaFont";
+            FontSmall = "LucidiaFontSmall";
+            Resolution = new Vector2(1280, 1024);
+            var rootDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\..\";
+            _gameSettingsIniFile = rootDir + @"configuration\settings\settings.ini";
+            _modelSettingsIniFile = rootDir + @"configuration\models.ini";
+            _systemsSettingsIniFile = rootDir + @"configuration\systems\systems.ini";
+            _playerIniFile = rootDir + @"configuration\player\settings.ini";
+            _bulletSettingsIniFile = rootDir + @"configuration\objects\bullets.ini";
+            _cameraSettingsIniFile = rootDir + @"configuration\camera.ini";
+            _systemIniStartPath = rootDir + @"configuration\systems\";
+            SensorTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "SensorTexture");
+            MenuBackgroundTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "menu_background");
+            CameraSettings = new CameraSettings(_cameraSettingsIniFile);
+            ModelSettings = new List<SettingsModelObject>();
+            for (var i = 1; i < Convert.ToInt32(IniFile.ReadINI(_modelSettingsIniFile, "settings", "count", "0")) + 1; ++i) {
+                ModelSettings.Add(new SettingsModelObject(
+                    IniFile.ReadINI(_modelSettingsIniFile, i.ToString().Trim(), "path"),
+                    (Enum.ModelType)IniFile.ReadINIInt(_modelSettingsIniFile, i.ToString().Trim(), "type", 0),
+                    Convert.ToBoolean(IniFile.ReadINI(_modelSettingsIniFile, i.ToString().Trim(), "enabled", "false")),
+                    i
+                ));
             }
+            StarSystemSettings = new List<StarSystemSettings>();
+            for (var i = 1; i < IniFile.ReadINIInt(_systemsSettingsIniFile, "settings", "count", 0) + 1; ++i) {
+                StarSystemSettings.Add(new StarSystemSettings(
+                    i,
+                    IniFile.ReadINI(_systemsSettingsIniFile, i.ToString().Trim(), "path", ""),
+                    _systemIniStartPath,
+                    ModelSettings,
+                    ModelWorldObjects.Read(i, ModelSettings, _playerIniFile, "settings"),
+                    new StarSettings(
+                        Convert.ToBoolean(IniFile.ReadINI(_systemsSettingsIniFile, i.ToString(), "starsEnabled", "false")),
+                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "amountOfStarsPerSheet", 0),
+                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionX", 0),
+                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionY", 0),
+                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxSize", 0),
+                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionIncrementY", 0),
+                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionStartingY", 0),
+                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "numberOfStarSheets", 0)
+                    )
+                ));
+            }
+            var ini = rootDir + @"configuration\commodities.ini";
+            CommoditiesSettings = new CommoditiesSettings(rootDir + @"configuration\c.ini", rootDir + @"configuration\cs.ini");
+            //BulletTexture = IniFile.ReadINI(gameSettingsIniFile, "Settings", "bullet_texture");
+            //BulletTexture = @"Earth";
         }
         #endregion
     }

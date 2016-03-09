@@ -107,6 +107,10 @@ namespace Roguelancer.Objects {
     public class Ship : IGame, ISensorObject, IDockableShip {
         #region "public variables"
         /// <summary>
+        /// Hard Points
+        /// </summary>
+        //public List<HardPoint> HardPoints { get; set; }
+        /// <summary>
         /// Docked
         /// </summary>
         public bool Docked { get; set; }
@@ -128,6 +132,7 @@ namespace Roguelancer.Objects {
             try {
                 Model = new GameModel(game, null);
                 PlayerShipControl = new PlayerShipControl();
+                //HardPoints = new List<HardPoint>();
             } catch {
                 throw;
             }

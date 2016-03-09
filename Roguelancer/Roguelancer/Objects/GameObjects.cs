@@ -1,6 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.org
-using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Particle;
 using Roguelancer.Settings;
@@ -35,7 +34,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Stars
         /// </summary>
-        private Starfields _stars;
+        public Starfields Stars;
         /// <summary>
         /// Stations
         /// </summary>
@@ -49,7 +48,7 @@ namespace Roguelancer.Objects {
             try {
                 Stations = new StationCollection();
                 Planets = new PlanetCollection();
-                _stars = new Starfields(game.Settings.StarSystemSettings[game.StarSystemId].starSettings);
+                Stars = new Starfields(game.Settings.StarSystemSettings[game.StarSystemId].starSettings);
                 TradeLanes = new TradeLaneCollection();
                 Ships = new ShipCollection(game);
                 Bullets = new Bullets(game);
@@ -65,7 +64,7 @@ namespace Roguelancer.Objects {
             try {
                 Stations.Initialize(game);
                 Planets.Initialize(game);
-                _stars.Initialize(game);
+                Stars.Initialize(game);
                 TradeLanes.Initialize(game);
                 Ships.Initialize(game);
                 Bullets.Initialize(game);
@@ -81,7 +80,7 @@ namespace Roguelancer.Objects {
             try {
                 Stations.LoadContent(game);
                 Planets.LoadContent(game);
-                _stars.LoadContent(game);
+                Stars.LoadContent(game);
                 TradeLanes.LoadContent(game);
                 Ships.LoadContent(game);
                 Bullets.LoadContent(game);
@@ -97,7 +96,7 @@ namespace Roguelancer.Objects {
             try {
                 Stations.Update(game);
                 Planets.Update(game);
-                _stars.Update(game);
+                Stars.Update(game);
                 TradeLanes.Update(game);
                 Ships.Update(game);
                 Bullets.Update(game);
@@ -113,7 +112,7 @@ namespace Roguelancer.Objects {
             try {
                 Stations.Draw(game);
                 Planets.Draw(game);
-                _stars.Draw(game);
+                Stars.Draw(game);
                 TradeLanes.Draw(game);
                 Ships.Draw(game);
                 Bullets.Draw(game);
@@ -131,7 +130,7 @@ namespace Roguelancer.Objects {
                 Ships.Reset(game);
                 Stations = new StationCollection();
                 Planets = new PlanetCollection();
-                _stars = new Starfields(new StarSettings(false, 0, 0, 0, 0, 0, 0, 0));
+                Stars = new Starfields(new StarSettings(false, 0, 0, 0, 0, 0, 0, 0));
             } catch {
                 throw;
             }

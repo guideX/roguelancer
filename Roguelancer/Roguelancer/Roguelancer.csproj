@@ -121,7 +121,6 @@
     <Compile Include="Functionality\IniFile.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Functionality\Notifications.cs" />
     <Compile Include="Interfaces\IDebugText.cs" />
     <Compile Include="Interfaces\IDockable.cs" />
     <Compile Include="Interfaces\IDockableShip.cs" />

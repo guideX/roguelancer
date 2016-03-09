@@ -33,6 +33,6 @@ namespace Roguelancer.Interfaces {
         /// <param name="id"></param>
         /// <param name="modelType"></param>
         /// <returns></returns>
-        List<StationPriceModel> CommoditiesForSale(RoguelancerGame game, int id, ModelType modelType);
+        //List<StationPriceModel> CommoditiesForSale(RoguelancerGame game, int id, ModelType modelType);
     }
 }

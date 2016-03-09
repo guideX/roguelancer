@@ -58,6 +58,7 @@ namespace Roguelancer.Objects {
                     BulletModel.PlayerShip.Model.CurrentThrust,
                     BulletModel.PlayerShip.Model.Direction,
                     1.0f,
+                    0,
                     0
                 );
                 Initialize(game);

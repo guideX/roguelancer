@@ -17,6 +17,7 @@ Content\docking_ring.xnb
 Content\FONTS\Arial.xnb
 Content\FONTS\LucidaFont.xnb
 Content\FONTS\HudFont.xnb
+Content\FONTS\LucidiaFontSmall.xnb
 Content\SHIPS\PI_TRANSPORT\PI_TRANSPORT.xnb
 Content\SHIPS\PI_TRANSPORT\engine grill.xnb
 Content\SHIPS\PI_TRANSPORT\engine ring.xnb
@@ -50,6 +51,7 @@ Content\BUTTONS\menubutton.xnb
 Content\BUTTONS\newgame.xnb
 Content\BUTTONS\multiplayer.xnb
 Content\BUTTONS\keyboard.xnb
+Content\sensor.xnb
 Content\Effects\Particle.xnb
 Content\Effects\BloomExtract.xnb
 Content\Effects\GaussianBlur.xnb
@@ -104,5 +106,3 @@ Content\SHIPS\PI_TRANSPORT\hold_0.xnb
 Content\SHIPS\PI_TRANSPORT\equip_0.xnb
 Content\SHIPS\PI_TRANSPORT\skull_0.xnb
 Content\SHIPS\PI_TRANSPORT\windows_0.xnb
-Content\sensor.xnb
-Content\FONTS\LucidiaFontSmall.xnb

@@ -27,20 +27,20 @@ namespace Roguelancer.Settings {
             tradeLanes = new List<ModelWorldObjects>();
             player.SettingsModelObject.isPlayer = true;
             ships.Add(player);
-            for(int i = 1; i < Convert.ToInt32(IniFile.ReadINI(systemIniStartPath + path + @"\ships.ini", "settings", "count", "0")) + 1; ++i) {
-                ships.Add(ModelWorldObjects.Read(modelSettings, systemIniStartPath + path + @"\ships.ini", i.ToString().Trim()));
+            for (int i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\ships.ini", "settings", "count", 0) + 1; ++i) {
+                ships.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\ships.ini", i.ToString().Trim()));
             }
-            for(int i = 1; i < Convert.ToInt32(IniFile.ReadINI(systemIniStartPath + path + @"\stations.ini", "settings", "count", "0")) + 1; ++i) {
-                stations.Add(ModelWorldObjects.Read(modelSettings, systemIniStartPath + path + @"\stations.ini", i.ToString().Trim()));
+            for (int i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\stations.ini", "settings", "count", 0) + 1; ++i) {
+                stations.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\stations.ini", i.ToString().Trim()));
             }
-            for(int i = 1; i < Convert.ToInt32(IniFile.ReadINI(systemIniStartPath + path + @"\bullets.ini", "settings", "count", "0")) + 1; ++i) {
-                stations.Add(ModelWorldObjects.Read(modelSettings, systemIniStartPath + path + @"\bullets.ini", i.ToString().Trim()));
+            for (int i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\bullets.ini", "settings", "count", 0) + 1; ++i) {
+                stations.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\bullets.ini", i.ToString().Trim()));
             }
-            for(int i = 1; i < Convert.ToInt32(IniFile.ReadINI(systemIniStartPath + path + @"\planets.ini", "settings", "count", "0")) + 1; ++i) {
-                planets.Add(ModelWorldObjects.Read(modelSettings, systemIniStartPath + path + @"\planets.ini", i.ToString().Trim()));
+            for (int i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\planets.ini", "settings", "count", 0) + 1; ++i) {
+                planets.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\planets.ini", i.ToString().Trim()));
             }
-            for (int i = 1; i < Convert.ToInt32(IniFile.ReadINI(systemIniStartPath + path + @"\tradelanes.ini", "settings", "count", "0")) + 1; ++i) {
-                tradeLanes.Add(ModelWorldObjects.Read(modelSettings, systemIniStartPath + path + @"\tradelanes.ini", i.ToString().Trim()));
+            for (int i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\tradelanes.ini", "settings", "count", 0) + 1; ++i) {
+                tradeLanes.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\tradelanes.ini", i.ToString().Trim()));
             }
             starSettings = _starSettings;
         }
