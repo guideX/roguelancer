@@ -94,6 +94,38 @@ namespace Roguelancer.Functionality {
             }
         }
         /// <summary>
+        /// Read INI Decimal
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="section"></param>
+        /// <param name="key"></param>
+        /// <param name="def"></param>
+        /// <returns></returns>
+        public static decimal ReadINIDecimal(string file, string section, string key, decimal def = decimal.Zero) {
+            decimal d;
+            if (decimal.TryParse(ReadINI(file, section, key, def.ToString()), out d)) {
+                return d;
+            } else {
+                return decimal.Zero;
+            }
+        }
+        /// <summary>
+        /// Read INI Bool
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="section"></param>
+        /// <param name="key"></param>
+        /// <param name="def"></param>
+        /// <returns></returns>
+        public static bool ReadINIBool(string file, string section, string key, bool def = false) {
+            bool b;
+            if (bool.TryParse(ReadINI(file, section, key, def.ToString()), out b)) {
+                return b;
+            } else {
+                return false;
+            }
+        }
+        /// <summary>
         /// Read Ini Vector3
         /// </summary>
         /// <param name="file"></param>

@@ -25,18 +25,17 @@ namespace Roguelancer.Settings {
             StationPriceModels = new List<StationPriceModel>();
             CommoditiesModels = new List<CommodityModel>();
             //if (System.IO.File.Exists(iniFileCommodities)) {
-            //var n = Convert.ToInt32(IniFile.ReadINI(iniFileCommodities, "Settings", "Count", "0"));
+            //var n = IniFile.ReadINIInt(iniFileCommodities, "Settings", "Count", 0);
             //for (var i = 1; i <= n - 1; ++i) {
-
             //}
             //}
             if (System.IO.File.Exists(iniFilePrices)) {
                 var n = IniFile.ReadINIInt(iniFilePrices, "Settings", "Count", 0);
                 for (var i = 1; i <= n - 1; ++i) {
                     StationPriceModels.Add(new StationPriceModel() {
-                        IsSelling = Convert.ToBoolean(IniFile.ReadINI(iniFilePrices, i.ToString(), "IsSelling", "false")),
-                        Price = Convert.ToDecimal(IniFile.ReadINI(iniFilePrices, i.ToString(), "Price", "0.00")),
-                        Selling = Convert.ToDecimal(IniFile.ReadINI(iniFilePrices, i.ToString(), "Selling", "0.00")),
+                        IsSelling = IniFile.ReadINIBool(iniFilePrices, i.ToString(), "IsSelling", false),
+                        Price = IniFile.ReadINIDecimal(iniFilePrices, i.ToString(), "Price", decimal.Zero),
+                        Selling = IniFile.ReadINIDecimal(iniFilePrices, i.ToString(), "Selling", decimal.Zero),
                         StarSystemId = IniFile.ReadINIInt(iniFilePrices, i.ToString(), "system_index", 0),
                         StationId = IniFile.ReadINIInt(iniFilePrices, i.ToString(), "station_index", 0),
                         CommoditiesId = IniFile.ReadINIInt(iniFilePrices, i.ToString(), "commodities_index", 0),

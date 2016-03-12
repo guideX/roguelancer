@@ -111,7 +111,6 @@ namespace Roguelancer.Objects {
             _updateOrderInt++;
             if (_updateOrderInt > _updateOrderInterval) {
                 if (_playerShip == null) { _playerShip = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault(); }
-                //game.DebugText.SetText(game, "X: " +  Convert.ToInt32(_playerShip.Model.Position.X).ToString() + ", Y: " + Convert.ToInt32(_playerShip.Model.Position.Y).ToString() + ", Z: " + Convert.ToInt32(_playerShip.Model.Position.Z).ToString() + "DX: " + Convert.ToInt32(_playerShip.Model.Direction.X).ToString() + "DY: " + Convert.ToInt32(_playerShip.Model.Direction.Y).ToString() + "DZ: " + Convert.ToInt32(_playerShip.Model.Direction.Z).ToString(), false);
                 _screenRectangle = new Rectangle(_imageLeft, _imageTop, _imageWidth, _imageHeight);
                 if (((game.Objects.Ships.Ships.Count + game.Objects.Stations.Stations.Count) - 1) != _model.SensorObjects.Count) {
                     _model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();

@@ -100,11 +100,11 @@ namespace Roguelancer.Settings {
             MenuBackgroundTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "menu_background");
             CameraSettings = new CameraSettings(_cameraSettingsIniFile);
             ModelSettings = new List<SettingsModelObject>();
-            for (var i = 1; i < Convert.ToInt32(IniFile.ReadINI(_modelSettingsIniFile, "settings", "count", "0")) + 1; ++i) {
+            for (var i = 1; i < IniFile.ReadINIInt(_modelSettingsIniFile, "settings", "count", 0) + 1; ++i) {
                 ModelSettings.Add(new SettingsModelObject(
                     IniFile.ReadINI(_modelSettingsIniFile, i.ToString().Trim(), "path"),
                     (Enum.ModelType)IniFile.ReadINIInt(_modelSettingsIniFile, i.ToString().Trim(), "type", 0),
-                    Convert.ToBoolean(IniFile.ReadINI(_modelSettingsIniFile, i.ToString().Trim(), "enabled", "false")),
+                    IniFile.ReadINIBool(_modelSettingsIniFile, i.ToString().Trim(), "enabled", false),
                     i
                 ));
             }
@@ -117,7 +117,7 @@ namespace Roguelancer.Settings {
                     ModelSettings,
                     ModelWorldObjects.Read(i, ModelSettings, _playerIniFile, "settings"),
                     new StarSettings(
-                        Convert.ToBoolean(IniFile.ReadINI(_systemsSettingsIniFile, i.ToString(), "starsEnabled", "false")),
+                        IniFile.ReadINIBool(_systemsSettingsIniFile, i.ToString(), "starsEnabled", false),
                         IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "amountOfStarsPerSheet", 0),
                         IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionX", 0),
                         IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionY", 0),
