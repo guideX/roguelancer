@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using Roguelancer.Enum;
 namespace Roguelancer.Functionality {
     /// <summary>
@@ -21,12 +21,8 @@ namespace Roguelancer.Functionality {
         /// Entry Point
         /// </summary>
         public GameState() {
-            try {
-                CurrentGameState = new GameStates();
-                CurrentGameState = GameStates.Menu;
-            } catch {
-                throw;
-            }
+            CurrentGameState = new GameStates();
+            CurrentGameState = GameStates.Menu;
         }
         #endregion
     }

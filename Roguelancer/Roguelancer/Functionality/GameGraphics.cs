@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
@@ -24,46 +24,34 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         public GameGraphics(RoguelancerGame game) {
-            try {
-                GraphicsDeviceManager = new GraphicsDeviceManager(game);
-                GraphicsDeviceManager.PreferredBackBufferWidth = (int)game.Settings.Resolution.X;
-                GraphicsDeviceManager.PreferredBackBufferHeight = (int)game.Settings.Resolution.Y;
-                GraphicsDeviceManager.IsFullScreen = false;
-            } catch {
-                throw;
-            }
+            GraphicsDeviceManager = new GraphicsDeviceManager(game);
+            GraphicsDeviceManager.PreferredBackBufferWidth = (int)game.Settings.Resolution.X;
+            GraphicsDeviceManager.PreferredBackBufferHeight = (int)game.Settings.Resolution.Y;
+            GraphicsDeviceManager.IsFullScreen = false;
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        public void Initialize(RoguelancerGame game) {}
+        public void Initialize(RoguelancerGame game) { }
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            try {
-                SpriteBatch = new SpriteBatch(GraphicsDeviceManager.GraphicsDevice);
-            } catch {
-                throw;
-            }
+            SpriteBatch = new SpriteBatch(GraphicsDeviceManager.GraphicsDevice);
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
-        public void Update(RoguelancerGame game) {}
+        public void Update(RoguelancerGame game) { }
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            try {
-                GraphicsDeviceManager.GraphicsDevice.DepthStencilState = DepthStencilState.Default;
-            } catch {
-                throw;
-            }
+            GraphicsDeviceManager.GraphicsDevice.DepthStencilState = DepthStencilState.Default;
         }
         #endregion
     }

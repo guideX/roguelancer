@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
@@ -34,11 +34,7 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <returns></returns>
         public string GetText() {
-            try {
-                return _text;
-            } catch {
-                throw;
-            }
+            return _text;
         }
         /// <summary>
         /// Set Text
@@ -46,15 +42,11 @@ namespace Roguelancer.Functionality {
         /// <param name="game"></param>
         /// <param name="value"></param>
         public void SetText(RoguelancerGame game, string value, bool timerEnabled) {
-            try {
-                _timerEnabled = timerEnabled;
-                if (value != null) {
-                    _currentShowTime = 0;
-                    _showEnabled = true;
-                    _text = value;
-                }
-            } catch {
-                throw;
+            _timerEnabled = timerEnabled;
+            if (value != null) {
+                _currentShowTime = 0;
+                _showEnabled = true;
+                _text = value;
             }
         }
         #endregion
@@ -73,48 +65,36 @@ namespace Roguelancer.Functionality {
         /// Debug Text
         /// </summary>
         public DebugText() {
-            try {
-                _text = "";
-            } catch {
-                throw;
-            }
+            _text = "";
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        public void Initialize(RoguelancerGame game) {}
+        public void Initialize(RoguelancerGame game) { }
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            try {
-                _font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.Font);
-                _fontPosition = new Vector2(game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Width / 2, game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
-            } catch {
-                throw;
-            }
+            _font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.Font);
+            _fontPosition = new Vector2(game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Width / 2, game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            try {
-                if (_showEnabled) {
-                    if (_timerEnabled) {
-                        _currentShowTime++;
-                        if (_currentShowTime > _showTime) {
-                            _showEnabled = false;
-                            _currentShowTime = 0;
-                            _text = "";
-                        }
+            if (_showEnabled) {
+                if (_timerEnabled) {
+                    _currentShowTime++;
+                    if (_currentShowTime > _showTime) {
+                        _showEnabled = false;
+                        _currentShowTime = 0;
+                        _text = "";
                     }
-
                 }
-            } catch {
-                throw;
+
             }
         }
         /// <summary>
@@ -122,13 +102,9 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            try {
-                if(_showEnabled) {
-                    var fontOrigin = _font.MeasureString(_text) / 2;
-                    game.Graphics.SpriteBatch.DrawString(_font, _text, _fontPosition, Color.White, 0, fontOrigin, 3.0f, SpriteEffects.None, 0.5f);
-                }
-            } catch {
-                throw;
+            if (_showEnabled) {
+                var fontOrigin = _font.MeasureString(_text) / 2;
+                game.Graphics.SpriteBatch.DrawString(_font, _text, _fontPosition, Color.White, 0, fontOrigin, 3.0f, SpriteEffects.None, 0.5f);
             }
         }
         #endregion

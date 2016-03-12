@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using System;
 using Roguelancer.Objects;
 namespace Roguelancer.Models {
@@ -35,13 +35,9 @@ namespace Roguelancer.Models {
         /// Bullet Model
         /// </summary>
         public BulletModel(float mass = 1.0f, float thrustForce = 44000.0f, float dragFactor = 0.97f) {
-            try {
-                Mass = mass;
-                ThrustForce = thrustForce;
-                DragFactor = dragFactor;
-            } catch {
-                throw;
-            }
+            Mass = mass;
+            ThrustForce = thrustForce;
+            DragFactor = dragFactor;
         }
         #endregion
     }

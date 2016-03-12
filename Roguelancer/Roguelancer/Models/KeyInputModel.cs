@@ -1,10 +1,14 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 namespace Roguelancer.Models {
     /// <summary>
     /// Key Input Model
     /// </summary>
     public class KeyInputModel {
+        /// <summary>
+        /// Z
+        /// </summary>
+        public bool Z { get; set; }
         /// <summary>
         /// U
         /// </summary>

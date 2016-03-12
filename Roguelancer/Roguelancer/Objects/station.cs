@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using System.Linq;
 using System.Collections.Generic;
 using Roguelancer.Interfaces;
@@ -33,7 +33,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             try {
-                foreach (var obj in game.Settings.StarSystemSettings[game.StarSystemId].stations) {
+                foreach (var obj in game.Settings.StarSystemSettings[game.StarSystemId].Stations) {
                     var s = new Station(game);
                     s.Model.WorldObject = obj;
                     s.StationPrices = game.Settings.CommoditiesSettings.StationPriceModels.Where(p => p.StarSystemId == game.StarSystemId && p.StationId == obj.ID).ToList();
@@ -103,71 +103,55 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public Station(RoguelancerGame game) {
-            try {
-                Model = new GameModel(game, null);
-                DockedShips = new List<ISensorObject>();
-            } catch {
-                throw;
-            }
+            Model = new GameModel(game, null);
+            DockedShips = new List<ISensorObject>();
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            try {
-                Model.Initialize(game);
-            } catch {
-                throw;
-            }
+            Model.Initialize(game);
         }
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            try {
-                Model.LoadContent(game);
-            } catch {
-                throw;
-            }
+            Model.LoadContent(game);
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            try {
-                Model.UpdatePosition();
-                Model.Update(game);
-                if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.C) {
-                    // LIST COMMODITIES
-                    
-                }
-                if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.U) {
-                    game.Input.InputItems.Keys.U = false;
-                    var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
-                    if (ship.Docked) {
-                        var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
-                        if (distance < HudObject.DockDistanceAccept) {
-                            UnDock(game, ship, Model.WorldObject);
-                        }
+            Model.UpdatePosition();
+            Model.Update(game);
+            if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.C) {
+                // LIST COMMODITIES
+
+            }
+            if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.U) {
+                game.Input.InputItems.Keys.U = false;
+                var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                if (ship.Docked) {
+                    var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
+                    if (distance < HudObject.DockDistanceAccept) {
+                        UnDock(game, ship, Model.WorldObject);
                     }
                 }
-                if (game.GameState.CurrentGameState == Enum.GameStates.Playing && game.Input.InputItems.Keys.D) {
-                    game.Input.InputItems.Keys.D = false;
-                    var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
-                    if (!ship.Docked) {
-                        var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
-                        if (distance < HudObject.DockDistanceAccept) {
-                            Dock(game, ship, Model.WorldObject);
-                            ship.Model.Velocity = new Vector3(0f, 0f, 0f);
-                            ship.Model.CurrentThrust = 0f;
-                        }
+            }
+            if (game.GameState.CurrentGameState == Enum.GameStates.Playing && game.Input.InputItems.Keys.D) {
+                game.Input.InputItems.Keys.D = false;
+                var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                if (!ship.Docked) {
+                    var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
+                    if (distance < HudObject.DockDistanceAccept) {
+                        Dock(game, ship, Model.WorldObject);
+                        ship.Model.Velocity = new Vector3(0f, 0f, 0f);
+                        ship.Model.CurrentThrust = 0f;
                     }
                 }
-            } catch {
-                throw;
             }
         }
         /// <summary>
@@ -175,11 +159,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            try {
-                Model.Draw(game);
-            } catch {
-                throw;
-            }
+            Model.Draw(game);
         }
         #endregion
     }

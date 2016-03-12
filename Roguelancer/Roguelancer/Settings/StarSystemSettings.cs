@@ -1,18 +1,58 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using System.Collections.Generic;
 using Roguelancer.Functionality;
 using System;
 namespace Roguelancer.Settings {
-    public class StarSystemSettings { // SETTINGS FOR EACH STAR SYSTEM
+    /// <summary>
+    /// Star System Settings
+    /// </summary>
+    public class StarSystemSettings {
+        #region "PRIVATE VARIABLES"
+        /// <summary>
+        /// Path
+        /// </summary>
         private string _path { get; set; }
+        /// <summary>
+        /// Star System ID
+        /// </summary>
         private int _starSystemId { get; set; }
-        public List<ModelWorldObjects> ships { get; set; }
-        public List<ModelWorldObjects> stations { get; set; }
-        public List<ModelWorldObjects> bullets { get; set; }
-        public List<ModelWorldObjects> planets { get; set; }
-        public List<ModelWorldObjects> tradeLanes { get; set; }
-        public StarSettings starSettings { get; set; }
+        #endregion
+        #region "PUBLIC VARIABLES"
+        /// <summary>
+        /// Ships
+        /// </summary>
+        public List<ModelWorldObjects> Ships { get; set; }
+        /// <summary>
+        /// Stations
+        /// </summary>
+        public List<ModelWorldObjects> Stations { get; set; }
+        /// <summary>
+        /// Bullets
+        /// </summary>
+        public List<ModelWorldObjects> Bullets { get; set; }
+        /// <summary>
+        /// Planets
+        /// </summary>
+        public List<ModelWorldObjects> Planets { get; set; }
+        /// <summary>
+        /// Trade Lanes
+        /// </summary>
+        public List<ModelWorldObjects> TradeLanes { get; set; }
+        /// <summary>
+        /// Star Settings
+        /// </summary>
+        public StarSettings StarSettings { get; set; }
+        #endregion
+        /// <summary>
+        /// Star System Settings
+        /// </summary>
+        /// <param name="starSystemId"></param>
+        /// <param name="path"></param>
+        /// <param name="systemIniStartPath"></param>
+        /// <param name="modelSettings"></param>
+        /// <param name="player"></param>
+        /// <param name="_starSettings"></param>
         public StarSystemSettings(
                 int starSystemId,
                 string path,
@@ -21,28 +61,28 @@ namespace Roguelancer.Settings {
                 ModelWorldObjects player,
                 StarSettings _starSettings
             ) {
-            ships = new List<ModelWorldObjects>();
-            planets = new List<ModelWorldObjects>();
-            stations = new List<ModelWorldObjects>();
-            tradeLanes = new List<ModelWorldObjects>();
+            Ships = new List<ModelWorldObjects>();
+            Planets = new List<ModelWorldObjects>();
+            Stations = new List<ModelWorldObjects>();
+            TradeLanes = new List<ModelWorldObjects>();
             player.SettingsModelObject.isPlayer = true;
-            ships.Add(player);
+            Ships.Add(player);
             for (int i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\ships.ini", "settings", "count", 0) + 1; ++i) {
-                ships.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\ships.ini", i.ToString().Trim()));
+                Ships.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\ships.ini", i.ToString().Trim()));
             }
             for (int i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\stations.ini", "settings", "count", 0) + 1; ++i) {
-                stations.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\stations.ini", i.ToString().Trim()));
+                Stations.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\stations.ini", i.ToString().Trim()));
             }
             for (int i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\bullets.ini", "settings", "count", 0) + 1; ++i) {
-                stations.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\bullets.ini", i.ToString().Trim()));
+                Bullets.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\bullets.ini", i.ToString().Trim()));
             }
             for (int i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\planets.ini", "settings", "count", 0) + 1; ++i) {
-                planets.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\planets.ini", i.ToString().Trim()));
+                Planets.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\planets.ini", i.ToString().Trim()));
             }
             for (int i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\tradelanes.ini", "settings", "count", 0) + 1; ++i) {
-                tradeLanes.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\tradelanes.ini", i.ToString().Trim()));
+                TradeLanes.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\tradelanes.ini", i.ToString().Trim()));
             }
-            starSettings = _starSettings;
+            StarSettings = _starSettings;
         }
     }
 }

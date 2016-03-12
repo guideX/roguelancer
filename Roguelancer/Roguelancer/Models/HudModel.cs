@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using Microsoft.Xna.Framework;
 using System.Collections.Generic;
 using Roguelancer.Interfaces;
@@ -16,11 +16,7 @@ namespace Roguelancer.Models {
         /// Hud Model
         /// </summary>
         public HudModel() {
-            try {
-                SensorObjects = new List<HudSensorObject>();
-            } catch {
-                throw;
-            }
+            SensorObjects = new List<HudSensorObject>();
         }
     }
     /// <summary>

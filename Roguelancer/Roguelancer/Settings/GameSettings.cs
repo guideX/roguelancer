@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
@@ -130,8 +130,6 @@ namespace Roguelancer.Settings {
             }
             var ini = rootDir + @"configuration\commodities.ini";
             CommoditiesSettings = new CommoditiesSettings(rootDir + @"configuration\c.ini", rootDir + @"configuration\cs.ini");
-            //BulletTexture = IniFile.ReadINI(gameSettingsIniFile, "Settings", "bullet_texture");
-            //BulletTexture = @"Earth";
         }
         #endregion
     }

@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using Microsoft.Xna.Framework;
 using Roguelancer.Functionality;
 namespace Roguelancer.Settings {
@@ -64,23 +64,19 @@ namespace Roguelancer.Settings {
         /// </summary>
         /// <param name="cameraSettingsIniFile"></param>
         public CameraSettings(string cameraSettingsIniFile) {
-            try {
-                DesiredPositionOffset = IniFile.ReadINIVector3(cameraSettingsIniFile, "settings", "desired_position_offset_x", "desired_position_offset_y", "desired_position_offset_z");
-                Stiffness = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "stiffness");
-                Damping = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "damping");
-                Mass = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "mass");
-                FieldOfView = MathHelper.ToRadians(IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "field_of_view"));
-                NearPlaneDistance = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "near_plane_distance");
-                ClippingDistance = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "clipping_distance");
-                LookAtOffset = IniFile.ReadINIVector3(cameraSettingsIniFile, "settings", "look_at_offset_x", "look_at_offset_y", "look_at_offset_z");
-                LookAtDivideBy = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "look_at_divide_by");
-                NewCameraX = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "new_camera_x");
-                NewCameraY = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "new_camera_y");
-                ThrustViewAmount = int.Parse(IniFile.ReadINI(cameraSettingsIniFile, "settings", "thrust_view_amount"));
-                AspectRatio = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "aspect_ratio_1") / IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "aspect_ratio_2");
-            } catch {
-                throw;
-            }
+            DesiredPositionOffset = IniFile.ReadINIVector3(cameraSettingsIniFile, "settings", "desired_position_offset_x", "desired_position_offset_y", "desired_position_offset_z");
+            Stiffness = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "stiffness");
+            Damping = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "damping");
+            Mass = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "mass");
+            FieldOfView = MathHelper.ToRadians(IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "field_of_view"));
+            NearPlaneDistance = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "near_plane_distance");
+            ClippingDistance = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "clipping_distance");
+            LookAtOffset = IniFile.ReadINIVector3(cameraSettingsIniFile, "settings", "look_at_offset_x", "look_at_offset_y", "look_at_offset_z");
+            LookAtDivideBy = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "look_at_divide_by");
+            NewCameraX = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "new_camera_x");
+            NewCameraY = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "new_camera_y");
+            ThrustViewAmount = int.Parse(IniFile.ReadINI(cameraSettingsIniFile, "settings", "thrust_view_amount"));
+            AspectRatio = IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "aspect_ratio_1") / IniFile.ReadIniFloat(cameraSettingsIniFile, "settings", "aspect_ratio_2");
         }
     }
 }

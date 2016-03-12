@@ -1,5 +1,5 @@
 // Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using Microsoft.Xna.Framework;
 namespace Roguelancer {
     public class Roguelancer : Game {

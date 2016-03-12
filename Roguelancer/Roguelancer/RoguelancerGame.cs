@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Bloom;
@@ -123,53 +123,45 @@ namespace Roguelancer {
         /// </summary>
         /// <param name="gameTime"></param>
         protected override void Update(GameTime gameTime) {
-            try {
-                GameTime = gameTime;
-                Input.Update(this);
-                _bloom.Update(true);
-                Objects.Update(this);
-                Camera.Update(this);
-                DebugText.Update(this);
-                GameMenu.Update(this);
-                if (GameState.CurrentGameState == GameStates.Playing) {
-                    Hud.Update(this);
-                }
-                base.Update(gameTime);
-            } catch {
-                throw;
+            GameTime = gameTime;
+            Input.Update(this);
+            _bloom.Update(true);
+            Objects.Update(this);
+            Camera.Update(this);
+            DebugText.Update(this);
+            GameMenu.Update(this);
+            if (GameState.CurrentGameState == GameStates.Playing) {
+                Hud.Update(this);
             }
+            base.Update(gameTime);
         }
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="gameTime"></param>
         protected override void Draw(GameTime gameTime) {
-            try {
-                GameTime = gameTime;
-                Graphics.SpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
-                _bloom.Draw();
-                if (GameState.CurrentGameState == GameStates.Playing) {
-                    if (GameState.LastGameState != GameState.CurrentGameState) {
-                        Graphics.GraphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
-                    }
-                    Graphics.Draw(this);
-                    Objects.Draw(this);
-                    Hud.Draw(this);
-                } else if (GameState.CurrentGameState == GameStates.Menu) {
-                    if (GameState.LastGameState != GameState.CurrentGameState) {
-                        Graphics.GraphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
-                    }
-                    GameMenu.Draw(this);
-                    Graphics.Draw(this);
-                } else if (GameState.CurrentGameState == GameStates.Docked) {
-                    
+            GameTime = gameTime;
+            Graphics.SpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
+            _bloom.Draw();
+            if (GameState.CurrentGameState == GameStates.Playing) {
+                if (GameState.LastGameState != GameState.CurrentGameState) {
+                    Graphics.GraphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
                 }
-                DebugText.Draw(this);
-                Graphics.SpriteBatch.End();
-                base.Draw(gameTime);
-            } catch {
-                throw;
+                Graphics.Draw(this);
+                Objects.Draw(this);
+                Hud.Draw(this);
+            } else if (GameState.CurrentGameState == GameStates.Menu) {
+                if (GameState.LastGameState != GameState.CurrentGameState) {
+                    Graphics.GraphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
+                }
+                GameMenu.Draw(this);
+                Graphics.Draw(this);
+            } else if (GameState.CurrentGameState == GameStates.Docked) {
+
             }
+            DebugText.Draw(this);
+            Graphics.SpriteBatch.End();
+            base.Draw(gameTime);
         }
         #endregion
     }

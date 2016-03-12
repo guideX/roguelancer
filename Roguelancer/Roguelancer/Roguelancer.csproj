@@ -130,6 +130,7 @@
     <Compile Include="Interfaces\ISensorObject.cs" />
     <Compile Include="Models\CommodityModel.cs" />
     <Compile Include="Models\HudModel.cs" />
+    <Compile Include="Models\PlayerShipControlModel.cs" />
     <Compile Include="Models\StationPriceModel.cs" />
     <Compile Include="Objects\DockableObject.cs" />
     <Compile Include="Objects\HudObject.cs" />

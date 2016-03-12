@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using System.Collections.Generic;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
@@ -28,7 +28,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             try {
-                foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].planets) {
+                foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].Planets) {
                     var planet = new Planet(game);
                     planet.Model.WorldObject = modelWorldObject;
                     Planets.Add(planet);
@@ -97,57 +97,37 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public Planet(RoguelancerGame game) {
-            try {
-                Model = new GameModel(game, null);
-            } catch {
-                throw;
-            }
+            Model = new GameModel(game, null);
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            try {
-                //Model.ModelMode = Enum.ModelModeEnum.Planet;
-                Model.Initialize(game);
-            } catch {
-                throw;
-            }
+            //Model.ModelMode = Enum.ModelModeEnum.Planet;
+            Model.Initialize(game);
         }
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            try {
-                Model.LoadContent(game);
-            } catch {
-                throw;
-            }
+            Model.LoadContent(game);
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            try {
-                Model.UpdatePosition();
-                Model.Update(game);
-            } catch {
-                throw;
-            }
+            Model.UpdatePosition();
+            Model.Update(game);
         }
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            try {
-                Model.Draw(game);
-            } catch {
-                throw;
-            }
+            Model.Draw(game);
         }
         #endregion
     }

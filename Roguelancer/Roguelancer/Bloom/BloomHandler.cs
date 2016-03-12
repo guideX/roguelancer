@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 namespace Roguelancer.Bloom {
     /// <summary>
     /// Bloom Handler
@@ -18,22 +18,14 @@ namespace Roguelancer.Bloom {
         /// </summary>
         /// <param name="game"></param>
         public BloomHandler(RoguelancerGame game) {
-            try {
-                _bloom = new BloomComponent(game);
-            } catch {
-                throw;
-            }
+            _bloom = new BloomComponent(game);
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            try {
-                game.Components.Add(_bloom);
-            } catch {
-                throw;
-            }
+            game.Components.Add(_bloom);
         }
         /// <summary>
         /// Load Content
@@ -44,22 +36,14 @@ namespace Roguelancer.Bloom {
         /// </summary>
         /// <param name="_BloomVisible"></param>
         public void Update(bool visible) {
-            try {
-                _bloom.Settings = BloomSettings.PresetSettings[_bloomSettings];
-                _bloom.Visible = visible;
-            } catch {
-                throw;
-            }
+            _bloom.Settings = BloomSettings.PresetSettings[_bloomSettings];
+            _bloom.Visible = visible;
         }
         /// <summary>
         /// Draw
         /// </summary>
         public void Draw() {
-            try {
-                _bloom.BeginDraw();
-            } catch {
-                throw;
-            }
+            _bloom.BeginDraw();
         }
     }
 }

@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Globalization;
@@ -44,8 +44,6 @@ namespace Roguelancer.Functionality {
         public static void WriteINI(string file, string section, string key, string value) {
             if (System.IO.File.Exists(file)) {
                 WritePrivateProfileString(section, key, value, file);
-            } else {
-                var msg = "";
             }
         }
         /// <summary>

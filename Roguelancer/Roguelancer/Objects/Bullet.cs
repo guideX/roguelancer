@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using System;
 using System.Linq;
 using System.Collections.Generic;
@@ -166,83 +166,67 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         private ParticleSystemSettingsModel _particleSystemSettings;
         public Bullets(RoguelancerGame game) {
-            try {
-                _model = new BulletsModel();
-                _particleSystemSettings = new ParticleSystemSettingsModel();
-                _particleSystemSettings.CameraArc = 2;
-                _particleSystemSettings.CameraRotation = 0f;
-                _particleSystemSettings.CameraDistance = 110;
-                _particleSystemSettings.FireRingSystemParticles = 20;
-                _particleSystemSettings.SmokePlumeParticles = 20;
-                _particleSystemSettings.SmokeRingParticles = 20;
-                _particleSystemSettings.Fire = true;
-                _particleSystemSettings.Enabled = false;
-                _particleSystemSettings.Smoke = true;
-                _particleSystemSettings.SmokeRing = true;
-                _particleSystemSettings.Explosions = true;
-                _particleSystemSettings.Projectiles = true;
-                _particleSystemSettings.ExplosionTexture = "Textures\\Explosion";
-                _particleSystemSettings.FireTexture = "Textures\\Fire";
-                _particleSystemSettings.SmokeTexture = "Textures\\Smoke";
-                _model.Bullets = new List<IBullet>();
-            } catch {
-                throw;
-            }
+            _model = new BulletsModel();
+            _particleSystemSettings = new ParticleSystemSettingsModel();
+            _particleSystemSettings.CameraArc = 2;
+            _particleSystemSettings.CameraRotation = 0f;
+            _particleSystemSettings.CameraDistance = 110;
+            _particleSystemSettings.FireRingSystemParticles = 20;
+            _particleSystemSettings.SmokePlumeParticles = 20;
+            _particleSystemSettings.SmokeRingParticles = 20;
+            _particleSystemSettings.Fire = true;
+            _particleSystemSettings.Enabled = false;
+            _particleSystemSettings.Smoke = true;
+            _particleSystemSettings.SmokeRing = true;
+            _particleSystemSettings.Explosions = true;
+            _particleSystemSettings.Projectiles = true;
+            _particleSystemSettings.ExplosionTexture = "Textures\\Explosion";
+            _particleSystemSettings.FireTexture = "Textures\\Fire";
+            _particleSystemSettings.SmokeTexture = "Textures\\Smoke";
+            _model.Bullets = new List<IBullet>();
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            try {
-                _model.AreBulletsAvailable = true;
-                _model.RechargeRate = 240;
-            } catch {
-                throw;
-            }
+            _model.AreBulletsAvailable = true;
+            _model.RechargeRate = 240;
         }
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            try {
-                BulletsModel = game.Content.Load<Model>("bullet");
-                _playerShip = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
-            } catch {
-                throw;
-            }
+            BulletsModel = game.Content.Load<Model>("bullet");
+            _playerShip = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            try {
-                if (game.Input.InputItems.Keys.ControlLeft || game.Input.InputItems.Keys.ControlRight || game.Input.InputItems.Mouse.RightButton) {
-                    if (_model.AreBulletsAvailable) {
-                        game.Camera.Shake(10f, 0f, false);
-                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, -200f, 0f), particleSystemSettings: _particleSystemSettings));
-                        _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, 700f, 0f), particleSystemSettings: _particleSystemSettings));
-                        _model.AreBulletsAvailable = false;
-                        _model.WeaponRechargedTime = DateTime.Now.AddMilliseconds(_model.RechargeRate);
-                    }
+            if (game.Input.InputItems.Keys.ControlLeft || game.Input.InputItems.Keys.ControlRight || game.Input.InputItems.Mouse.RightButton) {
+                if (_model.AreBulletsAvailable) {
+                    game.Camera.Shake(10f, 0f, false);
+                    _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, -200f, 0f), particleSystemSettings: _particleSystemSettings));
+                    _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, 700f, 0f), particleSystemSettings: _particleSystemSettings));
+                    _model.AreBulletsAvailable = false;
+                    _model.WeaponRechargedTime = DateTime.Now.AddMilliseconds(_model.RechargeRate);
                 }
-                if (!_model.AreBulletsAvailable) {
-                    if (DateTime.Now >= _model.WeaponRechargedTime) {
-                        _model.AreBulletsAvailable = true;
-                        _model.WeaponRechargedTime = new DateTime();
-                    }
+            }
+            if (!_model.AreBulletsAvailable) {
+                if (DateTime.Now >= _model.WeaponRechargedTime) {
+                    _model.AreBulletsAvailable = true;
+                    _model.WeaponRechargedTime = new DateTime();
                 }
-                for (int i = 0; i <= _model.Bullets.Count - 1; i++) {
-                    _model.Bullets[i].Update(game); // Update Bullet
-                    if (_model.Bullets[i].BulletModel.DeathDate <= DateTime.Now) {
-                        _model.Bullets[i].Dispose(game);
-                        _model.Bullets.RemoveAt(i); // Remove old bullets
-                    }
+            }
+            for (int i = 0; i <= _model.Bullets.Count - 1; i++) {
+                _model.Bullets[i].Update(game); // Update Bullet
+                if (_model.Bullets[i].BulletModel.DeathDate <= DateTime.Now) {
+                    _model.Bullets[i].Dispose(game);
+                    _model.Bullets.RemoveAt(i); // Remove old bullets
                 }
-            } catch {
-                throw;
             }
         }
         /// <summary>
@@ -250,12 +234,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            try {
-                foreach (var bullet in _model.Bullets) {
-                    bullet.Draw(game);
-                }
-            } catch {
-                throw;
+            foreach (var bullet in _model.Bullets) {
+                bullet.Draw(game);
             }
         }
         #endregion

@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Roguelancer.Interfaces;
@@ -31,16 +31,12 @@ namespace Roguelancer.Functionality {
         /// Entry Point
         /// </summary>
         public Input() {
-            try {
-                InputItems = new InputItemsModel();
-                InputItems.Toggles = new TogglesModel();
-                InputItems.Keys = new KeyInputModel();
-                InputItems.Mouse = new MouseInputModel();
-                LastKeyboardState = new KeyboardState();
-                CurrentKeyboardState = new KeyboardState();
-            } catch {
-                throw;
-            }
+            InputItems = new InputItemsModel();
+            InputItems.Toggles = new TogglesModel();
+            InputItems.Keys = new KeyInputModel();
+            InputItems.Mouse = new MouseInputModel();
+            LastKeyboardState = new KeyboardState();
+            CurrentKeyboardState = new KeyboardState();
         }
         /// <summary>
         /// Initialize
@@ -185,6 +181,11 @@ namespace Roguelancer.Functionality {
                     InputItems.Keys.S = true;
                 } else {
                     InputItems.Keys.S = false;
+                }
+                if (CurrentKeyboardState.IsKeyDown(Keys.Z)) {
+                    InputItems.Keys.Z = true;
+                } else {
+                    InputItems.Keys.Z = false;
                 }
                 if (CurrentKeyboardState.IsKeyDown(Keys.X)) {
                     InputItems.Keys.X = true;
