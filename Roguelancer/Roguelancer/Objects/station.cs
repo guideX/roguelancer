@@ -127,9 +127,12 @@ namespace Roguelancer.Objects {
         public void Update(RoguelancerGame game) {
             Model.UpdatePosition();
             Model.Update(game);
-            if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.C) {
+            if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.C && game.GameState.DockedGameState != Enum.DockedGameStateEnum.Commodities) {
+                game.GameState.DockedGameState = Enum.DockedGameStateEnum.Commodities;
                 // LIST COMMODITIES
-
+                // SHOW COMMODITIES
+                // TODO
+                // LEON
             }
             if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.U) {
                 game.Input.InputItems.Keys.U = false;
