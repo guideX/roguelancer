@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Settings;
+using System;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Trade Lane Collection
@@ -74,7 +75,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Trade Lane
     /// </summary>
-    public class TradeLane : IGame {
+    public class TradeLane : DockableObject, IGame, IDockable, ISensorObject {
         /// <summary>
         /// World Object
         /// </summary>
@@ -83,6 +84,17 @@ namespace Roguelancer.Objects {
         /// Trade Lane Rings
         /// </summary>
         public List<TradeLaneRing> TradeLaneRings { get; set; }
+        /// <summary>
+        /// Model
+        /// </summary>
+        public GameModel Model {
+            get {
+                throw new NotImplementedException();
+            }
+            set {
+                throw new NotImplementedException();
+            }
+        }
         /// <summary>
         /// Entry Point
         /// </summary>

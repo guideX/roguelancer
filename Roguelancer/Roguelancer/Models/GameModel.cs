@@ -148,7 +148,7 @@ namespace Roguelancer.Models {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (game.Input.InputItems.Toggles.ToggleCamera == false) {
+            if (!game.Input.InputItems.Toggles.ToggleCamera) {
                 World = Matrix.Identity;
                 World.Forward = Direction;
                 World.Up = Up;

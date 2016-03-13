@@ -144,7 +144,7 @@ namespace Roguelancer.Settings {
             var description = IniFile.ReadINI(iniFile, section, "description", "");
             var startupPosition = IniFile.ReadINIVector3(iniFile, section, "startup_position_x", "startup_position_y", "startup_position_z");
             var startupModelRotation = IniFile.ReadINIVector3(iniFile, section, "startup_model_rotation_x", "startup_model_rotation_y", "startup_model_rotation_z");
-            var settingsModelObject = SettingsModelObject.Clone(modelSettings.Where(s => s.enabled == true && s.modelId == IniFile.ReadINIInt(iniFile, section, "model_index", 0)).FirstOrDefault());
+            var settingsModelObject = SettingsModelObject.Clone(modelSettings.Where(s => s.enabled && s.modelId == IniFile.ReadINIInt(iniFile, section, "model_index", 0)).FirstOrDefault());
             var starSystemID = IniFile.ReadINIInt(iniFile, section, "system_index", 0);
             var initialModelUp = IniFile.ReadINIVector3(iniFile, section, "initial_model_up_x", "initial_model_up_y", "initial_model_up_z");
             var initialModelRight = IniFile.ReadINIVector3(iniFile, section, "initial_model_right_x", "initial_model_right_y", "initial_model_right_z");

@@ -113,6 +113,7 @@
     <Compile Include="Bloom\BloomHandler.cs" />
     <None Include="configuration\objects\bullets.ini" />
     <None Include="configuration\commodities_station.ini" />
+    <Compile Include="Enum\DockedGameStateEnum.cs" />
     <Compile Include="Enum\IntermediateBuffer.cs" />
     <Compile Include="Enum\ModelTypeEnum.cs" />
     <Compile Include="Enum\GameStates.cs" />

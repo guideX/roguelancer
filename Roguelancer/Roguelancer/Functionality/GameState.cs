@@ -8,6 +8,10 @@ namespace Roguelancer.Functionality {
     public class GameState {
         #region "public variables"
         /// <summary>
+        /// Docked Game State
+        /// </summary>
+        public DockedGameStateEnum DockedGameState { get; set; }
+        /// <summary>
         /// Current Game State
         /// </summary>
         public GameStates CurrentGameState { get; set; }
@@ -23,6 +27,7 @@ namespace Roguelancer.Functionality {
         public GameState() {
             CurrentGameState = new GameStates();
             CurrentGameState = GameStates.Menu;
+            DockedGameState = DockedGameStateEnum.Hanger;
         }
         #endregion
     }

@@ -109,7 +109,7 @@ namespace Roguelancer.Functionality {
             if (game.GameState.CurrentGameState == GameStates.Playing) {
                 if (CurrentKeyboardState.IsKeyDown(Keys.C)) {
                     if (LastKeyboardState.IsKeyUp(Keys.C)) {
-                        if (InputItems.Toggles.Cruise == true) {
+                        if (InputItems.Toggles.Cruise) {
                             InputItems.Toggles.Cruise = false;
                         } else {
                             InputItems.Toggles.Cruise = true;
@@ -118,7 +118,7 @@ namespace Roguelancer.Functionality {
                 }
                 if (CurrentKeyboardState.IsKeyDown(Keys.Space)) {
                     if (LastKeyboardState.IsKeyUp(Keys.Space)) {
-                        if (InputItems.Toggles.ToggleCamera == true) {
+                        if (InputItems.Toggles.ToggleCamera) {
                             InputItems.Toggles.ToggleCamera = false;
                             InputItems.Toggles.RevertCamera = true;
                         } else {
@@ -209,10 +209,10 @@ namespace Roguelancer.Functionality {
                 }
                 InputItems.Mouse.Vector = new Vector2(InputItems.Mouse.State.X, InputItems.Mouse.State.Y);
             }
-            if (game.Input.InputItems.Toggles.CameraSnapshot == true) {
+            if (game.Input.InputItems.Toggles.CameraSnapshot) {
                 game.Input.InputItems.Toggles.CameraSnapshot = false;
                 game.CameraSnapshot = game.Camera;
-            } else if (game.Input.InputItems.Toggles.RevertCamera == true) {
+            } else if (game.Input.InputItems.Toggles.RevertCamera) {
                 game.Input.InputItems.Toggles.RevertCamera = false;
                 game.Camera = game.CameraSnapshot;
             }

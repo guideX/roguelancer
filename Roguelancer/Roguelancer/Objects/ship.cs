@@ -68,10 +68,10 @@ namespace Roguelancer.Objects {
             Ships = new List<Ship>();
             var playerShip = new Ship(game);
             Ship tempShip;
-            playerShip.Model.WorldObject = game.Settings.StarSystemSettings[game.StarSystemId].Ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer == true).FirstOrDefault();
+            playerShip.Model.WorldObject = game.Settings.StarSystemSettings[game.StarSystemId].Ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer).FirstOrDefault();
             playerShip.PlayerShipControl.UseInput = true;
             Ships.Add(playerShip);
-            foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].Ships.Where(s => s.SettingsModelObject.isPlayer == false).ToList()) {
+            foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].Ships.Where(s => !s.SettingsModelObject.isPlayer).ToList()) {
                 tempShip = new Ship(game);
                 tempShip.Model = new GameModel(game, null);
                 tempShip.Model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
@@ -155,7 +155,7 @@ namespace Roguelancer.Objects {
             if (game.GameState.CurrentGameState == GameStates.Playing) {
                 if (PlayerShipControl.UseInput) {
                     PlayerShipControl.UpdateModel(Model, game);
-                    if (game.Input.InputItems.Toggles.ToggleCamera == false) {
+                    if (!game.Input.InputItems.Toggles.ToggleCamera) {
                         Model.Update(game);
                     }
                 } else {

@@ -24,6 +24,6 @@ namespace Roguelancer.Enum {
         /// <summary>
         /// Docked
         /// </summary>
-        Docked = 4
+        Docked = 4,
     }
 }

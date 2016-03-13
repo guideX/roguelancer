@@ -115,7 +115,7 @@ namespace Roguelancer.Functionality {
             }
             if (_shaking) {
                 float magnitude;
-                if (_shakeUseDuration == true) {
+                if (_shakeUseDuration) {
                     _shakeTimer += (float)game.GameTime.ElapsedGameTime.TotalSeconds;
                     if (_shakeTimer >= _shakeDuration) {
                         _shaking = false;
@@ -153,7 +153,7 @@ namespace Roguelancer.Functionality {
             _shaking = true;
             _shakeMagnitude = magnitude;
             _shakeUseDuration = shakeUseDuration;
-            if (_shakeUseDuration == true) {
+            if (_shakeUseDuration) {
                 _shakeDuration = duration;
                 _shakeTimer = 0f;
             }

@@ -107,7 +107,7 @@ namespace Roguelancer.Objects {
                 Model.Velocity += acceleration * elapsed;
                 Model.Velocity *= BulletModel.DragFactor;
                 Model.Position += Model.Velocity * elapsed;
-                if (BulletModel.LimitAltitude == true) {
+                if (BulletModel.LimitAltitude) {
                     Model.Position.Y = Math.Max(Model.Position.Y, Model.MinimumAltitude);
                 }
                 Model.Update(game);

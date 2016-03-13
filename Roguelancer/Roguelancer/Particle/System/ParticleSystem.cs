@@ -85,24 +85,24 @@ namespace Roguelancer.Particle.System {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            if(Settings.Enabled == true) {
+            if(Settings.Enabled) {
                 LoadTextures(game);
                 InitializeSystem();
-                if(Settings.Explosions == true) {
+                if(Settings.Explosions) {
                     _particleManager.AddParticleSystem(_explosionSmokeParticleSystem, BlendState.NonPremultiplied);
                     _particleManager.AddParticleSystem(_explosionParticleSystem, BlendState.Additive);
                 }
-                if(Settings.Fire == true) {
+                if(Settings.Fire) {
                     _particleManager.AddParticleSystem(_fireParticleSystem, BlendState.Additive);
                 }
-                if(Settings.Smoke == true) {
+                if(Settings.Smoke) {
                     _smokePlumeParticleSystem.AddEmitter(_smokePlumeEmitter);
                     _particleManager.AddParticleSystem(_smokePlumeParticleSystem, BlendState.NonPremultiplied);
                 }
-                if(Settings.Projectiles == true) {
+                if(Settings.Projectiles) {
                     _particleManager.AddParticleSystem(_projectileTrailParticleSystem, BlendState.NonPremultiplied);
                 }
-                if(Settings.SmokeRing == true) {
+                if(Settings.SmokeRing) {
                     _smokePlumeParticleSystem.AddEmitter(_smokeRingEmitter);
                 }
             }
@@ -112,20 +112,20 @@ namespace Roguelancer.Particle.System {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if(Settings.Enabled == true) {
-                if(Settings.SmokeRing == true) {
+            if(Settings.Enabled) {
+                if(Settings.SmokeRing) {
                     _smokeRingEmitter.EmissionRate = Settings.SmokeRingParticles;
                 }
-                if(Settings.Fire == true) {
+                if(Settings.Fire) {
                     _fireParticleSystem.emissionRate = Settings.FireRingSystemParticles;
                 }
-                if(Settings.Smoke == true) {
+                if(Settings.Smoke) {
                     _smokePlumeEmitter._emissionRate = Settings.SmokePlumeParticles;
                 }
-                if(Settings.Explosions == true) {
+                if(Settings.Explosions) {
                     UpdateExplosions(game);
                 }
-                if(Settings.Projectiles == true) {
+                if(Settings.Projectiles) {
                     UpdateProjectiles(game);
                 }
                 _particleManager.SetMatrices(_view, _projection);
@@ -136,7 +136,7 @@ namespace Roguelancer.Particle.System {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            if(Settings.Enabled == true) {
+            if(Settings.Enabled) {
                 float lAspectRatio = (float)game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Width / (float)game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height;
                 _view = 
                     Matrix.CreateTranslation(0, -25, 0) * 

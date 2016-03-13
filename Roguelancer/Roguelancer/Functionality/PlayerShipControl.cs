@@ -58,25 +58,25 @@ namespace Roguelancer.Functionality {
             var w2 = (float)game.Graphics.GraphicsDeviceManager.PreferredBackBufferWidth / PlayerShipControlModel.UpdateDirectionX;
             var h2 = (float)game.Graphics.GraphicsDeviceManager.PreferredBackBufferHeight / PlayerShipControlModel.UpdateDirectionY;
             if (UseInput) {
-                if (game.Input.InputItems.Toggles.MouseMode == true && game.Input.InputItems.Toggles.FreeMouseMode == false) {
-                    if (game.Input.InputItems.Mouse.LeftButton == true) {
+                if (game.Input.InputItems.Toggles.MouseMode && !game.Input.InputItems.Toggles.FreeMouseMode) {
+                    if (game.Input.InputItems.Mouse.LeftButton) {
                         rotationAmount.X = (game.Input.InputItems.Mouse.Vector.X - w2) / -w2;
                         rotationAmount.Y = (game.Input.InputItems.Mouse.Vector.Y - h2) / -h2;
                     }
-                } else if (game.Input.InputItems.Toggles.MouseMode == false && game.Input.InputItems.Toggles.FreeMouseMode == true) {
+                } else if (!game.Input.InputItems.Toggles.MouseMode && game.Input.InputItems.Toggles.FreeMouseMode) {
                     rotationAmount.X = (game.Input.InputItems.Mouse.Vector.X - w2) / -w2;
                     rotationAmount.Y = (game.Input.InputItems.Mouse.Vector.Y - h2) / -h2;
                 }
-                if (game.Input.InputItems.Keys.Left == true) {
+                if (game.Input.InputItems.Keys.Left) {
                     rotationAmount.X = PlayerShipControlModel.RotationXLeftAdd;
                 }
-                if (game.Input.InputItems.Keys.Right == true) {
+                if (game.Input.InputItems.Keys.Right) {
                     rotationAmount.X = PlayerShipControlModel.RotationXRightAdd;
                 }
-                if (game.Input.InputItems.Keys.Up == true) {
+                if (game.Input.InputItems.Keys.Up) {
                     rotationAmount.Y = PlayerShipControlModel.RotationYUpAdd;
                 }
-                if (game.Input.InputItems.Keys.Down == true) {
+                if (game.Input.InputItems.Keys.Down) {
                     rotationAmount.Y = PlayerShipControlModel.RotationYDownAdd;
                 }
                 if (game.Input.InputItems.Keys.Z) {
@@ -90,7 +90,7 @@ namespace Roguelancer.Functionality {
             model.Rotation = rotationAmount;
             model.UpdatePosition();
             if (UseInput) {
-                if (game.Input.InputItems.Keys.W == true) {
+                if (game.Input.InputItems.Keys.W) {
                     game.Camera.Shake(Model.ShakeValue, 0f, false);
                     if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAmount) {
                         model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
@@ -102,15 +102,15 @@ namespace Roguelancer.Functionality {
                 } else {
                     game.Camera.StopShaking();
                 }
-                if (game.Input.InputItems.Toggles.Cruise == true) {
-                    if (game.Input.InputItems.Keys.S == true) {
+                if (game.Input.InputItems.Toggles.Cruise) {
+                    if (game.Input.InputItems.Keys.S) {
                         model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
                         game.Input.InputItems.Toggles.Cruise = false;
                     } else {
                         model.CurrentThrust = PlayerShipControlModel.MaxCruiseSpeed;
                     }
                 } else {
-                    if (game.Input.InputItems.Keys.Tab == true) {
+                    if (game.Input.InputItems.Keys.Tab) {
                         game.Camera.Shake(Model.ShakeValue, 0f, false);
                         if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAfterburnerAmount) {
                             model.CurrentThrust = PlayerShipControlModel.MaxThrustAfterburnerAmount;
@@ -124,7 +124,7 @@ namespace Roguelancer.Functionality {
                             model.CurrentThrust = model.CurrentThrust - PlayerShipControlModel.ThrustSlowDownSpeed;
                             game.Camera.Shake(Model.ShakeValue, 0f, false);
                         } else {
-                            if (game.Input.InputItems.Keys.W == true) {
+                            if (game.Input.InputItems.Keys.W) {
                                 game.Camera.Shake(Model.ShakeValue, 0f, false);
                                 if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAmount) {
                                     model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
@@ -138,13 +138,13 @@ namespace Roguelancer.Functionality {
                             }
                         }
                     }
-                    if (game.Input.InputItems.Keys.X == true) {
+                    if (game.Input.InputItems.Keys.X) {
                         game.Camera.Shake(1f, 0f, false);
                         if (model.CurrentThrust > PlayerShipControlModel.MaxThrustReverse) {
                             model.CurrentThrust = model.CurrentThrust + PlayerShipControlModel.ThrustReverseSpeed;
                         }
                     }
-                    if (game.Input.InputItems.Keys.S == true) {
+                    if (game.Input.InputItems.Keys.S) {
                         game.Camera.StopShaking();
                         if (model.CurrentThrust == 0) {
                         } else if (model.CurrentThrust > PlayerShipControlModel.MaxThrustAmount || model.CurrentThrust > -.0001) {
@@ -161,7 +161,7 @@ namespace Roguelancer.Functionality {
                     }
                 }
             } else {
-                if (game.Input.InputItems.Keys.L == true) {
+                if (game.Input.InputItems.Keys.L) {
                     if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAfterburnerAmount) {
                         model.CurrentThrust = PlayerShipControlModel.MaxThrustAfterburnerAmount;
                     } else if (model.CurrentThrust < PlayerShipControlModel.MaxThrustAfterburnerAmount) {
@@ -173,7 +173,7 @@ namespace Roguelancer.Functionality {
                     if (model.CurrentThrust > PlayerShipControlModel.MaxThrustAmount) {
                         model.CurrentThrust = model.CurrentThrust - PlayerShipControlModel.ThrustSlowDownSpeed;
                     } else {
-                        if (game.Input.InputItems.Keys.P == true) {
+                        if (game.Input.InputItems.Keys.P) {
                             if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAmount) {
                                 model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
                             } else if (model.CurrentThrust < PlayerShipControlModel.MaxThrustAmount) {
@@ -184,7 +184,7 @@ namespace Roguelancer.Functionality {
                         }
                     }
                 }
-                if (game.Input.InputItems.Keys.K == true) {
+                if (game.Input.InputItems.Keys.K) {
                     if (model.CurrentThrust == 0) {
                     } else if (model.CurrentThrust > PlayerShipControlModel.MaxThrustAmount || model.CurrentThrust > -.0001) {
                         model.CurrentThrust = model.CurrentThrust - PlayerShipControlModel.ThrustSlowDownSpeed;
@@ -199,7 +199,7 @@ namespace Roguelancer.Functionality {
                     }
                 }
             }
-            if (game.Input.InputItems.Toggles.ToggleCamera == false) {
+            if (!game.Input.InputItems.Toggles.ToggleCamera) {
                 force = model.Direction * model.CurrentThrust * PlayerShipControlModel.ThrustForce;
                 acceleration = force / PlayerShipControlModel.Mass;
                 model.Velocity += acceleration * elapsed;
