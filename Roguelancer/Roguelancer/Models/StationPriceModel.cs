@@ -9,7 +9,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Station Price Id
         /// </summary>
-        public int StationPriceId { get; set; }
+        public int StationPriceID { get; set; }
         /// <summary>
         /// Star System Id
         /// </summary>
@@ -34,6 +34,10 @@ namespace Roguelancer.Models {
         /// Is Selling
         /// </summary>
         public bool IsSelling { get; set; }
+        /// <summary>
+        /// Qty
+        /// </summary>
+        public int Qty { get; set; }
         /// <summary>
         /// Station
         /// </summary>

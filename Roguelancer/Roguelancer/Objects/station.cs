@@ -21,32 +21,24 @@ namespace Roguelancer.Objects {
         /// Station Collection
         /// </summary>
         public StationCollection() {
-            try {
-                Stations = new List<Station>();
-            } catch {
-                throw;
-            }
+            Stations = new List<Station>();
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            try {
-                var n = 0;
-                foreach (var obj in game.Settings.StarSystemSettings[game.StarSystemId].Stations) {
-                    n++;
-                    var s = new Station(game);
-                    s.StationID = n;
-                    s.Model.WorldObject = obj;
-                    s.StationPrices = game.Settings.StationPriceModels.Where(p => p.StarSystemId == game.StarSystemId && p.StationId == obj.ID).ToList();
-                    Stations.Add(s);
-                }
-                for (var i = 0; i <= Stations.Count - 1; i++) {
-                    Stations[i].Initialize(game);
-                }
-            } catch {
-                throw;
+            var n = 0;
+            foreach (var obj in game.Settings.StarSystemSettings[game.StarSystemId].Stations) {
+                n++;
+                var s = new Station(game);
+                s.StationID = n;
+                s.Model.WorldObject = obj;
+                s.StationPrices = game.Settings.StationPriceModels.Where(p => p.StationId == obj.ID).ToList();
+                Stations.Add(s);
+            }
+            for (var i = 0; i <= Stations.Count - 1; i++) {
+                Stations[i].Initialize(game);
             }
         }
         /// <summary>
@@ -54,12 +46,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            try {
-                for (var i = 0; i <= Stations.Count - 1; i++) {
-                    Stations[i].LoadContent(game);
-                }
-            } catch {
-                throw;
+            for (var i = 0; i <= Stations.Count - 1; i++) {
+                Stations[i].LoadContent(game);
             }
         }
         /// <summary>
@@ -67,12 +55,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            try {
-                for (var i = 0; i <= Stations.Count - 1; i++) {
-                    Stations[i].Update(game);
-                }
-            } catch {
-                throw;
+            for (var i = 0; i <= Stations.Count - 1; i++) {
+                Stations[i].Update(game);
             }
         }
         /// <summary>
@@ -80,12 +64,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            try {
-                for (var i = 0; i <= Stations.Count - 1; i++) {
-                    Stations[i].Draw(game);
-                }
-            } catch {
-                throw;
+            for (var i = 0; i <= Stations.Count - 1; i++) {
+                Stations[i].Draw(game);
             }
         }
         #endregion
@@ -134,6 +114,17 @@ namespace Roguelancer.Objects {
         public void Update(RoguelancerGame game) {
             Model.UpdatePosition();
             Model.Update(game);
+            if(game.GameState.CurrentGameState == Enum.GameStates.Docked && game.GameState.DockedGameState == Enum.DockedGameStateEnum.Commodities) {
+                if(game.Input.InputItems.Keys.One) {
+                    PurchaseCommodity(game, StationPrices[0].CommoditiesId, 1);
+                }
+                if (game.Input.InputItems.Keys.Two) {
+                    PurchaseCommodity(game, StationPrices[1].CommoditiesId, 1);
+                }
+                if (game.Input.InputItems.Keys.Three) {
+                    PurchaseCommodity(game, StationPrices[2].CommoditiesId, 1);
+                }
+            }
             if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.C && game.GameState.DockedGameState != Enum.DockedGameStateEnum.Commodities) {
                 game.GameState.DockedGameState = Enum.DockedGameStateEnum.Commodities;
                 ListCommoditiesForSale(game, Enum.ModelType.Station, StationID);

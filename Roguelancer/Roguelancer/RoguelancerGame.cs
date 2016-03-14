@@ -21,7 +21,7 @@ namespace Roguelancer {
         /// <summary>
         /// Hud
         /// </summary>
-        public HudObject Hud { get; set; }
+        public IHudObject Hud { get; set; }
         /// <summary>
         /// Graphics
         /// </summary>
@@ -45,7 +45,7 @@ namespace Roguelancer {
         /// <summary>
         /// Game State
         /// </summary>
-        public GameState GameState { get; set; }
+        public IGameStates GameState { get; set; }
         /// <summary>
         /// Objects
         /// </summary>
@@ -55,13 +55,13 @@ namespace Roguelancer {
         /// </summary>
         public IGameCamera CameraSnapshot { get; set; }
         /// <summary>
+        /// Game Menu
+        /// </summary>
+        public IGameMenu GameMenu { get; set; }
+        /// <summary>
         /// Game Time
         /// </summary>
         public GameTime GameTime { get; set; }
-        /// <summary>
-        /// Game Menu
-        /// </summary>
-        public GameMenu GameMenu { get; set; }
         #endregion
         #region "private variables"
         /// <summary>

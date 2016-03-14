@@ -87,6 +87,14 @@ namespace Roguelancer.Objects {
     public class Ship : IGame, ISensorObject, IDockableShip {
         #region "public variables"
         /// <summary>
+        /// Money
+        /// </summary>
+        public decimal Money { get; set; }
+        /// <summary>
+        /// Cargo Hold
+        /// </summary>
+        public CargoHoldModel CargoHold { get; set; }
+        /// <summary>
         /// Hard Points
         /// </summary>
         //public List<HardPoint> HardPoints { get; set; }
@@ -109,6 +117,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public Ship(RoguelancerGame game) {
+            Money = 2000.00m;
+            CargoHold = new CargoHoldModel();
             Model = new GameModel(game, null);
             PlayerShipControl = new PlayerShipControl();
             //HardPoints = new List<HardPoint>();
@@ -124,6 +134,7 @@ namespace Roguelancer.Objects {
             ship = new Ship(game);
             ship.PlayerShipControl = oldShip.PlayerShipControl;
             ship.Model = oldShip.Model;
+            ship.CargoHold = oldShip.CargoHold;
             return ship;
         }
         /// <summary>

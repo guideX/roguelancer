@@ -155,7 +155,8 @@ namespace Roguelancer.Settings {
                         StarSystemId = IniFile.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "system_index", 0),
                         StationId = IniFile.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "station_index", 0),
                         CommoditiesId = IniFile.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "commodities_index", 0),
-                        StationPriceId = i
+                        Qty = IniFile.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "qty", 0),
+                        StationPriceID = i
                     });
                 }
             }

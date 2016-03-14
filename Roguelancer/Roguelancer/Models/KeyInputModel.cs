@@ -6,6 +6,46 @@ namespace Roguelancer.Models {
     /// </summary>
     public class KeyInputModel {
         /// <summary>
+        /// One
+        /// </summary>
+        public bool Zero { get; set; }
+        /// <summary>
+        /// One
+        /// </summary>
+        public bool Nine { get; set; }
+        /// <summary>
+        /// One
+        /// </summary>
+        public bool Eight { get; set; }
+        /// <summary>
+        /// One
+        /// </summary>
+        public bool Seven { get; set; }
+        /// <summary>
+        /// One
+        /// </summary>
+        public bool Six { get; set; }
+        /// <summary>
+        /// One
+        /// </summary>
+        public bool Five { get; set; }
+        /// <summary>
+        /// One
+        /// </summary>
+        public bool Four { get; set; }
+        /// <summary>
+        /// One
+        /// </summary>
+        public bool Three { get; set; }
+        /// <summary>
+        /// One
+        /// </summary>
+        public bool Two { get; set; }
+        /// <summary>
+        /// One
+        /// </summary>
+        public bool One { get; set; }
+        /// <summary>
         /// Z
         /// </summary>
         public bool Z { get; set; }

@@ -9,12 +9,16 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Game Menu
     /// </summary>
-    public class GameMenu : IGame {
+    public class GameMenu : IGameMenu {
         #region "public variables"
         /// <summary>
         /// Current Menu
         /// </summary>
-        public CurrentMenu CurrentMenu;
+        public CurrentMenu CurrentMenu { get; set; }
+        /// <summary>
+        /// Menu Buttons
+        /// </summary>
+        public List<MenuButton> MenuButtons { get; set; }
         #endregion
         #region "private variables"
         /// <summary>
@@ -37,10 +41,6 @@ namespace Roguelancer.Objects {
         /// Screen Rectangle
         /// </summary>
         private Rectangle screenRectangle;
-        /// <summary>
-        /// Menu Buttons
-        /// </summary>
-        public List<MenuButton> MenuButtons;
         #endregion
         #region "public functions"
         /// <summary>

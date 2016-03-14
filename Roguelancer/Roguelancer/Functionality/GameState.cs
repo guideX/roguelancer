@@ -1,11 +1,12 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
 using Roguelancer.Enum;
+using Roguelancer.Interfaces;
 namespace Roguelancer.Functionality {
     /// <summary>
     /// Game State
     /// </summary>
-    public class GameState {
+    public class GameState : IGameStates {
         #region "public variables"
         /// <summary>
         /// Docked Game State

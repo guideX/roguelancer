@@ -109,6 +109,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Bloom\BloomComponent.cs" />
+    <Compile Include="Interfaces\IGameMenu.cs" />
+    <Compile Include="Interfaces\IGameStates.cs" />
+    <Compile Include="Interfaces\IHudObject.cs" />
     <Compile Include="Models\Bloom\BloomSettingsModel.cs" />
     <Compile Include="Bloom\BloomHandler.cs" />
     <None Include="configuration\objects\bullets.ini" />
@@ -132,6 +135,7 @@
     <Compile Include="Models\Bloom\BloomComponentModel.cs" />
     <Compile Include="Models\Bloom\BloomHandlerModel.cs" />
     <Compile Include="Models\CameraSettingsModel.cs" />
+    <Compile Include="Models\CargoHoldModel.cs" />
     <Compile Include="Models\CommodityModel.cs" />
     <Compile Include="Models\HudModel.cs" />
     <Compile Include="Models\PlayerShipControlModel.cs" />

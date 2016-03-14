@@ -10,7 +10,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Hud Object
     /// </summary>
-    public class HudObject : IGame {
+    public class HudObject : IHudObject {
         #region "private variables"
         /// <summary>
         /// Player Ship

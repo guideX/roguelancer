@@ -60,6 +60,21 @@ namespace Roguelancer.Functionality {
             InputItems.Mouse.ScrollWheel = InputItems.Mouse.State.ScrollWheelValue * .0001f;
             LastKeyboardState = CurrentKeyboardState;
             CurrentKeyboardState = Keyboard.GetState();
+            if (CurrentKeyboardState.IsKeyDown(Keys.D1)) {
+                InputItems.Keys.One = true;
+            } else {
+                InputItems.Keys.One = false;
+            }
+            if (CurrentKeyboardState.IsKeyDown(Keys.D2)) {
+                InputItems.Keys.Two = true;
+            } else {
+                InputItems.Keys.Two = false;
+            }
+            if (CurrentKeyboardState.IsKeyDown(Keys.D3)) {
+                InputItems.Keys.Three = true;
+            } else {
+                InputItems.Keys.Three = false;
+            }
             if (CurrentKeyboardState.IsKeyDown(Keys.U)) {
                 InputItems.Keys.U = true;
             } else {
