@@ -49,7 +49,7 @@ namespace Roguelancer {
         /// <summary>
         /// Objects
         /// </summary>
-        public GameObjects Objects { get; set; }
+        public IGameObjects Objects { get; set; }
         /// <summary>
         /// Camera Snapshot
         /// </summary>
@@ -88,7 +88,6 @@ namespace Roguelancer {
             GameMenu = new GameMenu();
             Hud = new HudObject();
             GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
-            StarSystemId = 0;
         }
         /// <summary>
         /// Initialize
@@ -156,7 +155,8 @@ namespace Roguelancer {
                 }
                 GameMenu.Draw(this);
                 Graphics.Draw(this);
-            //} else {
+            } else {
+                Graphics.GraphicsDeviceManager.GraphicsDevice.Clear(Color.Black);
                 //} else if (GameState.CurrentGameState == GameStates.Docked) {
             }
             DebugText.Draw(this);

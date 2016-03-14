@@ -26,15 +26,15 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Stations
         /// </summary>
-        public StationCollection Stations;
+        public StationCollection Stations { get; set; }
         /// <summary>
         /// Planets
         /// </summary>
-        public PlanetCollection Planets;
+        public PlanetCollection Planets { get; set; }
         /// <summary>
         /// Stars
         /// </summary>
-        public Starfields Stars;
+        public Starfields Stars { get; set; }
         /// <summary>
         /// Stations
         /// </summary>

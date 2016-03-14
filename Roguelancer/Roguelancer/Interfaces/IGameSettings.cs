@@ -1,15 +1,23 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
 using Microsoft.Xna.Framework;
+using Roguelancer.Models;
 using Roguelancer.Settings;
 using System.Collections.Generic;
 namespace Roguelancer.Interfaces {
+    /// <summary>
+    /// Game Settings
+    /// </summary>
     public interface IGameSettings {
         #region "public variables"
         /// <summary>
-        /// Commodities Settings
+        /// Commodities Models
         /// </summary>
-        CommoditiesSettings CommoditiesSettings { get; set; }
+        List<CommodityModel> CommoditiesModels { get; set; }
+        /// <summary>
+        /// Station Price models
+        /// </summary>
+        List<StationPriceModel> StationPriceModels { get; set; }
         /// <summary>
         /// Sensor Texture
         /// </summary>

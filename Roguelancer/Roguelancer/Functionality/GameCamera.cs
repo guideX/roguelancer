@@ -95,7 +95,7 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            game.Settings.CameraSettings.AspectRatio = (float)game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Width / game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height;
+            game.Settings.CameraSettings.Model.AspectRatio = (float)game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Width / game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height;
             UpdateCameraChaseTarget(game);
             Reset(game);
         }
@@ -132,8 +132,8 @@ namespace Roguelancer.Functionality {
             UpdateWorldPositions(game);
             var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds;
             var _Stretch = _position - _desiredPosition;
-            var _Force = -game.Settings.CameraSettings.Stiffness * _Stretch - game.Settings.CameraSettings.Damping * _velocity;
-            var _Acceleration = _Force / game.Settings.CameraSettings.Mass;
+            var _Force = -game.Settings.CameraSettings.Model.Stiffness * _Stretch - game.Settings.CameraSettings.Model.Damping * _velocity;
+            var _Acceleration = _Force / game.Settings.CameraSettings.Model.Mass;
             _velocity += _Acceleration * elapsed;
             _position += _velocity * elapsed;
             UpdateMatrices(game);
@@ -176,12 +176,12 @@ namespace Roguelancer.Functionality {
             transform.Up = _up;
             transform.Right = Vector3.Cross(_up, _chaseDirection);
             if (_mode == 0) {
-                _desiredPosition = _chasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.DesiredPositionOffset, transform);
-                _lookAt = _chasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.LookAtOffset, transform);
+                _desiredPosition = _chasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.DesiredPositionOffset, transform);
+                _lookAt = _chasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.LookAtOffset, transform);
             }
             if (_mode == 2) {
-                _desiredPosition = _chasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.DesiredPositionOffset, transform);
-                _lookAt = _chasePosition + game.Settings.CameraSettings.ThrustViewAmount * _chaseDirection;
+                _desiredPosition = _chasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.DesiredPositionOffset, transform);
+                _lookAt = _chasePosition + game.Settings.CameraSettings.Model.ThrustViewAmount * _chaseDirection;
             }
         }
         /// <summary>
@@ -198,10 +198,10 @@ namespace Roguelancer.Functionality {
             _Transform.Forward = _chaseDirection;
             _Transform.Up = _up;
             _Transform.Right = Vector3.Cross(_up, _chaseDirection);
-            var o = _chasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.DesiredPositionOffset, _Transform);
-            var d = _chasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.LookAtOffset, _Transform);
+            var o = _chasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.DesiredPositionOffset, _Transform);
+            var d = _chasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.LookAtOffset, _Transform);
             View = Matrix.CreateLookAt(o, d, _up);
-            Projection = Matrix.CreatePerspectiveFieldOfView(game.Settings.CameraSettings.FieldOfView, game.Settings.CameraSettings.AspectRatio, game.Settings.CameraSettings.NearPlaneDistance, game.Settings.CameraSettings.ClippingDistance); //Builds a perspective projection matrix based on a field of view
+            Projection = Matrix.CreatePerspectiveFieldOfView(game.Settings.CameraSettings.Model.FieldOfView, game.Settings.CameraSettings.Model.AspectRatio, game.Settings.CameraSettings.Model.NearPlaneDistance, game.Settings.CameraSettings.Model.ClippingDistance); //Builds a perspective projection matrix based on a field of view
             var f = new BoundingFrustum(this.View * this.Projection);
             Vector3[] _Fcorners = new Vector3[8];
             f.GetCorners(_Fcorners);
@@ -219,7 +219,7 @@ namespace Roguelancer.Functionality {
             if (t != null) {
                 v = o + (float)t * _MouseDir;
                 v = (v - d);
-                _lookAt = d + v / game.Settings.CameraSettings.LookAtDivideBy;
+                _lookAt = d + v / game.Settings.CameraSettings.Model.LookAtDivideBy;
             }
         }
         /// <summary>
@@ -228,7 +228,7 @@ namespace Roguelancer.Functionality {
         /// <param name="game"></param>
         private void UpdateMatrices(RoguelancerGame game) {
             View = Matrix.CreateLookAt(_position, _lookAt, _up);
-            Projection = Matrix.CreatePerspectiveFieldOfView(game.Settings.CameraSettings.FieldOfView, game.Settings.CameraSettings.AspectRatio, game.Settings.CameraSettings.NearPlaneDistance, game.Settings.CameraSettings.ClippingDistance);
+            Projection = Matrix.CreatePerspectiveFieldOfView(game.Settings.CameraSettings.Model.FieldOfView, game.Settings.CameraSettings.Model.AspectRatio, game.Settings.CameraSettings.Model.NearPlaneDistance, game.Settings.CameraSettings.Model.ClippingDistance);
         }
         /// <summary>
         /// Reset
@@ -254,7 +254,7 @@ namespace Roguelancer.Functionality {
                 if (game.Input.InputItems.Mouse.State.LeftButton == ButtonState.Pressed) {
                     UpdateNewCamera((float)game.Input.InputItems.Mouse.State.X / (float)gd.Viewport.Width, (float)game.Input.InputItems.Mouse.State.Y / (float)gd.Viewport.Height, game);
                 } else {
-                    UpdateNewCamera(game.Settings.CameraSettings.NewCameraX, game.Settings.CameraSettings.NewCameraY, game);
+                    UpdateNewCamera(game.Settings.CameraSettings.Model.NewCameraX, game.Settings.CameraSettings.Model.NewCameraY, game);
                 }
             }
         }

@@ -1,10 +1,12 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
+using Roguelancer.Models;
 namespace Roguelancer.Settings {
     /// <summary>
     /// Game Settings
@@ -12,9 +14,13 @@ namespace Roguelancer.Settings {
     public class GameSettings : IGameSettings {
         #region "public variables"
         /// <summary>
-        /// Commodities Settings
+        /// Commodities Models
         /// </summary>
-        public CommoditiesSettings CommoditiesSettings { get; set; }
+        public List<CommodityModel> CommoditiesModels { get; set; }
+        /// <summary>
+        /// Station Price models
+        /// </summary>
+        public List<StationPriceModel> StationPriceModels { get; set; }
         /// <summary>
         /// Menu Background Texture
         /// </summary>
@@ -81,9 +87,19 @@ namespace Roguelancer.Settings {
         /// System Ini Start Path
         /// </summary>
         private string _systemIniStartPath;
+        /// <summary>
+        /// Commodities Ini File
+        /// </summary>
+        private string _commoditiesIniFile;
+        /// <summary>
+        /// Commodities Settings Ini File
+        /// </summary>
+        private string _commoditiesSettingsIniFile;
         #endregion
         #region "public functions"
         public GameSettings() {
+            StationPriceModels = new List<StationPriceModel>();
+            CommoditiesModels = new List<CommodityModel>();
             MenuText = "Roguelancer" + Environment.NewLine + Environment.NewLine + "10 = Play Game" + Environment.NewLine + "F9 = Return to menu" + Environment.NewLine + "ESC = Quit";
             Font = "LucidaFont";
             FontSmall = "LucidiaFontSmall";
@@ -96,6 +112,8 @@ namespace Roguelancer.Settings {
             _bulletSettingsIniFile = rootDir + @"configuration\objects\bullets.ini";
             _cameraSettingsIniFile = rootDir + @"configuration\camera.ini";
             _systemIniStartPath = rootDir + @"configuration\systems\";
+            _commoditiesSettingsIniFile = rootDir + @"configuration\commodities_settings.ini";
+            _commoditiesIniFile = rootDir + @"configuration\commodities.ini";
             SensorTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "SensorTexture");
             MenuBackgroundTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "menu_background");
             CameraSettings = new CameraSettings(_cameraSettingsIniFile);
@@ -128,8 +146,29 @@ namespace Roguelancer.Settings {
                     )
                 ));
             }
-            var ini = rootDir + @"configuration\commodities.ini";
-            CommoditiesSettings = new CommoditiesSettings(rootDir + @"configuration\c.ini", rootDir + @"configuration\cs.ini");
+            if (System.IO.File.Exists(_commoditiesSettingsIniFile)) {
+                for (var i = 1; i < IniFile.ReadINIInt(_commoditiesSettingsIniFile, "Settings", "Count", 0) + 1; ++i) {
+                    StationPriceModels.Add(new StationPriceModel() {
+                        IsSelling = IniFile.ReadINIBool(_commoditiesSettingsIniFile, i.ToString(), "IsSelling", false),
+                        Price = IniFile.ReadINIDecimal(_commoditiesSettingsIniFile, i.ToString(), "Price", decimal.Zero),
+                        Selling = IniFile.ReadINIDecimal(_commoditiesSettingsIniFile, i.ToString(), "Selling", decimal.Zero),
+                        StarSystemId = IniFile.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "system_index", 0),
+                        StationId = IniFile.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "station_index", 0),
+                        CommoditiesId = IniFile.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "commodities_index", 0),
+                        StationPriceId = i
+                    });
+                }
+            }
+            if (System.IO.File.Exists(_commoditiesIniFile)) {
+                for (var i = 1; i < IniFile.ReadINIInt(_commoditiesIniFile, "Settings", "Count", 0) + 1; ++i) {
+                    CommoditiesModels.Add(new CommodityModel() {
+                        CommodityId = i,
+                        Description = IniFile.ReadINI(_commoditiesIniFile, i.ToString(), "Description", ""),
+                        Body = IniFile.ReadINI(_commoditiesIniFile, i.ToString(), "Body", ""),
+                        Prices = StationPriceModels.Where(p => p.CommoditiesId == i).ToList()
+                    });
+                }
+            }
         }
         #endregion
     }

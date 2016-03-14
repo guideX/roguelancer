@@ -33,10 +33,13 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             try {
+                var n = 0;
                 foreach (var obj in game.Settings.StarSystemSettings[game.StarSystemId].Stations) {
+                    n++;
                     var s = new Station(game);
+                    s.StationID = n;
                     s.Model.WorldObject = obj;
-                    s.StationPrices = game.Settings.CommoditiesSettings.StationPriceModels.Where(p => p.StarSystemId == game.StarSystemId && p.StationId == obj.ID).ToList();
+                    s.StationPrices = game.Settings.StationPriceModels.Where(p => p.StarSystemId == game.StarSystemId && p.StationId == obj.ID).ToList();
                     Stations.Add(s);
                 }
                 for (var i = 0; i <= Stations.Count - 1; i++) {
@@ -91,6 +94,10 @@ namespace Roguelancer.Objects {
     /// Station
     /// </summary>
     public class Station : DockableObject, IGame, IDockable, ISensorObject {
+        /// <summary>
+        /// Space Station ID
+        /// </summary>
+        public int StationID { get; set; }
         #region "public variables"
         /// <summary>
         /// Game Model
@@ -129,10 +136,7 @@ namespace Roguelancer.Objects {
             Model.Update(game);
             if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.C && game.GameState.DockedGameState != Enum.DockedGameStateEnum.Commodities) {
                 game.GameState.DockedGameState = Enum.DockedGameStateEnum.Commodities;
-                // LIST COMMODITIES
-                // SHOW COMMODITIES
-                // TODO
-                // LEON
+                ListCommoditiesForSale(game, Enum.ModelType.Station, StationID);
             }
             if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.U) {
                 game.Input.InputItems.Keys.U = false;
@@ -144,7 +148,7 @@ namespace Roguelancer.Objects {
                     }
                 }
             }
-            if (game.GameState.CurrentGameState == Enum.GameStates.Playing && game.Input.InputItems.Keys.D) {
+            if (game.GameState.CurrentGameState == Enum.GameStates.Playing && game.Input.InputItems.Keys.D) { // DOCK
                 game.Input.InputItems.Keys.D = false;
                 var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
                 if (!ship.Docked) {

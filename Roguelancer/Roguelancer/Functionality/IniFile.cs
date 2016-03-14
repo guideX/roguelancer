@@ -9,19 +9,8 @@ namespace Roguelancer.Functionality {
     /// Ini File
     /// </summary>
     public static class IniFile {
-        #region "private calls"
         /// <summary>
-        /// Write Private Profile String
-        /// </summary>
-        /// <param name="section"></param>
-        /// <param name="key"></param>
-        /// <param name="val"></param>
-        /// <param name="filePath"></param>
-        /// <returns></returns>
-        [DllImport("kernel32")]
-        private static extern long WritePrivateProfileString(string section, string key, string val, string filePath);
-        /// <summary>
-        /// Get Private Profile String
+        /// Reading of INI Files
         /// </summary>
         /// <param name="Section"></param>
         /// <param name="Key"></param>
@@ -32,34 +21,27 @@ namespace Roguelancer.Functionality {
         /// <returns></returns>
         [DllImport("kernel32")]
         private static extern int GetPrivateProfileString(string Section, string Key, string Default, StringBuilder RetVal, int Size, string FilePath);
-        #endregion
-        #region "public functions"
+        [DllImport("kernel32.dll")]
+        private static extern bool WritePrivateProfileString(string lpAppName, string lpKeyName, string lpString, string lpFileName);
+        public static string ReadINI(string file, string section, string key, string _default = "") {
+            var msg = new StringBuilder(500);
+            if (GetPrivateProfileString(section, key, "", msg, msg.Capacity, file) == 0) {
+                return _default;
+            } else {
+                return msg.ToString().Trim();
+            }
+        }
         /// <summary>
-        /// Write Ini
+        /// Writing of INI Files
         /// </summary>
         /// <param name="file"></param>
         /// <param name="section"></param>
         /// <param name="key"></param>
         /// <param name="value"></param>
         public static void WriteINI(string file, string section, string key, string value) {
-            if (System.IO.File.Exists(file)) {
-                WritePrivateProfileString(section, key, value, file);
-            }
+            WritePrivateProfileString(section, key, value, file);
         }
-        /// <summary>
-        /// Read INI
-        /// </summary>
-        /// <param name="file"></param>
-        /// <param name="section"></param>
-        /// <param name="key"></param>
-        /// <param name="def"></param>
-        /// <returns></returns>
-        public static string ReadINI(string file, string section, string key, string def = "") {
-            StringBuilder sb = new StringBuilder(4096);
-            int n = GetPrivateProfileString(section, key, "", sb, 4096, file);
-            if (n < 1) return string.Empty;
-            return sb.ToString();
-        }
+        #region "public functions"
         /// <summary>
         /// Read Ini Float
         /// </summary>

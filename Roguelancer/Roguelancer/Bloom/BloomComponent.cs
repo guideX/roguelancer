@@ -4,53 +4,23 @@ using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Enum;
+using Roguelancer.Models.Bloom;
 namespace Roguelancer.Bloom {
     /// <summary>
     /// Bloom Component
     /// </summary>
     public class BloomComponent : DrawableGameComponent {
         /// <summary>
-        /// Settings
+        /// Bloom Component Model
         /// </summary>
-        public BloomSettings Settings { get; set; }
-        /// <summary>
-        /// Show Buffer
-        /// </summary>
-        public IntermediateBuffer ShowBuffer { get; set; }
-        /// <summary>
-        /// Sprite Batch
-        /// </summary>
-        private SpriteBatch _spriteBatch;
-        /// <summary>
-        /// Bloom Extract Effect
-        /// </summary>
-        private Effect _bloomExtractEffect;
-        /// <summary>
-        /// Bloom Combine Effect
-        /// </summary>
-        private Effect _bloomCombineEffect;
-        /// <summary>
-        /// Gaussian Blur Effect
-        /// </summary>
-        private Effect _gaussianBlurEffect;
-        /// <summary>
-        /// Scene Render Target
-        /// </summary>
-        private RenderTarget2D _sceneRenderTarget;
-        /// <summary>
-        /// Render Target 1
-        /// </summary>
-        private RenderTarget2D _renderTarget1;
-        /// <summary>
-        /// Render Target 2
-        /// </summary>
-        private RenderTarget2D _renderTarget2;
+        public BloomComponentModel Model { get; set; }
         /// <summary>
         /// Bloom Component
         /// </summary>
         /// <param name="game"></param>
         public BloomComponent(Game game) : base(game) {
-            ShowBuffer = IntermediateBuffer.iFinalResult;
+            Model = new BloomComponentModel();
+            Model.ShowBuffer = IntermediateBuffer.iFinalResult;
             if (game == null) {
                 throw new ArgumentNullException("game");
             }
@@ -59,34 +29,34 @@ namespace Roguelancer.Bloom {
         /// Load Content
         /// </summary>
         protected override void LoadContent() {
-            _spriteBatch = new SpriteBatch(GraphicsDevice);
-            _bloomExtractEffect = Game.Content.Load<Effect>("Effects\\BloomExtract");
-            _bloomCombineEffect = Game.Content.Load<Effect>("Effects\\BloomCombine");
-            _gaussianBlurEffect = Game.Content.Load<Effect>("Effects\\GaussianBlur");
+            Model.SpriteBatch = new SpriteBatch(GraphicsDevice);
+            Model.BloomExtractEffect = Game.Content.Load<Effect>("Effects\\BloomExtract");
+            Model.BloomCombineEffect = Game.Content.Load<Effect>("Effects\\BloomCombine");
+            Model.GaussianBlurEffect = Game.Content.Load<Effect>("Effects\\GaussianBlur");
             var pp = GraphicsDevice.PresentationParameters;
             var width = pp.BackBufferWidth;
             var height = pp.BackBufferHeight;
             var format = pp.BackBufferFormat;
-            _sceneRenderTarget = new RenderTarget2D(GraphicsDevice, width, height, false, format, pp.DepthStencilFormat, pp.MultiSampleCount, RenderTargetUsage.DiscardContents);
+            Model.SceneRenderTarget = new RenderTarget2D(GraphicsDevice, width, height, false, format, pp.DepthStencilFormat, pp.MultiSampleCount, RenderTargetUsage.DiscardContents);
             width /= 2;
             height /= 2;
-            _renderTarget1 = new RenderTarget2D(GraphicsDevice, width, height, false, format, DepthFormat.None);
-            _renderTarget2 = new RenderTarget2D(GraphicsDevice, width, height, false, format, DepthFormat.None);
+            Model.RenderTarget1 = new RenderTarget2D(GraphicsDevice, width, height, false, format, DepthFormat.None);
+            Model.RenderTarget2 = new RenderTarget2D(GraphicsDevice, width, height, false, format, DepthFormat.None);
         }
         /// <summary>
         /// Unload Content
         /// </summary>
         protected override void UnloadContent() {
-            _sceneRenderTarget.Dispose();
-            _renderTarget1.Dispose();
-            _renderTarget2.Dispose();
+            Model.SceneRenderTarget.Dispose();
+            Model.RenderTarget1.Dispose();
+            Model.RenderTarget2.Dispose();
         }
         /// <summary>
         /// Begin Draw
         /// </summary>
         public void BeginDraw() {
             if (Visible) {
-                GraphicsDevice.SetRenderTarget(_sceneRenderTarget);
+                GraphicsDevice.SetRenderTarget(Model.SceneRenderTarget);
             }
         }
         /// <summary>
@@ -95,21 +65,21 @@ namespace Roguelancer.Bloom {
         /// <param name="gameTime"></param>
         public override void Draw(GameTime gameTime) {
             GraphicsDevice.SamplerStates[1] = SamplerState.LinearClamp;
-            _bloomExtractEffect.Parameters["BloomThreshold"].SetValue(Settings.BloomThreshold);
-            DrawFullscreenQuad(_sceneRenderTarget, _renderTarget1, _bloomExtractEffect, IntermediateBuffer.iPreBloom);
-            SetBlurEffectParameters(1.0f / (float)_renderTarget1.Width, 0);
-            DrawFullscreenQuad(_renderTarget1, _renderTarget2, _gaussianBlurEffect, IntermediateBuffer.iBlurredHorizontally);
-            SetBlurEffectParameters(0, 1.0f / (float)_renderTarget1.Height);
-            DrawFullscreenQuad(_renderTarget2, _renderTarget1, _gaussianBlurEffect, IntermediateBuffer.iBlurredBothWays);
+            Model.BloomExtractEffect.Parameters["BloomThreshold"].SetValue(Model.Settings.BloomThreshold);
+            DrawFullscreenQuad(Model.SceneRenderTarget, Model.RenderTarget1, Model.BloomExtractEffect, IntermediateBuffer.iPreBloom);
+            SetBlurEffectParameters(1.0f / (float)Model.RenderTarget1.Width, 0);
+            DrawFullscreenQuad(Model.RenderTarget1, Model.RenderTarget2, Model.GaussianBlurEffect, IntermediateBuffer.iBlurredHorizontally);
+            SetBlurEffectParameters(0, 1.0f / (float)Model.RenderTarget1.Height);
+            DrawFullscreenQuad(Model.RenderTarget2, Model.RenderTarget1, Model.GaussianBlurEffect, IntermediateBuffer.iBlurredBothWays);
             GraphicsDevice.SetRenderTarget(null);
-            var parameters = _bloomCombineEffect.Parameters;
-            parameters["BloomIntensity"].SetValue(Settings.BloomIntensity);
-            parameters["BaseIntensity"].SetValue(Settings.BaseIntensity);
-            parameters["BloomSaturation"].SetValue(Settings.BloomSaturation);
-            parameters["BaseSaturation"].SetValue(Settings.BaseSaturation);
-            GraphicsDevice.Textures[1] = _sceneRenderTarget;
+            var parameters = Model.BloomCombineEffect.Parameters;
+            parameters["BloomIntensity"].SetValue(Model.Settings.BloomIntensity);
+            parameters["BaseIntensity"].SetValue(Model.Settings.BaseIntensity);
+            parameters["BloomSaturation"].SetValue(Model.Settings.BloomSaturation);
+            parameters["BaseSaturation"].SetValue(Model.Settings.BaseSaturation);
+            GraphicsDevice.Textures[1] = Model.SceneRenderTarget;
             var viewport = GraphicsDevice.Viewport;
-            DrawFullscreenQuad(_renderTarget1, viewport.Width, viewport.Height, _bloomCombineEffect, IntermediateBuffer.iFinalResult);
+            DrawFullscreenQuad(Model.RenderTarget1, viewport.Width, viewport.Height, Model.BloomCombineEffect, IntermediateBuffer.iFinalResult);
         }
         /// <summary>
         /// Draw Full Screen Quad
@@ -131,12 +101,12 @@ namespace Roguelancer.Bloom {
         /// <param name="effect"></param>
         /// <param name="currentBuffer"></param>
         private void DrawFullscreenQuad(Texture2D texture, int width, int height, Effect effect, IntermediateBuffer currentBuffer) {
-            if (ShowBuffer < currentBuffer) {
+            if (Model.ShowBuffer < currentBuffer) {
                 effect = null;
             }
-            _spriteBatch.Begin(0, BlendState.Opaque, null, null, null, effect);
-            _spriteBatch.Draw(texture, new Rectangle(0, 0, width, height), Color.White);
-            _spriteBatch.End();
+            Model.SpriteBatch.Begin(0, BlendState.Opaque, null, null, null, effect);
+            Model.SpriteBatch.Draw(texture, new Rectangle(0, 0, width, height), Color.White);
+            Model.SpriteBatch.End();
         }
         /// <summary>
         /// Set Blur Effect Parameters
@@ -145,8 +115,8 @@ namespace Roguelancer.Bloom {
         /// <param name="dy"></param>
         private void SetBlurEffectParameters(float dx, float dy) {
             EffectParameter weightsParameter, offsetsParameter;
-            weightsParameter = _gaussianBlurEffect.Parameters["SampleWeights"];
-            offsetsParameter = _gaussianBlurEffect.Parameters["SampleOffsets"];
+            weightsParameter = Model.GaussianBlurEffect.Parameters["SampleWeights"];
+            offsetsParameter = Model.GaussianBlurEffect.Parameters["SampleOffsets"];
             int sampleCount = weightsParameter.Elements.Count;
             var sampleWeights = new float[sampleCount];
             var sampleOffsets = new Vector2[sampleCount];
@@ -175,7 +145,7 @@ namespace Roguelancer.Bloom {
         /// <param name="n"></param>
         /// <returns></returns>
         private float ComputeGaussian(float n) {
-            var theta = Settings.BlurAmount;
+            var theta = Model.Settings.BlurAmount;
             return (float)((1.0 / Math.Sqrt(2 * Math.PI * theta)) * Math.Exp(-(n * n) / (2 * theta * theta)));
         }
     }

@@ -53,8 +53,8 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (game.Settings.CameraSettings.FieldOfView < 80 && game.Settings.CameraSettings.FieldOfView > 180) {
-                game.Settings.CameraSettings.FieldOfView = +game.Input.InputItems.Mouse.ScrollWheel;
+            if (game.Settings.CameraSettings.Model.FieldOfView < 80 && game.Settings.CameraSettings.Model.FieldOfView > 180) {
+                game.Settings.CameraSettings.Model.FieldOfView = +game.Input.InputItems.Mouse.ScrollWheel;
             }
             InputItems.Mouse.State = Mouse.GetState();
             InputItems.Mouse.ScrollWheel = InputItems.Mouse.State.ScrollWheelValue * .0001f;
@@ -105,6 +105,11 @@ namespace Roguelancer.Functionality {
                 game.Exit();
             } else {
                 InputItems.Keys.Escape = false;
+            }
+            if (CurrentKeyboardState.IsKeyDown(Keys.C)) {
+                InputItems.Keys.C = true;
+            } else {
+                InputItems.Keys.C = false;
             }
             if (game.GameState.CurrentGameState == GameStates.Playing) {
                 if (CurrentKeyboardState.IsKeyDown(Keys.C)) {

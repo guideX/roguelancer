@@ -3,6 +3,9 @@
 using System;
 using Roguelancer.Objects;
 namespace Roguelancer.Models {
+    /// <summary>
+    /// Bullet Model
+    /// </summary>
     public class BulletModel {
         #region "public variables"
         /// <summary>

@@ -8,7 +8,7 @@ namespace Roguelancer.Functionality {
     /// Debug Text
     /// </summary>
     public class DebugText : IDebugText {
-        #region "public variables"
+        #region "private variables"
         /// <summary>
         /// Timer Enabled
         /// </summary>
@@ -20,7 +20,7 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Show Time
         /// </summary>
-        private const int _showTime = 100;
+        private const int _showTime = 500;
         /// <summary>
         /// Current Show Time
         /// </summary>

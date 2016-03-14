@@ -109,7 +109,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Bloom\BloomComponent.cs" />
-    <Compile Include="Bloom\BloomSettings.cs" />
+    <Compile Include="Models\Bloom\BloomSettingsModel.cs" />
     <Compile Include="Bloom\BloomHandler.cs" />
     <None Include="configuration\objects\bullets.ini" />
     <None Include="configuration\commodities_station.ini" />
@@ -129,6 +129,9 @@
     <Compile Include="Interfaces\IGameSettings.cs" />
     <Compile Include="Interfaces\IInput.cs" />
     <Compile Include="Interfaces\ISensorObject.cs" />
+    <Compile Include="Models\Bloom\BloomComponentModel.cs" />
+    <Compile Include="Models\Bloom\BloomHandlerModel.cs" />
+    <Compile Include="Models\CameraSettingsModel.cs" />
     <Compile Include="Models\CommodityModel.cs" />
     <Compile Include="Models\HudModel.cs" />
     <Compile Include="Models\PlayerShipControlModel.cs" />
@@ -153,8 +156,8 @@
     <Compile Include="Interfaces\IParticleSystem.cs" />
     <Compile Include="Interfaces\IPlayerShipControl.cs" />
     <Compile Include="Interfaces\IShipCollection.cs" />
-    <Compile Include="Models\BulletModel.cs" />
-    <Compile Include="Models\BulletsModel.cs" />
+    <Compile Include="Models\Bullet\BulletModel.cs" />
+    <Compile Include="Models\Bullet\BulletsModel.cs" />
     <Compile Include="Models\GameModel.cs" />
     <Compile Include="Models\InputItemsModel.cs" />
     <Compile Include="Models\KeyInputModel.cs" />

@@ -8,7 +8,7 @@ namespace Roguelancer {
 #if WINDOWS
         static class Program {
             static void Main(string[] args) {
-                using(RoguelancerGame game = new RoguelancerGame()) {
+                using(var game = new RoguelancerGame()) {
                     game.Run();
                 }
             }

@@ -6,6 +6,9 @@ using System.Collections.Generic;
 using Roguelancer.Settings;
 using System;
 using Roguelancer.Models;
+using Roguelancer.Enum;
+using System.Text;
+
 namespace Roguelancer.Objects {
     /// <summary>
     /// Dockable Object
@@ -62,17 +65,20 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         /// <returns></returns>
-        //public virtual List<StationPriceModel> CommoditiesForSale(RoguelancerGame game, ModelType modelType) {
-        //try {
-        //switch (modelType) {
-        //case ModelType.Station:
-        //return game.Settings.CommoditiesSettings.StationPriceModels.Where(p => p.StarSystemId == game.StarSystemId && p.StationId == stationID).ToList();
-        //default:
-        //return null;
-        //}
-        //} catch {
-        //throw;
-        //}
-        //}
+        public virtual void ListCommoditiesForSale(RoguelancerGame game, ModelType modelType, int stationID) {
+            switch (modelType) {
+                case ModelType.Station:
+                    var objs = game.Settings.StationPriceModels.Where(p => p.StationId == stationID).ToList();
+                    StringBuilder sb = new StringBuilder();
+                    foreach (var obj in objs) {
+                        var commodity = game.Settings.CommoditiesModels.Where(c => c.CommodityId == obj.CommoditiesId).FirstOrDefault();
+                        sb.AppendLine("Description: " + commodity.Description + ", Price: " + obj.Price.ToString());
+                    }
+                    game.DebugText.SetText(game, "Station Commodities:" + Environment.NewLine + sb.ToString(), true);
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 }
