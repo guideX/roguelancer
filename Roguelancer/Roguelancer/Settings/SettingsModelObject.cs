@@ -44,14 +44,10 @@ namespace Roguelancer.Settings {
                 bool enabled,
                 int modelId
             ) {
-            try {
-                _modelPath = modelPath;
-                _modelType = modelType;
-                _enabled = enabled;
-                _modelId = modelId;
-            } catch {
-                throw;
-            }
+            _modelPath = modelPath;
+            _modelType = modelType;
+            _enabled = enabled;
+            _modelId = modelId;
         }
         /// <summary>
         /// Clone

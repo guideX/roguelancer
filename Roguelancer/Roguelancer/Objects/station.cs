@@ -116,13 +116,13 @@ namespace Roguelancer.Objects {
             Model.Update(game);
             if(game.GameState.CurrentGameState == Enum.GameStates.Docked && game.GameState.DockedGameState == Enum.DockedGameStateEnum.Commodities) {
                 if(game.Input.InputItems.Keys.One) {
-                    PurchaseCommodity(game, StationPrices[0].CommoditiesId, 1);
+                    if (0 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[0].CommoditiesId, 1); }
                 }
                 if (game.Input.InputItems.Keys.Two) {
-                    PurchaseCommodity(game, StationPrices[1].CommoditiesId, 1);
+                    if (1 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[1].CommoditiesId, 1); }
                 }
                 if (game.Input.InputItems.Keys.Three) {
-                    PurchaseCommodity(game, StationPrices[2].CommoditiesId, 1);
+                    if (2 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[2].CommoditiesId, 1); }
                 }
             }
             if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.C && game.GameState.DockedGameState != Enum.DockedGameStateEnum.Commodities) {

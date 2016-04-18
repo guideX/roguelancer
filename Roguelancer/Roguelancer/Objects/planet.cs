@@ -16,28 +16,20 @@ namespace Roguelancer.Objects {
         /// Planet Collection
         /// </summary>
         public PlanetCollection() {
-            try {
-                Planets = new List<Planet>();
-            } catch {
-                throw;
-            }
+            Planets = new List<Planet>();
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            try {
-                foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].Planets) {
-                    var planet = new Planet(game);
-                    planet.Model.WorldObject = modelWorldObject;
-                    Planets.Add(planet);
-                }
-                for (int i = 0; i <= Planets.Count - 1; i++) {
-                    Planets[i].Initialize(game);
-                }
-            } catch {
-                throw;
+            foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].Planets) {
+                var planet = new Planet(game);
+                planet.Model.WorldObject = modelWorldObject;
+                Planets.Add(planet);
+            }
+            for (int i = 0; i <= Planets.Count - 1; i++) {
+                Planets[i].Initialize(game);
             }
         }
         /// <summary>
@@ -45,12 +37,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            try {
-                for (int i = 0; i <= Planets.Count - 1; i++) {
-                    Planets[i].LoadContent(game);
-                }
-            } catch {
-                throw;
+            for (int i = 0; i <= Planets.Count - 1; i++) {
+                Planets[i].LoadContent(game);
             }
         }
         /// <summary>
@@ -58,12 +46,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            try {
-                for (int i = 0; i <= Planets.Count - 1; i++) {
-                    Planets[i].Update(game);
-                }
-            } catch {
-                throw;
+            for (int i = 0; i <= Planets.Count - 1; i++) {
+                Planets[i].Update(game);
             }
         }
         /// <summary>
@@ -71,12 +55,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            try {
-                for (int i = 0; i <= Planets.Count - 1; i++) {
-                    Planets[i].Draw(game);
-                }
-            } catch {
-                throw;
+            for (int i = 0; i <= Planets.Count - 1; i++) {
+                Planets[i].Draw(game);
             }
         }
         #endregion
