@@ -57,6 +57,10 @@ namespace Roguelancer.Settings {
         /// Sensor Texture
         /// </summary>
         public string SensorTexture { get; set; }
+        /// <summary>
+        /// Bloom Enabled
+        /// </summary>
+        public bool BloomEnabled { get; set; }
         #endregion
         #region "private variables"
         /// <summary>
@@ -115,6 +119,8 @@ namespace Roguelancer.Settings {
             _commoditiesSettingsIniFile = rootDir + @"configuration\commodities_settings.ini";
             _commoditiesIniFile = rootDir + @"configuration\commodities.ini";
             SensorTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "SensorTexture");
+            var b = false;
+            if (bool.TryParse(IniFile.ReadINI(_gameSettingsIniFile, "Settings", "BloomEnabled"), out b)) { BloomEnabled = b; }
             MenuBackgroundTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "menu_background");
             CameraSettings = new CameraSettings(_cameraSettingsIniFile);
             ModelSettings = new List<SettingsModelObject>();

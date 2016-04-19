@@ -124,7 +124,7 @@ namespace Roguelancer {
         protected override void Update(GameTime gameTime) {
             GameTime = gameTime;
             Input.Update(this);
-            _bloom.Update(true);
+            _bloom.Update(this);
             Objects.Update(this);
             Camera.Update(this);
             DebugText.Update(this);
@@ -141,7 +141,7 @@ namespace Roguelancer {
         protected override void Draw(GameTime gameTime) {
             GameTime = gameTime;
             Graphics.SpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
-            _bloom.Draw();
+            _bloom.Draw(this);
             if (GameState.CurrentGameState == GameStates.Playing) {
                 if (GameState.LastGameState != GameState.CurrentGameState) {
                     Graphics.GraphicsDeviceManager.GraphicsDevice.Clear(Color.Black);

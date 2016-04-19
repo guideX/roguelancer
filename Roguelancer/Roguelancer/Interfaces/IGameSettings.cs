@@ -10,6 +10,7 @@ namespace Roguelancer.Interfaces {
     /// </summary>
     public interface IGameSettings {
         #region "public variables"
+
         /// <summary>
         /// Commodities Models
         /// </summary>
@@ -54,6 +55,10 @@ namespace Roguelancer.Interfaces {
         /// Star System Settings
         /// </summary>
         List<StarSystemSettings> StarSystemSettings { get; set; }
+        /// <summary>
+        /// Bloom Enabled
+        /// </summary>
+        bool BloomEnabled { get; set; }
         #endregion
     }
 }
