@@ -108,7 +108,7 @@ namespace Roguelancer {
         protected override void LoadContent() {
             Camera.LoadContent(this);
             Graphics.LoadContent(this);
-            _bloom.LoadContent();
+            _bloom.LoadContent(this);
             DebugText.LoadContent(this);
             DebugText.Update(this);
             Objects.LoadContent(this);
