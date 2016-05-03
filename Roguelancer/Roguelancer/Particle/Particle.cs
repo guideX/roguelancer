@@ -3,44 +3,18 @@
 using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Roguelancer.Interfaces;
+using Roguelancer.Models.Particle;
 namespace Roguelancer.Particle {
     /// <summary>
     /// Particle Star Sheet
     /// </summary>
-    public class ParticleStarSheet {
+    public class ParticleStarSheet : IGame {
         #region "PRIVATE VARIABLES"
         /// <summary>
-        /// Verts
+        /// Model
         /// </summary>
-        private VertexPositionTexture[] _verts;
-        /// <summary>
-        /// Vertex Color Array
-        /// </summary>
-        private Color[] _vertexColorArray;
-        /// <summary>
-        /// Particle Vertex Buffer
-        /// </summary>
-        private VertexBuffer _particleVertexBuffer;
-        /// <summary>
-        /// Max Position
-        /// </summary>
-        private Vector3 _maxPosition;
-        /// <summary>
-        /// Max Particles
-        /// </summary>
-        private int _maxParticles;
-        /// <summary>
-        /// Rnd
-        /// </summary>
-        private static Random _rnd = new Random();
-        /// <summary>
-        /// Particle Effect
-        /// </summary>
-        private Effect _particleEffect;
-        /// <summary>
-        /// Particle Colors texture
-        /// </summary>
-        private Texture2D _particleColorsTexture;
+        private ParticleStarSheetModel _model;
         #endregion
         /// <summary>
         /// Entry Point
@@ -52,25 +26,40 @@ namespace Roguelancer.Particle {
         /// <param name="_ParticleEffect"></param>
         /// <param name="_MaxSize"></param>
         public ParticleStarSheet(RoguelancerGame game, Vector3 maxPosition, int maxParticles, Texture2D particleColorsTexture, Effect particleEffect, int maxSize) {
-            _maxParticles = maxParticles;
-            _particleEffect = particleEffect;
-            _particleColorsTexture = particleColorsTexture;
-            _maxPosition = maxPosition;
-            _verts = new VertexPositionTexture[_maxParticles * 4];
-            _vertexColorArray = new Color[_maxParticles];
-            Color[] colors = new Color[_particleColorsTexture.Width * _particleColorsTexture.Height];
-            _particleColorsTexture.GetData(colors);
-            for (var i = 0; i < _maxParticles; ++i) {
-                float size = (float)_rnd.NextDouble() * maxSize;
+            _model = new ParticleStarSheetModel();
+            _model.MaxParticles = maxParticles;
+            _model.ParticleEffect = particleEffect;
+            _model.ParticleColorsTexture = particleColorsTexture;
+            _model.MaxPosition = maxPosition;
+            _model.Verts = new VertexPositionTexture[_model.MaxParticles * 4];
+            _model.VertexColorArray = new Color[_model.MaxParticles];
+            var colors = new Color[_model.ParticleColorsTexture.Width * _model.ParticleColorsTexture.Height];
+            _model.ParticleColorsTexture.GetData(colors);
+            for (var i = 0; i < _model.MaxParticles; ++i) {
+                var size = (float)_model.Rnd.NextDouble() * maxSize;
                 //float size = 10000f;
-                Vector3 position = new Vector3(_rnd.Next(-(int)_maxPosition.X, (int)_maxPosition.X), _rnd.Next(-(int)_maxPosition.Y, (int)_maxPosition.Y), _maxPosition.Z);
-                _verts[i * 4] = new VertexPositionTexture(position, new Vector2(0, 0));
-                _verts[(i * 4) + 1] = new VertexPositionTexture(new Vector3(position.X, position.Y + size, position.Z), new Vector2(0, 1));
-                _verts[(i * 4) + 2] = new VertexPositionTexture(new Vector3(position.X + size, position.Y, position.Z), new Vector2(1, 0));
-                _verts[(i * 4) + 3] = new VertexPositionTexture(new Vector3(position.X + size, position.Y + size, position.Z), new Vector2(1, 1));
-                _vertexColorArray[i] = colors[(_rnd.Next(0, _particleColorsTexture.Height) * _particleColorsTexture.Width) + _rnd.Next(0, _particleColorsTexture.Width)];
+                var position = new Vector3(_model.Rnd.Next(-(int)_model.MaxPosition.X, (int)_model.MaxPosition.X), _model.Rnd.Next(-(int)_model.MaxPosition.Y, (int)_model.MaxPosition.Y), _model.MaxPosition.Z);
+                _model.Verts[i * 4] = new VertexPositionTexture(position, new Vector2(0, 0));
+                _model.Verts[(i * 4) + 1] = new VertexPositionTexture(new Vector3(position.X, position.Y + size, position.Z), new Vector2(0, 1));
+                _model.Verts[(i * 4) + 2] = new VertexPositionTexture(new Vector3(position.X + size, position.Y, position.Z), new Vector2(1, 0));
+                _model.Verts[(i * 4) + 3] = new VertexPositionTexture(new Vector3(position.X + size, position.Y + size, position.Z), new Vector2(1, 1));
+                _model.VertexColorArray[i] = colors[(_model.Rnd.Next(0, _model.ParticleColorsTexture.Height) * _model.ParticleColorsTexture.Width) + _model.Rnd.Next(0, _model.ParticleColorsTexture.Width)];
             }
-            _particleVertexBuffer = new VertexBuffer(game.GraphicsDevice, typeof(VertexPositionTexture), _verts.Length, BufferUsage.None);
+            _model.ParticleVertexBuffer = new VertexBuffer(game.GraphicsDevice, typeof(VertexPositionTexture), _model.Verts.Length, BufferUsage.None);
+        }
+        /// <summary>
+        /// Initialize
+        /// </summary>
+        /// <param name="game"></param>
+        public void Initialize(RoguelancerGame game) {
+
+        }
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="game"></param>
+        public void LoadContent(RoguelancerGame game) {
+
         }
         /// <summary>
         /// Update
@@ -85,13 +74,13 @@ namespace Roguelancer.Particle {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            game.GraphicsDevice.SetVertexBuffer(_particleVertexBuffer);
-            for (int i = 0; i < _maxParticles; ++i) {
-                _particleEffect.Parameters["WorldViewProjection"].SetValue(game.Camera.View * game.Camera.Projection);
-                _particleEffect.Parameters["particleColor"].SetValue(_vertexColorArray[i].ToVector4());
-                foreach (var effectPass in _particleEffect.CurrentTechnique.Passes) {
+            game.GraphicsDevice.SetVertexBuffer(_model.ParticleVertexBuffer);
+            for (int i = 0; i < _model.MaxParticles; ++i) {
+                _model.ParticleEffect.Parameters["WorldViewProjection"].SetValue(game.Camera.View * game.Camera.Projection);
+                _model.ParticleEffect.Parameters["particleColor"].SetValue(_model.VertexColorArray[i].ToVector4());
+                foreach (var effectPass in _model.ParticleEffect.CurrentTechnique.Passes) {
                     effectPass.Apply();
-                    game.GraphicsDevice.DrawUserPrimitives<VertexPositionTexture>(PrimitiveType.TriangleStrip, _verts, i * 4, 2);
+                    game.GraphicsDevice.DrawUserPrimitives<VertexPositionTexture>(PrimitiveType.TriangleStrip, _model.Verts, i * 4, 2);
                 }
             }
         }
