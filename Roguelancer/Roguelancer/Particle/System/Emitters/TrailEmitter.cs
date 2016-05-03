@@ -56,18 +56,15 @@ namespace Roguelancer.Particle.System.Emitters {
                     timeToSpend -= _timeBetweenParticles;
                     var mu = currentTime / elapsedTime;
                     var position = Vector3.Lerp(_previousPosition, Position, mu);
-                    var color = RandomHelper.ColorBetween(new Color(64, 96, 128, 255), new Color(255, 255, 255, 128));
-                    if (color != null) {
-                        ParticleSystem.AddParticle(
-                            position,
-                            color.Value,
-                            velocity * 0.01f,
-                            RandomHelper.FloatBetween(-0.05f, 0.5f),
-                            TimeSpan.FromSeconds(RandomHelper.FloatBetween(1.0f, 2.0f)),
-                            true,
-                            0.0f,
-                            RandomHelper.FloatBetween(0.005f, 0.015f));
-                    }
+                    ParticleSystem.AddParticle(
+                        position,
+                        RandomHelper.ColorBetween(new Color(64, 96, 128, 255), new Color(255, 255, 255, 128)),
+                        velocity * 0.01f,
+                        RandomHelper.FloatBetween(-0.05f, 0.5f),
+                        TimeSpan.FromSeconds(RandomHelper.FloatBetween(1.0f, 2.0f)),
+                        true,
+                        0.0f,
+                        RandomHelper.FloatBetween(0.005f, 0.015f));
                 }
                 _timeLeftOver = timeToSpend;
             }

@@ -214,7 +214,7 @@ namespace Roguelancer.Particle.System {
             int i = 0;
             while(i < _projectiles.Count) {
                 if(!_projectiles[i].Update(game.GameTime)) {
-                    _projectileTrailParticleSystem.RemoveEmitter(_projectiles[i].lTrailEmitter);
+                    _projectileTrailParticleSystem.RemoveEmitter(_projectiles[i].TrailEmitter);
                     _projectiles.RemoveAt(i);
                 } else {
                     i++;

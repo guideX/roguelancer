@@ -84,7 +84,7 @@ namespace Roguelancer.Particle.System {
         /// <param name="gameTime"></param>
         /// <returns></returns>
         public bool Update(GameTime gameTime) {
-            float elapsedTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            var elapsedTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _position += _velocity * elapsedTime;
             _velocity.Y -= elapsedTime * _gravity;
             _age += elapsedTime;
@@ -94,25 +94,23 @@ namespace Roguelancer.Particle.System {
                 for (var i = 0; i < _numExplosionParticles; i++)
                     _explosionParticleSystem.AddParticle(
                         _position,
-                        RandomHelper.ColorBetween(Color.DarkGray, Color.Gray).Value,
+                        RandomHelper.ColorBetween(Color.DarkGray, Color.Gray),
                         _velocity * 0.01f + new Vector3(RandomHelper.FloatBetween(-30, 30), RandomHelper.FloatBetween(30, -10), RandomHelper.FloatBetween(-30, 30)) * 0.05f,
                         RandomHelper.FloatBetween(-0.01f, 0.01f),
                         TimeSpan.FromSeconds(RandomHelper.IntBetween(1, 2)),
                         true,
                         RandomHelper.FloatBetween(0.0f, MathHelper.Pi),
                         0.1f);
-
                 for (var i = 0; i < _numExplosionSmokeParticles; i++)
                     _explosionSmokeParticleSystem.AddParticle(
                         _position,
-                        RandomHelper.ColorBetween(Color.LightGray, Color.White).Value,
+                        RandomHelper.ColorBetween(Color.LightGray, Color.White),
                         _velocity * 0.01f + new Vector3(RandomHelper.FloatBetween(-50, 50), RandomHelper.FloatBetween(40, -40), RandomHelper.FloatBetween(-50, 50)) * 0.05f,
                         RandomHelper.FloatBetween(-0.01f, 0.01f),
                         TimeSpan.FromSeconds(1),
                         true,
                         RandomHelper.FloatBetween(0.0f, MathHelper.Pi),
                         0.25f);
-
                 return false;
             }
             return true;
