@@ -1,33 +1,53 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Microsoft.Xna.Framework;
 using Roguelancer.Particle.ParticleSystem;
 using Roguelancer.Interfaces;
-
 namespace Roguelancer.Particle.System.Emitters {
+    /// <summary>
+    /// Smoke Ring Emitter
+    /// </summary>
     public class SmokeRingEmitter : IParticleEmitter {
+        /// <summary>
+        /// Particle System
+        /// </summary>
         public DynamicParticleSystem ParticleSystem { get; set; }
+        /// <summary>
+        /// Emission Rate
+        /// </summary>
         public int EmissionRate { get; set; }
+        /// <summary>
+        /// Position
+        /// </summary>
         public Vector3 Position { get; set; }
-        private float particlesEmitted = 0.0f;
+        /// <summary>
+        /// Particles Emitted
+        /// </summary>
+        private float _particlesEmitted = 0.0f;
+        /// <summary>
+        /// Smoke Ring Emitter
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="emissionRate"></param>
         public SmokeRingEmitter(Vector3 position, int emissionRate) {
             Position = position;
             EmissionRate = emissionRate;
         }
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="gameTime"></param>
         public void Update(GameTime gameTime) {
-            particlesEmitted += (float)gameTime.ElapsedGameTime.TotalSeconds * (float)EmissionRate;
-            int emittedCount = (int)particlesEmitted;
+            _particlesEmitted += (float)gameTime.ElapsedGameTime.TotalSeconds * (float)EmissionRate;
+            var emittedCount = (int)_particlesEmitted;
             if(emittedCount > 0) {
                 Emit(emittedCount);
-                particlesEmitted -= emittedCount;
+                _particlesEmitted -= emittedCount;
             }
         }
         public void Emit(int particlesToEmit) {
-            for(int i = 0; i < particlesToEmit; i++) {
+            for (var i = 0; i < particlesToEmit; i++) {
                 ParticleSystem.AddParticle(
                         RandomPointOnCircle(),
                         Color.White,
@@ -39,7 +59,11 @@ namespace Roguelancer.Particle.System.Emitters {
                         RandomHelper.FloatBetween(0.05f, 0.1f));
             }
         }
-        Vector3 RandomPointOnCircle() {
+        /// <summary>
+        /// Random Point on Circle
+        /// </summary>
+        /// <returns></returns>
+        private Vector3 RandomPointOnCircle() {
             const float radius = 30;
             const float height = 40;
             double angle = RandomHelper.Rnd.NextDouble() * MathHelper.TwoPi;

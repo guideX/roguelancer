@@ -21,26 +21,74 @@ namespace Roguelancer.Particle.System {
         /// Particle Manager
         /// </summary>
         private ParticleManager _particleManager;
+        /// <summary>
+        /// View
+        /// </summary>
         private Matrix _view;
+        /// <summary>
+        /// Projection
+        /// </summary>
         private Matrix _projection;
+        /// <summary>
+        /// Explosion
+        /// </summary>
         private Texture2D _explosion;
+        /// <summary>
+        /// Fire
+        /// </summary>
         private Texture2D _fire;
+        /// <summary>
+        /// Smoke
+        /// </summary>
         private Texture2D _smoke;
+        /// <summary>
+        /// Fire Particle System
+        /// </summary>
         private FireParticleSystem _fireParticleSystem;
+        /// <summary>
+        /// Smoke Plume Emitter
+        /// </summary>
         private SmokeParticleSystem _smokePlumeParticleSystem;
+        /// <summary>
+        /// Smoke Ring Emitter
+        /// </summary>
         private SmokeRingEmitter _smokeRingEmitter;
+        /// <summary>
+        /// Smoke Plume Emitter
+        /// </summary>
         private SmokePlumeEmitter _smokePlumeEmitter;
+        /// <summary>
+        /// Explosion Particle System
+        /// </summary>
         private ExplosionParticleSystem _explosionParticleSystem;
+        /// <summary>
+        /// Explosion Smoke Particle System
+        /// </summary>
         private ExplosionSmokeParticleSystem _explosionSmokeParticleSystem;
+        /// <summary>
+        /// Projectile Trail Particle System
+        /// </summary>
         private ProjectileTrailParticleSystem _projectileTrailParticleSystem;
+        /// <summary>
+        /// Projectiles
+        /// </summary>
         private List<Projectile> _projectiles = new List<Projectile>();
+        /// <summary>
+        /// Time to Next Projectile
+        /// </summary>
         private TimeSpan _timeToNextProjectile = TimeSpan.Zero;
+        /// <summary>
+        /// Target Elapsed Time
+        /// </summary>
         private TimeSpan _targetElapsedTime;
-        public struct gFireParticleSettings {
-            public Color fInitialColor;
-            public float fScale;
-            public float fRadius;
-            public float fHeight;
+        /// <summary>
+        /// Fire Particle Settings
+        /// </summary>
+        public struct FireParticleSettings {
+            public Color InitialColor;
+            public float Scale;
+            public float Radius;
+            public float Height;
         } 
         /// <summary>
         /// Particle System
@@ -74,7 +122,7 @@ namespace Roguelancer.Particle.System {
             _fireParticleSystem = new FireParticleSystem(500, _fire);
             _smokePlumeParticleSystem = new SmokeParticleSystem(0, _smoke);
             _smokePlumeEmitter = new SmokePlumeEmitter(Vector3.Zero, 0);
-            _projectileTrailParticleSystem = new clsProjectileTrailParticleSystem(500, _smoke);
+            _projectileTrailParticleSystem = new ProjectileTrailParticleSystem(500, _smoke);
             _explosionSmokeParticleSystem.AddAffector(new VelocityAffector(Vector3.Down));
             _explosionParticleSystem = new ExplosionParticleSystem(100, _explosion);
             _explosionParticleSystem.AddAffector(new VelocityAffector(Vector3.Down));
