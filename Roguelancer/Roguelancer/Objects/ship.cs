@@ -25,6 +25,13 @@ namespace Roguelancer.Objects {
             Reset(game);
         }
         /// <summary>
+        /// Get Player Ship
+        /// </summary>
+        /// <returns></returns>
+        public Ship GetPlayerShip(RoguelancerGame game) {
+            return game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).FirstOrDefault();
+        }
+        /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>

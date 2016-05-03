@@ -29,7 +29,7 @@ namespace Roguelancer.Objects {
         /// Dockable Object
         /// </summary>
         public DockableObject() {
-            ID = Guid.NewGuid().ToString();
+            ID = Guid.NewGuid().ToString(); // Create new ID
         }
         /// <summary>
         /// Dock
@@ -37,13 +37,13 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         /// <param name="ship"></param>
         public virtual void Dock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject) {
-            var _ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
-            if (_ship == ship) {
-                game.GameState.CurrentGameState = Enum.GameStates.Docked;
+            var _ship = game.Objects.Ships.GetPlayerShip(game); // Get Player Ship
+            if (_ship == ship) { // If Docking Ship is Player Ship
+                game.GameState.CurrentGameState = Enum.GameStates.Docked; // Set Current Game State to Docked
             }
-            ship.Docked = true;
-            DockedShips.Add(ship);
-            game.DebugText.SetText(game, "Docked at '" + worldObject.Description + "'.", true);
+            ship.Docked = true; // Set Docked to True
+            DockedShips.Add(ship); // Add to Docked Ships
+            game.DebugText.SetText(game, "Docked at '" + worldObject.Description + "'.", true); // Set Debug Text
         }
         /// <summary>
         /// Undock
@@ -51,8 +51,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         /// <param name="ship"></param>
         public virtual void UnDock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject) {
-            var _ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
-            if (_ship == ship) {
+            var playerShip = game.Objects.Ships.GetPlayerShip(game); // Get Player Ship
+            if (playerShip == ship) {
                 game.GameState.CurrentGameState = Enum.GameStates.Playing;
             }
             ship.Docked = false;
@@ -93,7 +93,7 @@ namespace Roguelancer.Objects {
             if (stationPrices.Any()) {
                 var commodity = game.Settings.CommoditiesModels.Where(c => c.CommodityId == commodityID).FirstOrDefault();
                 var stationPrice = StationPrices.FirstOrDefault();
-                var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                var ship = game.Objects.Ships.GetPlayerShip(game); // Get Player Ship
                 if (ship.Money * qty >= stationPrice.Price * qty) {
                     if (stationPrice.Qty >= qty) {
                         ship.Money = ship.Money - stationPrice.Price;

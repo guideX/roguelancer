@@ -114,8 +114,8 @@ namespace Roguelancer.Objects {
         public void Update(RoguelancerGame game) {
             Model.UpdatePosition();
             Model.Update(game);
-            if(game.GameState.CurrentGameState == Enum.GameStates.Docked && game.GameState.DockedGameState == Enum.DockedGameStateEnum.Commodities) {
-                if(game.Input.InputItems.Keys.One) {
+            if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.GameState.DockedGameState == Enum.DockedGameStateEnum.Commodities) {
+                if (game.Input.InputItems.Keys.One) {
                     if (0 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[0].CommoditiesId, 1); }
                 }
                 if (game.Input.InputItems.Keys.Two) {
@@ -131,7 +131,7 @@ namespace Roguelancer.Objects {
             }
             if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.U) {
                 game.Input.InputItems.Keys.U = false;
-                var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                var ship = game.Objects.Ships.GetPlayerShip(game);
                 if (ship.Docked) {
                     var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
                     if (distance < HudObject.DockDistanceAccept) {
@@ -141,7 +141,7 @@ namespace Roguelancer.Objects {
             }
             if (game.GameState.CurrentGameState == Enum.GameStates.Playing && game.Input.InputItems.Keys.D) { // DOCK
                 game.Input.InputItems.Keys.D = false;
-                var ship = game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+                var ship = game.Objects.Ships.GetPlayerShip(game);
                 if (!ship.Docked) {
                     var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
                     if (distance < HudObject.DockDistanceAccept) {
