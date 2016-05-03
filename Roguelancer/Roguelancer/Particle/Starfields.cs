@@ -3,7 +3,6 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Settings;
 namespace Roguelancer.Particle {
@@ -15,7 +14,7 @@ namespace Roguelancer.Particle {
         /// <summary>
         /// Explosions
         /// </summary>
-        private List<clsParticleExplosion> _explosions = new List<clsParticleExplosion>();
+        private List<ParticleExplosion> _explosions = new List<ParticleExplosion>();
         /// <summary>
         /// Explosion Texture
         /// </summary>
@@ -31,7 +30,7 @@ namespace Roguelancer.Particle {
         /// <summary>
         /// Stars
         /// </summary>
-        private clsParticleStarSheet[] _stars;
+        private ParticleStarSheet[] _stars;
         /// <summary>
         /// Star Effect
         /// </summary>
@@ -58,7 +57,7 @@ namespace Roguelancer.Particle {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-                _stars = new clsParticleStarSheet[_starSettings.numberOfStarSheets];
+                _stars = new ParticleStarSheet[_starSettings.numberOfStarSheets];
         }
         /// <summary>
         /// Load Content
@@ -78,7 +77,7 @@ namespace Roguelancer.Particle {
             n = _starSettings.maxPositionStartingY;
             for (int i = 0; i < _stars.Length; ++i) {
                 n = n - _starSettings.maxPositionIncrementY;
-                _stars[i] = new clsParticleStarSheet(game, new Vector3(_starSettings.maxPositionX, _starSettings.maxPositionY, n), _starSettings.amountOfStarsPerSheet, _starTexture, _starEffect, _starSettings.maxSize);
+                _stars[i] = new ParticleStarSheet(game, new Vector3(_starSettings.maxPositionX, _starSettings.maxPositionY, n), _starSettings.amountOfStarsPerSheet, _starTexture, _starEffect, _starSettings.maxSize);
             }
         }
         /// <summary>
@@ -88,7 +87,7 @@ namespace Roguelancer.Particle {
         public void Draw(RoguelancerGame game) {
             for (int i = 0; i < _stars.Length; ++i) {
                 _stars[i].Draw(game);
-                foreach (clsParticleExplosion _Explosion in _explosions) {
+                foreach (ParticleExplosion _Explosion in _explosions) {
                     _Explosion.Draw(game);
                 }
             }

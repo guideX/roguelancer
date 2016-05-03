@@ -180,7 +180,7 @@
     </Compile>
     <Compile Include="Objects\Station.cs" />
     <Compile Include="Objects\TradeLane.cs" />
-    <Compile Include="Particle\clsParticle.cs" />
+    <Compile Include="Particle\Particle.cs" />
     <Compile Include="Particle\ParticleSystem\DynamicParticle.cs" />
     <Compile Include="Particle\ParticleSystem\DynamicParticleSystem.cs" />
     <Compile Include="Particle\ParticleSystem\ParticleManager.cs" />
