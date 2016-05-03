@@ -66,7 +66,7 @@ namespace Roguelancer.Particle.System.Emitters {
         private Vector3 RandomPointOnCircle() {
             const float radius = 30;
             const float height = 40;
-            double angle = RandomHelper.Rnd.NextDouble() * MathHelper.TwoPi;
+            var angle = RandomHelper.Rnd.NextDouble() * MathHelper.TwoPi;
             float x = (float)Math.Cos(angle);
             float y = (float)Math.Sin(angle);
             return new Vector3(x * radius, y * radius + height, 0);

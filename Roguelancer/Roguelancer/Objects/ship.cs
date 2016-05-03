@@ -29,7 +29,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <returns></returns>
         public Ship GetPlayerShip(RoguelancerGame game) {
-            return game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).FirstOrDefault();
+            return game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
         }
         /// <summary>
         /// Initialize

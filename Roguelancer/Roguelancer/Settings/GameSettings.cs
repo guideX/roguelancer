@@ -61,6 +61,10 @@ namespace Roguelancer.Settings {
         /// Bloom Enabled
         /// </summary>
         public bool BloomEnabled { get; set; }
+        /// <summary>
+        /// Full Screen
+        /// </summary>
+        public bool FullScreen { get; set; }
         #endregion
         #region "private variables"
         /// <summary>
@@ -121,6 +125,7 @@ namespace Roguelancer.Settings {
             SensorTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "SensorTexture");
             var b = false;
             if (bool.TryParse(IniFile.ReadINI(_gameSettingsIniFile, "Settings", "BloomEnabled"), out b)) { BloomEnabled = b; }
+            if (bool.TryParse(IniFile.ReadINI(_gameSettingsIniFile, "Settings", "FullScreen"), out b)) { FullScreen = b; }
             MenuBackgroundTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "menu_background");
             CameraSettings = new CameraSettings(_cameraSettingsIniFile);
             ModelSettings = new List<SettingsModelObject>();

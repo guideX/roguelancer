@@ -87,8 +87,8 @@ namespace Roguelancer.Particle {
         public void Draw(RoguelancerGame game) {
             for (var i = 0; i < _stars.Length; ++i) {
                 _stars[i].Draw(game);
-                foreach (ParticleExplosion _Explosion in _explosions) {
-                    _Explosion.Draw(game);
+                foreach (ParticleExplosion explosion in _explosions) {
+                    explosion.Draw(game);
                 }
             }
         }

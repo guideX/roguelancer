@@ -105,7 +105,7 @@ namespace Roguelancer.Particle.ParticleSystem {
         /// <param name="scale"></param>
         public void AddParticle(Vector3 position, Color color, Vector3? velocity, float? rotation, TimeSpan? lifespan, bool isAffectable, float angle, float scale) {
             if(DeadParticles.Count != 0) {
-                DynamicParticle particle = DeadParticles.Pop();
+                var particle = DeadParticles.Pop();
                 particle.InitialPosition = particle.Position = position;
                 particle.InitialVelocity = particle.Velocity = velocity;
                 particle.InitialColor = particle.Color = color;

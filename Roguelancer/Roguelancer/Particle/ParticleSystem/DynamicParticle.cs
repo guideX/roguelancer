@@ -86,12 +86,7 @@ namespace Roguelancer.Particle.ParticleSystem {
         public float? Age {
             get {
                 if(RemainingLifetime.HasValue && lifespan.HasValue) {
-                    float f;
-                    if (float.TryParse((RemainingLifetime.Value.TotalSeconds / (float)lifespan.Value.TotalSeconds).ToString(), out f)) {
-                        return f;
-                    } else {
-                        return null;
-                    }
+                    return (float)RemainingLifetime.Value.TotalSeconds / (float)lifespan.Value.TotalSeconds;
                 } else {
                     return null;
                 }

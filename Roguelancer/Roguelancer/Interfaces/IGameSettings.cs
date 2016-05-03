@@ -59,6 +59,10 @@ namespace Roguelancer.Interfaces {
         /// Bloom Enabled
         /// </summary>
         bool BloomEnabled { get; set; }
+        /// <summary>
+        /// Full Screen
+        /// </summary>
+        bool FullScreen { get; set; }
         #endregion
     }
 }
