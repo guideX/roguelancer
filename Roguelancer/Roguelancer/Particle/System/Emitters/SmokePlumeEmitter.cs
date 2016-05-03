@@ -28,7 +28,7 @@ namespace Roguelancer.Particle.System.Emitters {
         }
         public void Emit(int particlesToEmit) {
             for(int i = 0; i < particlesToEmit; i++) {
-                ParticleSystem.AddParticle(Position, Color.White, new Vector3(clsRandomHelper.FloatBetween(0.0f, -1.0f), clsRandomHelper.FloatBetween(0.2f, 1.5f), 0.0f), clsRandomHelper.FloatBetween(-0.01f, 0.1f), TimeSpan.FromSeconds(clsRandomHelper.IntBetween(3, 5)), true, 0.0f, clsRandomHelper.FloatBetween(0.05f, 0.1f));
+                ParticleSystem.AddParticle(Position, Color.White, new Vector3(RandomHelper.FloatBetween(0.0f, -1.0f), RandomHelper.FloatBetween(0.2f, 1.5f), 0.0f), RandomHelper.FloatBetween(-0.01f, 0.1f), TimeSpan.FromSeconds(RandomHelper.IntBetween(3, 5)), true, 0.0f, RandomHelper.FloatBetween(0.05f, 0.1f));
             }
         }
     }

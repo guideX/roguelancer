@@ -20,7 +20,7 @@ namespace Roguelancer.Particle.System {
         /// <summary>
         /// Particle Manager
         /// </summary>
-        private clsParticleManager _particleManager;
+        private ParticleManager _particleManager;
         private Matrix _view;
         private Matrix _projection;
         private Texture2D _explosion;
@@ -32,7 +32,7 @@ namespace Roguelancer.Particle.System {
         private SmokePlumeEmitter _smokePlumeEmitter;
         private ExplosionParticleSystem _explosionParticleSystem;
         private ExplosionSmokeParticleSystem _explosionSmokeParticleSystem;
-        private clsProjectileTrailParticleSystem _projectileTrailParticleSystem;
+        private ProjectileTrailParticleSystem _projectileTrailParticleSystem;
         private List<Projectile> _projectiles = new List<Projectile>();
         private TimeSpan _timeToNextProjectile = TimeSpan.Zero;
         private TimeSpan _targetElapsedTime;
@@ -48,7 +48,7 @@ namespace Roguelancer.Particle.System {
         /// <param name="game"></param>
         public ParticleSystem(RoguelancerGame game) {
             _targetElapsedTime = TimeSpan.FromTicks(333333);
-            _particleManager = new clsParticleManager(game);
+            _particleManager = new ParticleManager(game);
             game.Components.Add(_particleManager);
         }
         /// <summary>
@@ -75,9 +75,9 @@ namespace Roguelancer.Particle.System {
             _smokePlumeParticleSystem = new SmokeParticleSystem(0, _smoke);
             _smokePlumeEmitter = new SmokePlumeEmitter(Vector3.Zero, 0);
             _projectileTrailParticleSystem = new clsProjectileTrailParticleSystem(500, _smoke);
-            _explosionSmokeParticleSystem.AddAffector(new clsVelocityAffector(Vector3.Down));
+            _explosionSmokeParticleSystem.AddAffector(new VelocityAffector(Vector3.Down));
             _explosionParticleSystem = new ExplosionParticleSystem(100, _explosion);
-            _explosionParticleSystem.AddAffector(new clsVelocityAffector(Vector3.Down));
+            _explosionParticleSystem.AddAffector(new VelocityAffector(Vector3.Down));
             _smokeRingEmitter = new SmokeRingEmitter(Vector3.Zero, 0);
         }
         /// <summary>

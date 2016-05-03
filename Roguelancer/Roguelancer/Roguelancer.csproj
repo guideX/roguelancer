@@ -186,7 +186,7 @@
     <Compile Include="Particle\ParticleSystem\DynamicParticleSystem.cs" />
     <Compile Include="Particle\ParticleSystem\ParticleManager.cs" />
     <Compile Include="Particle\ParticleSystem\ParticleSystem.cs" />
-    <Compile Include="Particle\ParticleSystem\StaticParticle.cs" />
+    <Compile Include="Models\Particle\StaticParticleModel.cs" />
     <Compile Include="Particle\ParticleSystem\StaticParticleSystem.cs" />
     <Compile Include="Particle\Starfields.cs">
       <SubType>Code</SubType>

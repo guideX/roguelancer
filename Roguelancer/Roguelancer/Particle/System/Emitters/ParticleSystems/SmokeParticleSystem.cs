@@ -12,7 +12,7 @@ namespace Roguelancer.Particle.System.ParticleSystems {
         public SmokeParticleSystem (int maxCapacity, Texture2D texture) : base(maxCapacity, texture) {
         }
         public override void Update(GameTime gameTime) {
-            foreach (DynamicParticle particle in liveParticles) {
+            foreach (var particle in LiveParticles) {
                 particle.Color = Color.Lerp(particle.InitialColor, new Color(1.0f, 1.0f, 1.0f, 0.0f), 1.0f - particle.Age.Value);
                 particle.Scale += 0.002f;
             }

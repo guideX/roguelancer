@@ -20,7 +20,7 @@ namespace Roguelancer.Particle.System {
         private Vector3 velocity;
         private float age;
         public TrailEmitter lTrailEmitter { get; set; }
-        public Projectile(ExplosionParticleSystem explosionParticleSystem, ExplosionSmokeParticleSystem explosionSmokeParticleSystem, clsProjectileTrailParticleSystem projectileTrailParticleSystem) {
+        public Projectile(ExplosionParticleSystem explosionParticleSystem, ExplosionSmokeParticleSystem explosionSmokeParticleSystem, ProjectileTrailParticleSystem projectileTrailParticleSystem) {
             this.explosionParticleSystem = explosionParticleSystem;
             this.explosionSmokeParticleSystem = explosionSmokeParticleSystem;
             position = Vector3.Zero;

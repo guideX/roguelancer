@@ -1,20 +1,46 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
-using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Particle.ParticleSystem;
 using Roguelancer.Interfaces;
 namespace Roguelancer.Particle.System {
-    public class clsParticleManager : DrawableGameComponent {
+    /// <summary>
+    /// Particle Manager
+    /// </summary>
+    public class ParticleManager : DrawableGameComponent {
+        /// <summary>
+        /// Default Blend State
+        /// </summary>
         public readonly BlendState DefaultBlendState = BlendState.NonPremultiplied;
+        /// <summary>
+        /// InvertY
+        /// </summary>
         private readonly Matrix InvertY = Matrix.CreateScale(1, -1, 1);
-        private SpriteBatch spriteBatch;
+        /// <summary>
+        /// Sprite Batch
+        /// </summary>
+        private SpriteBatch _spriteBatch;
+        /// <summary>
+        /// Basic Effect
+        /// </summary>
         private BasicEffect basicEffect;
+        /// <summary>
+        /// Particle Systems
+        /// </summary>
         private Dictionary<BlendState, List<IParticleSystem>> particleSystems = new Dictionary<BlendState, List<IParticleSystem>>();
+        /// <summary>
+        /// View
+        /// </summary>
         private Matrix View { get; set; }
+        /// <summary>
+        /// Projection
+        /// </summary>
         private Matrix Projection { get; set; }
+        /// <summary>
+        /// Particle Count
+        /// </summary>
         public int ParticleCount {
             get {
                 int total = 0;
@@ -28,10 +54,17 @@ namespace Roguelancer.Particle.System {
                 return total;
             }
         }
-        public clsParticleManager(Game game) : base(game) {
+        /// <summary>
+        /// Particle Manager
+        /// </summary>
+        /// <param name="game"></param>
+        public ParticleManager(Game game) : base(game) {
         }
+        /// <summary>
+        /// Load Content
+        /// </summary>
         protected override void LoadContent() {
-            spriteBatch = new SpriteBatch(GraphicsDevice);
+            _spriteBatch = new SpriteBatch(GraphicsDevice);
             basicEffect = new BasicEffect(GraphicsDevice) {
                 TextureEnabled = true,
                 VertexColorEnabled = true,
@@ -41,6 +74,10 @@ namespace Roguelancer.Particle.System {
             };
             base.LoadContent();
         }
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="gameTime"></param>
         public override void Update(GameTime gameTime) {
             foreach(List<IParticleSystem> particleSystemBatch in particleSystems.Values) {
                 foreach(IParticleSystem particleSystem in particleSystemBatch) {
@@ -54,35 +91,53 @@ namespace Roguelancer.Particle.System {
             }
             base.Update(gameTime);
         }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="gameTime"></param>
         public override void Draw(GameTime gameTime) {
             basicEffect.Projection = Projection;
             foreach(KeyValuePair<BlendState, List<IParticleSystem>> particleSystemBatch in particleSystems) {
-                spriteBatch.Begin(0, particleSystemBatch.Key, null, DepthStencilState.DepthRead, RasterizerState.CullNone, basicEffect);
+                _spriteBatch.Begin(0, particleSystemBatch.Key, null, DepthStencilState.DepthRead, RasterizerState.CullNone, basicEffect);
                 foreach(IParticleSystem particleSystem in particleSystemBatch.Value) {
-                    if(particleSystem.Enabled) {
-                        for(int i = 0; i < particleSystem.ParticleCount; i++) {
-                            IParticle particle = particleSystem[i];
+                    if (particleSystem.Enabled) {
+                        for (var i = 0; i < particleSystem.ParticleCount; i++) {
+                            var particle = particleSystem[i];
                             var viewSpacePosition = Vector3.Transform(particle.Position, View);
-                            spriteBatch.Draw(particleSystem.Texture, new Vector2(viewSpacePosition.X, viewSpacePosition.Y), null, particle.Color, particle.Angle, particleSystem.TextureOrigin, particle.Scale, 0, viewSpacePosition.Z);
+                            _spriteBatch.Draw(particleSystem.Texture, new Vector2(viewSpacePosition.X, viewSpacePosition.Y), null, particle.Color, particle.Angle, particleSystem.TextureOrigin, particle.Scale, 0, viewSpacePosition.Z);
                         }
                     }
                 }
-                spriteBatch.End();
+                _spriteBatch.End();
             }
             base.Draw(gameTime);
         }
+        /// <summary>
+        /// Add Particle System
+        /// </summary>
+        /// <param name="particleSystem"></param>
         public void AddParticleSystem(IParticleSystem particleSystem) {
             AddParticleSystem(particleSystem, DefaultBlendState);
         }
+        /// <summary>
+        /// Add Particle System
+        /// </summary>
+        /// <param name="particleSystem"></param>
+        /// <param name="blendState"></param>
         public void AddParticleSystem(IParticleSystem particleSystem, BlendState blendState) {
-            if(particleSystems.ContainsKey(blendState)) {
+            if (particleSystems.ContainsKey(blendState)) {
                 particleSystems[blendState].Add(particleSystem);
             } else {
-                List<IParticleSystem> particleSystemBatch = new List<IParticleSystem>();
-                particleSystemBatch.Add(particleSystem);
-                particleSystems.Add(blendState, particleSystemBatch);
+                var batch = new List<IParticleSystem>();
+                batch.Add(particleSystem);
+                particleSystems.Add(blendState, batch);
             }
         }
+        /// <summary>
+        /// Set Matrices
+        /// </summary>
+        /// <param name="view"></param>
+        /// <param name="projection"></param>
         public void SetMatrices(Matrix view, Matrix projection) {
             View = view;
             Projection = projection;

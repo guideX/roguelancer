@@ -31,18 +31,18 @@ namespace Roguelancer.Particle.System.Emitters {
                 ParticleSystem.AddParticle(
                         RandomPointOnCircle(),
                         Color.White,
-                        new Vector3(clsRandomHelper.FloatBetween(0.0f, -0.5f), clsRandomHelper.FloatBetween(0.1f, 0.75f), 0.0f),
-                        clsRandomHelper.FloatBetween(-0.01f, 0.1f),
-                        TimeSpan.FromSeconds(clsRandomHelper.IntBetween(2, 5)),
+                        new Vector3(RandomHelper.FloatBetween(0.0f, -0.5f), RandomHelper.FloatBetween(0.1f, 0.75f), 0.0f),
+                        RandomHelper.FloatBetween(-0.01f, 0.1f),
+                        TimeSpan.FromSeconds(RandomHelper.IntBetween(2, 5)),
                         true,
-                        clsRandomHelper.FloatBetween(0.0f, MathHelper.TwoPi),
-                        clsRandomHelper.FloatBetween(0.05f, 0.1f));
+                        RandomHelper.FloatBetween(0.0f, MathHelper.TwoPi),
+                        RandomHelper.FloatBetween(0.05f, 0.1f));
             }
         }
         Vector3 RandomPointOnCircle() {
             const float radius = 30;
             const float height = 40;
-            double angle = clsRandomHelper.Random.NextDouble() * MathHelper.TwoPi;
+            double angle = RandomHelper.Rnd.NextDouble() * MathHelper.TwoPi;
             float x = (float)Math.Cos(angle);
             float y = (float)Math.Sin(angle);
             return new Vector3(x * radius, y * radius + height, 0);
