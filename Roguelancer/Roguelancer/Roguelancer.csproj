@@ -109,9 +109,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Bloom\BloomComponent.cs" />
+    <Compile Include="Enum\GameCameraModeEnum.cs" />
+    <Compile Include="Interfaces\IBloomComponent.cs" />
+    <Compile Include="Interfaces\IBloomHandler.cs" />
     <Compile Include="Interfaces\IGameMenu.cs" />
     <Compile Include="Interfaces\IGameStates.cs" />
     <Compile Include="Interfaces\IHudObject.cs" />
+    <Compile Include="Interfaces\IObjectCollection.cs" />
+    <Compile Include="Models\Bloom\BloomComponentModel.cs" />
     <Compile Include="Models\Bloom\BloomSettingsModel.cs" />
     <Compile Include="Bloom\BloomHandler.cs" />
     <None Include="configuration\commodities_settings.ini" />
@@ -132,12 +137,15 @@
     <Compile Include="Interfaces\IGameSettings.cs" />
     <Compile Include="Interfaces\IInput.cs" />
     <Compile Include="Interfaces\ISensorObject.cs" />
-    <Compile Include="Models\Bloom\BloomComponentModel.cs" />
     <Compile Include="Models\Bloom\BloomHandlerModel.cs" />
     <Compile Include="Models\CameraSettingsModel.cs" />
     <Compile Include="Models\CargoHoldModel.cs" />
     <Compile Include="Models\CommodityModel.cs" />
+    <Compile Include="Models\DebugTextModel.cs" />
     <Compile Include="Models\GameCameraModel.cs" />
+    <Compile Include="Models\GameGraphicsModel.cs" />
+    <Compile Include="Models\GameMenuModel.cs" />
+    <Compile Include="Models\GameStateModel.cs" />
     <Compile Include="Models\HudModel.cs" />
     <Compile Include="Models\Particle\ParticleStarSheetModel.cs" />
     <Compile Include="Models\PlayerShipControlModel.cs" />
@@ -252,6 +260,10 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\Roguelancer.Business\Roguelancer.Business.csproj">
+      <Project>{d27da0c5-7f83-43bf-9be2-1ece875d001f}</Project>
+      <Name>Roguelancer.Business</Name>
+    </ProjectReference>
     <ProjectReference Include="..\RoguelancerContent\RoguelancerContent.contentproj">
       <Project>{0555E32F-EA07-4A76-BB15-7148114CF03E}</Project>
       <Name>RoguelancerContent %28Content%29</Name>

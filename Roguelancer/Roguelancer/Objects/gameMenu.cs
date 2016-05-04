@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using Roguelancer.Interfaces;
 using Roguelancer.Enum;
+using Roguelancer.Models;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Game Menu
@@ -12,99 +13,73 @@ namespace Roguelancer.Objects {
     public class GameMenu : IGameMenu {
         #region "public variables"
         /// <summary>
-        /// Current Menu
+        /// Model
         /// </summary>
-        public CurrentMenu CurrentMenu { get; set; }
-        /// <summary>
-        /// Menu Buttons
-        /// </summary>
-        public List<MenuButton> MenuButtons { get; set; }
-        #endregion
-        #region "private variables"
-        /// <summary>
-        /// Last Menu
-        /// </summary>
-        private CurrentMenu _lastMenu;
-        /// <summary>
-        /// Background Texture
-        /// </summary>
-        private Texture2D backgroundTexture;
-        /// <summary>
-        /// Screen Height
-        /// </summary>
-        private int screenHeight;
-        /// <summary>
-        /// Screen Width
-        /// </summary>
-        private int screenWidth;
-        /// <summary>
-        /// Screen Rectangle
-        /// </summary>
-        private Rectangle screenRectangle;
+        public GameMenuModel Model { get; set; }
         #endregion
         #region "public functions"
         /// <summary>
         /// Entry Point
         /// </summary>
         public GameMenu() {
-            MenuButtons = new List<MenuButton>(); // Create new List of MenuButton's
+            Model = new GameMenuModel();
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            CurrentMenu = CurrentMenu.HomeMenu; // Set Current Menu to Home
+            Model.CurrentMenu = CurrentMenu.HomeMenu; // Set Current Menu to Home
         }
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            backgroundTexture = game.Content.Load<Texture2D>(game.Settings.MenuBackgroundTexture);
-            screenWidth = game.GraphicsDevice.PresentationParameters.BackBufferWidth;
-            screenHeight = game.GraphicsDevice.PresentationParameters.BackBufferHeight;
-            CurrentMenu = CurrentMenu.HomeMenu;
+            Model.BackgroundTexture = game.Content.Load<Texture2D>(game.Settings.MenuBackgroundTexture);
+            Model.ScreenWidth = game.GraphicsDevice.PresentationParameters.BackBufferWidth;
+            Model.ScreenHeight = game.GraphicsDevice.PresentationParameters.BackBufferHeight;
+            Model.CurrentMenu = CurrentMenu.HomeMenu;
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (CurrentMenu != _lastMenu) {
-                _lastMenu = CurrentMenu;
-                MenuButtons = new List<MenuButton>();
-                switch (CurrentMenu) {
+            if (Model.CurrentMenu != Model.LastMenu) {
+                Model.LastMenu = Model.CurrentMenu;
+                Model.MenuButtons = new List<MenuButton>();
+                switch (Model.CurrentMenu) {
                     case CurrentMenu.HomeMenu:
-                        MenuButtons.Add(new MenuButton(game, "New Game", "BUTTONS\\newgame") {
+                        Model.MenuButtons.Add(new MenuButton(game, "New Game", "BUTTONS\\newgame") {
                             SortId = 1,
                             Position = new Vector2(50, 200),
                             TextPosition = new Vector2(50, 140),
                             Enabled = true,
                             YOffset = 14
                         });
-                        MenuButtons.Add(new MenuButton(game, "Load Game", "BUTTONS\\loadgame") {
+                        Model.MenuButtons.Add(new MenuButton(game, "Load Game", "BUTTONS\\loadgame") {
                             SortId = 2,
                             Position = new Vector2(50, 290),
                             TextPosition = new Vector2(50, 205),
                             Enabled = true,
                             YOffset = 16
                         });
-                        MenuButtons.Add(new MenuButton(game, "Multiplayer", "BUTTONS\\multiplayer") {
+                        Model.MenuButtons.Add(new MenuButton(game, "Multiplayer", "BUTTONS\\multiplayer") {
                             SortId = 3,
                             Position = new Vector2(50, 380),
                             TextPosition = new Vector2(50, 290),
                             Enabled = true,
                             YOffset = 30
                         });
-                        MenuButtons.Add(new MenuButton(game, "Options", "BUTTONS\\options") {
+                        Model.MenuButtons.Add(new MenuButton(game, "Options", "BUTTONS\\options") {
                             SortId = 4,
                             Position = new Vector2(50, 470),
                             TextPosition = new Vector2(50, 350),
                             Enabled = true,
                             YOffset = 26
                         });
-                        MenuButtons.Add(new MenuButton(game, "Exit", "BUTTONS\\exit") {
+                        Model.MenuButtons.Add(new MenuButton(game, "Exit", "BUTTONS\\exit") {
                             SortId = 5,
                             Position = new Vector2(50, 560),
                             TextPosition = new Vector2(50, 420),
@@ -113,14 +88,14 @@ namespace Roguelancer.Objects {
                         });
                         break;
                     case CurrentMenu.OptionsMenu:
-                        MenuButtons.Add(new MenuButton(game, "Keyboard Controls", "BUTTONS\\keyboard") {
+                        Model.MenuButtons.Add(new MenuButton(game, "Keyboard Controls", "BUTTONS\\keyboard") {
                             SortId = 1,
                             Position = new Vector2(50, 200),
                             TextPosition = new Vector2(50, 140),
                             Enabled = true,
                             YOffset = 14
                         });
-                        MenuButtons.Add(new MenuButton(game, "Return", "BUTTONS\\return") {
+                        Model.MenuButtons.Add(new MenuButton(game, "Return", "BUTTONS\\return") {
                             SortId = 1,
                             Position = new Vector2(50, 290),
                             TextPosition = new Vector2(50, 205),
@@ -129,9 +104,8 @@ namespace Roguelancer.Objects {
                         });
                         break;
                 }
-
             }
-            foreach (var button in MenuButtons) {
+            foreach (var button in Model.MenuButtons) {
                 button.Update(game);
             }
         }
@@ -140,11 +114,23 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            screenRectangle = new Rectangle(0, 0, screenWidth, screenHeight);
-            game.Graphics.SpriteBatch.Draw(backgroundTexture, screenRectangle, Color.White);
-            foreach (var button in MenuButtons) {
+            Model.ScreenRectangle = new Rectangle(0, 0, Model.ScreenWidth, Model.ScreenHeight);
+            game.Graphics.Model.SpriteBatch.Draw(Model.BackgroundTexture, Model.ScreenRectangle, Color.White);
+            foreach (var button in Model.MenuButtons) {
                 button.Draw(game);
             }
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
+            Model.MenuButtons = null;
+            Model.CurrentMenu = CurrentMenu.NotInitialized;
+            Model.LastMenu = CurrentMenu.NotInitialized;
+            Model.BackgroundTexture.Dispose();
+            Model.BackgroundTexture = null;
+            Model.ScreenHeight = 0;
+            Model.ScreenWidth = 0;
         }
         #endregion
     }

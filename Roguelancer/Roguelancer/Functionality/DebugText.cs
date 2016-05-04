@@ -3,98 +3,75 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
+using Roguelancer.Models;
 namespace Roguelancer.Functionality {
     /// <summary>
     /// Debug Text
     /// </summary>
     public class DebugText : IDebugText {
+        #region "public variables"
+        /// <summary>
+        /// Debug Text Model
+        /// </summary>
+        public DebugTextModel Model { get; set; }
+        #endregion
         #region "private variables"
-        /// <summary>
-        /// Timer Enabled
-        /// </summary>
-        private bool _timerEnabled = false;
-        /// <summary>
-        /// Show Enabled
-        /// </summary>
-        private bool _showEnabled = false;
-        /// <summary>
-        /// Show Time
-        /// </summary>
-        private const int _showTime = 500;
-        /// <summary>
-        /// Current Show Time
-        /// </summary>
-        private int _currentShowTime { get; set; }
-        /// <summary>
-        /// Text
-        /// </summary>
-        private string _text;
         /// <summary>
         /// Get Text
         /// </summary>
         /// <returns></returns>
-        public string GetText() {
-            return _text;
-        }
+        //public string GetText() {
+            //return Model.Text;
+        //}
         /// <summary>
         /// Set Text
         /// </summary>
         /// <param name="game"></param>
         /// <param name="value"></param>
         public void SetText(RoguelancerGame game, string value, bool timerEnabled) {
-            _timerEnabled = timerEnabled;
+            Model.TimerEnabled = timerEnabled;
             if (value != null) {
-                _currentShowTime = 0;
-                _showEnabled = true;
-                _text = value;
+                Model.CurrentShowTime = 0;
+                Model.ShowEnabled = true;
+                Model.Text = value;
             }
         }
-        #endregion
-        #region "private variables"
-        /// <summary>
-        /// Font
-        /// </summary>
-        private SpriteFont _font;
-        /// <summary>
-        /// Font Position
-        /// </summary>
-        private Vector2 _fontPosition;
         #endregion
         #region "public functions"
         /// <summary>
         /// Debug Text
         /// </summary>
         public DebugText() {
-            _text = "";
+            Model = new DebugTextModel();
+            Model.Text = "";
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        public void Initialize(RoguelancerGame game) { }
+        //public void Initialize(RoguelancerGame game) { }
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            _font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.Font);
-            _fontPosition = new Vector2(game.GraphicsDevice.Viewport.Width / 2, game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
+            Model.Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.Font);
+            Model.FontPosition = new Vector2(game.GraphicsDevice.Viewport.Width / 2, game.Graphics.Model.GraphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (_showEnabled) {
-                if (_timerEnabled) {
-                    _currentShowTime++;
-                    if (_currentShowTime > _showTime) {
-                        _showEnabled = false;
-                        _currentShowTime = 0;
-                        _text = "";
+            if (Model.ShowEnabled) {
+                if (Model.TimerEnabled) {
+                    Model.CurrentShowTime++;
+                    if (Model.CurrentShowTime > Model.ShowTime) {
+                        Model.ShowEnabled = false;
+                        Model.CurrentShowTime = 0;
+                        Model.Text = "";
                     }
                 }
-
             }
         }
         /// <summary>
@@ -102,9 +79,9 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            if (_showEnabled) {
-                var fontOrigin = _font.MeasureString(_text) / 2;
-                game.Graphics.SpriteBatch.DrawString(_font, _text, _fontPosition, Color.White, 0, fontOrigin, 3.0f, SpriteEffects.None, 0.5f);
+            if (Model.ShowEnabled) {
+                var fontOrigin = Model.Font.MeasureString(Model.Text) / 2;
+                game.Graphics.Model.SpriteBatch.DrawString(Model.Font, Model.Text, Model.FontPosition, Color.White, 0, fontOrigin, 3.0f, SpriteEffects.None, 0.5f);
             }
         }
         #endregion

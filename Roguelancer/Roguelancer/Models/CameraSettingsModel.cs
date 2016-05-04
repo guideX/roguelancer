@@ -1,4 +1,6 @@
-﻿using Microsoft.Xna.Framework;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.com
+using Microsoft.Xna.Framework;
 namespace Roguelancer.Models {
     /// <summary>
     /// Camera Settings Model

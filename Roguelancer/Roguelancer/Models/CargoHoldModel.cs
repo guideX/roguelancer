@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.com
+using System.Collections.Generic;
 namespace Roguelancer.Models {
     /// <summary>
     /// Cargo Hold Model

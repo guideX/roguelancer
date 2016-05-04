@@ -10,10 +10,13 @@ namespace Roguelancer.Bloom {
     /// Bloom Component
     /// </summary>
     public class BloomComponent : DrawableGameComponent {
+        #region "public variables"
         /// <summary>
         /// Bloom Component Model
         /// </summary>
         public BloomComponentModel Model { get; set; }
+        #endregion
+        #region "public methods"
         /// <summary>
         /// Bloom Component
         /// </summary>
@@ -81,6 +84,8 @@ namespace Roguelancer.Bloom {
             var viewport = GraphicsDevice.Viewport;
             DrawFullscreenQuad(Model.RenderTarget1, viewport.Width, viewport.Height, Model.BloomCombineEffect, IntermediateBuffer.iFinalResult);
         }
+        #endregion
+        #region "private methods"
         /// <summary>
         /// Draw Full Screen Quad
         /// </summary>
@@ -148,5 +153,6 @@ namespace Roguelancer.Bloom {
             var theta = Model.Settings.BlurAmount;
             return (float)((1.0 / Math.Sqrt(2 * Math.PI * theta)) * Math.Exp(-(n * n) / (2 * theta * theta)));
         }
+        #endregion
     }
 }

@@ -71,6 +71,11 @@ namespace Roguelancer.Objects {
                 item.Reset(game);
             }
         }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
+        }
     }
     /// <summary>
     /// Trade Lane
@@ -164,6 +169,11 @@ namespace Roguelancer.Objects {
                 r.Reset(game);
             }
         }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
+        }
     }
     /// <summary>
     /// Trade Lane Ring
@@ -224,6 +234,11 @@ namespace Roguelancer.Objects {
             foreach (var r in Models) {
                 //r.Reset(game);
             }
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
         }
     }
 }

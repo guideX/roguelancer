@@ -1,4 +1,6 @@
-﻿using Roguelancer.Bloom;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.com
+using Roguelancer.Bloom;
 namespace Roguelancer.Models.Bloom {
     /// <summary>
     /// Bloom Handler Model
@@ -7,10 +9,10 @@ namespace Roguelancer.Models.Bloom {
         /// <summary>
         /// Bloom Settings
         /// </summary>
-        public int BloomSettings = 0;
+        public int BloomSettings { get; set; }
         /// <summary>
         /// Bloom Component
         /// </summary>
-        public BloomComponent Bloom;
+        public BloomComponent Bloom { get; set; }
     }
 }

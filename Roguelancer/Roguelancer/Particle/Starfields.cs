@@ -1,5 +1,6 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
+using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -107,6 +108,11 @@ namespace Roguelancer.Particle {
                     --i;
                 }
             }
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
         }
         #endregion
     }

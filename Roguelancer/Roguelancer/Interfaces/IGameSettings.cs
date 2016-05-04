@@ -9,8 +9,6 @@ namespace Roguelancer.Interfaces {
     /// Game Settings
     /// </summary>
     public interface IGameSettings {
-        #region "public variables"
-
         /// <summary>
         /// Commodities Models
         /// </summary>
@@ -63,6 +61,5 @@ namespace Roguelancer.Interfaces {
         /// Full Screen
         /// </summary>
         bool FullScreen { get; set; }
-        #endregion
     }
 }

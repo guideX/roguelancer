@@ -1,18 +1,14 @@
-﻿using Roguelancer.Enum;
-using Roguelancer.Objects;
-using System.Collections.Generic;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.com
+using Roguelancer.Models;
 namespace Roguelancer.Interfaces {
     /// <summary>
     /// Game Menu
     /// </summary>
     public interface IGameMenu : IGame {
         /// <summary>
-        /// Current Menu
+        /// Model
         /// </summary>
-        CurrentMenu CurrentMenu { get; set; }
-        /// <summary>
-        /// Menu Buttons
-        /// </summary>
-        List<MenuButton> MenuButtons { get; set; }
+        GameMenuModel Model { get; set; }
     }
 }

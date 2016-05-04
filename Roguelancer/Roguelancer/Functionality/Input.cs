@@ -39,16 +39,6 @@ namespace Roguelancer.Functionality {
             CurrentKeyboardState = new KeyboardState();
         }
         /// <summary>
-        /// Initialize
-        /// </summary>
-        /// <param name="game"></param>
-        public void Initialize(RoguelancerGame game) { }
-        /// <summary>
-        /// Load Content
-        /// </summary>
-        /// <param name="game"></param>
-        public void LoadContent(RoguelancerGame game) { }
-        /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
@@ -126,7 +116,7 @@ namespace Roguelancer.Functionality {
             } else {
                 InputItems.Keys.C = false;
             }
-            if (game.GameState.CurrentGameState == GameStates.Playing) {
+            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
                 if (CurrentKeyboardState.IsKeyDown(Keys.C)) {
                     if (LastKeyboardState.IsKeyUp(Keys.C)) {
                         if (InputItems.Toggles.Cruise) {
@@ -245,23 +235,25 @@ namespace Roguelancer.Functionality {
                 game.Input.InputItems.Toggles.FreeMouseMode = true;
             }
             if (game.Input.InputItems.Keys.F10) {
-                if (game.GameState.CurrentGameState == GameStates.Menu) {
-                    game.GameState.LastGameState = game.GameState.CurrentGameState;
-                    game.GameState.CurrentGameState = GameStates.Playing;
+                if (game.GameState.Model.CurrentGameState == GameStates.Menu) {
+                    game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
+                    game.GameState.Model.CurrentGameState = GameStates.Playing;
                 }
             }
             if (game.Input.InputItems.Keys.F9) {
-                if (game.GameState.CurrentGameState == GameStates.Playing) {
-                    game.GameState.LastGameState = game.GameState.CurrentGameState;
-                    game.GameState.CurrentGameState = GameStates.Menu;
+                if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+                    game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
+                    game.GameState.Model.CurrentGameState = GameStates.Menu;
                 }
             }
         }
         /// <summary>
-        /// Draw
+        /// Dispose
         /// </summary>
         /// <param name="game"></param>
-        public void Draw(RoguelancerGame game) { }
+        public void Dispose() {
+            InputItems = null;
+        }
         #endregion
     }
 }

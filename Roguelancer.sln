@@ -7,34 +7,58 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Roguelancer", "Roguelancer\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoguelancerContent", "Roguelancer\RoguelancerContent\RoguelancerContent.contentproj", "{0555E32F-EA07-4A76-BB15-7148114CF03E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Roguelancer.Business", "Roguelancer.Business\Roguelancer.Business.csproj", "{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
 		Debug|Mixed Platforms = Debug|Mixed Platforms
 		Debug|Windows Phone = Debug|Windows Phone
 		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
 		Release|Mixed Platforms = Release|Mixed Platforms
 		Release|Windows Phone = Release|Windows Phone
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Debug|Any CPU.ActiveCfg = Debug|x86
 		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
 		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Debug|Mixed Platforms.Build.0 = Debug|x86
 		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Debug|Windows Phone.ActiveCfg = Debug|x86
 		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Debug|Windows Phone.Build.0 = Debug|x86
 		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Debug|x86.ActiveCfg = Debug|x86
 		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Debug|x86.Build.0 = Debug|x86
+		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Release|Any CPU.ActiveCfg = Release|x86
 		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Release|Mixed Platforms.ActiveCfg = Release|x86
 		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Release|Mixed Platforms.Build.0 = Release|x86
 		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Release|Windows Phone.ActiveCfg = Release|x86
 		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Release|Windows Phone.Build.0 = Release|x86
 		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Release|x86.ActiveCfg = Release|x86
 		{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}.Release|x86.Build.0 = Release|x86
+		{0555E32F-EA07-4A76-BB15-7148114CF03E}.Debug|Any CPU.ActiveCfg = Debug|x86
 		{0555E32F-EA07-4A76-BB15-7148114CF03E}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
 		{0555E32F-EA07-4A76-BB15-7148114CF03E}.Debug|Windows Phone.ActiveCfg = Debug|x86
 		{0555E32F-EA07-4A76-BB15-7148114CF03E}.Debug|x86.ActiveCfg = Debug|x86
+		{0555E32F-EA07-4A76-BB15-7148114CF03E}.Release|Any CPU.ActiveCfg = Release|x86
 		{0555E32F-EA07-4A76-BB15-7148114CF03E}.Release|Mixed Platforms.ActiveCfg = Release|x86
 		{0555E32F-EA07-4A76-BB15-7148114CF03E}.Release|Windows Phone.ActiveCfg = Release|x86
 		{0555E32F-EA07-4A76-BB15-7148114CF03E}.Release|x86.ActiveCfg = Release|x86
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Debug|Windows Phone.ActiveCfg = Debug|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Debug|Windows Phone.Build.0 = Debug|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Debug|x86.Build.0 = Debug|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Release|Windows Phone.ActiveCfg = Release|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Release|Windows Phone.Build.0 = Release|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Release|x86.ActiveCfg = Release|Any CPU
+		{D27DA0C5-7F83-43BF-9BE2-1ECE875D001F}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

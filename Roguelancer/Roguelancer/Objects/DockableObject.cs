@@ -39,7 +39,7 @@ namespace Roguelancer.Objects {
         public virtual void Dock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject) {
             var _ship = game.Objects.Ships.GetPlayerShip(game); // Get Player Ship
             if (_ship == ship) { // If Docking Ship is Player Ship
-                game.GameState.CurrentGameState = Enum.GameStates.Docked; // Set Current Game State to Docked
+                game.GameState.Model.CurrentGameState = Enum.GameStates.Docked; // Set Current Game State to Docked
             }
             ship.Docked = true; // Set Docked to True
             DockedShips.Add(ship); // Add to Docked Ships
@@ -53,7 +53,7 @@ namespace Roguelancer.Objects {
         public virtual void UnDock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject) {
             var playerShip = game.Objects.Ships.GetPlayerShip(game); // Get Player Ship
             if (playerShip == ship) {
-                game.GameState.CurrentGameState = Enum.GameStates.Playing;
+                game.GameState.Model.CurrentGameState = Enum.GameStates.Playing;
             }
             ship.Docked = false;
             DockedShips.Remove(ship);
@@ -74,7 +74,7 @@ namespace Roguelancer.Objects {
                         var commodity = game.Settings.CommoditiesModels.Where(c => c.CommodityId == obj.CommoditiesId).FirstOrDefault();
                         sb.AppendLine("[" + n.ToString () + "] Description: " + commodity.Description + ", Price: " + obj.Price.ToString());
                     }
-                    if (game.GameState.CurrentGameState == Enum.GameStates.Docked && game.GameState.DockedGameState == Enum.DockedGameStateEnum.Commodities) {
+                    if (game.GameState.Model.CurrentGameState == Enum.GameStates.Docked && game.GameState.Model.DockedGameState == Enum.DockedGameStateEnum.Commodities) {
                         game.DebugText.SetText(game, "Station Commodities:" + Environment.NewLine + sb.ToString() + Environment.NewLine, true);
                     }
                     break;

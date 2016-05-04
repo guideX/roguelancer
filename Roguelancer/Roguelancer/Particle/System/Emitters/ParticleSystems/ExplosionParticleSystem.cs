@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using Roguelancer.Particle.ParticleSystem;
 using Roguelancer.Interfaces;
+using System;
 namespace Roguelancer.Particle.System.ParticleSystems {
     /// <summary>
     /// Explosion Particle System
@@ -50,6 +51,11 @@ namespace Roguelancer.Particle.System.ParticleSystems {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
         }
     }
 }

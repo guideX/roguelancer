@@ -33,11 +33,6 @@ namespace Roguelancer.Functionality {
             Reset(game);
         }
         /// <summary>
-        /// Load Content
-        /// </summary>
-        /// <param name="game"></param>
-        public void LoadContent(RoguelancerGame game) { }
-        /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
@@ -72,11 +67,6 @@ namespace Roguelancer.Functionality {
             UpdateMatrices(game);
         }
         /// <summary>
-        /// Draw
-        /// </summary>
-        /// <param name="game"></param>
-        public void Draw(RoguelancerGame game) { }
-        /// <summary>
         /// Shake
         /// </summary>
         /// <param name="magnitude"></param>
@@ -108,13 +98,17 @@ namespace Roguelancer.Functionality {
             transform.Forward = Model.ChaseDirection;
             transform.Up = Model.Up;
             transform.Right = Vector3.Cross(Model.Up, Model.ChaseDirection);
-            if (Model.Mode == 0) {
-                Model.DesiredPosition = Model.ChasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.DesiredPositionOffset, transform);
-                Model.LookAt = Model.ChasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.LookAtOffset, transform);
-            }
-            if (Model.Mode == 2) {
-                Model.DesiredPosition = Model.ChasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.DesiredPositionOffset, transform);
-                Model.LookAt = Model.ChasePosition + game.Settings.CameraSettings.Model.ThrustViewAmount * Model.ChaseDirection;
+            switch (Model.Mode) {
+                case Enum.GameCameraModeEnum.Mode0:
+                    Model.DesiredPosition = Model.ChasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.DesiredPositionOffset, transform);
+                    Model.LookAt = Model.ChasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.LookAtOffset, transform);
+                    break;
+                case Enum.GameCameraModeEnum.Mode1:
+                    break;
+                case Enum.GameCameraModeEnum.Mode2:
+                    Model.DesiredPosition = Model.ChasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.DesiredPositionOffset, transform);
+                    Model.LookAt = Model.ChasePosition + game.Settings.CameraSettings.Model.ThrustViewAmount * Model.ChaseDirection;
+                    break;
             }
         }
         /// <summary>
@@ -123,8 +117,8 @@ namespace Roguelancer.Functionality {
         /// <param name="_X"></param>
         /// <param name="_Y"></param>
         /// <param name="game"></param>
-        private void UpdateNewCamera(float _X, float _Y, RoguelancerGame game) {
-            if (Model.Mode != 1) {
+        private void UpdateNewCamera(float x, float y, RoguelancerGame game) {
+            if (Model.Mode != Enum.GameCameraModeEnum.Mode1) {
                 return;
             }
             var transform = Matrix.Identity;
@@ -136,19 +130,19 @@ namespace Roguelancer.Functionality {
             Model.View = Matrix.CreateLookAt(o, d, Model.Up);
             Model.Projection = Matrix.CreatePerspectiveFieldOfView(game.Settings.CameraSettings.Model.FieldOfView, game.Settings.CameraSettings.Model.AspectRatio, game.Settings.CameraSettings.Model.NearPlaneDistance, game.Settings.CameraSettings.Model.ClippingDistance); //Builds a perspective projection matrix based on a field of view
             var f = new BoundingFrustum(Model.View * Model.Projection);
-            Vector3[] _Fcorners = new Vector3[8];
-            f.GetCorners(_Fcorners);
-            Vector3 _Fnx = _Fcorners[1] - _Fcorners[0];
-            Vector3 _Fny = _Fcorners[3] - _Fcorners[0];
-            Vector3 _MousePos = _Fcorners[0] + (_X * _Fnx) + (_Y * _Fny);
-            Vector3 _MouseDir = _MousePos - o;
+            var fcorners = new Vector3[8];
+            f.GetCorners(fcorners);
+            var _Fnx = fcorners[1] - fcorners[0];
+            var _Fny = fcorners[3] - fcorners[0];
+            var _MousePos = fcorners[0] + (x * _Fnx) + (y * _Fny);
+            var _MouseDir = _MousePos - o;
             Model.DesiredPosition = o;
             Model.LookAt = d;
             Vector3 v, v2 = (d - o);
             Vector3.Normalize(ref v2, out v);
-            Plane p = new Plane(v, -Vector3.Dot(v, d));
-            Ray r = new Ray(o, _MouseDir);
-            float? t = r.Intersects(p);
+            var p = new Plane(v, -Vector3.Dot(v, d));
+            var r = new Ray(o, _MouseDir);
+            var t = r.Intersects(p);
             if (t != null) {
                 v = o + (float)t * _MouseDir;
                 v = (v - d);
@@ -182,9 +176,9 @@ namespace Roguelancer.Functionality {
             Model.ChasePosition = playerShip.Model.Position;
             Model.ChaseDirection = playerShip.Model.Direction;
             Model.Up = playerShip.Model.Up;
-            if (Model.Mode == 1) {
+            if (Model.Mode == Enum.GameCameraModeEnum.Mode1) {
                 if (game.Input.InputItems.Mouse.State.LeftButton == ButtonState.Pressed) {
-                    UpdateNewCamera((float)game.Input.InputItems.Mouse.State.X / (float)game.GraphicsDevice.Viewport.Width, (float)game.Input.InputItems.Mouse.State.Y / (float)game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height, game);
+                    UpdateNewCamera((float)game.Input.InputItems.Mouse.State.X / (float)game.GraphicsDevice.Viewport.Width, (float)game.Input.InputItems.Mouse.State.Y / (float)game.Graphics.Model.GraphicsDeviceManager.GraphicsDevice.Viewport.Height, game);
                 } else {
                     UpdateNewCamera(game.Settings.CameraSettings.Model.NewCameraX, game.Settings.CameraSettings.Model.NewCameraY, game);
                 }

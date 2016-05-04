@@ -2,7 +2,6 @@
 // http://www.team-nexgen.com
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Globalization;
 using Microsoft.Xna.Framework;
 namespace Roguelancer.Functionality {
     /// <summary>

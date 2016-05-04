@@ -4,7 +4,7 @@ namespace Roguelancer.Enum {
     /// <summary>
     /// Model Type
     /// </summary>
-    public enum ModelType { // THE TYPE OF MODEL
+    public enum ModelType {
         /// <summary>
         /// Ship
         /// </summary>

@@ -111,6 +111,11 @@ namespace Roguelancer.Objects {
             Planets = new PlanetCollection();
             Stars = new Starfields(new StarSettings(false, 0, 0, 0, 0, 0, 0, 0));
         }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
+        }
         #endregion
     }
 }

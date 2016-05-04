@@ -168,12 +168,17 @@ namespace Roguelancer.Objects {
                     var fontOrigin = _font.MeasureString(sensorObject.Text) / 2;
                     if (sensorObject.Distance != (double)0) {
                         if (sensorObject.Distance < _maxDistance) {
-                            game.Graphics.SpriteBatch.DrawString(_font, sensorObject.Text + ": " + sensorObject.Distance.ToString("#.##"), sensorObject.FontPosition, Color.LightBlue, 0, sensorObject.FontOrigin, 2.0f, SpriteEffects.None, 0.5f);
+                            game.Graphics.Model.SpriteBatch.DrawString(_font, sensorObject.Text + ": " + sensorObject.Distance.ToString("#.##"), sensorObject.FontPosition, Color.LightBlue, 0, sensorObject.FontOrigin, 2.0f, SpriteEffects.None, 0.5f);
                         }
                     }
                 }
                 n++;
             }
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
         }
         #endregion
     }

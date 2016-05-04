@@ -1,29 +1,29 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
-using Roguelancer.Models;
+using Roguelancer.Models.Bloom;
 namespace Roguelancer.Interfaces {
     /// <summary>
-    /// Game Graphics
+    /// Bloom Component
     /// </summary>
-    public interface IGameGraphics {
+    public interface IBloomHandler {
         /// <summary>
-        /// Load Content
+        /// Model
+        /// </summary>
+        BloomHandlerModel Model { get; set; }
+        /// <summary>
+        /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        void LoadContent(RoguelancerGame game);
+        void Initialize(RoguelancerGame game);
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="game"></param>
+        void Update(RoguelancerGame game);
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
         void Draw(RoguelancerGame game);
-        /// <summary>
-        /// Dispose
-        /// </summary>
-        /// <param name="game"></param>
-        void Dispose(RoguelancerGame game);
-        /// <summary>
-        /// Model
-        /// </summary>
-        GameGraphicsModel Model { get; set; }
     }
 }

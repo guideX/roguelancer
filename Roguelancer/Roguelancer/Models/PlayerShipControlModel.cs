@@ -1,8 +1,14 @@
-﻿namespace Roguelancer.Models {
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://www.team-nexgen.com
+namespace Roguelancer.Models {
     /// <summary>
     /// Player Ship Control Model
     /// </summary>
     public class PlayerShipControlModel {
+        /// <summary>
+        /// Use Input
+        /// </summary>
+        public bool UseInput { get; set; }
         /// <summary>
         /// Shake Value
         /// </summary>

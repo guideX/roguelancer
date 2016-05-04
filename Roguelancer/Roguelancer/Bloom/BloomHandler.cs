@@ -6,11 +6,14 @@ namespace Roguelancer.Bloom {
     /// <summary>
     /// Bloom Handler
     /// </summary>
-    public class BloomHandler : IGame {
+    public class BloomHandler : IBloomHandler {
+        #region "public variables"
         /// <summary>
         /// Bloom Handler Model
         /// </summary>
         public BloomHandlerModel Model { get; set; }
+        #endregion
+        #region "public methods"
         /// <summary>
         /// Bloom Handler
         /// </summary>
@@ -33,8 +36,8 @@ namespace Roguelancer.Bloom {
         /// <summary>
         /// Load Content
         /// </summary>
-        public void LoadContent(RoguelancerGame game) {
-        }
+        //public void LoadContent(RoguelancerGame game) {
+        //}
         /// <summary>
         /// Update
         /// </summary>
@@ -53,5 +56,6 @@ namespace Roguelancer.Bloom {
                 Model.Bloom.BeginDraw();
             }
         }
+        #endregion
     }
 }

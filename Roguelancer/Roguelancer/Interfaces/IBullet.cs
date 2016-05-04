@@ -7,10 +7,6 @@ namespace Roguelancer.Interfaces {
     /// </summary>
     public interface IBullet : IGame {
         /// <summary>
-        /// Model
-        /// </summary>
-        GameModel Model { get; set; }
-        /// <summary>
         /// Bullet Model
         /// </summary>
         BulletModel BulletModel { get; set; }

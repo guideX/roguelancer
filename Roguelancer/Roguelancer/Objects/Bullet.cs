@@ -1,7 +1,6 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
 using System;
-using System.Linq;
 using System.Collections.Generic;
 using Roguelancer.Models;
 using Roguelancer.Interfaces;
@@ -9,114 +8,6 @@ using Roguelancer.Enum;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 namespace Roguelancer.Objects {
-    /// <summary>
-    /// Bullet
-    /// </summary>
-    public class Bullet : IBullet {
-        #region "public variables"
-        /// <summary>
-        /// Model
-        /// </summary>
-        public GameModel Model { get; set; }
-        /// <summary>
-        /// Bullet Model
-        /// </summary>
-        public BulletModel BulletModel { get; set; }
-        /// <summary>
-        /// Bullet Thrust
-        /// </summary>
-        private float _bulletThrust;
-        #endregion
-        #region "public functions"
-        /// <summary>
-        /// Entry Point
-        /// </summary>
-        /// <param name="texture"></param> 
-        public Bullet(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
-            _bulletThrust = bulletThrust;
-            BulletModel = new BulletModel();
-            BulletModel.PlayerShip = playerShipModel;
-            BulletModel.DeathDate = DateTime.Now.AddSeconds(deathSeconds);
-            Model = new GameModel(game, particleSystemSettings);
-            Model.UseScale = true;
-            Model.Scale = scale;
-            Model.WorldObject = new Settings.ModelWorldObjects(
-                "bullet",
-                BulletModel.PlayerShip.Model.Position + startupPosition,
-                new Vector3(0f, 0f, 0f),
-                new Settings.SettingsModelObject(
-                    modelPath,
-                    ModelType.Bullet,
-                    true,
-                    13
-                ),
-                1,
-                BulletModel.PlayerShip.Model.Up,
-                BulletModel.PlayerShip.Model.Right,
-                BulletModel.PlayerShip.Model.Velocity,
-                BulletModel.PlayerShip.Model.CurrentThrust,
-                BulletModel.PlayerShip.Model.Direction,
-                1.0f,
-                0,
-                0
-            );
-            Initialize(game);
-            LoadContent(game);
-        }
-        /// <summary>
-        /// Initialize
-        /// </summary>
-        /// <param name="game"></param>
-        public void Initialize(RoguelancerGame game) {
-            Model.Initialize(game);
-        }
-        /// <summary>
-        /// Load Content
-        /// </summary>
-        /// <param name="game"></param>
-        public void LoadContent(RoguelancerGame game) {
-            Model.LoadContent(game);
-        }
-        /// <summary>
-        /// Update
-        /// </summary>
-        /// <param name="game"></param>
-        public void Update(RoguelancerGame game) {
-            Vector3 force, acceleration;
-            var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds;
-            var rotationAmount = new Vector2();
-            if (BulletModel.PlayerShip == null) { BulletModel.PlayerShip = game.Objects.Ships.GetPlayerShip(game); }
-            Model.CurrentThrust = _bulletThrust + BulletModel.PlayerShip.Model.CurrentThrust;
-            Model.Rotation = rotationAmount;
-            Model.UpdatePosition();
-            force = Model.Direction * Model.CurrentThrust * BulletModel.ThrustForce;
-            acceleration = force / BulletModel.Mass;
-            Model.Velocity += acceleration * elapsed;
-            Model.Velocity *= BulletModel.DragFactor;
-            Model.Position += Model.Velocity * elapsed;
-            if (BulletModel.LimitAltitude) {
-                Model.Position.Y = Math.Max(Model.Position.Y, Model.MinimumAltitude);
-            }
-            Model.Update(game);
-        }
-        /// <summary>
-        /// Draw
-        /// </summary>
-        /// <param name="game"></param>
-        public void Draw(RoguelancerGame game) {
-            if (Model != null) {
-                Model.Draw(game);
-            }
-        }
-        /// <summary>
-        /// Dispose
-        /// </summary>
-        public void Dispose(RoguelancerGame game) {
-            Model.Dispose(game);
-            BulletModel = new BulletModel();
-        }
-        #endregion
-    }
     /// <summary>
     /// Bullets
     /// </summary>
@@ -133,14 +24,17 @@ namespace Roguelancer.Objects {
         #endregion
         #region "public functions"
         /// <summary>
-        /// Entry Point
+        /// Bullets Model
         /// </summary>
         public Model BulletsModel { get; set; }
+        /// <summary>
+        /// Particle Systems Settings
+        /// </summary>
+        private ParticleSystemSettingsModel _particleSystemSettings;
         /// <summary>
         /// Entry Point
         /// </summary>
         /// <param name="game"></param>
-        private ParticleSystemSettingsModel _particleSystemSettings;
         public Bullets(RoguelancerGame game) {
             _model = new BulletsModel();
             _particleSystemSettings = new ParticleSystemSettingsModel();
@@ -214,6 +108,117 @@ namespace Roguelancer.Objects {
                 bullet.Draw(game);
             }
         }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
+        }
         #endregion
     }
+    /// <summary>
+    /// Bullet
+    /// </summary>
+    public class Bullet : IBullet {
+        #region "public variables"
+        /// <summary>
+        /// Bullet Model
+        /// </summary>
+        public BulletModel BulletModel { get; set; }
+        #endregion
+        #region "public functions"
+        /// <summary>
+        /// Entry Point
+        /// </summary>
+        /// <param name="texture"></param> 
+        public Bullet(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
+            BulletModel = new BulletModel();
+            BulletModel.BulletThrust = bulletThrust;
+            BulletModel.PlayerShip = playerShipModel;
+            BulletModel.DeathDate = DateTime.Now.AddSeconds(deathSeconds);
+            BulletModel.Model = new GameModel(game, particleSystemSettings);
+            BulletModel.Model.UseScale = true;
+            BulletModel.Model.Scale = scale;
+            BulletModel.Model.WorldObject = new Settings.ModelWorldObjects(
+                "bullet",
+                BulletModel.PlayerShip.Model.Position + startupPosition,
+                new Vector3(0f, 0f, 0f),
+                new Settings.SettingsModelObject(
+                    modelPath,
+                    ModelType.Bullet,
+                    true,
+                    13
+                ),
+                1,
+                BulletModel.PlayerShip.Model.Up,
+                BulletModel.PlayerShip.Model.Right,
+                BulletModel.PlayerShip.Model.Velocity,
+                BulletModel.PlayerShip.Model.CurrentThrust,
+                BulletModel.PlayerShip.Model.Direction,
+                1.0f,
+                0,
+                0
+            );
+            Initialize(game);
+            LoadContent(game);
+        }
+        /// <summary>
+        /// Initialize
+        /// </summary>
+        /// <param name="game"></param>
+        public void Initialize(RoguelancerGame game) {
+            BulletModel.Model.Initialize(game);
+        }
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="game"></param>
+        public void LoadContent(RoguelancerGame game) {
+            BulletModel.Model.LoadContent(game);
+        }
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="game"></param>
+        public void Update(RoguelancerGame game) {
+            Vector3 force, acceleration;
+            var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds;
+            var rotationAmount = new Vector2();
+            if (BulletModel.PlayerShip == null) { BulletModel.PlayerShip = game.Objects.Ships.GetPlayerShip(game); }
+            BulletModel.Model.CurrentThrust = BulletModel.BulletThrust + BulletModel.PlayerShip.Model.CurrentThrust;
+            BulletModel.Model.Rotation = rotationAmount;
+            BulletModel.Model.UpdatePosition();
+            force = BulletModel.Model.Direction * BulletModel.Model.CurrentThrust * BulletModel.ThrustForce;
+            acceleration = force / BulletModel.Mass;
+            BulletModel.Model.Velocity += acceleration * elapsed;
+            BulletModel.Model.Velocity *= BulletModel.DragFactor;
+            BulletModel.Model.Position += BulletModel.Model.Velocity * elapsed;
+            if (BulletModel.LimitAltitude) {
+                BulletModel.Model.Position.Y = Math.Max(BulletModel.Model.Position.Y, BulletModel.Model.MinimumAltitude);
+            }
+            BulletModel.Model.Update(game);
+        }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
+        public void Draw(RoguelancerGame game) {
+            if (BulletModel.Model != null) {
+                BulletModel.Model.Draw(game);
+            }
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose(RoguelancerGame game) {
+            BulletModel.Model.Dispose(game);
+            BulletModel = new BulletModel();
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
+        }
+        #endregion
+    }
+
 }

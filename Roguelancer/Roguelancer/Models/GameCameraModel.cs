@@ -2,6 +2,7 @@
 // http://www.team-nexgen.com
 using System;
 using Microsoft.Xna.Framework;
+using Roguelancer.Enum;
 namespace Roguelancer.Models {
     /// <summary>
     /// Game Camera model
@@ -18,7 +19,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Mode
         /// </summary>
-        public int Mode { get; set; }
+        public GameCameraModeEnum Mode { get; set; }
         /// <summary>
         /// Chase Position
         /// </summary>
@@ -79,7 +80,7 @@ namespace Roguelancer.Models {
         /// Entry Point
         /// </summary>
         public GameCameraModel() {
-            Mode = 2;
+            Mode = GameCameraModeEnum.Mode2;
             ShakeRandom = new Random();
             Up = Vector3.Up;
         }

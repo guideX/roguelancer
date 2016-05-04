@@ -80,23 +80,23 @@ namespace Roguelancer {
             IsMouseVisible = true;
             Camera = new GameCamera();
             Graphics = new GameGraphics(this);
-            Graphics.Initialize(this);
+            //Graphics.Initialize(this);
             _bloom = new BloomHandler(this);
             Input = new Input();
             DebugText = new DebugText();
             Objects = new GameObjects(this);
             GameMenu = new GameMenu();
             Hud = new HudObject();
-            GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
+            GameMenu.Model.CurrentMenu = CurrentMenu.HomeMenu;
         }
         /// <summary>
         /// Initialize
         /// </summary>
         protected override void Initialize() {
-            Graphics.Initialize(this);
+            //Graphics.Initialize(this);
             Camera.Initialize(this);
             _bloom.Initialize(this);
-            Input.Initialize(this);
+            //Input.Initialize(this);
             Objects.Initialize(this);
             GameMenu.Initialize(this);
             Hud.Initialize(this);
@@ -106,9 +106,9 @@ namespace Roguelancer {
         /// Load Content
         /// </summary>
         protected override void LoadContent() {
-            Camera.LoadContent(this);
+            //Camera.LoadContent(this);
             Graphics.LoadContent(this);
-            _bloom.LoadContent(this);
+            //_bloom.LoadContent(this);
             DebugText.LoadContent(this);
             DebugText.Update(this);
             Objects.LoadContent(this);
@@ -129,7 +129,7 @@ namespace Roguelancer {
             Camera.Update(this);
             DebugText.Update(this);
             GameMenu.Update(this);
-            if (GameState.CurrentGameState == GameStates.Playing) {
+            if (GameState.Model.CurrentGameState == GameStates.Playing) {
                 Hud.Update(this);
             }
             base.Update(gameTime);
@@ -140,17 +140,17 @@ namespace Roguelancer {
         /// <param name="gameTime"></param>
         protected override void Draw(GameTime gameTime) {
             GameTime = gameTime;
-            Graphics.SpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
+            Graphics.Model.SpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
             _bloom.Draw(this);
-            if (GameState.CurrentGameState == GameStates.Playing) {
-                if (GameState.LastGameState != GameState.CurrentGameState) {
+            if (GameState.Model.CurrentGameState == GameStates.Playing) {
+                if (GameState.Model.LastGameState != GameState.Model.CurrentGameState) {
                     GraphicsDevice.Clear(Color.Black);
                 }
                 Graphics.Draw(this);
                 Objects.Draw(this);
                 Hud.Draw(this);
-            } else if (GameState.CurrentGameState == GameStates.Menu) {
-                if (GameState.LastGameState != GameState.CurrentGameState) {
+            } else if (GameState.Model.CurrentGameState == GameStates.Menu) {
+                if (GameState.Model.LastGameState != GameState.Model.CurrentGameState) {
                     GraphicsDevice.Clear(Color.Black);
                 }
                 GameMenu.Draw(this);
@@ -160,7 +160,7 @@ namespace Roguelancer {
                 //} else if (GameState.CurrentGameState == GameStates.Docked) {
             }
             DebugText.Draw(this);
-            Graphics.SpriteBatch.End();
+            Graphics.Model.SpriteBatch.End();
             base.Draw(gameTime);
         }
         #endregion

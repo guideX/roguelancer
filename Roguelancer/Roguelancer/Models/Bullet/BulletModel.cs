@@ -7,7 +7,10 @@ namespace Roguelancer.Models {
     /// Bullet Model
     /// </summary>
     public class BulletModel {
-        #region "public variables"
+        /// <summary>
+        /// Model
+        /// </summary>
+        public GameModel Model { get; set; }
         /// <summary>
         /// Player Ship
         /// </summary>
@@ -32,8 +35,10 @@ namespace Roguelancer.Models {
         /// Limit Altitude
         /// </summary>
         public bool LimitAltitude { get; set; }
-        #endregion
-        #region "public functions"
+        /// <summary>
+        /// Bullet Thrust
+        /// </summary>
+        public float BulletThrust { get; set; }
         /// <summary>
         /// Bullet Model
         /// </summary>
@@ -42,6 +47,5 @@ namespace Roguelancer.Models {
             ThrustForce = thrustForce;
             DragFactor = dragFactor;
         }
-        #endregion
     }
 }

@@ -7,6 +7,7 @@ using Roguelancer.Interfaces;
 using Roguelancer.Settings;
 using Roguelancer.Models;
 using Roguelancer.Enum;
+using System;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Ship Collection
@@ -29,7 +30,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <returns></returns>
         public Ship GetPlayerShip(RoguelancerGame game) {
-            return game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.UseInput).LastOrDefault();
+            return game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.Model.UseInput).LastOrDefault();
         }
         /// <summary>
         /// Initialize
@@ -76,15 +77,20 @@ namespace Roguelancer.Objects {
             var playerShip = new Ship(game);
             Ship tempShip;
             playerShip.Model.WorldObject = game.Settings.StarSystemSettings[game.StarSystemId].Ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer).FirstOrDefault();
-            playerShip.PlayerShipControl.UseInput = true;
+            playerShip.PlayerShipControl.Model.UseInput = true;
             Ships.Add(playerShip);
             foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].Ships.Where(s => !s.SettingsModelObject.isPlayer).ToList()) {
                 tempShip = new Ship(game);
                 tempShip.Model = new GameModel(game, null);
                 tempShip.Model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
-                tempShip.PlayerShipControl.UseInput = false;
+                tempShip.PlayerShipControl.Model.UseInput = false;
                 Ships.Add(Ship.Clone(tempShip, game));
             }
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
         }
         #endregion
     }
@@ -150,9 +156,9 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             Model.Initialize(game);
-            if (PlayerShipControl.UseInput) {
+            if (PlayerShipControl.Model.UseInput) {
                 PlayerShipControl = new PlayerShipControl();
-                PlayerShipControl.Initialize(game);
+                //PlayerShipControl.Initialize(game);
             }
         }
         /// <summary>
@@ -161,17 +167,17 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             Model.LoadContent(game);
-            if (PlayerShipControl.UseInput) {
-                PlayerShipControl.LoadContent(game);
-            }
+            //if (PlayerShipControl.UseInput) {
+                //PlayerShipControl.LoadContent(game);
+            //}
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (game.GameState.CurrentGameState == GameStates.Playing) {
-                if (PlayerShipControl.UseInput) {
+            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+                if (PlayerShipControl.Model.UseInput) {
                     PlayerShipControl.UpdateModel(Model, game);
                     if (!game.Input.InputItems.Toggles.ToggleCamera) {
                         Model.Update(game);
@@ -188,10 +194,15 @@ namespace Roguelancer.Objects {
         public void Draw(RoguelancerGame game) {
             if (!Docked) {
                 Model.Draw(game);
-                if (PlayerShipControl.UseInput) {
-                    PlayerShipControl.Draw(game);
-                }
+                //if (PlayerShipControl.Model.UseInput) {
+                    //PlayerShipControl.Draw(game);
+                //}
             }
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
         }
         #endregion
     }

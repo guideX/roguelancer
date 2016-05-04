@@ -2,12 +2,22 @@
 // http://www.team-nexgen.com
 using Roguelancer.Models;
 namespace Roguelancer.Interfaces {
-    public interface IInput : IGame {
-        #region "public variables"
+    /// <summary>
+    /// Input
+    /// </summary>
+    public interface IInput {
         /// <summary>
         /// Input Items
         /// </summary>
         InputItemsModel InputItems { get; set; }
-        #endregion
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="game"></param>
+        void Update(RoguelancerGame game);
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        void Dispose();
     }
 }

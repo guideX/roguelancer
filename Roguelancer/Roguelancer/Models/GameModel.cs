@@ -59,7 +59,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Minimum Altitude
         /// </summary>
-        public float MinimumAltitude = 350.0f;
+        public float MinimumAltitude { get; set; }
         /// <summary>
         /// World Object
         /// </summary>
@@ -81,6 +81,7 @@ namespace Roguelancer.Models {
         /// </summary>
         /// <param name="game"></param>
         public GameModel(RoguelancerGame game, ParticleSystemSettingsModel particleSystemSettings) {
+            MinimumAltitude = 350.0f;
             Velocity = Vector3.Zero;
             //Position = new Vector3(.5f, MinimumAltitude, 0);
             Position = new Vector3(0, MinimumAltitude, 0);
@@ -156,7 +157,7 @@ namespace Roguelancer.Models {
                 World.Right = Right;
                 World.Translation = Position;
             }
-            if (game.GameState.CurrentGameState != GameStates.Playing) {
+            if (game.GameState.Model.CurrentGameState != GameStates.Playing) {
                 CurrentThrust = 0.0f;
                 game.Input.InputItems.Toggles.Cruise = false;
             }
@@ -173,7 +174,7 @@ namespace Roguelancer.Models {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            if (game.GameState.CurrentGameState == GameStates.Playing) {
+            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
                 var transforms = new Matrix[_model.Bones.Count];
                 _model.CopyAbsoluteBoneTransformsTo(transforms);
                 if (ParticleSystem != null) {
@@ -218,6 +219,11 @@ namespace Roguelancer.Models {
                 ParticleSystem = new ParticleSystem(game);
             }
             _model = null;
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
         }
         #endregion
     }

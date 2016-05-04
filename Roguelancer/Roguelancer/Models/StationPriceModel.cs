@@ -1,6 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
-//using Roguelancer.Objects;
 namespace Roguelancer.Models {
     /// <summary>
     /// Station Price Model

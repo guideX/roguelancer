@@ -1,5 +1,6 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
+using System;
 using System.Collections.Generic;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
@@ -59,6 +60,11 @@ namespace Roguelancer.Objects {
                 Planets[i].Draw(game);
             }
         }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
+        }
         #endregion
     }
     /// <summary>
@@ -108,6 +114,11 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             Model.Draw(game);
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
         }
         #endregion
     }

@@ -185,7 +185,7 @@ namespace Roguelancer.Particle.System {
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             if(Settings.Enabled) {
-                float lAspectRatio = (float)game.GraphicsDevice.Viewport.Width / (float)game.Graphics.GraphicsDeviceManager.GraphicsDevice.Viewport.Height;
+                float lAspectRatio = (float)game.GraphicsDevice.Viewport.Width / (float)game.Graphics.Model.GraphicsDeviceManager.GraphicsDevice.Viewport.Height;
                 _view = 
                     Matrix.CreateTranslation(0, -25, 0) * 
                     Matrix.CreateRotationY(MathHelper.ToRadians(Settings.CameraRotation)) * 

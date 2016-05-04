@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.org
+// http://www.team-nexgen.com
 using System;
 using Microsoft.Xna.Framework;
 using Roguelancer.Interfaces;
@@ -9,14 +9,12 @@ namespace Roguelancer.Functionality {
     /// Player Ship Control
     /// </summary>
     public class PlayerShipControl : IPlayerShipControl {
+        #region "public variables"
         /// <summary>
         /// Player Ship Model
         /// </summary>
         public PlayerShipControlModel Model { get; set; }
-        /// <summary>
-        /// Use Input
-        /// </summary>
-        public bool UseInput { get; set; }
+        #endregion
         #region "public functions"
         /// <summary>
         /// Player Ship Control
@@ -24,28 +22,8 @@ namespace Roguelancer.Functionality {
         public PlayerShipControl() {
             Model = new PlayerShipControlModel();
             Model.ShakeValue = .8f;
-            UseInput = true;
+            Model.UseInput = true;
         }
-        /// <summary>
-        /// Initialize
-        /// </summary>
-        /// <param name="game"></param>
-        public void Initialize(RoguelancerGame game) { }
-        /// <summary>
-        /// Load Content
-        /// </summary>
-        /// <param name="game"></param>
-        public void LoadContent(RoguelancerGame game) { }
-        /// <summary>
-        /// Update
-        /// </summary>
-        /// <param name="game"></param>
-        public void Update(RoguelancerGame game) { }
-        /// <summary>
-        /// Draw
-        /// </summary>
-        /// <param name="game"></param>
-        public void Draw(RoguelancerGame game) { }
         /// <summary>
         /// Update Model
         /// </summary>
@@ -55,9 +33,9 @@ namespace Roguelancer.Functionality {
             Vector3 force, acceleration;
             var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds; // Elapsed time
             var rotationAmount = new Vector2(); // Create Vector for Rotation Amount
-            var w2 = (float)game.Graphics.GraphicsDeviceManager.PreferredBackBufferWidth / PlayerShipControlModel.UpdateDirectionX;
-            var h2 = (float)game.Graphics.GraphicsDeviceManager.PreferredBackBufferHeight / PlayerShipControlModel.UpdateDirectionY;
-            if (UseInput) {
+            var w2 = (float)game.Graphics.Model.GraphicsDeviceManager.PreferredBackBufferWidth / PlayerShipControlModel.UpdateDirectionX;
+            var h2 = (float)game.Graphics.Model.GraphicsDeviceManager.PreferredBackBufferHeight / PlayerShipControlModel.UpdateDirectionY;
+            if (Model.UseInput) {
                 if (game.Input.InputItems.Toggles.MouseMode && !game.Input.InputItems.Toggles.FreeMouseMode) { // Flying around but must click to adjust direction
                     if (game.Input.InputItems.Mouse.LeftButton) { // Left Button
                         rotationAmount.X = (game.Input.InputItems.Mouse.Vector.X - w2) / -w2; // Adjust X
@@ -89,7 +67,7 @@ namespace Roguelancer.Functionality {
             }
             model.Rotation = rotationAmount;
             model.UpdatePosition();
-            if (UseInput) {
+            if (Model.UseInput) {
                 if (game.Input.InputItems.Keys.W) {
                     game.Camera.Shake(Model.ShakeValue, 0f, false);
                     if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAmount) {

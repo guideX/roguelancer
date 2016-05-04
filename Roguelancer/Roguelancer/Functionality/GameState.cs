@@ -2,6 +2,7 @@
 // http://www.team-nexgen.com
 using Roguelancer.Enum;
 using Roguelancer.Interfaces;
+using Roguelancer.Models;
 namespace Roguelancer.Functionality {
     /// <summary>
     /// Game State
@@ -9,26 +10,19 @@ namespace Roguelancer.Functionality {
     public class GameState : IGameStates {
         #region "public variables"
         /// <summary>
-        /// Docked Game State
+        /// Game State Model
         /// </summary>
-        public DockedGameStateEnum DockedGameState { get; set; }
-        /// <summary>
-        /// Current Game State
-        /// </summary>
-        public GameStates CurrentGameState { get; set; }
-        /// <summary>
-        /// Last Game State
-        /// </summary>
-        public GameStates LastGameState { get; set; }
+        public GameStateModel Model { get; set; }
         #endregion
         #region "public functions"
         /// <summary>
         /// Entry Point
         /// </summary>
         public GameState() {
-            CurrentGameState = new GameStates();
-            CurrentGameState = GameStates.Menu;
-            DockedGameState = DockedGameStateEnum.Hanger;
+            Model = new GameStateModel();
+            Model.CurrentGameState = new GameStates();
+            Model.CurrentGameState = GameStates.Menu;
+            Model.DockedGameState = DockedGameStateEnum.Hanger;
         }
         #endregion
     }

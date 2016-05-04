@@ -91,7 +91,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (game.GameState.CurrentGameState == GameStates.Menu) {
+            if (game.GameState.Model.CurrentGameState == GameStates.Menu) {
                 var mouseRectangle = new Rectangle(game.Input.InputItems.Mouse.State.X, game.Input.InputItems.Mouse.State.Y, 1, 1);
                 _rectangle = new Rectangle((int)Position.X, (int)Position.Y, (int)_size.X, (int)_size.Y);
                 _textRectangle = new Rectangle((int)TextPosition.X, (int)TextPosition.Y, (int)_size.X - 80, (int)_size.Y - YOffset);
@@ -117,9 +117,9 @@ namespace Roguelancer.Objects {
                 if (Clicked) {
                     switch (_text) {
                         case "New Game":
-                            if (game.GameState.CurrentGameState == GameStates.Menu) {
-                                game.GameState.LastGameState = game.GameState.CurrentGameState;
-                                game.GameState.CurrentGameState = GameStates.Playing;
+                            if (game.GameState.Model.CurrentGameState == GameStates.Menu) {
+                                game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
+                                game.GameState.Model.CurrentGameState = GameStates.Playing;
                                 Clicked = false;
                             }
                             break;
@@ -128,14 +128,14 @@ namespace Roguelancer.Objects {
                         case "Multiplayer":
                             break;
                         case "Options":
-                            game.GameMenu.CurrentMenu = CurrentMenu.OptionsMenu;
-                            game.GameState.CurrentGameState = GameStates.Menu;
+                            game.GameMenu.Model.CurrentMenu = CurrentMenu.OptionsMenu;
+                            game.GameState.Model.CurrentGameState = GameStates.Menu;
                             Clicked = false;
                             break;
                         case "Return":
-                            if (game.GameMenu.CurrentMenu == CurrentMenu.OptionsMenu) {
-                                game.GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
-                                game.GameState.CurrentGameState = GameStates.Menu;
+                            if (game.GameMenu.Model.CurrentMenu == CurrentMenu.OptionsMenu) {
+                                game.GameMenu.Model.CurrentMenu = CurrentMenu.HomeMenu;
+                                game.GameState.Model.CurrentGameState = GameStates.Menu;
                                 Clicked = false;
                             }
                             break;
@@ -154,9 +154,14 @@ namespace Roguelancer.Objects {
         public void Draw(RoguelancerGame game) {
             if (Texture != null) {
                 var f = Font.MeasureString(_text);
-                game.Graphics.SpriteBatch.DrawString(Font, _text, TextPosition, Color.Red, 0, f, 3.0f, SpriteEffects.None, 0.5f);
-                game.Graphics.SpriteBatch.Draw(Texture, _rectangle, _color);
+                game.Graphics.Model.SpriteBatch.DrawString(Font, _text, TextPosition, Color.Red, 0, f, 3.0f, SpriteEffects.None, 0.5f);
+                game.Graphics.Model.SpriteBatch.Draw(Texture, _rectangle, _color);
             }
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose() {
         }
         #endregion
     }
