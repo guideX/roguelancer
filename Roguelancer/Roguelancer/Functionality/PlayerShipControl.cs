@@ -54,33 +54,33 @@ namespace Roguelancer.Functionality {
         public void UpdateModel(GameModel model, RoguelancerGame game) {
             Vector3 force, acceleration;
             var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds; // Elapsed time
-            var rotationAmount = new Vector2();
+            var rotationAmount = new Vector2(); // Create Vector for Rotation Amount
             var w2 = (float)game.Graphics.GraphicsDeviceManager.PreferredBackBufferWidth / PlayerShipControlModel.UpdateDirectionX;
             var h2 = (float)game.Graphics.GraphicsDeviceManager.PreferredBackBufferHeight / PlayerShipControlModel.UpdateDirectionY;
             if (UseInput) {
-                if (game.Input.InputItems.Toggles.MouseMode && !game.Input.InputItems.Toggles.FreeMouseMode) {
-                    if (game.Input.InputItems.Mouse.LeftButton) {
-                        rotationAmount.X = (game.Input.InputItems.Mouse.Vector.X - w2) / -w2;
-                        rotationAmount.Y = (game.Input.InputItems.Mouse.Vector.Y - h2) / -h2;
+                if (game.Input.InputItems.Toggles.MouseMode && !game.Input.InputItems.Toggles.FreeMouseMode) { // Flying around but must click to adjust direction
+                    if (game.Input.InputItems.Mouse.LeftButton) { // Left Button
+                        rotationAmount.X = (game.Input.InputItems.Mouse.Vector.X - w2) / -w2; // Adjust X
+                        rotationAmount.Y = (game.Input.InputItems.Mouse.Vector.Y - h2) / -h2; // Adjust Y
                     }
-                } else if (!game.Input.InputItems.Toggles.MouseMode && game.Input.InputItems.Toggles.FreeMouseMode) {
-                    rotationAmount.X = (game.Input.InputItems.Mouse.Vector.X - w2) / -w2;
-                    rotationAmount.Y = (game.Input.InputItems.Mouse.Vector.Y - h2) / -h2;
+                } else if (!game.Input.InputItems.Toggles.MouseMode && game.Input.InputItems.Toggles.FreeMouseMode) { // Flying around
+                    rotationAmount.X = (game.Input.InputItems.Mouse.Vector.X - w2) / -w2; // Adjust X
+                    rotationAmount.Y = (game.Input.InputItems.Mouse.Vector.Y - h2) / -h2; // Adjust Y
                 }
-                if (game.Input.InputItems.Keys.Left) {
-                    rotationAmount.X = PlayerShipControlModel.RotationXLeftAdd;
+                if (game.Input.InputItems.Keys.Left) { // Keys Left
+                    rotationAmount.X = PlayerShipControlModel.RotationXLeftAdd; // Add Rotation Left
                 }
-                if (game.Input.InputItems.Keys.Right) {
-                    rotationAmount.X = PlayerShipControlModel.RotationXRightAdd;
+                if (game.Input.InputItems.Keys.Right) { // Keys Right
+                    rotationAmount.X = PlayerShipControlModel.RotationXRightAdd; // Add Rotation Right
                 }
-                if (game.Input.InputItems.Keys.Up) {
-                    rotationAmount.Y = PlayerShipControlModel.RotationYUpAdd;
+                if (game.Input.InputItems.Keys.Up) { // Keys Up
+                    rotationAmount.Y = PlayerShipControlModel.RotationYUpAdd; // Add Rotation Up
                 }
-                if (game.Input.InputItems.Keys.Down) {
-                    rotationAmount.Y = PlayerShipControlModel.RotationYDownAdd;
+                if (game.Input.InputItems.Keys.Down) { // Keys Down
+                    rotationAmount.Y = PlayerShipControlModel.RotationYDownAdd; // Add Rotation Down
                 }
-                if (game.Input.InputItems.Keys.Z) {
-                    model.Up.Y = 0f;
+                if (game.Input.InputItems.Keys.Z) { // Z
+                    model.Up.Y = 0f; // Stop
                 }
                 rotationAmount = rotationAmount * PlayerShipControlModel.RotationRate * elapsed;
                 if (model.Up.Y < 0) {

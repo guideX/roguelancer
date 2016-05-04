@@ -137,6 +137,7 @@
     <Compile Include="Models\CameraSettingsModel.cs" />
     <Compile Include="Models\CargoHoldModel.cs" />
     <Compile Include="Models\CommodityModel.cs" />
+    <Compile Include="Models\GameCameraModel.cs" />
     <Compile Include="Models\HudModel.cs" />
     <Compile Include="Models\Particle\ParticleStarSheetModel.cs" />
     <Compile Include="Models\PlayerShipControlModel.cs" />

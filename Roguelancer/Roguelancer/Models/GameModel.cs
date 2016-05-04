@@ -82,7 +82,8 @@ namespace Roguelancer.Models {
         /// <param name="game"></param>
         public GameModel(RoguelancerGame game, ParticleSystemSettingsModel particleSystemSettings) {
             Velocity = Vector3.Zero;
-            Position = new Vector3(.5f, MinimumAltitude, 0);
+            //Position = new Vector3(.5f, MinimumAltitude, 0);
+            Position = new Vector3(0, MinimumAltitude, 0);
             Up = Vector3.Up;
             Right = Vector3.Right;
             CurrentThrust = 0.0f;
@@ -180,19 +181,19 @@ namespace Roguelancer.Models {
                         ParticleSystem.Draw(game);
                     }
                 }
-                foreach (ModelMesh modelMesh in _model.Meshes) {
-                    foreach (BasicEffect basicEffect in modelMesh.Effects) {
-                        basicEffect.Alpha = 1;
-                        basicEffect.EnableDefaultLighting();
+                foreach (ModelMesh mm in _model.Meshes) {
+                    foreach (BasicEffect be in mm.Effects) {
+                        be.Alpha = 1;
+                        be.EnableDefaultLighting();
                         if (UseScale) {
-                            basicEffect.World = Matrix.CreateScale(Scale) * transforms[modelMesh.ParentBone.Index] * World;
+                            be.World = Matrix.CreateScale(Scale) * transforms[mm.ParentBone.Index] * World;
                         } else {
-                            basicEffect.World = transforms[modelMesh.ParentBone.Index] * World;
+                            be.World = transforms[mm.ParentBone.Index] * World;
                         }
-                        basicEffect.View = game.Camera.View;
-                        basicEffect.Projection = game.Camera.Projection;
+                        be.View = game.Camera.Model.View;
+                        be.Projection = game.Camera.Model.Projection;
                     }
-                    modelMesh.Draw();
+                    mm.Draw();
                 }
             }
         }
