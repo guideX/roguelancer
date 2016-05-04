@@ -10,11 +10,11 @@
         /// <summary>
         /// Update Direction X
         /// </summary>
-        public const float UpdateDirectionX = 3.0f;
+        public const float UpdateDirectionX = 2.0f;
         /// <summary>
         /// Update Direction Y
         /// </summary>
-        public const float UpdateDirectionY = 3.0f;
+        public const float UpdateDirectionY = 2.0f;
         /// <summary>
         /// Rotation X Left Add
         /// </summary>
@@ -42,7 +42,7 @@
         /// <summary>
         /// Thrust Force
         /// </summary>
-        public const float ThrustForce = 44000.0f;
+        public const float ThrustForce = 24000.0f;
         /// <summary>
         /// Drag Factor
         /// </summary>
@@ -50,11 +50,11 @@
         /// <summary>
         /// Max Thrust Amount
         /// </summary>
-        public const float MaxThrustAmount = 0.3f;
+        public const float MaxThrustAmount = 0.2f;
         /// <summary>
         /// Max Thrust Afterburner Amount
         /// </summary>
-        public const float MaxThrustAfterburnerAmount = 1.0f;
+        public const float MaxThrustAfterburnerAmount = 0.4f;
         /// <summary>
         /// thrust Add Speed
         /// </summary>
@@ -78,7 +78,7 @@
         /// <summary>
         /// Max Cruise Speed
         /// </summary>
-        public const float MaxCruiseSpeed = 2.0f;
+        public const float MaxCruiseSpeed = 1.3f;
         /// <summary>
         /// Limit Altitude
         /// </summary>
