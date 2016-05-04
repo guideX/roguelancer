@@ -37,7 +37,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         /// <param name="ship"></param>
         public virtual void Dock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject) {
-            var _ship = game.Objects.Ships.GetPlayerShip(game); // Get Player Ship
+            var _ship = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
             if (_ship == ship) { // If Docking Ship is Player Ship
                 game.GameState.Model.CurrentGameState = Enum.GameStates.Docked; // Set Current Game State to Docked
             }
@@ -51,7 +51,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         /// <param name="ship"></param>
         public virtual void UnDock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject) {
-            var playerShip = game.Objects.Ships.GetPlayerShip(game); // Get Player Ship
+            var playerShip = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
             if (playerShip == ship) {
                 game.GameState.Model.CurrentGameState = Enum.GameStates.Playing;
             }
@@ -93,12 +93,12 @@ namespace Roguelancer.Objects {
             if (stationPrices.Any()) {
                 var commodity = game.Settings.CommoditiesModels.Where(c => c.CommodityId == commodityID).FirstOrDefault();
                 var stationPrice = StationPrices.FirstOrDefault();
-                var ship = game.Objects.Ships.GetPlayerShip(game); // Get Player Ship
-                if (ship.Money * qty >= stationPrice.Price * qty) {
+                var ship = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
+                if (ship.ShipModel.Money * qty >= stationPrice.Price * qty) {
                     if (stationPrice.Qty >= qty) {
-                        ship.Money = ship.Money - stationPrice.Price;
+                        ship.ShipModel.Money = ship.ShipModel.Money - stationPrice.Price;
                         for (int i = 1; i <= qty; i++) {
-                            ship.CargoHold.Commodities.Add(commodity);
+                            ship.ShipModel.CargoHold.Commodities.Add(commodity);
                             stationPrice.Qty = stationPrice.Qty - 1;
                         }
                         game.DebugText.SetText(game, qty.ToString() + "Item(s) purchased", true);

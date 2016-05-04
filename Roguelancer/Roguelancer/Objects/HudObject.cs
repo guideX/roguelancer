@@ -95,7 +95,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            _playerShip = game.Objects.Ships.GetPlayerShip(game); // Get Player Ship
+            _playerShip = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
             _font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.FontSmall);
             _sensor = game.Content.Load<Texture2D>(game.Settings.SensorTexture);
         }
@@ -110,11 +110,11 @@ namespace Roguelancer.Objects {
             var shipId = 0;
             _updateOrderInt++;
             if (_updateOrderInt > _updateOrderInterval) {
-                if (_playerShip == null) { _playerShip = game.Objects.Ships.GetPlayerShip(game); }
+                if (_playerShip == null) { _playerShip = game.Objects.Model.Ships.GetPlayerShip(game); }
                 _screenRectangle = new Rectangle(_imageLeft, _imageTop, _imageWidth, _imageHeight);
-                if (((game.Objects.Ships.Ships.Count + game.Objects.Stations.Stations.Count) - 1) != _model.SensorObjects.Count) {
+                if (((game.Objects.Model.Ships.Ships.Count + game.Objects.Model.Stations.Stations.Count) - 1) != _model.SensorObjects.Count) {
                     _model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();
-                    foreach (var ship in game.Objects.Ships.Ships) {
+                    foreach (var ship in game.Objects.Model.Ships.Ships) {
                         shipId++;
                         d = Vector3.Distance(_playerShip.Model.Position, ship.Model.Position) / DivisionDistanceValue;
                         text = "Ship " + shipId.ToString();
@@ -129,7 +129,7 @@ namespace Roguelancer.Objects {
                             n = n + _fontIncrement;
                         }
                     }
-                    foreach (var station in game.Objects.Stations.Stations) {
+                    foreach (var station in game.Objects.Model.Stations.Stations) {
                         d = (double)Vector3.Distance(_playerShip.Model.Position, station.Model.Position) / DivisionDistanceValue;
                         text = station.Model.WorldObject.Description;
                         _model.SensorObjects.Add(new HudSensorObject() {

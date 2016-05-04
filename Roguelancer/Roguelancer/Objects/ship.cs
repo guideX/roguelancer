@@ -7,7 +7,6 @@ using Roguelancer.Interfaces;
 using Roguelancer.Settings;
 using Roguelancer.Models;
 using Roguelancer.Enum;
-using System;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Ship Collection
@@ -30,7 +29,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <returns></returns>
         public Ship GetPlayerShip(RoguelancerGame game) {
-            return game.Objects.Ships.Ships.Where(s => s.PlayerShipControl.Model.UseInput).LastOrDefault();
+            return game.Objects.Model.Ships.Ships.Where(s => s.ShipModel.PlayerShipControl.Model.UseInput).LastOrDefault();
         }
         /// <summary>
         /// Initialize
@@ -77,13 +76,13 @@ namespace Roguelancer.Objects {
             var playerShip = new Ship(game);
             Ship tempShip;
             playerShip.Model.WorldObject = game.Settings.StarSystemSettings[game.StarSystemId].Ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer).FirstOrDefault();
-            playerShip.PlayerShipControl.Model.UseInput = true;
+            playerShip.ShipModel.PlayerShipControl.Model.UseInput = true;
             Ships.Add(playerShip);
             foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].Ships.Where(s => !s.SettingsModelObject.isPlayer).ToList()) {
                 tempShip = new Ship(game);
                 tempShip.Model = new GameModel(game, null);
                 tempShip.Model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
-                tempShip.PlayerShipControl.Model.UseInput = false;
+                tempShip.ShipModel.PlayerShipControl.Model.UseInput = false;
                 Ships.Add(Ship.Clone(tempShip, game));
             }
         }
@@ -100,29 +99,17 @@ namespace Roguelancer.Objects {
     public class Ship : IGame, ISensorObject, IDockableShip {
         #region "public variables"
         /// <summary>
-        /// Money
-        /// </summary>
-        public decimal Money { get; set; }
-        /// <summary>
-        /// Cargo Hold
-        /// </summary>
-        public CargoHoldModel CargoHold { get; set; }
-        /// <summary>
-        /// Hard Points
-        /// </summary>
-        //public List<HardPoint> HardPoints { get; set; }
-        /// <summary>
         /// Docked
         /// </summary>
         public bool Docked { get; set; }
         /// <summary>
+        /// Ship Model
+        /// </summary>
+        public ShipModel ShipModel { get; set; }
+        /// <summary>
         /// Game Model
         /// </summary>
         public GameModel Model { get; set; }
-        /// <summary>
-        /// Player Ship Control
-        /// </summary>
-        public IPlayerShipControl PlayerShipControl;
         #endregion
         #region "public functions"
         /// <summary>
@@ -130,10 +117,11 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public Ship(RoguelancerGame game) {
-            Money = 2000.00m;
-            CargoHold = new CargoHoldModel();
+            ShipModel = new ShipModel();
+            ShipModel.Money = 2000.00m;
+            ShipModel.CargoHold = new CargoHoldModel();
             Model = new GameModel(game, null);
-            PlayerShipControl = new PlayerShipControl();
+            ShipModel.PlayerShipControl = new PlayerShipControl();
             //HardPoints = new List<HardPoint>();
         }
         /// <summary>
@@ -145,9 +133,9 @@ namespace Roguelancer.Objects {
         public static Ship Clone(Ship oldShip, RoguelancerGame game) {
             Ship ship;
             ship = new Ship(game);
-            ship.PlayerShipControl = oldShip.PlayerShipControl;
+            ship.ShipModel.PlayerShipControl = oldShip.ShipModel.PlayerShipControl;
             ship.Model = oldShip.Model;
-            ship.CargoHold = oldShip.CargoHold;
+            ship.ShipModel.CargoHold = oldShip.ShipModel.CargoHold;
             return ship;
         }
         /// <summary>
@@ -156,9 +144,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             Model.Initialize(game);
-            if (PlayerShipControl.Model.UseInput) {
-                PlayerShipControl = new PlayerShipControl();
-                //PlayerShipControl.Initialize(game);
+            if (ShipModel.PlayerShipControl.Model.UseInput) {
+                ShipModel.PlayerShipControl = new PlayerShipControl();
             }
         }
         /// <summary>
@@ -167,9 +154,6 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             Model.LoadContent(game);
-            //if (PlayerShipControl.UseInput) {
-                //PlayerShipControl.LoadContent(game);
-            //}
         }
         /// <summary>
         /// Update
@@ -177,8 +161,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
-                if (PlayerShipControl.Model.UseInput) {
-                    PlayerShipControl.UpdateModel(Model, game);
+                if (ShipModel.PlayerShipControl.Model.UseInput) {
+                    ShipModel.PlayerShipControl.UpdateModel(Model, game);
                     if (!game.Input.InputItems.Toggles.ToggleCamera) {
                         Model.Update(game);
                     }
@@ -194,9 +178,6 @@ namespace Roguelancer.Objects {
         public void Draw(RoguelancerGame game) {
             if (!Docked) {
                 Model.Draw(game);
-                //if (PlayerShipControl.Model.UseInput) {
-                    //PlayerShipControl.Draw(game);
-                //}
             }
         }
         /// <summary>

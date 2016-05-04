@@ -36,24 +36,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public Bullets(RoguelancerGame game) {
-            _model = new BulletsModel();
-            _particleSystemSettings = new ParticleSystemSettingsModel();
-            _particleSystemSettings.CameraArc = 2;
-            _particleSystemSettings.CameraRotation = 0f;
-            _particleSystemSettings.CameraDistance = 110;
-            _particleSystemSettings.FireRingSystemParticles = 20;
-            _particleSystemSettings.SmokePlumeParticles = 20;
-            _particleSystemSettings.SmokeRingParticles = 20;
-            _particleSystemSettings.Fire = true;
-            _particleSystemSettings.Enabled = false;
-            _particleSystemSettings.Smoke = true;
-            _particleSystemSettings.SmokeRing = true;
-            _particleSystemSettings.Explosions = true;
-            _particleSystemSettings.Projectiles = true;
-            _particleSystemSettings.ExplosionTexture = "Textures\\Explosion";
-            _particleSystemSettings.FireTexture = "Textures\\Fire";
-            _particleSystemSettings.SmokeTexture = "Textures\\Smoke";
-            _model.Bullets = new List<IBullet>();
+            Reset();
         }
         /// <summary>
         /// Initialize
@@ -69,7 +52,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             BulletsModel = game.Content.Load<Model>("bullet");
-            _playerShip = game.Objects.Ships.GetPlayerShip(game); // Get Player Ship
+            _playerShip = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
         }
         /// <summary>
         /// Update
@@ -109,9 +92,33 @@ namespace Roguelancer.Objects {
             }
         }
         /// <summary>
+        /// Reset
+        /// </summary>
+        public void Reset() {
+            _model = new BulletsModel();
+            _particleSystemSettings = new ParticleSystemSettingsModel();
+            _particleSystemSettings.CameraArc = 2;
+            _particleSystemSettings.CameraRotation = 0f;
+            _particleSystemSettings.CameraDistance = 110;
+            _particleSystemSettings.FireRingSystemParticles = 20;
+            _particleSystemSettings.SmokePlumeParticles = 20;
+            _particleSystemSettings.SmokeRingParticles = 20;
+            _particleSystemSettings.Fire = true;
+            _particleSystemSettings.Enabled = false;
+            _particleSystemSettings.Smoke = true;
+            _particleSystemSettings.SmokeRing = true;
+            _particleSystemSettings.Explosions = true;
+            _particleSystemSettings.Projectiles = true;
+            _particleSystemSettings.ExplosionTexture = "Textures\\Explosion";
+            _particleSystemSettings.FireTexture = "Textures\\Fire";
+            _particleSystemSettings.SmokeTexture = "Textures\\Smoke";
+            _model.Bullets = new List<IBullet>();
+        }
+        /// <summary>
         /// Dispose
         /// </summary>
         public void Dispose() {
+            _model = null;
         }
         #endregion
     }
@@ -183,7 +190,7 @@ namespace Roguelancer.Objects {
             Vector3 force, acceleration;
             var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds;
             var rotationAmount = new Vector2();
-            if (BulletModel.PlayerShip == null) { BulletModel.PlayerShip = game.Objects.Ships.GetPlayerShip(game); }
+            if (BulletModel.PlayerShip == null) { BulletModel.PlayerShip = game.Objects.Model.Ships.GetPlayerShip(game); }
             BulletModel.Model.CurrentThrust = BulletModel.BulletThrust + BulletModel.PlayerShip.Model.CurrentThrust;
             BulletModel.Model.Rotation = rotationAmount;
             BulletModel.Model.UpdatePosition();

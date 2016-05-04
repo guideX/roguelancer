@@ -24,6 +24,10 @@ namespace Roguelancer.Enum {
         /// <summary>
         /// Bullet
         /// </summary>
-        Bullet = 5
+        Bullet = 5,
+        /// <summary>
+        /// Jump Hole
+        /// </summary>
+        JumpHole = 6
     }
 }

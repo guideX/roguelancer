@@ -145,13 +145,18 @@
     <Compile Include="Models\GameCameraModel.cs" />
     <Compile Include="Models\GameGraphicsModel.cs" />
     <Compile Include="Models\GameMenuModel.cs" />
+    <Compile Include="Models\GameObjectsModel.cs" />
     <Compile Include="Models\GameStateModel.cs" />
     <Compile Include="Models\HudModel.cs" />
+    <Compile Include="Models\JumpHoleCollectionModel.cs" />
+    <Compile Include="Models\JumpHoleModel.cs" />
     <Compile Include="Models\Particle\ParticleStarSheetModel.cs" />
     <Compile Include="Models\PlayerShipControlModel.cs" />
+    <Compile Include="Models\ShipModel.cs" />
     <Compile Include="Models\StationPriceModel.cs" />
     <Compile Include="Objects\DockableObject.cs" />
     <Compile Include="Objects\HudObject.cs" />
+    <Compile Include="Objects\JumpHole.cs" />
     <Compile Include="RoguelancerGame.cs" />
     <Compile Include="Functionality\GameCamera.cs" />
     <Compile Include="Functionality\DebugText.cs" />
@@ -219,6 +224,7 @@
     <Compile Include="Settings\CameraSettings.cs" />
     <Compile Include="Settings\CommoditiesSettings.cs" />
     <Compile Include="Settings\GameSettings.cs" />
+    <Compile Include="Settings\JumpHoleSettings.cs" />
     <Compile Include="Settings\ModelWorldObjects.cs" />
     <Compile Include="Settings\SettingsModelObject.cs" />
     <Compile Include="Settings\StarSettings.cs" />

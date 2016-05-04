@@ -112,7 +112,7 @@ namespace Roguelancer.Models {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             if (WorldObject.SettingsModelObject.modelPath == "bullet") {
-                _model = game.Objects.Bullets.BulletsModel;
+                _model = game.Objects.Model.Bullets.BulletsModel;
             } else {
                 _model = game.Content.Load<Model>(WorldObject.SettingsModelObject.modelPath);
             }
@@ -174,29 +174,31 @@ namespace Roguelancer.Models {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
-                var transforms = new Matrix[_model.Bones.Count];
-                _model.CopyAbsoluteBoneTransformsTo(transforms);
-                if (ParticleSystem != null) {
-                    if (ParticleSystem.Settings.Enabled) {
-                        ParticleSystem.Draw(game);
-                    }
-                }
-                foreach (ModelMesh mm in _model.Meshes) {
-                    foreach (BasicEffect be in mm.Effects) {
-                        be.Alpha = 1;
-                        be.EnableDefaultLighting();
-                        if (UseScale) {
-                            be.World = Matrix.CreateScale(Scale) * transforms[mm.ParentBone.Index] * World;
-                        } else {
-                            be.World = transforms[mm.ParentBone.Index] * World;
+            //if (_model != null) {
+                if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+                    var transforms = new Matrix[_model.Bones.Count];
+                    _model.CopyAbsoluteBoneTransformsTo(transforms);
+                    if (ParticleSystem != null) {
+                        if (ParticleSystem.Settings.Enabled) {
+                            ParticleSystem.Draw(game);
                         }
-                        be.View = game.Camera.Model.View;
-                        be.Projection = game.Camera.Model.Projection;
                     }
-                    mm.Draw();
+                    foreach (ModelMesh mm in _model.Meshes) {
+                        foreach (BasicEffect be in mm.Effects) {
+                            be.Alpha = 1;
+                            be.EnableDefaultLighting();
+                            if (UseScale) {
+                                be.World = Matrix.CreateScale(Scale) * transforms[mm.ParentBone.Index] * World;
+                            } else {
+                                be.World = transforms[mm.ParentBone.Index] * World;
+                            }
+                            be.View = game.Camera.Model.View;
+                            be.Projection = game.Camera.Model.Projection;
+                        }
+                        mm.Draw();
+                    }
                 }
-            }
+            //}
         }
         /// <summary>
         /// Dispose

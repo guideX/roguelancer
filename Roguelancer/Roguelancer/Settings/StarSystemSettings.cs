@@ -2,13 +2,12 @@
 // http://www.team-nexgen.com
 using System.Collections.Generic;
 using Roguelancer.Functionality;
-using System;
 namespace Roguelancer.Settings {
     /// <summary>
     /// Star System Settings
     /// </summary>
     public class StarSystemSettings {
-        #region "PRIVATE VARIABLES"
+        #region "private variables"
         /// <summary>
         /// Path
         /// </summary>
@@ -18,7 +17,7 @@ namespace Roguelancer.Settings {
         /// </summary>
         private int _starSystemId { get; set; }
         #endregion
-        #region "PUBLIC VARIABLES"
+        #region "public variables"
         /// <summary>
         /// Ships
         /// </summary>
@@ -39,6 +38,10 @@ namespace Roguelancer.Settings {
         /// Trade Lanes
         /// </summary>
         public List<ModelWorldObjects> TradeLanes { get; set; }
+        /// <summary>
+        /// Jump Holes
+        /// </summary>
+        public List<ModelWorldObjects> JumpHoles { get; set; }
         /// <summary>
         /// Star Settings
         /// </summary>
@@ -65,6 +68,7 @@ namespace Roguelancer.Settings {
             Planets = new List<ModelWorldObjects>();
             Stations = new List<ModelWorldObjects>();
             TradeLanes = new List<ModelWorldObjects>();
+            JumpHoles = new List<ModelWorldObjects>();
             player.SettingsModelObject.isPlayer = true;
             Ships.Add(player);
             for (var i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\ships.ini", "settings", "count", 0) + 1; ++i) {
@@ -81,6 +85,9 @@ namespace Roguelancer.Settings {
             }
             for (var i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\tradelanes.ini", "settings", "count", 0) + 1; ++i) {
                 TradeLanes.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\tradelanes.ini", i.ToString().Trim()));
+            }
+            for (var i = 1; i < IniFile.ReadINIInt(systemIniStartPath + path + @"\jumpholes.ini", "settings", "count", 0) + 1; ++i) {
+                JumpHoles.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\jumpholes.ini", i.ToString().Trim()));
             }
             StarSettings = _starSettings;
         }
