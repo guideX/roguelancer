@@ -8,7 +8,7 @@ using System;
 using Roguelancer.Models;
 using Roguelancer.Enum;
 using System.Text;
-namespace Roguelancer.Objects {
+namespace Roguelancer.Objects.Base {
     /// <summary>
     /// Dockable Object
     /// </summary>

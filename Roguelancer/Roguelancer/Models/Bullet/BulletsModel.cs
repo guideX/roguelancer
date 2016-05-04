@@ -3,11 +3,16 @@
 using System;
 using System.Collections.Generic;
 using Roguelancer.Interfaces;
+using Roguelancer.Objects;
 namespace Roguelancer.Models {
     /// <summary>
     /// Bullets Model
     /// </summary>
     public class BulletsModel {
+        /// <summary>
+        /// Player Ship
+        /// </summary>
+        public Ship PlayerShip { get; set; }
         /// <summary>
         /// Bullets
         /// </summary>

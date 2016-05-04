@@ -55,7 +55,7 @@ namespace Roguelancer.Particle.System.ParticleSystems {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
     }
 }

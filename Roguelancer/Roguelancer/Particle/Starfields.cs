@@ -112,7 +112,7 @@ namespace Roguelancer.Particle {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
         #endregion
     }

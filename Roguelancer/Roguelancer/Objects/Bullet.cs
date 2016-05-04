@@ -11,12 +11,8 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Bullets
     /// </summary>
-    public class Bullets : IGame {
+    public class Bullets : IGameObject {
         #region "private variables"
-        /// <summary>
-        /// Player Ship
-        /// </summary>
-        private Ship _playerShip { get; set; }
         /// <summary>
         /// Model
         /// </summary>
@@ -52,7 +48,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             BulletsModel = game.Content.Load<Model>("bullet");
-            _playerShip = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
+            _model.PlayerShip = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
         }
         /// <summary>
         /// Update
@@ -62,8 +58,8 @@ namespace Roguelancer.Objects {
             if (game.Input.InputItems.Keys.ControlLeft || game.Input.InputItems.Keys.ControlRight || game.Input.InputItems.Mouse.RightButton) {
                 if (_model.AreBulletsAvailable) {
                     game.Camera.Shake(10f, 0f, false);
-                    _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, -200f, 0f), particleSystemSettings: _particleSystemSettings));
-                    _model.Bullets.Add(new Bullet(_playerShip, game, new Vector3(-100f, 700f, 0f), particleSystemSettings: _particleSystemSettings));
+                    _model.Bullets.Add(new Bullet(_model.PlayerShip, game, new Vector3(-100f, -200f, 0f), particleSystemSettings: _particleSystemSettings));
+                    _model.Bullets.Add(new Bullet(_model.PlayerShip, game, new Vector3(-100f, 700f, 0f), particleSystemSettings: _particleSystemSettings));
                     _model.AreBulletsAvailable = false;
                     _model.WeaponRechargedTime = DateTime.Now.AddMilliseconds(_model.RechargeRate);
                 }
@@ -117,7 +113,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
             _model = null;
         }
         #endregion
@@ -138,35 +134,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="texture"></param> 
         public Bullet(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
-            BulletModel = new BulletModel();
-            BulletModel.BulletThrust = bulletThrust;
-            BulletModel.PlayerShip = playerShipModel;
-            BulletModel.DeathDate = DateTime.Now.AddSeconds(deathSeconds);
-            BulletModel.Model = new GameModel(game, particleSystemSettings);
-            BulletModel.Model.UseScale = true;
-            BulletModel.Model.Scale = scale;
-            BulletModel.Model.WorldObject = new Settings.ModelWorldObjects(
-                "bullet",
-                BulletModel.PlayerShip.Model.Position + startupPosition,
-                new Vector3(0f, 0f, 0f),
-                new Settings.SettingsModelObject(
-                    modelPath,
-                    ModelType.Bullet,
-                    true,
-                    13
-                ),
-                1,
-                BulletModel.PlayerShip.Model.Up,
-                BulletModel.PlayerShip.Model.Right,
-                BulletModel.PlayerShip.Model.Velocity,
-                BulletModel.PlayerShip.Model.CurrentThrust,
-                BulletModel.PlayerShip.Model.Direction,
-                1.0f,
-                0,
-                0
-            );
-            Initialize(game);
-            LoadContent(game);
+            Reset(playerShipModel, game, startupPosition, deathSeconds, scale, modelPath, bulletThrust, particleSystemSettings);
         }
         /// <summary>
         /// Initialize
@@ -221,11 +189,40 @@ namespace Roguelancer.Objects {
             BulletModel = new BulletModel();
         }
         /// <summary>
-        /// Dispose
+        /// Reset
         /// </summary>
-        public void Dispose() {
+        /// <param name="game"></param>
+        public void Reset(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
+            BulletModel = new BulletModel();
+            BulletModel.BulletThrust = bulletThrust;
+            BulletModel.PlayerShip = playerShipModel;
+            BulletModel.DeathDate = DateTime.Now.AddSeconds(deathSeconds);
+            BulletModel.Model = new GameModel(game, particleSystemSettings);
+            BulletModel.Model.UseScale = true;
+            BulletModel.Model.Scale = scale;
+            BulletModel.Model.WorldObject = new Settings.ModelWorldObjects(
+                "bullet",
+                BulletModel.PlayerShip.Model.Position + startupPosition,
+                new Vector3(0f, 0f, 0f),
+                new Settings.SettingsModelObject(
+                    modelPath,
+                    ModelType.Bullet,
+                    true,
+                    13
+                ),
+                1,
+                BulletModel.PlayerShip.Model.Up,
+                BulletModel.PlayerShip.Model.Right,
+                BulletModel.PlayerShip.Model.Velocity,
+                BulletModel.PlayerShip.Model.CurrentThrust,
+                BulletModel.PlayerShip.Model.Direction,
+                1.0f,
+                0,
+                0
+            );
+            Initialize(game);
+            LoadContent(game);
         }
         #endregion
     }
-
 }

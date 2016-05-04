@@ -152,9 +152,10 @@
     <Compile Include="Models\JumpHoleModel.cs" />
     <Compile Include="Models\Particle\ParticleStarSheetModel.cs" />
     <Compile Include="Models\PlayerShipControlModel.cs" />
+    <Compile Include="Models\ShipCollectionModel.cs" />
     <Compile Include="Models\ShipModel.cs" />
     <Compile Include="Models\StationPriceModel.cs" />
-    <Compile Include="Objects\DockableObject.cs" />
+    <Compile Include="Objects\Base\DockableObject.cs" />
     <Compile Include="Objects\HudObject.cs" />
     <Compile Include="Objects\JumpHole.cs" />
     <Compile Include="RoguelancerGame.cs" />

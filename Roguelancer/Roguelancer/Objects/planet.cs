@@ -1,9 +1,9 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
-using System;
 using System.Collections.Generic;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
+using Roguelancer.Objects.Base;
 namespace Roguelancer.Objects {
     public class PlanetCollection : IGame {
         #region "public variables"
@@ -63,7 +63,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
         #endregion
     }
@@ -118,7 +118,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
         #endregion
     }

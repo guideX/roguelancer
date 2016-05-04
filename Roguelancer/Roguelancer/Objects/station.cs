@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Microsoft.Xna.Framework;
+using Roguelancer.Objects.Base;
+
 namespace Roguelancer.Objects {
     /// <summary>
     /// Station Collection
@@ -71,7 +73,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
         #endregion
     }
@@ -167,7 +169,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
         #endregion
     }

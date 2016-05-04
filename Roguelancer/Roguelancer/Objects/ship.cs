@@ -12,16 +12,19 @@ namespace Roguelancer.Objects {
     /// Ship Collection
     /// </summary>
     public class ShipCollection : IShipCollection {
+        #region "public variables"
         /// <summary>
-        /// Ships
+        /// Model
         /// </summary>
-        public List<Ship> Ships { get; set; }
+        public ShipCollectionModel Model { get; set; }
+        #endregion
         #region "public functions"
         /// <summary>
         /// Entry Point
         /// </summary>
         /// <param name="game"></param>
         public ShipCollection(RoguelancerGame game) {
+            Model = new ShipCollectionModel();
             Reset(game);
         }
         /// <summary>
@@ -29,14 +32,14 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <returns></returns>
         public Ship GetPlayerShip(RoguelancerGame game) {
-            return game.Objects.Model.Ships.Ships.Where(s => s.ShipModel.PlayerShipControl.Model.UseInput).LastOrDefault();
+            return game.Objects.Model.Ships.Model.Ships.Where(s => s.ShipModel.PlayerShipControl.Model.UseInput).LastOrDefault();
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            foreach (var _ship in Ships) {
+            foreach (var _ship in Model.Ships) {
                 _ship.Initialize(game);
             }
         }
@@ -45,7 +48,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            foreach (var _ship in Ships) {
+            foreach (var _ship in Model.Ships) {
                 _ship.LoadContent(game);
             }
         }
@@ -54,7 +57,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            foreach (var _ship in Ships) {
+            foreach (var _ship in Model.Ships) {
                 _ship.Update(game);
             }
         }
@@ -63,7 +66,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            foreach (var _ship in Ships) {
+            foreach (var _ship in Model.Ships) {
                 _ship.Draw(game);
             }
         }
@@ -72,24 +75,24 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
-            Ships = new List<Ship>();
+            Model = new ShipCollectionModel();
             var playerShip = new Ship(game);
             Ship tempShip;
             playerShip.Model.WorldObject = game.Settings.StarSystemSettings[game.StarSystemId].Ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer).FirstOrDefault();
             playerShip.ShipModel.PlayerShipControl.Model.UseInput = true;
-            Ships.Add(playerShip);
+            Model.Ships.Add(playerShip);
             foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].Ships.Where(s => !s.SettingsModelObject.isPlayer).ToList()) {
                 tempShip = new Ship(game);
                 tempShip.Model = new GameModel(game, null);
                 tempShip.Model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
                 tempShip.ShipModel.PlayerShipControl.Model.UseInput = false;
-                Ships.Add(Ship.Clone(tempShip, game));
+                Model.Ships.Add(Ship.Clone(tempShip, game));
             }
         }
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
         #endregion
     }
@@ -117,26 +120,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public Ship(RoguelancerGame game) {
-            ShipModel = new ShipModel();
-            ShipModel.Money = 2000.00m;
-            ShipModel.CargoHold = new CargoHoldModel();
-            Model = new GameModel(game, null);
-            ShipModel.PlayerShipControl = new PlayerShipControl();
-            //HardPoints = new List<HardPoint>();
-        }
-        /// <summary>
-        /// Clone
-        /// </summary>
-        /// <param name="oldShip"></param>
-        /// <param name="game"></param>
-        /// <returns></returns>
-        public static Ship Clone(Ship oldShip, RoguelancerGame game) {
-            Ship ship;
-            ship = new Ship(game);
-            ship.ShipModel.PlayerShipControl = oldShip.ShipModel.PlayerShipControl;
-            ship.Model = oldShip.Model;
-            ship.ShipModel.CargoHold = oldShip.ShipModel.CargoHold;
-            return ship;
+            Reset(game);
         }
         /// <summary>
         /// Initialize
@@ -183,7 +167,37 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
+            Docked = false;
+            Model.Dispose(game);
+            Model = null;
+            ShipModel = null;
+        }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset(RoguelancerGame game) {
+            ShipModel = new ShipModel();
+            ShipModel.Money = 2000.00m;
+            ShipModel.CargoHold = new CargoHoldModel();
+            Model = new GameModel(game, null);
+            ShipModel.PlayerShipControl = new PlayerShipControl();
+            //HardPoints = new List<HardPoint>();
+        }
+        /// <summary>
+        /// Clone
+        /// </summary>
+        /// <param name="oldShip"></param>
+        /// <param name="game"></param>
+        /// <returns></returns>
+        public static Ship Clone(Ship oldShip, RoguelancerGame game) {
+            Ship ship;
+            ship = new Ship(game);
+            ship.ShipModel.PlayerShipControl = oldShip.ShipModel.PlayerShipControl;
+            ship.Model = oldShip.Model;
+            ship.ShipModel.CargoHold = oldShip.ShipModel.CargoHold;
+            return ship;
         }
         #endregion
     }

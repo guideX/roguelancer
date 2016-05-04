@@ -251,7 +251,7 @@ namespace Roguelancer.Functionality {
         /// Dispose
         /// </summary>
         /// <param name="game"></param>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
             InputItems = null;
         }
         #endregion

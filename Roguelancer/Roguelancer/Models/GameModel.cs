@@ -222,11 +222,7 @@ namespace Roguelancer.Models {
             }
             _model = null;
         }
-        /// <summary>
-        /// Dispose
-        /// </summary>
-        public void Dispose() {
-        }
+
         #endregion
     }
 }

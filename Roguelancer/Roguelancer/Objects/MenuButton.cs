@@ -161,7 +161,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
         #endregion
     }

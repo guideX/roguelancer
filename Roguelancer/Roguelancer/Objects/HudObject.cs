@@ -112,9 +112,9 @@ namespace Roguelancer.Objects {
             if (_updateOrderInt > _updateOrderInterval) {
                 if (_playerShip == null) { _playerShip = game.Objects.Model.Ships.GetPlayerShip(game); }
                 _screenRectangle = new Rectangle(_imageLeft, _imageTop, _imageWidth, _imageHeight);
-                if (((game.Objects.Model.Ships.Ships.Count + game.Objects.Model.Stations.Stations.Count) - 1) != _model.SensorObjects.Count) {
+                if (((game.Objects.Model.Ships.Model.Ships.Count + game.Objects.Model.Stations.Stations.Count) - 1) != _model.SensorObjects.Count) {
                     _model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();
-                    foreach (var ship in game.Objects.Model.Ships.Ships) {
+                    foreach (var ship in game.Objects.Model.Ships.Model.Ships) {
                         shipId++;
                         d = Vector3.Distance(_playerShip.Model.Position, ship.Model.Position) / DivisionDistanceValue;
                         text = "Ship " + shipId.ToString();
@@ -178,7 +178,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
         #endregion
     }

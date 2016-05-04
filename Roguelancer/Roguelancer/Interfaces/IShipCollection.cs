@@ -1,8 +1,7 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
-using Roguelancer.Functionality;
+using Roguelancer.Models;
 using Roguelancer.Objects;
-using System.Collections.Generic;
 namespace Roguelancer.Interfaces {
     /// <summary>
     /// Ship Collection
@@ -11,7 +10,7 @@ namespace Roguelancer.Interfaces {
         /// <summary>
         /// Ships
         /// </summary>
-        List<Ship> Ships { get; set; }
+        ShipCollectionModel Model { get; set; }
         /// <summary>
         /// Reset
         /// </summary>

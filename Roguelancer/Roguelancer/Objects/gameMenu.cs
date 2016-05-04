@@ -123,7 +123,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
             Model.MenuButtons = null;
             Model.CurrentMenu = CurrentMenu.NotInitialized;
             Model.LastMenu = CurrentMenu.NotInitialized;

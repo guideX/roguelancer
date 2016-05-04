@@ -6,6 +6,8 @@ using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Settings;
 using System;
+using Roguelancer.Objects.Base;
+
 namespace Roguelancer.Objects {
     /// <summary>
     /// Trade Lane Collection
@@ -74,7 +76,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
     }
     /// <summary>
@@ -172,7 +174,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
     }
     /// <summary>
@@ -238,7 +240,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
     }
 }

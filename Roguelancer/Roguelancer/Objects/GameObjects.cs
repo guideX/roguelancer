@@ -28,7 +28,7 @@ namespace Roguelancer.Objects {
             Model.TradeLanes = new TradeLaneCollection();
             Model.Ships = new ShipCollection(game);
             Model.Bullets = new Bullets(game);
-            Model.JumpHoles = new JumpHoleCollection();
+            //Model.JumpHoles = new JumpHoleCollection();
         }
         /// <summary>
         /// Initialize
@@ -41,7 +41,7 @@ namespace Roguelancer.Objects {
             Model.TradeLanes.Initialize(game);
             Model.Ships.Initialize(game);
             Model.Bullets.Initialize(game);
-            Model.JumpHoles.Initialize(game);
+            //Model.JumpHoles.Initialize(game);
         }
         /// <summary>
         /// Load Content
@@ -54,7 +54,7 @@ namespace Roguelancer.Objects {
             Model.TradeLanes.LoadContent(game);
             Model.Ships.LoadContent(game);
             Model.Bullets.LoadContent(game);
-            Model.JumpHoles.Initialize(game);
+            //Model.JumpHoles.Initialize(game);
         }
         /// <summary>
         /// Update
@@ -67,7 +67,7 @@ namespace Roguelancer.Objects {
             Model.TradeLanes.Update(game);
             Model.Ships.Update(game);
             Model.Bullets.Update(game);
-            Model.JumpHoles.Initialize(game);
+            //Model.JumpHoles.Initialize(game);
         }
         /// <summary>
         /// Draw
@@ -80,7 +80,7 @@ namespace Roguelancer.Objects {
             Model.TradeLanes.Draw(game);
             Model.Ships.Draw(game);
             Model.Bullets.Draw(game);
-            Model.JumpHoles.Draw(game);
+            //Model.JumpHoles.Draw(game);
         }
         /// <summary>
         /// Reset
@@ -92,12 +92,12 @@ namespace Roguelancer.Objects {
             Model.Stations = new StationCollection();
             Model.Planets = new PlanetCollection();
             Model.Stars = new Starfields(new StarSettings(false, 0, 0, 0, 0, 0, 0, 0));
-            Model.JumpHoles = new JumpHoleCollection();
+            //Model.JumpHoles = new JumpHoleCollection();
         }
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
         }
         #endregion
     }

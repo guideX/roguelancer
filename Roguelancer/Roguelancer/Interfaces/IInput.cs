@@ -18,6 +18,6 @@ namespace Roguelancer.Interfaces {
         /// <summary>
         /// Dispose
         /// </summary>
-        void Dispose();
+        void Dispose(RoguelancerGame game);
     }
 }
