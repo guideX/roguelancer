@@ -1,7 +1,6 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
 using System.Linq;
-using System.Collections.Generic;
 using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Settings;
@@ -26,13 +25,6 @@ namespace Roguelancer.Objects {
         public ShipCollection(RoguelancerGame game) {
             Model = new ShipCollectionModel();
             Reset(game);
-        }
-        /// <summary>
-        /// Get Player Ship
-        /// </summary>
-        /// <returns></returns>
-        public Ship GetPlayerShip(RoguelancerGame game) {
-            return game.Objects.Model.Ships.Model.Ships.Where(s => s.ShipModel.PlayerShipControl.Model.UseInput).LastOrDefault();
         }
         /// <summary>
         /// Initialize

@@ -5,6 +5,8 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
+using Roguelancer.Helpers;
+
 namespace Roguelancer.Functionality {
     /// <summary>
     /// Game Camera
@@ -172,7 +174,7 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         private void UpdateCameraChaseTarget(RoguelancerGame game) {
-            var playerShip = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
+            var playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
             Model.ChasePosition = playerShip.Model.Position;
             Model.ChaseDirection = playerShip.Model.Direction;
             Model.Up = playerShip.Model.Up;

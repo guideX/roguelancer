@@ -8,6 +8,8 @@ using System;
 using Roguelancer.Models;
 using Roguelancer.Enum;
 using System.Text;
+using Roguelancer.Helpers;
+
 namespace Roguelancer.Objects.Base {
     /// <summary>
     /// Dockable Object
@@ -37,7 +39,7 @@ namespace Roguelancer.Objects.Base {
         /// <param name="game"></param>
         /// <param name="ship"></param>
         public virtual void Dock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject) {
-            var _ship = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
+            var _ship = ShipHelper.GetPlayerShip(game); // Get Player Ship
             if (_ship == ship) { // If Docking Ship is Player Ship
                 game.GameState.Model.CurrentGameState = Enum.GameStates.Docked; // Set Current Game State to Docked
             }
@@ -51,7 +53,7 @@ namespace Roguelancer.Objects.Base {
         /// <param name="game"></param>
         /// <param name="ship"></param>
         public virtual void UnDock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject) {
-            var playerShip = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
+            var playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
             if (playerShip == ship) {
                 game.GameState.Model.CurrentGameState = Enum.GameStates.Playing;
             }
@@ -93,7 +95,7 @@ namespace Roguelancer.Objects.Base {
             if (stationPrices.Any()) {
                 var commodity = game.Settings.CommoditiesModels.Where(c => c.CommodityId == commodityID).FirstOrDefault();
                 var stationPrice = StationPrices.FirstOrDefault();
-                var ship = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
+                var ship = ShipHelper.GetPlayerShip(game); // Get Player Ship
                 if (ship.ShipModel.Money * qty >= stationPrice.Price * qty) {
                     if (stationPrice.Qty >= qty) {
                         ship.ShipModel.Money = ship.ShipModel.Money - stationPrice.Price;

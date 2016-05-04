@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
-using System;
+using Roguelancer.Helpers;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Hud Object
@@ -95,7 +95,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            _playerShip = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
+            _playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
             _font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.FontSmall);
             _sensor = game.Content.Load<Texture2D>(game.Settings.SensorTexture);
         }
@@ -110,7 +110,7 @@ namespace Roguelancer.Objects {
             var shipId = 0;
             _updateOrderInt++;
             if (_updateOrderInt > _updateOrderInterval) {
-                if (_playerShip == null) { _playerShip = game.Objects.Model.Ships.GetPlayerShip(game); }
+                if (_playerShip == null) { _playerShip = ShipHelper.GetPlayerShip(game); }
                 _screenRectangle = new Rectangle(_imageLeft, _imageTop, _imageWidth, _imageHeight);
                 if (((game.Objects.Model.Ships.Model.Ships.Count + game.Objects.Model.Stations.Stations.Count) - 1) != _model.SensorObjects.Count) {
                     _model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();

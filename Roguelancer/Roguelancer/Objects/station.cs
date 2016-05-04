@@ -6,7 +6,7 @@ using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Microsoft.Xna.Framework;
 using Roguelancer.Objects.Base;
-
+using Roguelancer.Helpers;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Station Collection
@@ -138,7 +138,7 @@ namespace Roguelancer.Objects {
             }
             if (game.GameState.Model.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.U) {
                 game.Input.InputItems.Keys.U = false;
-                var ship = game.Objects.Model.Ships.GetPlayerShip(game);
+                var ship = ShipHelper.GetPlayerShip(game);
                 if (ship.Docked) {
                     var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
                     if (distance < HudObject.DockDistanceAccept) {
@@ -148,7 +148,7 @@ namespace Roguelancer.Objects {
             }
             if (game.GameState.Model.CurrentGameState == Enum.GameStates.Playing && game.Input.InputItems.Keys.D) { // DOCK
                 game.Input.InputItems.Keys.D = false;
-                var ship = game.Objects.Model.Ships.GetPlayerShip(game);
+                var ship = ShipHelper.GetPlayerShip(game);
                 if (!ship.Docked) {
                     var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
                     if (distance < HudObject.DockDistanceAccept) {

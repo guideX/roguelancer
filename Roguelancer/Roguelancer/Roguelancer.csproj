@@ -110,6 +110,7 @@
   <ItemGroup>
     <Compile Include="Bloom\BloomComponent.cs" />
     <Compile Include="Enum\GameCameraModeEnum.cs" />
+    <Compile Include="Helpers\ShipHelper.cs" />
     <Compile Include="Interfaces\IBloomComponent.cs" />
     <Compile Include="Interfaces\IBloomHandler.cs" />
     <Compile Include="Interfaces\IGameMenu.cs" />

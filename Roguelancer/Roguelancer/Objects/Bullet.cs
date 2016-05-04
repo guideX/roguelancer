@@ -7,6 +7,8 @@ using Roguelancer.Interfaces;
 using Roguelancer.Enum;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Roguelancer.Helpers;
+
 namespace Roguelancer.Objects {
     /// <summary>
     /// Bullets
@@ -48,7 +50,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             BulletsModel = game.Content.Load<Model>("bullet");
-            _model.PlayerShip = game.Objects.Model.Ships.GetPlayerShip(game); // Get Player Ship
+            _model.PlayerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
         }
         /// <summary>
         /// Update
@@ -158,7 +160,7 @@ namespace Roguelancer.Objects {
             Vector3 force, acceleration;
             var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds;
             var rotationAmount = new Vector2();
-            if (BulletModel.PlayerShip == null) { BulletModel.PlayerShip = game.Objects.Model.Ships.GetPlayerShip(game); }
+            if (BulletModel.PlayerShip == null) { BulletModel.PlayerShip = ShipHelper.GetPlayerShip(game); }
             BulletModel.Model.CurrentThrust = BulletModel.BulletThrust + BulletModel.PlayerShip.Model.CurrentThrust;
             BulletModel.Model.Rotation = rotationAmount;
             BulletModel.Model.UpdatePosition();

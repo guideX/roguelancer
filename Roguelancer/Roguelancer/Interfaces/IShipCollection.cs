@@ -16,10 +16,5 @@ namespace Roguelancer.Interfaces {
         /// </summary>
         /// <param name="game"></param>
         void Reset(RoguelancerGame game);
-        /// <summary>
-        /// Get Player Ship
-        /// </summary>
-        /// <returns></returns>
-        Ship GetPlayerShip(RoguelancerGame game);
     }
 }
