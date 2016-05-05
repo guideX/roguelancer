@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.com
+// http://team-nexgen.com
 using System;
 using System.Linq;
 using System.Collections.Generic;
@@ -61,12 +61,33 @@ namespace Roguelancer.Settings {
         /// Bloom Enabled
         /// </summary>
         public bool BloomEnabled { get; set; }
+        /// <summary>
+        /// Bullet Mass
+        /// </summary>
         public float BulletMass { get; set; }
+        /// <summary>
+        /// Bullet Thruster Force
+        /// </summary>
         public float BulletThrusterForce { get; set; }
+        /// <summary>
+        /// Bullet Drag Factor
+        /// </summary>
         public float BulletDragFactor { get; set; }
+        /// <summary>
+        /// Bullet Recharge Rate
+        /// </summary>
         public int BulletRechargeRate { get; set; }
+        /// <summary>
+        /// Player Ship Update Direction X
+        /// </summary>
         public float PlayerShipUpdateDirectionX { get; set; }
+        /// <summary>
+        /// Player Ship Update Direction Y
+        /// </summary>
         public float PlayerShipUpdateDirectionY { get; set; }
+        /// <summary>
+        /// Player Ship Shake Value
+        /// </summary>
         public float PlayerShipShakeValue { get; set; }
         /// <summary>
         /// Full Screen

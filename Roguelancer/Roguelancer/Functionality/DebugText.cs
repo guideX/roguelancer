@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.com
+// http://team-nexgen.com
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;

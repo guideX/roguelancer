@@ -1,5 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://www.team-nexgen.com
+// http://team-nexgen.com
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Particle;
