@@ -19,7 +19,7 @@ namespace Roguelancer.Bloom {
         /// </summary>
         /// <param name="game"></param>
         public BloomHandler(RoguelancerGame game) {
-            if (game.Settings.BloomEnabled) {
+            if (game.Settings.Model.BloomEnabled) {
                 Model = new BloomHandlerModel();
                 Model.Bloom = new BloomComponent(game);
             }
@@ -29,7 +29,7 @@ namespace Roguelancer.Bloom {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            if (game.Settings.BloomEnabled) {
+            if (game.Settings.Model.BloomEnabled) {
                 game.Components.Add(Model.Bloom);
             }
         }
@@ -43,7 +43,7 @@ namespace Roguelancer.Bloom {
         /// </summary>
         /// <param name="_BloomVisible"></param>
         public void Update(RoguelancerGame game) {
-            if (game.Settings.BloomEnabled) {
+            if (game.Settings.Model.BloomEnabled) {
                 Model.Bloom.Model.Settings = BloomSettingsModel.PresetSettings[Model.BloomSettings];
                 Model.Bloom.Visible = true;
             }
@@ -52,7 +52,7 @@ namespace Roguelancer.Bloom {
         /// Draw
         /// </summary>
         public void Draw(RoguelancerGame game) {
-            if (game.Settings.BloomEnabled) {
+            if (game.Settings.Model.BloomEnabled) {
                 Model.Bloom.BeginDraw();
             }
         }

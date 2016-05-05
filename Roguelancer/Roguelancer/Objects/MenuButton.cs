@@ -80,7 +80,7 @@ namespace Roguelancer.Objects {
         public MenuButton(RoguelancerGame game, string text, string texturePath) {
             _text = text;
             Texture = game.Content.Load<Texture2D>(texturePath);
-            Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.Font);
+            Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.Model.Font);
             _color = new Color(255, 255, 255, 255);
             _size = new Vector2(game.GraphicsDevice.Viewport.Width / 4, game.GraphicsDevice.Viewport.Height / 15);
         }

@@ -98,8 +98,8 @@ namespace Roguelancer.Models {
         /// </summary>
         public PlayerShipControlModel(RoguelancerGame game) {
             ShakeValue = .8f;
-            UpdateDirectionX = game.Settings.PlayerShipUpdateDirectionX;
-            UpdateDirectionY = game.Settings.PlayerShipUpdateDirectionY;
+            UpdateDirectionX = game.Settings.Model.PlayerShipUpdateDirectionX;
+            UpdateDirectionY = game.Settings.Model.PlayerShipUpdateDirectionY;
         }
     }
 }

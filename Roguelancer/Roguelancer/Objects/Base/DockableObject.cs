@@ -70,9 +70,9 @@ namespace Roguelancer.Objects.Base {
                 case ModelType.Station:
                     var sb = new StringBuilder();
                     var n = 0;
-                    foreach (var obj in game.Settings.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
+                    foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
                         n++;
-                        var commodity = game.Settings.CommoditiesModels.Where(c => c.CommodityId == obj.CommoditiesId).FirstOrDefault();
+                        var commodity = game.Settings.Model.CommoditiesModels.Where(c => c.CommodityId == obj.CommoditiesId).FirstOrDefault();
                         sb.AppendLine("[" + n.ToString () + "] Description: " + commodity.Description + ", Price: " + obj.Price.ToString());
                     }
                     if (game.GameState.Model.CurrentGameState == Enum.GameStates.Docked && game.GameState.Model.DockedGameState == Enum.DockedGameStateEnum.Commodities) {
@@ -92,7 +92,7 @@ namespace Roguelancer.Objects.Base {
         public virtual void PurchaseCommodity(RoguelancerGame game, int commodityID, int qty) {
             var stationPrices = StationPrices.Where(p => p.CommoditiesId == commodityID);
             if (stationPrices.Any()) {
-                var commodity = game.Settings.CommoditiesModels.Where(c => c.CommodityId == commodityID).FirstOrDefault();
+                var commodity = game.Settings.Model.CommoditiesModels.Where(c => c.CommodityId == commodityID).FirstOrDefault();
                 var stationPrice = StationPrices.FirstOrDefault();
                 var ship = ShipHelper.GetPlayerShip(game); // Get Player Ship
                 if (ship.ShipModel.Money * qty >= stationPrice.Price * qty) {

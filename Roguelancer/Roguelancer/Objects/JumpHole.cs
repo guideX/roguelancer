@@ -20,7 +20,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].JumpHoles) {
+            foreach (var modelWorldObject in game.Settings.Model.StarSystemSettings[game.StarSystemId].JumpHoles) {
                 var jumpHole = new JumpHole(game);
                 jumpHole.Model.WorldObject = modelWorldObject;
                 Model.JumpHoles.Add(jumpHole);

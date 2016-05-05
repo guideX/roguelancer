@@ -30,7 +30,7 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            game.Settings.CameraSettings.Model.AspectRatio = (float)game.GraphicsDevice.Viewport.Width / game.GraphicsDevice.Viewport.Height;
+            game.Settings.Model.CameraSettings.Model.AspectRatio = (float)game.GraphicsDevice.Viewport.Width / game.GraphicsDevice.Viewport.Height;
             UpdateCameraChaseTarget(game);
             Reset(game);
         }
@@ -62,8 +62,8 @@ namespace Roguelancer.Functionality {
             UpdateWorldPositions(game);
             var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds;
             var stretch = Model.Position - Model.DesiredPosition;
-            var force = -game.Settings.CameraSettings.Model.Stiffness * stretch - game.Settings.CameraSettings.Model.Damping * Model.Velocity;
-            var acceleration = force / game.Settings.CameraSettings.Model.Mass;
+            var force = -game.Settings.Model.CameraSettings.Model.Stiffness * stretch - game.Settings.Model.CameraSettings.Model.Damping * Model.Velocity;
+            var acceleration = force / game.Settings.Model.CameraSettings.Model.Mass;
             Model.Velocity += acceleration * elapsed;
             Model.Position += Model.Velocity * elapsed;
             UpdateMatrices(game);
@@ -102,14 +102,14 @@ namespace Roguelancer.Functionality {
             transform.Right = Vector3.Cross(Model.Up, Model.ChaseDirection);
             switch (Model.Mode) {
                 case Enum.GameCameraModeEnum.Mode0:
-                    Model.DesiredPosition = Model.ChasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.DesiredPositionOffset, transform);
-                    Model.LookAt = Model.ChasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.LookAtOffset, transform);
+                    Model.DesiredPosition = Model.ChasePosition + Vector3.TransformNormal(game.Settings.Model.CameraSettings.Model.DesiredPositionOffset, transform);
+                    Model.LookAt = Model.ChasePosition + Vector3.TransformNormal(game.Settings.Model.CameraSettings.Model.LookAtOffset, transform);
                     break;
                 case Enum.GameCameraModeEnum.Mode1:
                     break;
                 case Enum.GameCameraModeEnum.Mode2:
-                    Model.DesiredPosition = Model.ChasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.DesiredPositionOffset, transform);
-                    Model.LookAt = Model.ChasePosition + game.Settings.CameraSettings.Model.ThrustViewAmount * Model.ChaseDirection;
+                    Model.DesiredPosition = Model.ChasePosition + Vector3.TransformNormal(game.Settings.Model.CameraSettings.Model.DesiredPositionOffset, transform);
+                    Model.LookAt = Model.ChasePosition + game.Settings.Model.CameraSettings.Model.ThrustViewAmount * Model.ChaseDirection;
                     break;
             }
         }
@@ -127,10 +127,10 @@ namespace Roguelancer.Functionality {
             transform.Forward = Model.ChaseDirection;
             transform.Up = Model.Up;
             transform.Right = Vector3.Cross(Model.Up, Model.ChaseDirection);
-            var o = Model.ChasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.DesiredPositionOffset, transform);
-            var d = Model.ChasePosition + Vector3.TransformNormal(game.Settings.CameraSettings.Model.LookAtOffset, transform);
+            var o = Model.ChasePosition + Vector3.TransformNormal(game.Settings.Model.CameraSettings.Model.DesiredPositionOffset, transform);
+            var d = Model.ChasePosition + Vector3.TransformNormal(game.Settings.Model.CameraSettings.Model.LookAtOffset, transform);
             Model.View = Matrix.CreateLookAt(o, d, Model.Up);
-            Model.Projection = Matrix.CreatePerspectiveFieldOfView(game.Settings.CameraSettings.Model.FieldOfView, game.Settings.CameraSettings.Model.AspectRatio, game.Settings.CameraSettings.Model.NearPlaneDistance, game.Settings.CameraSettings.Model.ClippingDistance); //Builds a perspective projection matrix based on a field of view
+            Model.Projection = Matrix.CreatePerspectiveFieldOfView(game.Settings.Model.CameraSettings.Model.FieldOfView, game.Settings.Model.CameraSettings.Model.AspectRatio, game.Settings.Model.CameraSettings.Model.NearPlaneDistance, game.Settings.Model.CameraSettings.Model.ClippingDistance); //Builds a perspective projection matrix based on a field of view
             var f = new BoundingFrustum(Model.View * Model.Projection);
             var fcorners = new Vector3[8];
             f.GetCorners(fcorners);
@@ -148,7 +148,7 @@ namespace Roguelancer.Functionality {
             if (t != null) {
                 v = o + (float)t * _MouseDir;
                 v = (v - d);
-                Model.LookAt = d + v / game.Settings.CameraSettings.Model.LookAtDivideBy;
+                Model.LookAt = d + v / game.Settings.Model.CameraSettings.Model.LookAtDivideBy;
             }
         }
         /// <summary>
@@ -157,7 +157,7 @@ namespace Roguelancer.Functionality {
         /// <param name="game"></param>
         private void UpdateMatrices(RoguelancerGame game) {
             Model.View = Matrix.CreateLookAt(Model.Position, Model.LookAt, Model.Up);
-            Model.Projection = Matrix.CreatePerspectiveFieldOfView(game.Settings.CameraSettings.Model.FieldOfView, game.Settings.CameraSettings.Model.AspectRatio, game.Settings.CameraSettings.Model.NearPlaneDistance, game.Settings.CameraSettings.Model.ClippingDistance);
+            Model.Projection = Matrix.CreatePerspectiveFieldOfView(game.Settings.Model.CameraSettings.Model.FieldOfView, game.Settings.Model.CameraSettings.Model.AspectRatio, game.Settings.Model.CameraSettings.Model.NearPlaneDistance, game.Settings.Model.CameraSettings.Model.ClippingDistance);
         }
         /// <summary>
         /// Reset
@@ -182,7 +182,7 @@ namespace Roguelancer.Functionality {
                 if (game.Input.InputItems.Mouse.State.LeftButton == ButtonState.Pressed) {
                     UpdateNewCamera((float)game.Input.InputItems.Mouse.State.X / (float)game.GraphicsDevice.Viewport.Width, (float)game.Input.InputItems.Mouse.State.Y / (float)game.Graphics.Model.GraphicsDeviceManager.GraphicsDevice.Viewport.Height, game);
                 } else {
-                    UpdateNewCamera(game.Settings.CameraSettings.Model.NewCameraX, game.Settings.CameraSettings.Model.NewCameraY, game);
+                    UpdateNewCamera(game.Settings.Model.CameraSettings.Model.NewCameraX, game.Settings.Model.CameraSettings.Model.NewCameraY, game);
                 }
             }
         }

@@ -41,7 +41,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             _model.AreBulletsAvailable = true;
-            _model.RechargeRate = game.Settings.BulletRechargeRate;
+            _model.RechargeRate = game.Settings.Model.BulletRechargeRate;
         }
         /// <summary>
         /// Load Content

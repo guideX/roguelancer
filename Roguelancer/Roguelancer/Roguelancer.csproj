@@ -156,6 +156,7 @@
     <Compile Include="Models\Particle\ParticleStarSheetModel.cs" />
     <Compile Include="Models\PlanetCollectionModel.cs" />
     <Compile Include="Models\PlayerShipControlModel.cs" />
+    <Compile Include="Models\Settings\GameSettingsModel.cs" />
     <Compile Include="Models\ShipCollectionModel.cs" />
     <Compile Include="Models\ShipModel.cs" />
     <Compile Include="Models\StationCollectionModel.cs" />

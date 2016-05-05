@@ -27,7 +27,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            foreach (var r in game.Settings.StarSystemSettings[game.StarSystemId].TradeLanes.ToList()) {
+            foreach (var r in game.Settings.Model.StarSystemSettings[game.StarSystemId].TradeLanes.ToList()) {
                 var n = new TradeLane(game);
                 n.WorldObject = r;
                 _tradeLanes.Add(n);

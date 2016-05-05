@@ -43,8 +43,8 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (game.Settings.CameraSettings.Model.FieldOfView < 80 && game.Settings.CameraSettings.Model.FieldOfView > 180) {
-                game.Settings.CameraSettings.Model.FieldOfView = +game.Input.InputItems.Mouse.ScrollWheel;
+            if (game.Settings.Model.CameraSettings.Model.FieldOfView < 80 && game.Settings.Model.CameraSettings.Model.FieldOfView > 180) {
+                game.Settings.Model.CameraSettings.Model.FieldOfView = +game.Input.InputItems.Mouse.ScrollWheel;
             }
             InputItems.Mouse.State = Mouse.GetState();
             InputItems.Mouse.ScrollWheel = InputItems.Mouse.State.ScrollWheelValue * .0001f;

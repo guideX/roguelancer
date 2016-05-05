@@ -71,10 +71,10 @@ namespace Roguelancer.Objects {
             Model = new ShipCollectionModel();
             var playerShip = new Ship(game);
             Ship tempShip;
-            playerShip.Model.WorldObject = game.Settings.StarSystemSettings[game.StarSystemId].Ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer).FirstOrDefault();
+            playerShip.Model.WorldObject = game.Settings.Model.StarSystemSettings[game.StarSystemId].Ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer).FirstOrDefault();
             playerShip.ShipModel.PlayerShipControl.Model.UseInput = true;
             Model.Ships.Add(playerShip);
-            foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].Ships.Where(s => !s.SettingsModelObject.isPlayer).ToList()) {
+            foreach (var modelWorldObject in game.Settings.Model.StarSystemSettings[game.StarSystemId].Ships.Where(s => !s.SettingsModelObject.isPlayer).ToList()) {
                 tempShip = new Ship(game);
                 tempShip.Model = new GameModel(game, null);
                 tempShip.Model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);

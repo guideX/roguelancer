@@ -43,9 +43,9 @@ namespace Roguelancer.Models {
         /// Bullet Model
         /// </summary>
         public BulletModel(RoguelancerGame game) {
-            Mass = game.Settings.BulletMass;
-            ThrustForce = game.Settings.BulletThrusterForce;
-            DragFactor = game.Settings.BulletDragFactor;
+            Mass = game.Settings.Model.BulletMass;
+            ThrustForce = game.Settings.Model.BulletThrusterForce;
+            DragFactor = game.Settings.Model.BulletDragFactor;
         }
     }
 }

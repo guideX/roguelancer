@@ -82,8 +82,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             Model.PlayerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
-            Model.Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.FontSmall);
-            Model.Sensor = game.Content.Load<Texture2D>(game.Settings.SensorTexture);
+            Model.Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.Model.FontSmall);
+            Model.Sensor = game.Content.Load<Texture2D>(game.Settings.Model.SensorTexture);
         }
         /// <summary>
         /// Update

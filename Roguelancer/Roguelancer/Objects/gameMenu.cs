@@ -36,7 +36,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            Model.BackgroundTexture = game.Content.Load<Texture2D>(game.Settings.MenuBackgroundTexture);
+            Model.BackgroundTexture = game.Content.Load<Texture2D>(game.Settings.Model.MenuBackgroundTexture);
             Model.ScreenWidth = game.GraphicsDevice.PresentationParameters.BackBufferWidth;
             Model.ScreenHeight = game.GraphicsDevice.PresentationParameters.BackBufferHeight;
             Model.CurrentMenu = CurrentMenu.HomeMenu;

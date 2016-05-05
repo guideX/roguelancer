@@ -31,12 +31,12 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             var n = 0;
-            foreach (var obj in game.Settings.StarSystemSettings[game.StarSystemId].Stations) {
+            foreach (var obj in game.Settings.Model.StarSystemSettings[game.StarSystemId].Stations) {
                 n++;
                 var s = new Station(game);
                 s.StationID = n;
                 s.Model.WorldObject = obj;
-                s.StationPrices = game.Settings.StationPriceModels.Where(p => p.StationId == obj.ID).ToList();
+                s.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.ID).ToList();
                 Model.Stations.Add(s);
             }
             for (var i = 0; i <= Model.Stations.Count - 1; i++) {

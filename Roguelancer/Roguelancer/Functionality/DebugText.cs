@@ -28,7 +28,7 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            Model.Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.Font);
+            Model.Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.Model.Font);
             Model.FontPosition = new Vector2(game.GraphicsDevice.Viewport.Width / 2, game.Graphics.Model.GraphicsDeviceManager.GraphicsDevice.Viewport.Height / 2);
         }
         /// <summary>

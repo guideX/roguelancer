@@ -23,9 +23,9 @@ namespace Roguelancer.Functionality {
         public GameGraphics(RoguelancerGame game) {
             Model = new GameGraphicsModel();
             Model.GraphicsDeviceManager = new GraphicsDeviceManager(game);
-            Model.GraphicsDeviceManager.PreferredBackBufferWidth = (int)game.Settings.Resolution.X;
-            Model.GraphicsDeviceManager.PreferredBackBufferHeight = (int)game.Settings.Resolution.Y;
-            Model.GraphicsDeviceManager.IsFullScreen = game.Settings.FullScreen;
+            Model.GraphicsDeviceManager.PreferredBackBufferWidth = (int)game.Settings.Model.Resolution.X;
+            Model.GraphicsDeviceManager.PreferredBackBufferHeight = (int)game.Settings.Model.Resolution.Y;
+            Model.GraphicsDeviceManager.IsFullScreen = game.Settings.Model.FullScreen;
         }
         /// <summary>
         /// Load Content
