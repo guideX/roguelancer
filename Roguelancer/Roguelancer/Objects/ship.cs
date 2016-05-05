@@ -123,7 +123,7 @@ namespace Roguelancer.Objects {
         public void Initialize(RoguelancerGame game) {
             Model.Initialize(game);
             if (ShipModel.PlayerShipControl.Model.UseInput) {
-                ShipModel.PlayerShipControl = new PlayerShipControl();
+                ShipModel.PlayerShipControl = new PlayerShipControl(game);
             }
         }
         /// <summary>
@@ -176,7 +176,7 @@ namespace Roguelancer.Objects {
             ShipModel.Money = 2000.00m;
             ShipModel.CargoHold = new CargoHoldModel();
             Model = new GameModel(game, null);
-            ShipModel.PlayerShipControl = new PlayerShipControl();
+            ShipModel.PlayerShipControl = new PlayerShipControl(game);
             //HardPoints = new List<HardPoint>();
         }
         #endregion

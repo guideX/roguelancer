@@ -14,6 +14,6 @@ namespace Roguelancer.Interfaces {
         /// Dispose
         /// </summary>
         /// <param name="game"></param>
-        void Dispose(RoguelancerGame game);
+        //void Dispose(RoguelancerGame game);
     }
 }

@@ -106,6 +106,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public Station(RoguelancerGame game) {
             Reset(game);
+            DockedShips = new List<ISensorObject>();
         }
         /// <summary>
         /// Initialize
@@ -185,7 +186,6 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
             Model = new GameModel(game, null);
-            DockedShips = new List<ISensorObject>();
         }
         #endregion
     }

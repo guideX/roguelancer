@@ -9,6 +9,13 @@ namespace Roguelancer.Interfaces {
     /// Game Settings
     /// </summary>
     public interface IGameSettings {
+        int BulletRechargeRate { get; set; }
+        float BulletMass { get; set; }
+        float BulletThrusterForce { get; set; }
+        float BulletDragFactor { get; set; }
+        float PlayerShipUpdateDirectionX { get; set; }
+        float PlayerShipUpdateDirectionY { get; set; }
+        float PlayerShipShakeValue { get; set; }
         /// <summary>
         /// Commodities Models
         /// </summary>

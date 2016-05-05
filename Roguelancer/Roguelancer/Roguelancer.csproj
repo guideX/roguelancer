@@ -129,7 +129,7 @@
     <Compile Include="Enum\GameStates.cs" />
     <Compile Include="Enum\CurrentMenuEnum.cs" />
     <Compile Include="Enum\NotificationType.cs" />
-    <Compile Include="Functionality\IniFile.cs">
+    <Compile Include="Functionality\NativeMethods.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Interfaces\IDebugText.cs" />
@@ -272,10 +272,6 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Roguelancer.Business\Roguelancer.Business.csproj">
-      <Project>{d27da0c5-7f83-43bf-9be2-1ece875d001f}</Project>
-      <Name>Roguelancer.Business</Name>
-    </ProjectReference>
     <ProjectReference Include="..\RoguelancerContent\RoguelancerContent.contentproj">
       <Project>{0555E32F-EA07-4A76-BB15-7148114CF03E}</Project>
       <Name>RoguelancerContent %28Content%29</Name>
@@ -292,7 +288,9 @@
     <None Include="configuration\systems\test_system\ships.ini" />
     <None Include="configuration\systems\test_system\stations.ini" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="configuration\systems\liberty\" />
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\Microsoft.Xna.GameStudio.targets" />
   <!--

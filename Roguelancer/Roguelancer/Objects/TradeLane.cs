@@ -81,7 +81,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Trade Lane
     /// </summary>
-    public class TradeLane : DockableObject, IGame, IDockable, ISensorObject {
+    public class TradeLane : DockableObject, IGame, IDockable {
         /// <summary>
         /// World Object
         /// </summary>
@@ -93,14 +93,14 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Model
         /// </summary>
-        public GameModel Model {
-            get {
-                throw new NotImplementedException();
-            }
-            set {
-                throw new NotImplementedException();
-            }
-        }
+        //public GameModel Model {
+        //get {
+        //throw new NotImplementedException();
+        //}
+        //set {
+        //throw new NotImplementedException();
+        //}
+        //}
         /// <summary>
         /// Entry Point
         /// </summary>

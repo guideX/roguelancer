@@ -19,9 +19,8 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Player Ship Control
         /// </summary>
-        public PlayerShipControl() {
-            Model = new PlayerShipControlModel();
-            Model.ShakeValue = .8f;
+        public PlayerShipControl(RoguelancerGame game) {
+            Model = new PlayerShipControlModel(game);
             Model.UseInput = true;
         }
         /// <summary>
@@ -33,8 +32,8 @@ namespace Roguelancer.Functionality {
             Vector3 force, acceleration;
             var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds; // Elapsed time
             var rotationAmount = new Vector2(); // Create Vector for Rotation Amount
-            var w2 = (float)game.Graphics.Model.GraphicsDeviceManager.PreferredBackBufferWidth / PlayerShipControlModel.UpdateDirectionX;
-            var h2 = (float)game.Graphics.Model.GraphicsDeviceManager.PreferredBackBufferHeight / PlayerShipControlModel.UpdateDirectionY;
+            var w2 = (float)game.Graphics.Model.GraphicsDeviceManager.PreferredBackBufferWidth / Model.UpdateDirectionX;
+            var h2 = (float)game.Graphics.Model.GraphicsDeviceManager.PreferredBackBufferHeight / Model.UpdateDirectionY;
             if (Model.UseInput) {
                 if (game.Input.InputItems.Toggles.MouseMode && !game.Input.InputItems.Toggles.FreeMouseMode) { // Flying around but must click to adjust direction
                     if (game.Input.InputItems.Mouse.LeftButton) { // Left Button

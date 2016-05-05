@@ -41,7 +41,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             _model.AreBulletsAvailable = true;
-            _model.RechargeRate = 240;
+            _model.RechargeRate = game.Settings.BulletRechargeRate;
         }
         /// <summary>
         /// Load Content
@@ -187,14 +187,14 @@ namespace Roguelancer.Objects {
         /// </summary>
         public void Dispose(RoguelancerGame game) {
             BulletModel.Model.Dispose(game);
-            BulletModel = new BulletModel();
+            BulletModel = new BulletModel(game);
         }
         /// <summary>
         /// Reset
         /// </summary>
         /// <param name="game"></param>
         public void Reset(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
-            BulletModel = new BulletModel();
+            BulletModel = new BulletModel(game);
             BulletModel.BulletThrust = bulletThrust;
             BulletModel.PlayerShip = playerShipModel;
             BulletModel.DeathDate = DateTime.Now.AddSeconds(deathSeconds);

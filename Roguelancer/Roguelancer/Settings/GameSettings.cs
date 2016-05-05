@@ -61,6 +61,13 @@ namespace Roguelancer.Settings {
         /// Bloom Enabled
         /// </summary>
         public bool BloomEnabled { get; set; }
+        public float BulletMass { get; set; }
+        public float BulletThrusterForce { get; set; }
+        public float BulletDragFactor { get; set; }
+        public int BulletRechargeRate { get; set; }
+        public float PlayerShipUpdateDirectionX { get; set; }
+        public float PlayerShipUpdateDirectionY { get; set; }
+        public float PlayerShipShakeValue { get; set; }
         /// <summary>
         /// Full Screen
         /// </summary>
@@ -122,61 +129,68 @@ namespace Roguelancer.Settings {
             _systemIniStartPath = rootDir + @"configuration\systems\";
             _commoditiesSettingsIniFile = rootDir + @"configuration\commodities_settings.ini";
             _commoditiesIniFile = rootDir + @"configuration\commodities.ini";
-            SensorTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "SensorTexture");
+            SensorTexture = NativeMethods.ReadINI(_gameSettingsIniFile, "Settings", "SensorTexture");
             var b = false;
-            if (bool.TryParse(IniFile.ReadINI(_gameSettingsIniFile, "Settings", "BloomEnabled"), out b)) { BloomEnabled = b; }
-            if (bool.TryParse(IniFile.ReadINI(_gameSettingsIniFile, "Settings", "FullScreen"), out b)) { FullScreen = b; }
-            MenuBackgroundTexture = IniFile.ReadINI(_gameSettingsIniFile, "Settings", "menu_background");
+            if (bool.TryParse(NativeMethods.ReadINI(_gameSettingsIniFile, "Settings", "BloomEnabled"), out b)) { BloomEnabled = b; }
+            if (bool.TryParse(NativeMethods.ReadINI(_gameSettingsIniFile, "Settings", "FullScreen"), out b)) { FullScreen = b; }
+            BulletMass = NativeMethods.ReadINIFloat(_gameSettingsIniFile, "Settings", "BulletMass", 1.0f);
+            BulletThrusterForce = NativeMethods.ReadINIFloat(_gameSettingsIniFile, "Settings", "BulletThrusterForce", 44000.0f);
+            BulletDragFactor = NativeMethods.ReadINIFloat(_gameSettingsIniFile, "Settings", "BulletDragFactor", 0.97f);
+            BulletRechargeRate = NativeMethods.ReadINIInt(_gameSettingsIniFile, "Settings", "BulletRechargeRate", 240);
+            PlayerShipUpdateDirectionX = NativeMethods.ReadINIFloat(_gameSettingsIniFile, "PlayerShip", "UpdateDirectionX", 2.0f);
+            PlayerShipUpdateDirectionY = NativeMethods.ReadINIFloat(_gameSettingsIniFile, "PlayerShip", "UpdateDirectionY", 2.0f);
+            PlayerShipShakeValue = NativeMethods.ReadINIFloat(_gameSettingsIniFile, "PlayerShip", "ShakeValue", .8f);
+            MenuBackgroundTexture = NativeMethods.ReadINI(_gameSettingsIniFile, "Settings", "menu_background");
             CameraSettings = new CameraSettings(_cameraSettingsIniFile);
             ModelSettings = new List<SettingsModelObject>();
-            for (var i = 1; i < IniFile.ReadINIInt(_modelSettingsIniFile, "settings", "count", 0) + 1; ++i) {
+            for (var i = 1; i < NativeMethods.ReadINIInt(_modelSettingsIniFile, "settings", "count", 0) + 1; ++i) {
                 ModelSettings.Add(new SettingsModelObject(
-                    IniFile.ReadINI(_modelSettingsIniFile, i.ToString().Trim(), "path"),
-                    (Enum.ModelType)IniFile.ReadINIInt(_modelSettingsIniFile, i.ToString().Trim(), "type", 0),
-                    IniFile.ReadINIBool(_modelSettingsIniFile, i.ToString().Trim(), "enabled", false),
+                    NativeMethods.ReadINI(_modelSettingsIniFile, i.ToString().Trim(), "path"),
+                    (Enum.ModelType)NativeMethods.ReadINIInt(_modelSettingsIniFile, i.ToString().Trim(), "type", 0),
+                    NativeMethods.ReadINIBool(_modelSettingsIniFile, i.ToString().Trim(), "enabled", false),
                     i
                 ));
             }
             StarSystemSettings = new List<StarSystemSettings>();
-            for (var i = 1; i < IniFile.ReadINIInt(_systemsSettingsIniFile, "settings", "count", 0) + 1; ++i) {
+            for (var i = 1; i < NativeMethods.ReadINIInt(_systemsSettingsIniFile, "settings", "count", 0) + 1; ++i) {
                 StarSystemSettings.Add(new StarSystemSettings(
                     i,
-                    IniFile.ReadINI(_systemsSettingsIniFile, i.ToString().Trim(), "path", ""),
+                    NativeMethods.ReadINI(_systemsSettingsIniFile, i.ToString().Trim(), "path", ""),
                     _systemIniStartPath,
                     ModelSettings,
                     ModelWorldObjects.Read(i, ModelSettings, _playerIniFile, "settings"),
                     new StarSettings(
-                        IniFile.ReadINIBool(_systemsSettingsIniFile, i.ToString(), "starsEnabled", false),
-                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "amountOfStarsPerSheet", 0),
-                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionX", 0),
-                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionY", 0),
-                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxSize", 0),
-                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionIncrementY", 0),
-                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionStartingY", 0),
-                        IniFile.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "numberOfStarSheets", 0)
+                        NativeMethods.ReadINIBool(_systemsSettingsIniFile, i.ToString(), "starsEnabled", false),
+                        NativeMethods.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "amountOfStarsPerSheet", 0),
+                        NativeMethods.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionX", 0),
+                        NativeMethods.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionY", 0),
+                        NativeMethods.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxSize", 0),
+                        NativeMethods.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionIncrementY", 0),
+                        NativeMethods.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "maxPositionStartingY", 0),
+                        NativeMethods.ReadINIInt(_systemsSettingsIniFile, i.ToString(), "numberOfStarSheets", 0)
                     )
                 ));
             }
             if (System.IO.File.Exists(_commoditiesSettingsIniFile)) {
-                for (var i = 1; i < IniFile.ReadINIInt(_commoditiesSettingsIniFile, "Settings", "Count", 0) + 1; ++i) {
+                for (var i = 1; i < NativeMethods.ReadINIInt(_commoditiesSettingsIniFile, "Settings", "Count", 0) + 1; ++i) {
                     StationPriceModels.Add(new StationPriceModel() {
-                        IsSelling = IniFile.ReadINIBool(_commoditiesSettingsIniFile, i.ToString(), "IsSelling", false),
-                        Price = IniFile.ReadINIDecimal(_commoditiesSettingsIniFile, i.ToString(), "Price", decimal.Zero),
-                        Selling = IniFile.ReadINIDecimal(_commoditiesSettingsIniFile, i.ToString(), "Selling", decimal.Zero),
-                        StarSystemId = IniFile.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "system_index", 0),
-                        StationId = IniFile.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "station_index", 0),
-                        CommoditiesId = IniFile.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "commodities_index", 0),
-                        Qty = IniFile.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "qty", 0),
+                        IsSelling = NativeMethods.ReadINIBool(_commoditiesSettingsIniFile, i.ToString(), "IsSelling", false),
+                        Price = NativeMethods.ReadINIDecimal(_commoditiesSettingsIniFile, i.ToString(), "Price", decimal.Zero),
+                        Selling = NativeMethods.ReadINIDecimal(_commoditiesSettingsIniFile, i.ToString(), "Selling", decimal.Zero),
+                        StarSystemId = NativeMethods.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "system_index", 0),
+                        StationId = NativeMethods.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "station_index", 0),
+                        CommoditiesId = NativeMethods.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "commodities_index", 0),
+                        Qty = NativeMethods.ReadINIInt(_commoditiesSettingsIniFile, i.ToString(), "qty", 0),
                         StationPriceID = i
                     });
                 }
             }
             if (System.IO.File.Exists(_commoditiesIniFile)) {
-                for (var i = 1; i < IniFile.ReadINIInt(_commoditiesIniFile, "Settings", "Count", 0) + 1; ++i) {
+                for (var i = 1; i < NativeMethods.ReadINIInt(_commoditiesIniFile, "Settings", "Count", 0) + 1; ++i) {
                     CommoditiesModels.Add(new CommodityModel() {
                         CommodityId = i,
-                        Description = IniFile.ReadINI(_commoditiesIniFile, i.ToString(), "Description", ""),
-                        Body = IniFile.ReadINI(_commoditiesIniFile, i.ToString(), "Body", ""),
+                        Description = NativeMethods.ReadINI(_commoditiesIniFile, i.ToString(), "Description", ""),
+                        Body = NativeMethods.ReadINI(_commoditiesIniFile, i.ToString(), "Body", ""),
                         Prices = StationPriceModels.Where(p => p.CommoditiesId == i).ToList()
                     });
                 }

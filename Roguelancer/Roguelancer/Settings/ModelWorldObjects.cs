@@ -140,18 +140,18 @@ namespace Roguelancer.Settings {
         /// <param name="section"></param>
         /// <returns></returns>
         public static ModelWorldObjects Read(int ID, List<SettingsModelObject> modelSettings, string iniFile, string section) {
-            var description = IniFile.ReadINI(iniFile, section, "description", "");
-            var startupPosition = IniFile.ReadINIVector3(iniFile, section, "startup_position_x", "startup_position_y", "startup_position_z");
-            var startupModelRotation = IniFile.ReadINIVector3(iniFile, section, "startup_model_rotation_x", "startup_model_rotation_y", "startup_model_rotation_z");
-            var settingsModelObject = SettingsModelObject.Clone(modelSettings.Where(s => s.enabled && s.modelId == IniFile.ReadINIInt(iniFile, section, "model_index", 0)).FirstOrDefault());
-            var starSystemID = IniFile.ReadINIInt(iniFile, section, "system_index", 0);
-            var initialModelUp = IniFile.ReadINIVector3(iniFile, section, "initial_model_up_x", "initial_model_up_y", "initial_model_up_z");
-            var initialModelRight = IniFile.ReadINIVector3(iniFile, section, "initial_model_right_x", "initial_model_right_y", "initial_model_right_z");
-            var initialVelocity = IniFile.ReadINIVector3(iniFile, section, "initial_velocity_x", "initial_velocity_y", "initial_velocity_z");
-            var initialCurrentThrust = float.Parse(IniFile.ReadINI(iniFile, section, "initial_current_thrust", "0"));
-            var initialDirection = IniFile.ReadINIVector3(iniFile, section, "initial_direction_x", "initial_direction_y", "initial_direction_z");
-            var scaling = IniFile.ReadINIFloat(iniFile, section, "model_scaling");
-            var cargoSpace = IniFile.ReadINIInt(iniFile, section, "cargo_space", 0);
+            var description = NativeMethods.ReadINI(iniFile, section, "description", "");
+            var startupPosition = NativeMethods.ReadINIVector3(iniFile, section, "startup_position_x", "startup_position_y", "startup_position_z");
+            var startupModelRotation = NativeMethods.ReadINIVector3(iniFile, section, "startup_model_rotation_x", "startup_model_rotation_y", "startup_model_rotation_z");
+            var settingsModelObject = SettingsModelObject.Clone(modelSettings.Where(s => s.enabled && s.modelId == NativeMethods.ReadINIInt(iniFile, section, "model_index", 0)).FirstOrDefault());
+            var starSystemID = NativeMethods.ReadINIInt(iniFile, section, "system_index", 0);
+            var initialModelUp = NativeMethods.ReadINIVector3(iniFile, section, "initial_model_up_x", "initial_model_up_y", "initial_model_up_z");
+            var initialModelRight = NativeMethods.ReadINIVector3(iniFile, section, "initial_model_right_x", "initial_model_right_y", "initial_model_right_z");
+            var initialVelocity = NativeMethods.ReadINIVector3(iniFile, section, "initial_velocity_x", "initial_velocity_y", "initial_velocity_z");
+            var initialCurrentThrust = float.Parse(NativeMethods.ReadINI(iniFile, section, "initial_current_thrust", "0"));
+            var initialDirection = NativeMethods.ReadINIVector3(iniFile, section, "initial_direction_x", "initial_direction_y", "initial_direction_z");
+            var scaling = NativeMethods.ReadINIFloat(iniFile, section, "model_scaling");
+            var cargoSpace = NativeMethods.ReadINIInt(iniFile, section, "cargo_space", 0);
             return new ModelWorldObjects(
                 description,
                 startupPosition,

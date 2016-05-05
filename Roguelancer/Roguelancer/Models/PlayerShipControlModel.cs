@@ -16,11 +16,11 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Update Direction X
         /// </summary>
-        public const float UpdateDirectionX = 2.0f;
+        public float UpdateDirectionX { get; set; }
         /// <summary>
         /// Update Direction Y
         /// </summary>
-        public const float UpdateDirectionY = 2.0f;
+        public float UpdateDirectionY { get; set; }
         /// <summary>
         /// Rotation X Left Add
         /// </summary>
@@ -93,5 +93,13 @@ namespace Roguelancer.Models {
         /// Thrust Min Not Zero
         /// </summary>
         public const float ThrustMinNotZero = .00001f;
+        /// <summary>
+        /// Player Ship Control Model
+        /// </summary>
+        public PlayerShipControlModel(RoguelancerGame game) {
+            ShakeValue = .8f;
+            UpdateDirectionX = game.Settings.PlayerShipUpdateDirectionX;
+            UpdateDirectionY = game.Settings.PlayerShipUpdateDirectionY;
+        }
     }
 }

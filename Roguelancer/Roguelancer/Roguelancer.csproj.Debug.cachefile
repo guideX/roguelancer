@@ -6,7 +6,6 @@ Content\Earth.xnb
 Content\Ship.xnb
 Content\SHIPS\BW_ELITE\BW_ELITE.xnb
 Content\SHIPS\BORDER_WORLD\BW_ELITE\BW_ELITE.xnb
-Content\SHIPS\FRANCO.xnb
 Content\BASES\CO_BASE_ROCK_LARGE02\CO_BASE_ROCK_LARGE02-2.xnb
 Content\BASES\CO_BASE_ROCK_LARGE02\CO_BASE_ROCK_LARGE02.xnb
 Content\BASES\TRACK_RING\TRACK_RING.xnb
@@ -18,20 +17,8 @@ Content\FONTS\Arial.xnb
 Content\FONTS\LucidaFont.xnb
 Content\FONTS\HudFont.xnb
 Content\FONTS\LucidiaFontSmall.xnb
+Content\SHIPS\ASD52\ASD52_0.xnb
 Content\SHIPS\PI_TRANSPORT\PI_TRANSPORT.xnb
-Content\SHIPS\PI_TRANSPORT\engine grill.xnb
-Content\SHIPS\PI_TRANSPORT\engine ring.xnb
-Content\SHIPS\PI_TRANSPORT\engines.xnb
-Content\SHIPS\PI_TRANSPORT\engine_grill.xnb
-Content\SHIPS\PI_TRANSPORT\engine_ring.xnb
-Content\SHIPS\PI_TRANSPORT\equip.xnb
-Content\SHIPS\PI_TRANSPORT\hold.xnb
-Content\SHIPS\PI_TRANSPORT\skull.xnb
-Content\SHIPS\PI_TRANSPORT\weapon plate.xnb
-Content\SHIPS\PI_TRANSPORT\weapon_plate.xnb
-Content\SHIPS\PI_TRANSPORT\windows.xnb
-Content\SHIPS\PI_TRANSPORT\wings fin.xnb
-Content\SHIPS\PI_TRANSPORT\wings_fin.xnb
 Content\Textures\Particle.xnb
 Content\Textures\ParticleColors.xnb
 Content\Textures\Stars.xnb

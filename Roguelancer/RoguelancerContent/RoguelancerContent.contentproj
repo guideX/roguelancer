@@ -67,77 +67,11 @@
       <Importer>FontDescriptionImporter</Importer>
       <Processor>FontDescriptionProcessor</Processor>
     </Compile>
+    <Compile Include="SHIPS\ASD52\ASD52.fbx" />
     <Compile Include="SHIPS\PI_TRANSPORT\PI_TRANSPORT.x">
       <Name>PI_TRANSPORT</Name>
       <Importer>XImporter</Importer>
       <Processor>ModelProcessor</Processor>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="SHIPS\PI_TRANSPORT\engine grill.TGA">
-      <Name>engine grill</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
-    </Compile>
-    <Compile Include="SHIPS\PI_TRANSPORT\engine ring.TGA">
-      <Name>engine ring</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
-    </Compile>
-    <Compile Include="SHIPS\PI_TRANSPORT\engines.TGA">
-      <Name>engines</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
-    </Compile>
-    <Compile Include="SHIPS\PI_TRANSPORT\engine_grill.TGA">
-      <Name>engine_grill</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
-    </Compile>
-    <Compile Include="SHIPS\PI_TRANSPORT\engine_ring.TGA">
-      <Name>engine_ring</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
-    </Compile>
-    <Compile Include="SHIPS\PI_TRANSPORT\equip.TGA">
-      <Name>equip</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
-    </Compile>
-    <Compile Include="SHIPS\PI_TRANSPORT\hold.TGA">
-      <Name>hold</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
-    </Compile>
-    <Compile Include="SHIPS\PI_TRANSPORT\skull.TGA">
-      <Name>skull</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
-    </Compile>
-    <Compile Include="SHIPS\PI_TRANSPORT\weapon plate.TGA">
-      <Name>weapon plate</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
-    </Compile>
-    <Compile Include="SHIPS\PI_TRANSPORT\weapon_plate.TGA">
-      <Name>weapon_plate</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
-    </Compile>
-    <Compile Include="SHIPS\PI_TRANSPORT\windows.TGA">
-      <Name>windows</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
-    </Compile>
-    <Compile Include="SHIPS\PI_TRANSPORT\wings fin.TGA">
-      <Name>wings fin</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
-    </Compile>
-    <Compile Include="SHIPS\PI_TRANSPORT\wings_fin.TGA">
-      <Name>wings_fin</Name>
-      <Importer>TextureImporter</Importer>
-      <Processor>TextureProcessor</Processor>
     </Compile>
   </ItemGroup>
   <ItemGroup>
@@ -245,13 +179,6 @@
   <ItemGroup>
     <Compile Include="SHIPS\BORDER_WORLD\BW_ELITE\BW_ELITE.fbx">
       <Name>BW_ELITE</Name>
-      <Importer>FbxImporter</Importer>
-      <Processor>ModelProcessor</Processor>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="SHIPS\FRANCO.fbx">
-      <Name>FRANCO</Name>
       <Importer>FbxImporter</Importer>
       <Processor>ModelProcessor</Processor>
     </Compile>

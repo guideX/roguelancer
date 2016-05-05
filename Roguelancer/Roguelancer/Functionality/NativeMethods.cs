@@ -7,7 +7,7 @@ namespace Roguelancer.Functionality {
     /// <summary>
     /// Ini File
     /// </summary>
-    public static class IniFile {
+    public static class NativeMethods {
         /// <summary>
         /// Reading of INI Files
         /// </summary>
@@ -18,9 +18,9 @@ namespace Roguelancer.Functionality {
         /// <param name="Size"></param>
         /// <param name="FilePath"></param>
         /// <returns></returns>
-        [DllImport("kernel32")]
+        [DllImport("kernel32", CharSet = CharSet.Unicode)]
         private static extern int GetPrivateProfileString(string Section, string Key, string Default, StringBuilder RetVal, int Size, string FilePath);
-        [DllImport("kernel32.dll")]
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
         private static extern bool WritePrivateProfileString(string lpAppName, string lpKeyName, string lpString, string lpFileName);
         public static string ReadINI(string file, string section, string key, string _default = "") {
             var msg = new StringBuilder(500);
