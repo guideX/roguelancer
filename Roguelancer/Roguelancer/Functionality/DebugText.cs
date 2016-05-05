@@ -15,28 +15,6 @@ namespace Roguelancer.Functionality {
         /// </summary>
         public DebugTextModel Model { get; set; }
         #endregion
-        #region "private variables"
-        /// <summary>
-        /// Get Text
-        /// </summary>
-        /// <returns></returns>
-        //public string GetText() {
-            //return Model.Text;
-        //}
-        /// <summary>
-        /// Set Text
-        /// </summary>
-        /// <param name="game"></param>
-        /// <param name="value"></param>
-        public void SetText(RoguelancerGame game, string value, bool timerEnabled) {
-            Model.TimerEnabled = timerEnabled;
-            if (value != null) {
-                Model.CurrentShowTime = 0;
-                Model.ShowEnabled = true;
-                Model.Text = value;
-            }
-        }
-        #endregion
         #region "public functions"
         /// <summary>
         /// Debug Text
@@ -45,11 +23,6 @@ namespace Roguelancer.Functionality {
             Model = new DebugTextModel();
             Model.Text = "";
         }
-        /// <summary>
-        /// Initialize
-        /// </summary>
-        /// <param name="game"></param>
-        //public void Initialize(RoguelancerGame game) { }
         /// <summary>
         /// Load Content
         /// </summary>

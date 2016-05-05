@@ -2,9 +2,9 @@
 // http://www.team-nexgen.com
 using System.Linq;
 using System.Collections.Generic;
+using Microsoft.Xna.Framework;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
-using Microsoft.Xna.Framework;
 using Roguelancer.Objects.Base;
 using Roguelancer.Helpers;
 namespace Roguelancer.Objects {
@@ -14,16 +14,16 @@ namespace Roguelancer.Objects {
     public class StationCollection : IGame {
         #region "public variables"
         /// <summary>
-        /// Stations
+        /// Model
         /// </summary>
-        public List<Station> Stations { get; set; }
+        public StationCollectionModel Model { get; set; }
         #endregion
         #region "public functions"
         /// <summary>
         /// Station Collection
         /// </summary>
-        public StationCollection() {
-            Stations = new List<Station>();
+        public StationCollection(RoguelancerGame game) {
+            Reset(game);
         }
         /// <summary>
         /// Initialize
@@ -37,10 +37,10 @@ namespace Roguelancer.Objects {
                 s.StationID = n;
                 s.Model.WorldObject = obj;
                 s.StationPrices = game.Settings.StationPriceModels.Where(p => p.StationId == obj.ID).ToList();
-                Stations.Add(s);
+                Model.Stations.Add(s);
             }
-            for (var i = 0; i <= Stations.Count - 1; i++) {
-                Stations[i].Initialize(game);
+            for (var i = 0; i <= Model.Stations.Count - 1; i++) {
+                Model.Stations[i].Initialize(game);
             }
         }
         /// <summary>
@@ -48,8 +48,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            for (var i = 0; i <= Stations.Count - 1; i++) {
-                Stations[i].LoadContent(game);
+            for (var i = 0; i <= Model.Stations.Count - 1; i++) {
+                Model.Stations[i].LoadContent(game);
             }
         }
         /// <summary>
@@ -57,8 +57,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            for (var i = 0; i <= Stations.Count - 1; i++) {
-                Stations[i].Update(game);
+            for (var i = 0; i <= Model.Stations.Count - 1; i++) {
+                Model.Stations[i].Update(game);
             }
         }
         /// <summary>
@@ -66,14 +66,22 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            for (var i = 0; i <= Stations.Count - 1; i++) {
-                Stations[i].Draw(game);
+            for (var i = 0; i <= Model.Stations.Count - 1; i++) {
+                Model.Stations[i].Draw(game);
             }
         }
         /// <summary>
         /// Dispose
         /// </summary>
         public void Dispose(RoguelancerGame game) {
+            Model = null;
+        }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset(RoguelancerGame game) {
+            Model = new StationCollectionModel();
         }
         #endregion
     }
@@ -81,11 +89,11 @@ namespace Roguelancer.Objects {
     /// Station
     /// </summary>
     public class Station : DockableObject, IGame, IDockable, ISensorObject {
+        #region "public variables"
         /// <summary>
         /// Space Station ID
         /// </summary>
         public int StationID { get; set; }
-        #region "public variables"
         /// <summary>
         /// Game Model
         /// </summary>
@@ -97,8 +105,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public Station(RoguelancerGame game) {
-            Model = new GameModel(game, null);
-            DockedShips = new List<ISensorObject>();
+            Reset(game);
         }
         /// <summary>
         /// Initialize
@@ -170,6 +177,15 @@ namespace Roguelancer.Objects {
         /// Dispose
         /// </summary>
         public void Dispose(RoguelancerGame game) {
+            Model = null;
+        }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset(RoguelancerGame game) {
+            Model = new GameModel(game, null);
+            DockedShips = new List<ISensorObject>();
         }
         #endregion
     }

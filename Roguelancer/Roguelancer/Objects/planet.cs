@@ -1,23 +1,25 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
-using System.Collections.Generic;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Objects.Base;
 namespace Roguelancer.Objects {
+    /// <summary>
+    /// Planet Collection
+    /// </summary>
     public class PlanetCollection : IGame {
         #region "public variables"
         /// <summary>
-        /// Planets
+        /// Planet Collection Model
         /// </summary>
-        public List<Planet> Planets { get; set; }
+        public PlanetCollectionModel Model { get; set; }
         #endregion
         #region "public functions"
         /// <summary>
         /// Planet Collection
         /// </summary>
-        public PlanetCollection() {
-            Planets = new List<Planet>();
+        public PlanetCollection(RoguelancerGame game) {
+            Reset(game);
         }
         /// <summary>
         /// Initialize
@@ -27,10 +29,10 @@ namespace Roguelancer.Objects {
             foreach (var modelWorldObject in game.Settings.StarSystemSettings[game.StarSystemId].Planets) {
                 var planet = new Planet(game);
                 planet.Model.WorldObject = modelWorldObject;
-                Planets.Add(planet);
+                Model.Planets.Add(planet);
             }
-            for (int i = 0; i <= Planets.Count - 1; i++) {
-                Planets[i].Initialize(game);
+            for (int i = 0; i <= Model.Planets.Count - 1; i++) {
+                Model.Planets[i].Initialize(game);
             }
         }
         /// <summary>
@@ -38,8 +40,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            for (int i = 0; i <= Planets.Count - 1; i++) {
-                Planets[i].LoadContent(game);
+            for (int i = 0; i <= Model.Planets.Count - 1; i++) {
+                Model.Planets[i].LoadContent(game);
             }
         }
         /// <summary>
@@ -47,8 +49,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            for (int i = 0; i <= Planets.Count - 1; i++) {
-                Planets[i].Update(game);
+            for (int i = 0; i <= Model.Planets.Count - 1; i++) {
+                Model.Planets[i].Update(game);
             }
         }
         /// <summary>
@@ -56,14 +58,22 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            for (int i = 0; i <= Planets.Count - 1; i++) {
-                Planets[i].Draw(game);
+            for (int i = 0; i <= Model.Planets.Count - 1; i++) {
+                Model.Planets[i].Draw(game);
             }
         }
         /// <summary>
         /// Dispose
         /// </summary>
         public void Dispose(RoguelancerGame game) {
+            Model = null;
+        }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset(RoguelancerGame game) {
+            Model = new PlanetCollectionModel();
         }
         #endregion
     }
@@ -90,7 +100,6 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            //Model.ModelMode = Enum.ModelModeEnum.Planet;
             Model.Initialize(game);
         }
         /// <summary>

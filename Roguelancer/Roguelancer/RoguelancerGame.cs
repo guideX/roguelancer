@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Bloom;
 using Roguelancer.Enum;
 using Roguelancer.Functionality;
+using Roguelancer.Helpers;
 using Roguelancer.Interfaces;
 using Roguelancer.Objects;
 using Roguelancer.Settings;
@@ -106,13 +107,11 @@ namespace Roguelancer {
         /// Load Content
         /// </summary>
         protected override void LoadContent() {
-            //Camera.LoadContent(this);
             Graphics.LoadContent(this);
-            //_bloom.LoadContent(this);
             DebugText.LoadContent(this);
             DebugText.Update(this);
             Objects.LoadContent(this);
-            DebugText.SetText(this, ".", false);
+            DebugTextHelper.SetText(this, ".", false);
             GameMenu.LoadContent(this);
             Hud.LoadContent(this);
             base.LoadContent();

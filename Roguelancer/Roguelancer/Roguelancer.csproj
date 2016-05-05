@@ -110,6 +110,7 @@
   <ItemGroup>
     <Compile Include="Bloom\BloomComponent.cs" />
     <Compile Include="Enum\GameCameraModeEnum.cs" />
+    <Compile Include="Helpers\DebugTextHelper.cs" />
     <Compile Include="Helpers\ShipHelper.cs" />
     <Compile Include="Interfaces\IBloomComponent.cs" />
     <Compile Include="Interfaces\IBloomHandler.cs" />
@@ -149,12 +150,15 @@
     <Compile Include="Models\GameObjectsModel.cs" />
     <Compile Include="Models\GameStateModel.cs" />
     <Compile Include="Models\HudModel.cs" />
+    <Compile Include="Models\HudObjectModel.cs" />
     <Compile Include="Models\JumpHoleCollectionModel.cs" />
     <Compile Include="Models\JumpHoleModel.cs" />
     <Compile Include="Models\Particle\ParticleStarSheetModel.cs" />
+    <Compile Include="Models\PlanetCollectionModel.cs" />
     <Compile Include="Models\PlayerShipControlModel.cs" />
     <Compile Include="Models\ShipCollectionModel.cs" />
     <Compile Include="Models\ShipModel.cs" />
+    <Compile Include="Models\StationCollectionModel.cs" />
     <Compile Include="Models\StationPriceModel.cs" />
     <Compile Include="Objects\Base\DockableObject.cs" />
     <Compile Include="Objects\HudObject.cs" />

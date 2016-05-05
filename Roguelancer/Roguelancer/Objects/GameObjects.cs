@@ -22,8 +22,8 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public GameObjects(RoguelancerGame game) {
             Model = new GameObjectsModel();
-            Model.Stations = new StationCollection();
-            Model.Planets = new PlanetCollection();
+            Model.Stations = new StationCollection(game);
+            Model.Planets = new PlanetCollection(game);
             Model.Stars = new Starfields(game.Settings.StarSystemSettings[game.StarSystemId].StarSettings);
             Model.TradeLanes = new TradeLaneCollection();
             Model.Ships = new ShipCollection(game);
@@ -89,8 +89,8 @@ namespace Roguelancer.Objects {
         public void Reset(RoguelancerGame game) {
             Model.TradeLanes.Reset(game);
             Model.Ships.Reset(game);
-            Model.Stations = new StationCollection();
-            Model.Planets = new PlanetCollection();
+            Model.Stations = new StationCollection(game);
+            Model.Planets = new PlanetCollection(game);
             Model.Stars = new Starfields(new StarSettings(false, 0, 0, 0, 0, 0, 0, 0));
             //Model.JumpHoles = new JumpHoleCollection();
         }

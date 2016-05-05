@@ -2,18 +2,17 @@
 // http://www.team-nexgen.com
 using System;
 using System.Collections.Generic;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Models;
 using Roguelancer.Interfaces;
 using Roguelancer.Enum;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Helpers;
-
 namespace Roguelancer.Objects {
     /// <summary>
     /// Bullets
     /// </summary>
-    public class Bullets : IGameObject {
+    public class Bullets : IGame {
         #region "private variables"
         /// <summary>
         /// Model

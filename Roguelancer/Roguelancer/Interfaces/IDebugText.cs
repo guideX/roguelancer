@@ -25,17 +25,5 @@ namespace Roguelancer.Interfaces {
         /// Model
         /// </summary>
         DebugTextModel Model { get; set; }
-        /// <summary>
-        /// Get Text
-        /// </summary>
-        /// <returns></returns>
-        //string GetText();
-        /// <summary>
-        /// Set Text
-        /// </summary>
-        /// <param name="game"></param>
-        /// <param name="value"></param>
-        /// <param name="timerEnabled"></param>
-        void SetText(RoguelancerGame game, string value, bool timerEnabled);
     }
 }

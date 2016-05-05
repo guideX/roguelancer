@@ -1,15 +1,14 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://www.team-nexgen.com
+using System;
+using System.Text;
+using System.Collections.Generic;
 using System.Linq;
 using Roguelancer.Interfaces;
-using System.Collections.Generic;
 using Roguelancer.Settings;
-using System;
 using Roguelancer.Models;
 using Roguelancer.Enum;
-using System.Text;
 using Roguelancer.Helpers;
-
 namespace Roguelancer.Objects.Base {
     /// <summary>
     /// Dockable Object
@@ -45,7 +44,7 @@ namespace Roguelancer.Objects.Base {
             }
             ship.Docked = true; // Set Docked to True
             DockedShips.Add(ship); // Add to Docked Ships
-            game.DebugText.SetText(game, "Docked at '" + worldObject.Description + "'.", true); // Set Debug Text
+            DebugTextHelper.SetText(game, "Docked at '" + worldObject.Description + "'.", true); // Set Debug Text
         }
         /// <summary>
         /// Undock
@@ -59,7 +58,7 @@ namespace Roguelancer.Objects.Base {
             }
             ship.Docked = false;
             DockedShips.Remove(ship);
-            game.DebugText.SetText(game, "Undocked from '" + worldObject.Description + "'.", true);
+            DebugTextHelper.SetText(game, "Undocked from '" + worldObject.Description + "'.", true);
         }
         /// <summary>
         /// Commodities for Sale
@@ -77,7 +76,7 @@ namespace Roguelancer.Objects.Base {
                         sb.AppendLine("[" + n.ToString () + "] Description: " + commodity.Description + ", Price: " + obj.Price.ToString());
                     }
                     if (game.GameState.Model.CurrentGameState == Enum.GameStates.Docked && game.GameState.Model.DockedGameState == Enum.DockedGameStateEnum.Commodities) {
-                        game.DebugText.SetText(game, "Station Commodities:" + Environment.NewLine + sb.ToString() + Environment.NewLine, true);
+                        DebugTextHelper.SetText(game, "Station Commodities:" + Environment.NewLine + sb.ToString() + Environment.NewLine, true);
                     }
                     break;
                 default:
@@ -103,15 +102,15 @@ namespace Roguelancer.Objects.Base {
                             ship.ShipModel.CargoHold.Commodities.Add(commodity);
                             stationPrice.Qty = stationPrice.Qty - 1;
                         }
-                        game.DebugText.SetText(game, qty.ToString() + "Item(s) purchased", true);
+                        DebugTextHelper.SetText(game, qty.ToString() + "Item(s) purchased", true);
                     } else {
-                        game.DebugText.SetText(game, "Not enough qty", true);
+                        DebugTextHelper.SetText(game, "Not enough qty", true);
                     }
                 } else {
-                    game.DebugText.SetText(game, "Not enough money", true);
+                    DebugTextHelper.SetText(game, "Not enough money", true);
                 }
             } else {
-                game.DebugText.SetText(game, "Item not available", true);
+                DebugTextHelper.SetText(game, "Item not available", true);
             }
         }
     }

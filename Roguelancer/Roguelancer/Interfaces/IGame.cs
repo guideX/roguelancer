@@ -29,16 +29,5 @@ namespace Roguelancer.Interfaces {
         /// Dispose
         /// </summary>
         void Dispose(RoguelancerGame game);
-        /// <summary>
-        /// Reset
-        /// </summary>
-        /// <param name="game"></param>
-        //void Reset(RoguelancerGame game);
-    }
-    /// <summary>
-    /// Game Object
-    /// </summary>
-    public interface IGameObject : IGame {
-
     }
 }

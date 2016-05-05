@@ -7,7 +7,6 @@ using Roguelancer.Models;
 using Roguelancer.Settings;
 using System;
 using Roguelancer.Objects.Base;
-
 namespace Roguelancer.Objects {
     /// <summary>
     /// Trade Lane Collection

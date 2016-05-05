@@ -6,6 +6,7 @@ using Roguelancer.Interfaces;
 using Roguelancer.Settings;
 using Roguelancer.Models;
 using Roguelancer.Enum;
+using Roguelancer.Helpers;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Ship Collection
@@ -78,13 +79,14 @@ namespace Roguelancer.Objects {
                 tempShip.Model = new GameModel(game, null);
                 tempShip.Model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
                 tempShip.ShipModel.PlayerShipControl.Model.UseInput = false;
-                Model.Ships.Add(Ship.Clone(tempShip, game));
+                Model.Ships.Add(ShipHelper.Clone(tempShip, game));
             }
         }
         /// <summary>
         /// Dispose
         /// </summary>
         public void Dispose(RoguelancerGame game) {
+            Model = null;
         }
         #endregion
     }
@@ -176,20 +178,6 @@ namespace Roguelancer.Objects {
             Model = new GameModel(game, null);
             ShipModel.PlayerShipControl = new PlayerShipControl();
             //HardPoints = new List<HardPoint>();
-        }
-        /// <summary>
-        /// Clone
-        /// </summary>
-        /// <param name="oldShip"></param>
-        /// <param name="game"></param>
-        /// <returns></returns>
-        public static Ship Clone(Ship oldShip, RoguelancerGame game) {
-            Ship ship;
-            ship = new Ship(game);
-            ship.ShipModel.PlayerShipControl = oldShip.ShipModel.PlayerShipControl;
-            ship.Model = oldShip.Model;
-            ship.ShipModel.CargoHold = oldShip.ShipModel.CargoHold;
-            return ship;
         }
         #endregion
     }

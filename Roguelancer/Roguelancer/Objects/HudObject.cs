@@ -11,31 +11,11 @@ namespace Roguelancer.Objects {
     /// Hud Object
     /// </summary>
     public class HudObject : IHudObject {
-        #region "private variables"
+        #region "public variables"
         /// <summary>
-        /// Player Ship
+        /// Hud Object Model
         /// </summary>
-        private Ship _playerShip;
-        /// <summary>
-        /// Update Order Int
-        /// </summary>
-        private int _updateOrderInt;
-        /// <summary>
-        /// Font
-        /// </summary>
-        private SpriteFont _font;
-        /// <summary>
-        /// Sensor
-        /// </summary>
-        private Texture2D _sensor;
-        /// <summary>
-        /// Screen Rectangle
-        /// </summary>
-        private Rectangle _screenRectangle;
-        /// <summary>
-        /// Model
-        /// </summary>
-        private HudModel _model;
+        public HudObjectModel Model { get; set; }
         #endregion
         #region "public const"
         public const int DockDistanceAccept = 20;
@@ -84,20 +64,26 @@ namespace Roguelancer.Objects {
         #endregion
         #region "public functions"
         /// <summary>
+        /// Hud Object
+        /// </summary>
+        public HudObject() {
+            Model = new HudObjectModel();
+        }
+        /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            _model = new HudModel();
+            
         }
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            _playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
-            _font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.FontSmall);
-            _sensor = game.Content.Load<Texture2D>(game.Settings.SensorTexture);
+            Model.PlayerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
+            Model.Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.FontSmall);
+            Model.Sensor = game.Content.Load<Texture2D>(game.Settings.SensorTexture);
         }
         /// <summary>
         /// Update
@@ -108,52 +94,52 @@ namespace Roguelancer.Objects {
             var n = 0;
             var d = (double)0;
             var shipId = 0;
-            _updateOrderInt++;
-            if (_updateOrderInt > _updateOrderInterval) {
-                if (_playerShip == null) { _playerShip = ShipHelper.GetPlayerShip(game); }
-                _screenRectangle = new Rectangle(_imageLeft, _imageTop, _imageWidth, _imageHeight);
-                if (((game.Objects.Model.Ships.Model.Ships.Count + game.Objects.Model.Stations.Stations.Count) - 1) != _model.SensorObjects.Count) {
-                    _model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();
+            Model.UpdateOrderInt++;
+            if (Model.UpdateOrderInt > _updateOrderInterval) {
+                if (Model.PlayerShip == null) { Model.PlayerShip = ShipHelper.GetPlayerShip(game); }
+                Model.ScreenRectangle = new Rectangle(_imageLeft, _imageTop, _imageWidth, _imageHeight);
+                if (((game.Objects.Model.Ships.Model.Ships.Count + game.Objects.Model.Stations.Model.Stations.Count) - 1) != Model.Model.SensorObjects.Count) {
+                    Model.Model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();
                     foreach (var ship in game.Objects.Model.Ships.Model.Ships) {
                         shipId++;
-                        d = Vector3.Distance(_playerShip.Model.Position, ship.Model.Position) / DivisionDistanceValue;
+                        d = Vector3.Distance(Model.PlayerShip.Model.Position, ship.Model.Position) / DivisionDistanceValue;
                         text = "Ship " + shipId.ToString();
                         if (d != 0f) {
-                            _model.SensorObjects.Add(new HudSensorObject() {
+                            Model.Model.SensorObjects.Add(new HudSensorObject() {
                                 Obj = ship,
                                 Text = text,
                                 FontPosition = new Vector2(_textLeft, _imageTop + n),
                                 Distance = d,
-                                FontOrigin = _font.MeasureString(text) / 2
+                                FontOrigin = Model.Font.MeasureString(text) / 2
                             });
                             n = n + _fontIncrement;
                         }
                     }
-                    foreach (var station in game.Objects.Model.Stations.Stations) {
-                        d = (double)Vector3.Distance(_playerShip.Model.Position, station.Model.Position) / DivisionDistanceValue;
+                    foreach (var station in game.Objects.Model.Stations.Model.Stations) {
+                        d = (double)Vector3.Distance(Model.PlayerShip.Model.Position, station.Model.Position) / DivisionDistanceValue;
                         text = station.Model.WorldObject.Description;
-                        _model.SensorObjects.Add(new HudSensorObject() {
+                        Model.Model.SensorObjects.Add(new HudSensorObject() {
                             Obj = station,
                             Text = text,
                             FontPosition = new Vector2(_textLeft, _imageTop + n),
                             Distance = d,
-                            FontOrigin = _font.MeasureString(text) / 2
+                            FontOrigin = Model.Font.MeasureString(text) / 2
                         });
                         n = n + _fontIncrement;
                     }
-                    _updateOrderInt = _updateOrderInterval - 1;
+                    Model.UpdateOrderInt = _updateOrderInterval - 1;
                 } else {
-                    foreach (var so in _model.SensorObjects) {
-                        so.Distance = (double)Vector3.Distance(_playerShip.Model.Position, so.Obj.Model.Position) / DivisionDistanceValue;
-                        so.FontOrigin = _font.MeasureString(so.Text) / 2;
+                    foreach (var so in Model.Model.SensorObjects) {
+                        so.Distance = (double)Vector3.Distance(Model.PlayerShip.Model.Position, so.Obj.Model.Position) / DivisionDistanceValue;
+                        so.FontOrigin = Model.Font.MeasureString(so.Text) / 2;
                         if (so.Distance < _maxDistance) {
                             so.FontPosition = new Vector2(_textLeft, _imageTop + n);
                             n = n + _fontIncrement;
                         }
                     }
-                    _model.SensorObjects = _model.SensorObjects.OrderBy(s => s.Distance).ToList();
+                    Model.Model.SensorObjects = Model.Model.SensorObjects.OrderBy(s => s.Distance).ToList();
                 }
-                _updateOrderInt = 0;
+                Model.UpdateOrderInt = 0;
             }
         }
         /// <summary>
@@ -163,12 +149,12 @@ namespace Roguelancer.Objects {
         public void Draw(RoguelancerGame game) {
             //game.Graphics.SpriteBatch.Draw(_sensor, _screenRectangle, Color.White);
             var n = 0;
-            foreach (var sensorObject in _model.SensorObjects) {
+            foreach (var sensorObject in Model.Model.SensorObjects) {
                 if (n < _maxSensorObjects) {
-                    var fontOrigin = _font.MeasureString(sensorObject.Text) / 2;
+                    var fontOrigin = Model.Font.MeasureString(sensorObject.Text) / 2;
                     if (sensorObject.Distance != (double)0) {
                         if (sensorObject.Distance < _maxDistance) {
-                            game.Graphics.Model.SpriteBatch.DrawString(_font, sensorObject.Text + ": " + sensorObject.Distance.ToString("#.##"), sensorObject.FontPosition, Color.LightBlue, 0, sensorObject.FontOrigin, 2.0f, SpriteEffects.None, 0.5f);
+                            game.Graphics.Model.SpriteBatch.DrawString(Model.Font, sensorObject.Text + ": " + sensorObject.Distance.ToString("#.##"), sensorObject.FontPosition, Color.LightBlue, 0, sensorObject.FontOrigin, 2.0f, SpriteEffects.None, 0.5f);
                         }
                     }
                 }
