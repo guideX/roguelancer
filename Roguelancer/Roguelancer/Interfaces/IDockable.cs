@@ -1,7 +1,5 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://team-nexgen.com
-using Roguelancer.Enum;
-using Roguelancer.Models;
 using Roguelancer.Objects;
 using Roguelancer.Settings;
 using System.Collections.Generic;

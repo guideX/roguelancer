@@ -1,6 +1,7 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://team-nexgen.com
 using Roguelancer.Models;
+using System.Collections.Generic;
 namespace Roguelancer.Interfaces {
     /// <summary>
     /// Sensor Object
@@ -10,5 +11,14 @@ namespace Roguelancer.Interfaces {
         /// Game Model
         /// </summary>
         GameModel Model { get; set; }
+    }
+    /// <summary>
+    /// Sensor Object
+    /// </summary>
+    public interface ISensorObject2 : IGame {
+        /// <summary>
+        /// Game Model
+        /// </summary>
+        List<GameModel> Model { get; set; }
     }
 }

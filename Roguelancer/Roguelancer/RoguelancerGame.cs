@@ -143,19 +143,19 @@ namespace Roguelancer {
             _bloom.Draw(this);
             if (GameState.Model.CurrentGameState == GameStates.Playing) {
                 if (GameState.Model.LastGameState != GameState.Model.CurrentGameState) {
-                    GraphicsDevice.Clear(Color.Black);
+                    GraphicsDevice.Clear(Color.Blue);
                 }
                 Graphics.Draw(this);
                 Objects.Draw(this);
                 Hud.Draw(this);
             } else if (GameState.Model.CurrentGameState == GameStates.Menu) {
                 if (GameState.Model.LastGameState != GameState.Model.CurrentGameState) {
-                    GraphicsDevice.Clear(Color.Black);
+                    GraphicsDevice.Clear(Color.Blue);
                 }
                 GameMenu.Draw(this);
                 Graphics.Draw(this);
             } else {
-                GraphicsDevice.Clear(Color.Black);
+                GraphicsDevice.Clear(Color.Blue);
                 //} else if (GameState.CurrentGameState == GameStates.Docked) {
             }
             DebugText.Draw(this);

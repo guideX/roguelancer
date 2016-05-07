@@ -33,9 +33,9 @@ namespace Roguelancer.Bloom {
         /// </summary>
         protected override void LoadContent() {
             Model.SpriteBatch = new SpriteBatch(GraphicsDevice);
-            Model.BloomExtractEffect = Game.Content.Load<Effect>("Effects\\BloomExtract");
-            Model.BloomCombineEffect = Game.Content.Load<Effect>("Effects\\BloomCombine");
-            Model.GaussianBlurEffect = Game.Content.Load<Effect>("Effects\\GaussianBlur");
+            Model.BloomExtractEffect = Game.Content.Load<Effect>(@"Effects\BloomExtract");
+            Model.BloomCombineEffect = Game.Content.Load<Effect>(@"Effects\BloomCombine");
+            Model.GaussianBlurEffect = Game.Content.Load<Effect>(@"Effects\GaussianBlur");
             var pp = GraphicsDevice.PresentationParameters;
             var width = pp.BackBufferWidth;
             var height = pp.BackBufferHeight;

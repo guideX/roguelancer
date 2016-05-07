@@ -67,7 +67,15 @@
       <Importer>FontDescriptionImporter</Importer>
       <Processor>FontDescriptionProcessor</Processor>
     </Compile>
-    <Compile Include="SHIPS\ASD52\ASD52.fbx" />
+    <Compile Include="SHIPS\ASD52\ASD52.fbx">
+      <Importer>FbxImporter</Importer>
+      <Processor>ModelProcessor</Processor>
+    </Compile>
+    <Compile Include="SHIPS\NOMAD_BATTLESHIP\NOMAD_BATTLESHIP.fbx">
+      <Name>NOMAD_BATTLESHIP</Name>
+      <Importer>FbxImporter</Importer>
+      <Processor>ModelProcessor</Processor>
+    </Compile>
     <Compile Include="SHIPS\PI_TRANSPORT\PI_TRANSPORT.x">
       <Name>PI_TRANSPORT</Name>
       <Importer>XImporter</Importer>
@@ -316,6 +324,18 @@
       <Name>LucidiaFontSmall</Name>
       <Importer>FontDescriptionImporter</Importer>
       <Processor>FontDescriptionProcessor</Processor>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="SHIPS\VALKYRIE.x">
+      <Name>VALKYRIE</Name>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="SHIPS\COCKPIT1.fbx">
+      <Name>COCKPIT1</Name>
+      <Importer>FbxImporter</Importer>
+      <Processor>ModelProcessor</Processor>
     </Compile>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\$(XnaFrameworkVersion)\Microsoft.Xna.GameStudio.ContentPipeline.targets" />

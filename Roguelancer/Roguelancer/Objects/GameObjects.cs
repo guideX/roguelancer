@@ -25,7 +25,7 @@ namespace Roguelancer.Objects {
             Model.Stations = new StationCollection(game);
             Model.Planets = new PlanetCollection(game);
             Model.Stars = new Starfields(game.Settings.Model.StarSystemSettings[game.StarSystemId].StarSettings);
-            Model.TradeLanes = new TradeLaneCollection();
+            Model.TradeLanes = new TradeLaneCollection(game);
             Model.Ships = new ShipCollection(game);
             Model.Bullets = new Bullets(game);
             //Model.JumpHoles = new JumpHoleCollection();
@@ -98,6 +98,11 @@ namespace Roguelancer.Objects {
         /// Dispose
         /// </summary>
         public void Dispose(RoguelancerGame game) {
+            Model.TradeLanes.Dispose(game);
+            Model.Ships.Dispose(game);
+            Model.Stations.Dispose(game);
+            Model.Planets.Dispose(game);
+            Model.Stars.Dispose(game);
         }
         #endregion
     }

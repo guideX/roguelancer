@@ -24,6 +24,7 @@ namespace Roguelancer.Helpers {
             ship.ShipModel.PlayerShipControl = oldShip.ShipModel.PlayerShipControl;
             ship.Model = oldShip.Model;
             ship.ShipModel.CargoHold = oldShip.ShipModel.CargoHold;
+            ship.Docked = oldShip.Docked;
             return ship;
         }
     }
