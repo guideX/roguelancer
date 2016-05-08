@@ -19,6 +19,6 @@ namespace Roguelancer.Interfaces {
         /// <summary>
         /// Game Model
         /// </summary>
-        List<GameModel> Model { get; set; }
+        List<TradeLaneModel> Models { get; set; }
     }
 }

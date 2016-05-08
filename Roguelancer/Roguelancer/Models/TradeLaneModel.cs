@@ -1,25 +1,21 @@
-﻿/*
-using Roguelancer.Objects;
-using Roguelancer.Settings;
-using System.Collections.Generic;
+﻿using Roguelancer.Settings;
 namespace Roguelancer.Models {
     /// <summary>
     /// Trade Lane Model
     /// </summary>
     public class TradeLaneModel {
         /// <summary>
-        /// World Object
+        /// Model
         /// </summary>
-        public ModelWorldObjects WorldObject { get; set; }
-        /// <summary>
-        /// Trade Lane Rings
-        /// </summary>
-        public List<TradeLaneRing> TradeLaneRings { get; set; }
+        public GameModel Model { get; set; }
         /// <summary>
         /// Trade Lane Model
         /// </summary>
-        public TradeLaneModel() {
-            TradeLaneRings = new List<TradeLaneRing>();
+        /// <param name="game"></param>
+        public TradeLaneModel(RoguelancerGame game, ModelWorldObjects o) {
+            Model = new GameModel(game, null) {
+                WorldObject = o
+            };
         }
     }
-}*/
+}
