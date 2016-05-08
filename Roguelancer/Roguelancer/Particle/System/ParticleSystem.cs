@@ -7,6 +7,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Particle.System.Affector;
 using Roguelancer.Particle.System.ParticleSystems;
 using Roguelancer.Particle.System.Emitters;
+using Roguelancer.Particle.ParticleSystem;
 using Roguelancer.Models;
 namespace Roguelancer.Particle.System {
     /// <summary>

@@ -2,7 +2,7 @@
 // http://team-nexgen.com
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Roguelancer.Models.Particle;
+using Roguelancer.Models;
 namespace Roguelancer.Particle.ParticleSystem {
     /// <summary>
     /// Static Particle System

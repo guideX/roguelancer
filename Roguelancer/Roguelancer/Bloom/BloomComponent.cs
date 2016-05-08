@@ -4,7 +4,7 @@ using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Enum;
-using Roguelancer.Models.Bloom;
+using Roguelancer.Models;
 namespace Roguelancer.Bloom {
     /// <summary>
     /// Bloom Component

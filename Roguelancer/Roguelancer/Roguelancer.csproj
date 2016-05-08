@@ -119,8 +119,8 @@
     <Compile Include="Interfaces\IGameStates.cs" />
     <Compile Include="Interfaces\IHudObject.cs" />
     <Compile Include="Interfaces\IObjectCollection.cs" />
-    <Compile Include="Models\Bloom\BloomComponentModel.cs" />
-    <Compile Include="Models\Bloom\BloomSettingsModel.cs" />
+    <Compile Include="Models\BloomComponentModel.cs" />
+    <Compile Include="Models\BloomSettingsModel.cs" />
     <Compile Include="Bloom\BloomHandler.cs" />
     <None Include="configuration\commodities_settings.ini" />
     <None Include="configuration\objects\bullets.ini" />
@@ -140,7 +140,7 @@
     <Compile Include="Interfaces\IGameSettings.cs" />
     <Compile Include="Interfaces\IInput.cs" />
     <Compile Include="Interfaces\ISensorObject.cs" />
-    <Compile Include="Models\Bloom\BloomHandlerModel.cs" />
+    <Compile Include="Models\BloomHandlerModel.cs" />
     <Compile Include="Models\CameraSettingsModel.cs" />
     <Compile Include="Models\CargoHoldModel.cs" />
     <Compile Include="Models\CommodityModel.cs" />
@@ -155,10 +155,10 @@
     <Compile Include="Models\HudObjectModel.cs" />
     <Compile Include="Models\JumpHoleCollectionModel.cs" />
     <Compile Include="Models\JumpHoleModel.cs" />
-    <Compile Include="Models\Particle\ParticleStarSheetModel.cs" />
+    <Compile Include="Models\ParticleStarSheetModel.cs" />
     <Compile Include="Models\PlanetCollectionModel.cs" />
     <Compile Include="Models\PlayerShipControlModel.cs" />
-    <Compile Include="Models\Settings\GameSettingsModel.cs" />
+    <Compile Include="Models\GameSettingsModel.cs" />
     <Compile Include="Models\ShipCollectionModel.cs" />
     <Compile Include="Models\ShipModel.cs" />
     <Compile Include="Models\StationCollectionModel.cs" />
@@ -186,8 +186,8 @@
     <Compile Include="Interfaces\IParticleSystem.cs" />
     <Compile Include="Interfaces\IPlayerShipControl.cs" />
     <Compile Include="Interfaces\IShipCollection.cs" />
-    <Compile Include="Models\Bullet\BulletModel.cs" />
-    <Compile Include="Models\Bullet\BulletsModel.cs" />
+    <Compile Include="Models\BulletModel.cs" />
+    <Compile Include="Models\BulletsModel.cs" />
     <Compile Include="Models\GameModel.cs" />
     <Compile Include="Models\InputItemsModel.cs" />
     <Compile Include="Models\KeyInputModel.cs" />
@@ -211,7 +211,7 @@
     <Compile Include="Particle\ParticleSystem\DynamicParticleSystem.cs" />
     <Compile Include="Particle\ParticleSystem\ParticleManager.cs" />
     <Compile Include="Particle\ParticleSystem\ParticleSystem.cs" />
-    <Compile Include="Models\Particle\StaticParticleModel.cs" />
+    <Compile Include="Models\StaticParticleModel.cs" />
     <Compile Include="Particle\ParticleSystem\StaticParticleSystem.cs" />
     <Compile Include="Particle\Starfields.cs">
       <SubType>Code</SubType>

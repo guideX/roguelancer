@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Roguelancer.Settings;
-namespace Roguelancer.Models.Settings {
+namespace Roguelancer.Models {
     /// <summary>
     /// Game Settings Model
     /// </summary>

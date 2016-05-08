@@ -5,9 +5,7 @@ using System.Collections.Generic;
 using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
-using Roguelancer.Models.Settings;
 using Microsoft.Xna.Framework;
-
 namespace Roguelancer.Settings {
     /// <summary>
     /// Game Settings

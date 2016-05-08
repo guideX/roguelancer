@@ -2,7 +2,7 @@
 // http://team-nexgen.com
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Enum;
-using Roguelancer.Models.Bloom;
+using Roguelancer.Models;
 namespace Roguelancer.Interfaces {
     /// <summary>
     /// Bloom Component

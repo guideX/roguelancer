@@ -3,9 +3,8 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Roguelancer.Particle.ParticleSystem;
 using Roguelancer.Interfaces;
-namespace Roguelancer.Particle.System {
+namespace Roguelancer.Particle.ParticleSystem {
     /// <summary>
     /// Particle Manager
     /// </summary>
