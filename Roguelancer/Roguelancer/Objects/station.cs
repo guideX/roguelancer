@@ -12,7 +12,7 @@ namespace Roguelancer.Objects {
     /// Station Collection
     /// </summary>
     public class StationCollection : IGame {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Model
         /// </summary>

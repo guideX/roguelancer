@@ -1,4 +1,6 @@
-﻿using Roguelancer.Settings;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://team-nexgen.com
+using Roguelancer.Settings;
 namespace Roguelancer.Models {
     /// <summary>
     /// Trade Lane Model

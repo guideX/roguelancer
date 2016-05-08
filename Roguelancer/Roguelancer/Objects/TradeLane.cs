@@ -11,10 +11,13 @@ namespace Roguelancer.Objects {
     /// Trade Lane Collection
     /// </summary>
     public class TradeLaneCollection : IGame {
+        #region "public properties"
         /// <summary>
         /// Trade Lane Collection Model
         /// </summary>
         public TradeLaneCollectionModel Model { get; set; }
+        #endregion
+        #region "public methods"
         /// <summary>
         /// Trade Lane Collection
         /// </summary>
@@ -89,15 +92,19 @@ namespace Roguelancer.Objects {
             }
             Model = null;
         }
+        #endregion
     }
     /// <summary>
     /// Trade Lane
     /// </summary>
-    public class TradeLane : DockableObject, IGame, IDockable, ISensorObject2 {
+    public class TradeLane : DockableObject, IGame, IDockable, ITradeLaneSensorObject {
+        #region "public properties"
         /// <summary>
         /// Game Model
         /// </summary>
         public List<TradeLaneModel> Models { get; set; }
+        #endregion
+        #region "public methods"
         /// <summary>
         /// Entry Point
         /// </summary>
@@ -157,5 +164,6 @@ namespace Roguelancer.Objects {
                 Models[i].Model.Dispose(game);
             }
         }
+        #endregion
     }
 }

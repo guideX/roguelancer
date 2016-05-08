@@ -1,4 +1,6 @@
-﻿using Roguelancer.Interfaces;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://team-nexgen.com
+using Roguelancer.Interfaces;
 using Roguelancer.Objects;
 using Roguelancer.Particle;
 namespace Roguelancer.Models {

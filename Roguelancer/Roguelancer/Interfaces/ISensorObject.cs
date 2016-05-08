@@ -15,7 +15,7 @@ namespace Roguelancer.Interfaces {
     /// <summary>
     /// Sensor Object
     /// </summary>
-    public interface ISensorObject2 : IGame {
+    public interface ITradeLaneSensorObject : IGame {
         /// <summary>
         /// Game Model
         /// </summary>

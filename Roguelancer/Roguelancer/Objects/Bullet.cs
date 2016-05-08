@@ -13,21 +13,23 @@ namespace Roguelancer.Objects {
     /// Bullets
     /// </summary>
     public class Bullets : IGame {
-        #region "private variables"
-        /// <summary>
-        /// Model
-        /// </summary>
-        private BulletsModel _model { get; set; }
-        #endregion
-        #region "public functions"
+        #region "public properties"
         /// <summary>
         /// Bullets Model
         /// </summary>
         public Model BulletsModel { get; set; }
+        #endregion
+        #region "private properties"
+        /// <summary>
+        /// Model
+        /// </summary>
+        private BulletsModel _model { get; set; }
         /// <summary>
         /// Particle Systems Settings
         /// </summary>
-        private ParticleSystemSettingsModel _particleSystemSettings;
+        private ParticleSystemSettingsModel _particleSystemSettings { get; set; }
+        #endregion
+        #region "public methods"
         /// <summary>
         /// Entry Point
         /// </summary>

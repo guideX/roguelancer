@@ -1,4 +1,6 @@
-﻿using Roguelancer.Objects;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://team-nexgen.com
+using Roguelancer.Objects;
 using Roguelancer.Settings;
 namespace Roguelancer.Helpers {
     /// <summary>

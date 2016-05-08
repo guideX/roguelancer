@@ -1,4 +1,6 @@
-﻿namespace Roguelancer.Settings {
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://team-nexgen.com
+namespace Roguelancer.Settings {
     /// <summary>
     /// Jump Hole Settings
     /// </summary>

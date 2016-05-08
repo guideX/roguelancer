@@ -9,7 +9,7 @@ namespace Roguelancer.Objects {
     /// Game Objects
     /// </summary>
     public class GameObjects : IGameObjects {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Game Objects
         /// </summary>

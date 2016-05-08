@@ -6,7 +6,6 @@ using Microsoft.Xna.Framework.Input;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Helpers;
-
 namespace Roguelancer.Functionality {
     /// <summary>
     /// Game Camera

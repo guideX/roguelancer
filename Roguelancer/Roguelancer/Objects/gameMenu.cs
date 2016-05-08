@@ -11,13 +11,13 @@ namespace Roguelancer.Objects {
     /// Game Menu
     /// </summary>
     public class GameMenu : IGameMenu {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Model
         /// </summary>
         public GameMenuModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Entry Point
         /// </summary>

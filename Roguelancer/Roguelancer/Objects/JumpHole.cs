@@ -1,14 +1,19 @@
-﻿using Roguelancer.Interfaces;
+﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+// http://team-nexgen.com
+using Roguelancer.Interfaces;
 using Roguelancer.Models;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Jump Hole Collection
     /// </summary>
     public class JumpHoleCollection : IGame {
+        #region "public properties"
         /// <summary>
         /// Model
         /// </summary>
         public JumpHoleCollectionModel Model { get; set; }
+        #endregion
+        #region "public methods"
         /// <summary>
         /// Jump Hole Collection
         /// </summary>
@@ -64,11 +69,13 @@ namespace Roguelancer.Objects {
                 hole.Dispose(game);
             }
         }
+        #endregion
     }
     /// <summary>
     /// Jump Hole
     /// </summary>
     public class JumpHole : IGame {
+        #region "public properties"
         /// <summary>
         /// Model
         /// </summary>
@@ -81,6 +88,8 @@ namespace Roguelancer.Objects {
         /// Entry Point
         /// </summary>
         /// <param name="game"></param>
+        #endregion
+        #region "public methods"
         public JumpHole(RoguelancerGame game) {
             Model = new GameModel(game, null);
             JumpHoleModel = new JumpHoleModel(game);
@@ -125,5 +134,6 @@ namespace Roguelancer.Objects {
         public void Reset(RoguelancerGame game) {
             Model = new GameModel(game, null);
         }
+        #endregion
     }
 }
