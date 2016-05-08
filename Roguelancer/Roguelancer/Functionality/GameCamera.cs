@@ -22,7 +22,7 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Game Camera
         /// </summary>
-        public GameCamera() {
+        public GameCamera(RoguelancerGame game) {
             Model = new GameCameraModel();
         }
         /// <summary>

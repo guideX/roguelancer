@@ -75,19 +75,19 @@ namespace Roguelancer {
         #endregion
         #region "public functions"
         public RoguelancerGame() {
-            Settings = new GameSettings();
+            Settings = new GameSettings(this);
             Content.RootDirectory = "Content";
-            GameState = new GameState();
+            GameState = new GameState(this);
             IsMouseVisible = true;
-            Camera = new GameCamera();
+            Camera = new GameCamera(this);
             Graphics = new GameGraphics(this);
             //Graphics.Initialize(this);
             _bloom = new BloomHandler(this);
             Input = new Input();
-            DebugText = new DebugText();
+            DebugText = new DebugText(this);
             Objects = new GameObjects(this);
-            GameMenu = new GameMenu();
-            Hud = new HudObject();
+            GameMenu = new GameMenu(this);
+            Hud = new HudObject(this);
             GameMenu.Model.CurrentMenu = CurrentMenu.HomeMenu;
         }
         /// <summary>

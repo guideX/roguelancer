@@ -19,7 +19,7 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Debug Text
         /// </summary>
-        public DebugText() {
+        public DebugText(RoguelancerGame game) {
             Model = new DebugTextModel();
             Model.Text = "";
         }

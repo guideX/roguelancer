@@ -18,7 +18,7 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Entry Point
         /// </summary>
-        public GameState() {
+        public GameState(RoguelancerGame game) {
             Model = new GameStateModel();
             Model.CurrentGameState = new GameStates();
             Model.CurrentGameState = GameStates.Menu;

@@ -66,7 +66,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Hud Object
         /// </summary>
-        public HudObject() {
+        public HudObject(RoguelancerGame game) {
             Model = new HudObjectModel();
         }
         /// <summary>

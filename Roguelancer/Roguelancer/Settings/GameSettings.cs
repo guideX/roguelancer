@@ -6,6 +6,8 @@ using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Models.Settings;
+using Microsoft.Xna.Framework;
+
 namespace Roguelancer.Settings {
     /// <summary>
     /// Game Settings
@@ -18,8 +20,8 @@ namespace Roguelancer.Settings {
         public GameSettingsModel Model { get; set; }
         #endregion
         #region "public functions"
-        public GameSettings() {
-            Model = new GameSettingsModel();
+        public GameSettings(RoguelancerGame game) {
+            Model = new GameSettingsModel(game);
             Model.SensorTexture = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "SensorTexture");
             var b = false;
             if (bool.TryParse(NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "BloomEnabled"), out b)) { Model.BloomEnabled = b; }
@@ -36,6 +38,7 @@ namespace Roguelancer.Settings {
             Model.PlayerShipRotationYUpAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationYUpAdd", -1.0f);
             Model.PlayerShipRotationYDownAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationYDownAdd", 1.0f);
             Model.MenuBackgroundTexture = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "menu_background");
+            Model.Resolution = new Vector2(NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Graphics", "ResolutionX", 1280f), NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Graphics", "ResolutionY", 1024));
             Model.CameraSettings = new CameraSettings(Model.CameraSettingsIniFile);
             Model.ModelSettings = new List<SettingsModelObject>();
             for (var i = 1; i < NativeMethods.ReadINIInt(Model.ModelSettingsIniFile, "settings", "count", 0) + 1; ++i) {

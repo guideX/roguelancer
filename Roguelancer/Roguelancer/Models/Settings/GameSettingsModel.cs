@@ -1,7 +1,7 @@
-﻿using Microsoft.Xna.Framework;
-using Roguelancer.Settings;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using Microsoft.Xna.Framework;
+using Roguelancer.Settings;
 namespace Roguelancer.Models.Settings {
     /// <summary>
     /// Game Settings Model
@@ -83,9 +83,21 @@ namespace Roguelancer.Models.Settings {
         /// Player Ship Shake Value
         /// </summary>
         public float PlayerShipShakeValue { get; set; }
+        /// <summary>
+        /// Player Ship Rotation X Left Add
+        /// </summary>
         public float PlayerShipRotationXLeftAdd { get; set; }
+        /// <summary>
+        /// Player Ship Rotation X Right Add
+        /// </summary>
         public float PlayerShipRotationXRightAdd { get; set; }
+        /// <summary>
+        /// Player Ship Rotation Y Up Add
+        /// </summary>
         public float PlayerShipRotationYUpAdd { get; set; }
+        /// <summary>
+        /// Player Ship Rotation Y Down Add
+        /// </summary>
         public float PlayerShipRotationYDownAdd { get; set; }
         /// <summary>
         /// Full Screen
@@ -130,7 +142,7 @@ namespace Roguelancer.Models.Settings {
         /// <summary>
         /// Game Settings Model
         /// </summary>
-        public GameSettingsModel() {
+        public GameSettingsModel(RoguelancerGame game) {
             StarSystemSettings = new List<StarSystemSettings>();
             StationPriceModels = new List<StationPriceModel>();
             CommoditiesModels = new List<CommodityModel>();
