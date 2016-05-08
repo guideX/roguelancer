@@ -45,16 +45,16 @@ namespace Roguelancer.Functionality {
                     rotationAmount.Y = (game.Input.InputItems.Mouse.Vector.Y - h2) / -h2; // Adjust Y
                 }
                 if (game.Input.InputItems.Keys.Left) { // Keys Left
-                    rotationAmount.X = PlayerShipControlModel.RotationXLeftAdd; // Add Rotation Left
+                    rotationAmount.X = game.Settings.Model.PlayerShipRotationXLeftAdd; // Add Rotation Left
                 }
                 if (game.Input.InputItems.Keys.Right) { // Keys Right
-                    rotationAmount.X = PlayerShipControlModel.RotationXRightAdd; // Add Rotation Right
+                    rotationAmount.X = game.Settings.Model.PlayerShipRotationXRightAdd; // Add Rotation Right
                 }
                 if (game.Input.InputItems.Keys.Up) { // Keys Up
-                    rotationAmount.Y = PlayerShipControlModel.RotationYUpAdd; // Add Rotation Up
+                    rotationAmount.Y = game.Settings.Model.PlayerShipRotationYUpAdd; // Add Rotation Up
                 }
                 if (game.Input.InputItems.Keys.Down) { // Keys Down
-                    rotationAmount.Y = PlayerShipControlModel.RotationYDownAdd; // Add Rotation Down
+                    rotationAmount.Y = game.Settings.Model.PlayerShipRotationYDownAdd; // Add Rotation Down
                 }
                 if (game.Input.InputItems.Keys.Z) { // Z
                     model.Up.Y = 0f; // Stop

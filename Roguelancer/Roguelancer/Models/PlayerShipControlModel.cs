@@ -24,19 +24,19 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Rotation X Left Add
         /// </summary>
-        public const float RotationXLeftAdd = 1.0f;
+        public float RotationXLeftAdd { get; set; }
         /// <summary>
         /// Rotation X Right Add
         /// </summary>
-        public const float RotationXRightAdd = -1.0f;
+        public float RotationXRightAdd { get; set; }
         /// <summary>
         /// Rotation Y Up Add
         /// </summary>
-        public const float RotationYUpAdd = -1.0f;
+        public float RotationYUpAdd  { get; set; }
         /// <summary>
         /// Rotation Y Down Add
         /// </summary>
-        public const float RotationYDownAdd = 1.0f;
+        public float RotationYDownAdd { get; set; }
         /// <summary>
         /// Rotation Rate
         /// </summary>
@@ -100,6 +100,10 @@ namespace Roguelancer.Models {
             ShakeValue = .8f;
             UpdateDirectionX = game.Settings.Model.PlayerShipUpdateDirectionX;
             UpdateDirectionY = game.Settings.Model.PlayerShipUpdateDirectionY;
+            RotationXLeftAdd = game.Settings.Model.PlayerShipRotationXLeftAdd;
+            RotationXRightAdd = game.Settings.Model.PlayerShipRotationXRightAdd;
+            RotationYUpAdd = game.Settings.Model.PlayerShipRotationYUpAdd;
+            RotationYDownAdd = game.Settings.Model.PlayerShipRotationYDownAdd;
         }
     }
 }

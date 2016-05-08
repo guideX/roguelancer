@@ -35,7 +35,7 @@ namespace Roguelancer.Objects {
                     var p = o.StartupPosition;
                     p.X = o.StartupPosition.X;
                     p.Y = o.StartupPosition.Y;
-                    p.Z = o.StartupPosition.Z + (200000 * i);
+                    p.Z = o.StartupPosition.Z - (200000 * i);
                     o.StartupPosition = p;
                     t.Model.Add(new GameModel(game, null) {
                         WorldObject = o

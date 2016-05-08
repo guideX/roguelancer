@@ -83,6 +83,10 @@ namespace Roguelancer.Models.Settings {
         /// Player Ship Shake Value
         /// </summary>
         public float PlayerShipShakeValue { get; set; }
+        public float PlayerShipRotationXLeftAdd { get; set; }
+        public float PlayerShipRotationXRightAdd { get; set; }
+        public float PlayerShipRotationYUpAdd { get; set; }
+        public float PlayerShipRotationYDownAdd { get; set; }
         /// <summary>
         /// Full Screen
         /// </summary>

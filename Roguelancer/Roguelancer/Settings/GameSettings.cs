@@ -31,6 +31,10 @@ namespace Roguelancer.Settings {
             Model.PlayerShipUpdateDirectionX = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "UpdateDirectionX", 2.0f);
             Model.PlayerShipUpdateDirectionY = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "UpdateDirectionY", 2.0f);
             Model.PlayerShipShakeValue = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "ShakeValue", .8f);
+            Model.PlayerShipRotationXLeftAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationXLeftAdd", 1.0f);
+            Model.PlayerShipRotationXRightAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationXRightAdd", -1.0f);
+            Model.PlayerShipRotationYUpAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationYUpAdd", -1.0f);
+            Model.PlayerShipRotationYDownAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationYDownAdd", 1.0f);
             Model.MenuBackgroundTexture = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "menu_background");
             Model.CameraSettings = new CameraSettings(Model.CameraSettingsIniFile);
             Model.ModelSettings = new List<SettingsModelObject>();
