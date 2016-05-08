@@ -2,9 +2,7 @@
 // http://team-nexgen.com
 using System;
 using System.Text;
-using System.Collections.Generic;
 using System.Linq;
-using Roguelancer.Interfaces;
 using Roguelancer.Settings;
 using Roguelancer.Models;
 using Roguelancer.Enum;
@@ -15,22 +13,14 @@ namespace Roguelancer.Objects.Base {
     /// </summary>
     public abstract class DockableObject {
         /// <summary>
-        /// Guid
+        /// Dockable Object Model
         /// </summary>
-        public virtual string ID { get; set; }
-        /// <summary>
-        /// Docked Ships
-        /// </summary>
-        public virtual List<ISensorObject> DockedShips { get; set; }
-        /// <summary>
-        /// Commodities
-        /// </summary>
-        public virtual List<StationPriceModel> StationPrices { get; set; }
+        public DockableObjectModel DockableObjectModel { get; set; }
         /// <summary>
         /// Dockable Object
         /// </summary>
         public DockableObject() {
-            ID = Guid.NewGuid().ToString(); // Create new ID
+            DockableObjectModel = new DockableObjectModel();
         }
         /// <summary>
         /// Dock
@@ -43,7 +33,7 @@ namespace Roguelancer.Objects.Base {
                 game.GameState.Model.CurrentGameState = Enum.GameStates.Docked; // Set Current Game State to Docked
             }
             ship.Docked = true; // Set Docked to True
-            DockedShips.Add(ship); // Add to Docked Ships
+            DockableObjectModel.DockedShips.Add(ship); // Add to Docked Ships
             DebugTextHelper.SetText(game, "Docked at '" + worldObject.Description + "'.", true); // Set Debug Text
         }
         /// <summary>
@@ -57,7 +47,7 @@ namespace Roguelancer.Objects.Base {
                 game.GameState.Model.CurrentGameState = Enum.GameStates.Playing;
             }
             ship.Docked = false;
-            DockedShips.Remove(ship);
+            DockableObjectModel.DockedShips.Remove(ship);
             DebugTextHelper.SetText(game, "Undocked from '" + worldObject.Description + "'.", true);
         }
         /// <summary>
@@ -90,10 +80,10 @@ namespace Roguelancer.Objects.Base {
         /// <param name="model"></param>
         /// <param name="qty"></param>
         public virtual void PurchaseCommodity(RoguelancerGame game, int commodityID, int qty) {
-            var stationPrices = StationPrices.Where(p => p.CommoditiesId == commodityID);
+            var stationPrices = DockableObjectModel.StationPrices.Where(p => p.CommoditiesId == commodityID);
             if (stationPrices.Any()) {
                 var commodity = game.Settings.Model.CommoditiesModels.Where(c => c.CommodityId == commodityID).FirstOrDefault();
-                var stationPrice = StationPrices.FirstOrDefault();
+                var stationPrice = DockableObjectModel.StationPrices.FirstOrDefault();
                 var ship = ShipHelper.GetPlayerShip(game); // Get Player Ship
                 if (ship.ShipModel.Money * qty >= stationPrice.Price * qty) {
                     if (stationPrice.Qty >= qty) {

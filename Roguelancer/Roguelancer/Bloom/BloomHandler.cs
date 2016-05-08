@@ -7,7 +7,7 @@ namespace Roguelancer.Bloom {
     /// Bloom Handler
     /// </summary>
     public class BloomHandler : IBloomHandler {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Bloom Handler Model
         /// </summary>

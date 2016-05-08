@@ -10,7 +10,7 @@ namespace Roguelancer.Objects {
     /// Menu Button
     /// </summary>
     public class MenuButton : IGame {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Y Offset
         /// </summary>
@@ -44,7 +44,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         public Vector2 TextPosition;
         #endregion
-        #region "private variables"
+        #region "private properties"
         /// <summary>
         /// Text
         /// </summary>
@@ -70,7 +70,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         private SpriteFont Font;
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Menu Button
         /// </summary>

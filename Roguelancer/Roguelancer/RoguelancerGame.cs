@@ -14,7 +14,7 @@ namespace Roguelancer {
     /// Roguelancer Game
     /// </summary>
     public class RoguelancerGame : Game {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Star System
         /// </summary>
@@ -64,7 +64,7 @@ namespace Roguelancer {
         /// </summary>
         public GameTime GameTime { get; set; }
         #endregion
-        #region "private variables"
+        #region "private properties"
         /// <summary>
         /// Bloom
         /// </summary>
@@ -73,7 +73,7 @@ namespace Roguelancer {
         /// Entry Point
         /// </summary>
         #endregion
-        #region "public functions"
+        #region "public methods"
         public RoguelancerGame() {
             Settings = new GameSettings(this);
             Content.RootDirectory = "Content";

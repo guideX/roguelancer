@@ -40,7 +40,7 @@ namespace Roguelancer.Functionality {
         public static void WriteINI(string file, string section, string key, string value) {
             WritePrivateProfileString(section, key, value, file);
         }
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Read Ini Float
         /// </summary>

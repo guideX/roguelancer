@@ -100,6 +100,10 @@ namespace Roguelancer.Objects {
     public class TradeLane : DockableObject, IGame, IDockable, ITradeLaneSensorObject {
         #region "public properties"
         /// <summary>
+        /// Docked Ships
+        /// </summary>
+        public List<ISensorObject> DockedShips { get; set; }
+        /// <summary>
         /// Game Model
         /// </summary>
         public List<TradeLaneModel> Models { get; set; }

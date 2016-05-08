@@ -11,13 +11,13 @@ namespace Roguelancer.Functionality {
     /// Game Camera
     /// </summary>
     public class GameCamera : IGameCamera {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Game Camera Model
         /// </summary>
         public GameCameraModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Game Camera
         /// </summary>

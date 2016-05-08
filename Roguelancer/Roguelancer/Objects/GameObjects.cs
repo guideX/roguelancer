@@ -15,7 +15,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         public GameObjectsModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Entry Point
         /// </summary>

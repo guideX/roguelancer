@@ -8,13 +8,13 @@ namespace Roguelancer.Functionality {
     /// Game State
     /// </summary>
     public class GameState : IGameStates {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Game State Model
         /// </summary>
         public GameStateModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Entry Point
         /// </summary>

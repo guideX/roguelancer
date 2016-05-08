@@ -9,13 +9,13 @@ namespace Roguelancer.Functionality {
     /// Player Ship Control
     /// </summary>
     public class PlayerShipControl : IPlayerShipControl {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Player Ship Model
         /// </summary>
         public PlayerShipControlModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Player Ship Control
         /// </summary>

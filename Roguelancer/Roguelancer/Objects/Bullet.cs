@@ -125,13 +125,13 @@ namespace Roguelancer.Objects {
     /// Bullet
     /// </summary>
     public class Bullet : IBullet {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Bullet Model
         /// </summary>
         public BulletModel BulletModel { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Entry Point
         /// </summary>

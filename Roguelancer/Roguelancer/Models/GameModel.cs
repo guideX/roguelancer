@@ -11,7 +11,7 @@ namespace Roguelancer.Models {
     /// Game Model
     /// </summary>
     public class GameModel : IGameModel {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Scale
         /// </summary>
@@ -69,13 +69,13 @@ namespace Roguelancer.Models {
         /// </summary>
         public ParticleSystem ParticleSystem { get; set; }
         #endregion
-        #region "private variables"
+        #region "private properties"
         /// <summary>
         /// Model
         /// </summary>
         private Model _model;
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Entry Point
         /// </summary>

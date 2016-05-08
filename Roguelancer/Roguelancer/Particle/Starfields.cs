@@ -11,7 +11,7 @@ namespace Roguelancer.Particle {
     /// Starfields
     /// </summary>
     public class Starfields : IGame {
-        #region "private variables"
+        #region "private properties"
         /// <summary>
         /// Explosions
         /// </summary>
@@ -45,7 +45,7 @@ namespace Roguelancer.Particle {
         /// </summary>
         private StarSettings _starSettings;
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Starfields
         /// </summary>

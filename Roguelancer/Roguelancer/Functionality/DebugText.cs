@@ -9,13 +9,13 @@ namespace Roguelancer.Functionality {
     /// Debug Text
     /// </summary>
     public class DebugText : IDebugText {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Debug Text Model
         /// </summary>
         public DebugTextModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Debug Text
         /// </summary>

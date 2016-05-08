@@ -13,13 +13,13 @@ namespace Roguelancer.Settings {
     /// Game Settings
     /// </summary>
     public class GameSettings : IGameSettings {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Model
         /// </summary>
         public GameSettingsModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         public GameSettings(RoguelancerGame game) {
             Model = new GameSettingsModel(game);
             Model.SensorTexture = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "SensorTexture");

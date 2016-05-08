@@ -1,5 +1,7 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://team-nexgen.com
+using System;
+using System.Collections.Generic;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Objects.Base;
@@ -8,13 +10,13 @@ namespace Roguelancer.Objects {
     /// Planet Collection
     /// </summary>
     public class PlanetCollection : IGame {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Planet Collection Model
         /// </summary>
         public PlanetCollectionModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Planet Collection
         /// </summary>
@@ -81,13 +83,17 @@ namespace Roguelancer.Objects {
     /// Planet
     /// </summary>
     public class Planet : DockableObject, IGame, IDockable, ISensorObject {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Model
         /// </summary>
         public GameModel Model { get; set; }
+        /// <summary>
+        /// Docked Ships
+        /// </summary>
+        public List<ISensorObject> DockedShips { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Planet
         /// </summary>

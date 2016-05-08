@@ -10,13 +10,13 @@ namespace Roguelancer.Functionality {
     /// Input
     /// </summary>
     public class Input : IInput {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Input Items
         /// </summary>
         public InputItemsModel InputItems { get; set; }
         #endregion
-        #region "private variables"
+        #region "private properties"
         /// <summary>
         /// Last Keyboard State
         /// </summary>
@@ -26,7 +26,7 @@ namespace Roguelancer.Functionality {
         /// </summary>
         private KeyboardState CurrentKeyboardState { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Entry Point
         /// </summary>

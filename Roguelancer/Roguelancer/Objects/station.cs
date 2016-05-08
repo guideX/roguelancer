@@ -18,7 +18,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         public StationCollectionModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Station Collection
         /// </summary>
@@ -36,7 +36,7 @@ namespace Roguelancer.Objects {
                 var s = new Station(game);
                 s.StationID = n;
                 s.Model.WorldObject = obj;
-                s.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.ID).ToList();
+                s.DockableObjectModel.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.ID).ToList();
                 Model.Stations.Add(s);
             }
             for (var i = 0; i <= Model.Stations.Count - 1; i++) {
@@ -89,7 +89,11 @@ namespace Roguelancer.Objects {
     /// Station
     /// </summary>
     public class Station : DockableObject, IGame, IDockable, ISensorObject {
-        #region "public variables"
+        #region "public properties"
+        /// <summary>
+        /// Docked Ships
+        /// </summary>
+        public List<ISensorObject> DockedShips { get; set; }
         /// <summary>
         /// Space Station ID
         /// </summary>
@@ -99,7 +103,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         public GameModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Entry Point
         /// </summary>
@@ -137,15 +141,15 @@ namespace Roguelancer.Objects {
                         case Enum.DockedGameStateEnum.Bar: // Bar
                             break;
                         case Enum.DockedGameStateEnum.Commodities: // Commodities
-                            if (game.Input.InputItems.Keys.One) { if (0 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[0].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Two) { if (1 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[1].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Three) { if (2 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[2].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Four) { if (3 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[3].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Five) { if (4 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[4].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Six) { if (5 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[5].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Seven) { if (6 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[6].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Eight) { if (7 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[7].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Nine) { if (8 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[8].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.One) { if (0 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[0].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Two) { if (1 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[1].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Three) { if (2 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[2].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Four) { if (3 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[3].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Five) { if (4 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[4].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Six) { if (5 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[5].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Seven) { if (6 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[6].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Eight) { if (7 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[7].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Nine) { if (8 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[8].CommoditiesId, 1); } }
                             break;
                         case Enum.DockedGameStateEnum.ShipDealer:
                             break;

@@ -7,7 +7,7 @@ namespace Roguelancer.Settings {
     /// Star System Settings
     /// </summary>
     public class StarSystemSettings {
-        #region "private variables"
+        #region "private properties"
         /// <summary>
         /// Path
         /// </summary>
@@ -17,7 +17,7 @@ namespace Roguelancer.Settings {
         /// </summary>
         private int _starSystemId { get; set; }
         #endregion
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Ships
         /// </summary>

@@ -10,7 +10,7 @@ namespace Roguelancer.Bloom {
     /// Bloom Component
     /// </summary>
     public class BloomComponent : DrawableGameComponent {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Bloom Component Model
         /// </summary>

@@ -9,13 +9,13 @@ namespace Roguelancer.Functionality {
     /// Game Graphics
     /// </summary>
     public class GameGraphics : IGameGraphics {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Game Graphics Model
         /// </summary>
         public GameGraphicsModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Game Graphics
         /// </summary>

@@ -11,7 +11,7 @@ namespace Roguelancer.Objects {
     /// Hud Object
     /// </summary>
     public class HudObject : IHudObject {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Hud Object Model
         /// </summary>
@@ -62,7 +62,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         private const int _imageHeight = 244;
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Hud Object
         /// </summary>

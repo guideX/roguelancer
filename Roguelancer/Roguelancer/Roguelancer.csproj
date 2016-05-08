@@ -145,6 +145,7 @@
     <Compile Include="Models\CargoHoldModel.cs" />
     <Compile Include="Models\CommodityModel.cs" />
     <Compile Include="Models\DebugTextModel.cs" />
+    <Compile Include="Models\DockableObjectModel.cs" />
     <Compile Include="Models\GameCameraModel.cs" />
     <Compile Include="Models\GameGraphicsModel.cs" />
     <Compile Include="Models\GameMenuModel.cs" />

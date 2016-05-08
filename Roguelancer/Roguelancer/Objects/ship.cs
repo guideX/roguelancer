@@ -12,13 +12,13 @@ namespace Roguelancer.Objects {
     /// Ship Collection
     /// </summary>
     public class ShipCollection : IShipCollection {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Model
         /// </summary>
         public ShipCollectionModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Entry Point
         /// </summary>
@@ -94,7 +94,7 @@ namespace Roguelancer.Objects {
     /// Ship
     /// </summary>
     public class Ship : IGame, ISensorObject, IDockableShip {
-        #region "public variables"
+        #region "public properties"
         /// <summary>
         /// Docked
         /// </summary>
@@ -108,7 +108,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         public GameModel Model { get; set; }
         #endregion
-        #region "public functions"
+        #region "public methods"
         /// <summary>
         /// Ship
         /// </summary>
