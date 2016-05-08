@@ -163,6 +163,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Dispose
         /// </summary>
+        /// <param name="game"></param>
         public void Dispose(RoguelancerGame game) {
             for (var i = 0; i <= Models.Count - 1; i++) {
                 Models[i].Model.Dispose(game);
