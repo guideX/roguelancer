@@ -127,44 +127,58 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            Model.UpdatePosition();
-            Model.Update(game);
-            if (game.GameState.Model.CurrentGameState == Enum.GameStates.Docked && game.GameState.Model.DockedGameState == Enum.DockedGameStateEnum.Commodities) {
-                if (game.Input.InputItems.Keys.One) {
-                    if (0 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[0].CommoditiesId, 1); }
-                }
-                if (game.Input.InputItems.Keys.Two) {
-                    if (1 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[1].CommoditiesId, 1); }
-                }
-                if (game.Input.InputItems.Keys.Three) {
-                    if (2 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[2].CommoditiesId, 1); }
-                }
-            }
-            if (game.GameState.Model.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.C && game.GameState.Model.DockedGameState != Enum.DockedGameStateEnum.Commodities) {
-                game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Commodities;
-                ListCommoditiesForSale(game, Enum.ModelType.Station, StationID);
-            }
-            if (game.GameState.Model.CurrentGameState == Enum.GameStates.Docked && game.Input.InputItems.Keys.U) {
-                game.Input.InputItems.Keys.U = false;
-                var ship = ShipHelper.GetPlayerShip(game);
-                if (ship.Docked) {
-                    var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
-                    if (distance < HudObject.DockDistanceAccept) {
-                        UnDock(game, ship, Model.WorldObject);
+            Model.UpdatePosition(); // Update Position
+            Model.Update(game); // Update
+            switch (game.GameState.Model.CurrentGameState) { // Current Game State
+                case Enum.GameStates.Docked: // Docked
+                    switch (game.GameState.Model.DockedGameState) { // Docked Game State
+                        case Enum.DockedGameStateEnum.Hanger: // Hanger
+                            break;
+                        case Enum.DockedGameStateEnum.Bar: // Bar
+                            break;
+                        case Enum.DockedGameStateEnum.Commodities: // Commodities
+                            if (game.Input.InputItems.Keys.One) { if (0 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[0].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Two) { if (1 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[1].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Three) { if (2 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[2].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Four) { if (3 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[3].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Five) { if (4 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[4].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Six) { if (5 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[5].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Seven) { if (6 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[6].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Eight) { if (7 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[7].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Nine) { if (8 < StationPrices.Count) { PurchaseCommodity(game, StationPrices[8].CommoditiesId, 1); } }
+                            break;
+                        case Enum.DockedGameStateEnum.ShipDealer:
+                            break;
                     }
-                }
-            }
-            if (game.GameState.Model.CurrentGameState == Enum.GameStates.Playing && game.Input.InputItems.Keys.D) { // DOCK
-                game.Input.InputItems.Keys.D = false;
-                var ship = ShipHelper.GetPlayerShip(game);
-                if (!ship.Docked) {
-                    var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
-                    if (distance < HudObject.DockDistanceAccept) {
-                        Dock(game, ship, Model.WorldObject);
-                        ship.Model.Velocity = new Vector3(0f, 0f, 0f);
-                        ship.Model.CurrentThrust = 0f;
+                    if (game.Input.InputItems.Keys.U) {
+                        game.Input.InputItems.Keys.U = false;
+                        var ship = ShipHelper.GetPlayerShip(game);
+                        if (ship.Docked) {
+                            var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
+                            if (distance < HudObject.DockDistanceAccept) {
+                                UnDock(game, ship, Model.WorldObject);
+                            }
+                        }
                     }
-                }
+                    if (game.Input.InputItems.Keys.C && game.GameState.Model.DockedGameState != Enum.DockedGameStateEnum.Commodities) {
+                        game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Commodities;
+                        ListCommoditiesForSale(game, Enum.ModelType.Station, StationID);
+                    }
+                    break;
+                case Enum.GameStates.Playing:
+                    if (game.Input.InputItems.Keys.D) { // DOCK
+                        game.Input.InputItems.Keys.D = false;
+                        var ship = ShipHelper.GetPlayerShip(game);
+                        if (!ship.Docked) {
+                            var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
+                            if (distance < HudObject.DockDistanceAccept) {
+                                Dock(game, ship, Model.WorldObject);
+                                ship.Model.Velocity = new Vector3(0f, 0f, 0f);
+                                ship.Model.CurrentThrust = 0f;
+                            }
+                        }
+                    }
+                    break;
             }
         }
         /// <summary>

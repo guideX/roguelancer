@@ -12,6 +12,14 @@ namespace Roguelancer.Enum {
         /// <summary>
         /// Commidities
         /// </summary>
-        Commodities = 2
+        Commodities = 2,
+        /// <summary>
+        /// Bar
+        /// </summary>
+        Bar = 3,
+        /// <summary>
+        /// Ship Dealer
+        /// </summary>
+        ShipDealer = 4
     }
 }
