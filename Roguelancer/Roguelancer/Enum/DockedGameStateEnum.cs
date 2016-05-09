@@ -20,6 +20,10 @@ namespace Roguelancer.Enum {
         /// <summary>
         /// Ship Dealer
         /// </summary>
-        ShipDealer = 4
+        ShipDealer = 4, 
+        /// <summary>
+        /// Equipment Dealer
+        /// </summary>
+        EquipmentDealer = 5
     }
 }

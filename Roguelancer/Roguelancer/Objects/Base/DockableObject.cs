@@ -35,6 +35,9 @@ namespace Roguelancer.Objects.Base {
                             // TODO
                             // OPTION = LAUNCH
                             break;
+                        case Enum.DockedGameStateEnum.EquipmentDealer: // Equipment Dealer
+                            // TODO
+                            break;
                         case Enum.DockedGameStateEnum.Bar: // Bar
                             // TODO
                             // OPTION1 = Talk to Bar Person
