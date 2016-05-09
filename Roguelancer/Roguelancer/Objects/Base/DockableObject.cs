@@ -3,6 +3,7 @@
 using System;
 using System.Text;
 using System.Linq;
+using Microsoft.Xna.Framework;
 using Roguelancer.Settings;
 using Roguelancer.Models;
 using Roguelancer.Enum;
@@ -23,6 +24,73 @@ namespace Roguelancer.Objects.Base {
             DockableObjectModel = new DockableObjectModel();
         }
         /// <summary>
+        /// Update Dockable Object
+        /// </summary>
+        /// <param name="game"></param>
+        public virtual void UpdateDockableObject(RoguelancerGame game, GameModel Model, int? stationID) {
+            switch (game.GameState.Model.CurrentGameState) { // Current Game State
+                case Enum.GameStates.Docked: // Docked
+                    switch (game.GameState.Model.DockedGameState) { // Docked Game State
+                        case Enum.DockedGameStateEnum.Hanger: // Hanger
+                            // TODO
+                            // OPTION = LAUNCH
+                            break;
+                        case Enum.DockedGameStateEnum.Bar: // Bar
+                            // TODO
+                            // OPTION1 = Talk to Bar Person
+                            // OPTION2 = Purchase information from Bar Person
+                            // OPTION3 = Purchase starchart from Bar Person
+                            break;
+                        case Enum.DockedGameStateEnum.Commodities: // Commodities
+                            if (game.Input.InputItems.Keys.One) { if (0 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[0].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Two) { if (1 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[1].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Three) { if (2 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[2].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Four) { if (3 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[3].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Five) { if (4 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[4].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Six) { if (5 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[5].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Seven) { if (6 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[6].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Eight) { if (7 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[7].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Nine) { if (8 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[8].CommoditiesId, 1); } }
+                            break;
+                        case Enum.DockedGameStateEnum.ShipDealer:
+                            // TODO
+                            // OPTION1 = Purchase Ship 1
+                            // OPTION2 = Purchase Ship 2
+                            // Etc
+                            break;
+                    }
+                    if (game.Input.InputItems.Keys.U) {
+                        game.Input.InputItems.Keys.U = false;
+                        var ship = ShipHelper.GetPlayerShip(game);
+                        if (ship.Docked) {
+                            var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
+                            if (distance < HudObject.DockDistanceAccept) {
+                                UnDock(game, ship, Model.WorldObject);
+                            }
+                        }
+                    }
+                    if (game.Input.InputItems.Keys.C) {
+                        game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Commodities;
+                        ListCommoditiesForSale(game, Enum.ModelType.Station, stationID.Value);
+                    }
+                    break;
+                case Enum.GameStates.Playing:
+                    if (game.Input.InputItems.Keys.D) { // DOCK
+                        game.Input.InputItems.Keys.D = false;
+                        var ship = ShipHelper.GetPlayerShip(game);
+                        if (!ship.Docked) {
+                            var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
+                            if (distance < HudObject.DockDistanceAccept) {
+                                Dock(game, ship, Model.WorldObject);
+                                ship.Model.Velocity = new Vector3(0f, 0f, 0f);
+                                ship.Model.CurrentThrust = 0f;
+                            }
+                        }
+                    }
+                    break;
+            }
+        }
+        /// <summary>
         /// Dock
         /// </summary>
         /// <param name="game"></param>
@@ -34,7 +102,7 @@ namespace Roguelancer.Objects.Base {
             }
             ship.Docked = true; // Set Docked to True
             DockableObjectModel.DockedShips.Add(ship); // Add to Docked Ships
-            DebugTextHelper.SetText(game, "Docked at '" + worldObject.Description + "'.", true); // Set Debug Text
+            DebugTextHelper.SetText(game, "Docked at '" + worldObject.Description + "'." + Environment.NewLine + " " + Environment.NewLine + "[H] = Hangar " + Environment.NewLine + "[B] = Bar " + Environment.NewLine + " [E] = Equipment Dealer " + Environment.NewLine + " [C] = Commodities " + Environment.NewLine + " [S] = Ship Dealer", true); // Set Debug Text
         }
         /// <summary>
         /// Undock
@@ -63,7 +131,7 @@ namespace Roguelancer.Objects.Base {
                     foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
                         n++;
                         var commodity = game.Settings.Model.CommoditiesModels.Where(c => c.CommodityId == obj.CommoditiesId).FirstOrDefault();
-                        sb.AppendLine("[" + n.ToString () + "] Description: " + commodity.Description + ", Price: " + obj.Price.ToString());
+                        sb.AppendLine("[" + n.ToString () + "] Description: " + commodity.Description + ", Price: " + obj.Price.ToString() + Environment.NewLine);
                     }
                     if (game.GameState.Model.CurrentGameState == Enum.GameStates.Docked && game.GameState.Model.DockedGameState == Enum.DockedGameStateEnum.Commodities) {
                         DebugTextHelper.SetText(game, "Station Commodities:" + Environment.NewLine + sb.ToString() + Environment.NewLine, true);
@@ -93,6 +161,7 @@ namespace Roguelancer.Objects.Base {
                             stationPrice.Qty = stationPrice.Qty - 1;
                         }
                         DebugTextHelper.SetText(game, qty.ToString() + "Item(s) purchased", true);
+                        System.Threading.Thread.Sleep(1000);
                     } else {
                         DebugTextHelper.SetText(game, "Not enough qty", true);
                     }
