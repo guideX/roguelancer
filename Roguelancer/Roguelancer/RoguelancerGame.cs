@@ -68,7 +68,7 @@ namespace Roguelancer {
         /// <summary>
         /// Bloom
         /// </summary>
-        private BloomHandler _bloom;
+        //private BloomHandler _bloom;
         /// <summary>
         /// Entry Point
         /// </summary>
@@ -82,7 +82,7 @@ namespace Roguelancer {
             Camera = new GameCamera(this);
             Graphics = new GameGraphics(this);
             //Graphics.Initialize(this);
-            _bloom = new BloomHandler(this);
+            //_bloom = new BloomHandler(this);
             Input = new Input();
             DebugText = new DebugText(this);
             Objects = new GameObjects(this);
@@ -96,7 +96,7 @@ namespace Roguelancer {
         protected override void Initialize() {
             //Graphics.Initialize(this);
             Camera.Initialize(this);
-            _bloom.Initialize(this);
+            //_bloom.Initialize(this);
             //Input.Initialize(this);
             Objects.Initialize(this);
             GameMenu.Initialize(this);
@@ -123,7 +123,7 @@ namespace Roguelancer {
         protected override void Update(GameTime gameTime) {
             GameTime = gameTime;
             Input.Update(this);
-            _bloom.Update(this);
+            //_bloom.Update(this);
             Objects.Update(this);
             Camera.Update(this);
             DebugText.Update(this);
@@ -140,7 +140,7 @@ namespace Roguelancer {
         protected override void Draw(GameTime gameTime) {
             GameTime = gameTime;
             Graphics.Model.SpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
-            _bloom.Draw(this);
+            //_bloom.Draw(this);
             if (GameState.Model.CurrentGameState == GameStates.Playing) {
                 if (GameState.Model.LastGameState != GameState.Model.CurrentGameState) {
                     GraphicsDevice.Clear(Color.Black);

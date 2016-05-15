@@ -9,7 +9,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Menu Button
     /// </summary>
-    public class MenuButton : IGame {
+    public class MenuButton { //: IGame {
         #region "public properties"
         /// <summary>
         /// Y Offset
@@ -84,8 +84,8 @@ namespace Roguelancer.Objects {
             _color = new Color(255, 255, 255, 255);
             _size = new Vector2(game.GraphicsDevice.Viewport.Width / 4, game.GraphicsDevice.Viewport.Height / 15);
         }
-        public void Initialize(RoguelancerGame game) { } // NEVER CALLED
-        public void LoadContent(RoguelancerGame game) { } // NEVER CALLED
+        //public void Initialize(RoguelancerGame game) { } // NEVER CALLED
+        //public void LoadContent(RoguelancerGame game) { } // NEVER CALLED
         /// <summary>
         /// Update
         /// </summary>
@@ -95,7 +95,7 @@ namespace Roguelancer.Objects {
                 var mouseRectangle = new Rectangle(game.Input.InputItems.Mouse.State.X, game.Input.InputItems.Mouse.State.Y, 1, 1);
                 _rectangle = new Rectangle((int)Position.X, (int)Position.Y, (int)_size.X, (int)_size.Y);
                 _textRectangle = new Rectangle((int)TextPosition.X, (int)TextPosition.Y, (int)_size.X - 80, (int)_size.Y - YOffset);
-                if (mouseRectangle.Intersects(_textRectangle)) {
+                if (mouseRectangle.Intersects(_rectangle)) {
                     if (_color.A == 255) {
                         Down = false;
                     }

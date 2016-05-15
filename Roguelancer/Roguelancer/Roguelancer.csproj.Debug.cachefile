@@ -20,6 +20,8 @@ Content\FONTS\Arial.xnb
 Content\FONTS\LucidaFont.xnb
 Content\FONTS\HudFont.xnb
 Content\FONTS\LucidiaFontSmall.xnb
+Content\FONTS\AgencyFB.xnb
+Content\FONTS\AgencyFBSmall.xnb
 Content\SHIPS\PI_TRANSPORT\PI_TRANSPORT.xnb
 Content\Textures\Particle.xnb
 Content\Textures\ParticleColors.xnb
@@ -41,6 +43,7 @@ Content\BUTTONS\newgame.xnb
 Content\BUTTONS\multiplayer.xnb
 Content\BUTTONS\keyboard.xnb
 Content\sensor.xnb
+Content\Menus\allpanels.xnb
 Content\Effects\Particle.xnb
 Content\Effects\BloomExtract.xnb
 Content\Effects\GaussianBlur.xnb
@@ -111,6 +114,3 @@ Content\SHIPS\PI_TRANSPORT\hold_0.xnb
 Content\SHIPS\PI_TRANSPORT\equip_0.xnb
 Content\SHIPS\PI_TRANSPORT\skull_0.xnb
 Content\SHIPS\PI_TRANSPORT\windows_0.xnb
-Content\FONTS\AgencyFB.xnb
-Content\FONTS\AgencyFBSmall.xnb
-Content\Menus\allpanels.xnb
