@@ -81,10 +81,10 @@ namespace Roguelancer.Models {
         /// </summary>
         /// <param name="game"></param>
         public GameModel(RoguelancerGame game, ParticleSystemSettingsModel particleSystemSettings) {
-            MinimumAltitude = 350.0f;
+            MinimumAltitude = -350.0f;
             Velocity = Vector3.Zero;
-            //Position = new Vector3(.5f, MinimumAltitude, 0);
-            Position = new Vector3(0, MinimumAltitude, 0);
+            Position = new Vector3(.5f, MinimumAltitude, 0);
+            //Position = new Vector3(0, MinimumAltitude, 0);
             Up = Vector3.Up;
             Right = Vector3.Right;
             CurrentThrust = 0.0f;
@@ -138,6 +138,7 @@ namespace Roguelancer.Models {
         /// </summary>
         public void UpdatePosition() {
             var rotationMatrix = Matrix.CreateFromAxisAngle(Right, Rotation.Y) * Matrix.CreateRotationY(Rotation.X);
+            //var rotationMatrix = Matrix.CreateFromAxisAngle(Right, Rotation.Y) * Matrix.CreateRotationY(Rotation.X);
             Direction = Vector3.TransformNormal(Direction, rotationMatrix);
             Up = Vector3.TransformNormal(Up, rotationMatrix);
             Direction.Normalize();
@@ -174,31 +175,29 @@ namespace Roguelancer.Models {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            //if (_model != null) {
-                if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
-                    var transforms = new Matrix[_model.Bones.Count];
-                    _model.CopyAbsoluteBoneTransformsTo(transforms);
-                    if (ParticleSystem != null) {
-                        if (ParticleSystem.Settings.Enabled) {
-                            ParticleSystem.Draw(game);
-                        }
-                    }
-                    foreach (ModelMesh mm in _model.Meshes) {
-                        foreach (BasicEffect be in mm.Effects) {
-                            be.Alpha = 1;
-                            be.EnableDefaultLighting();
-                            if (UseScale) {
-                                be.World = Matrix.CreateScale(Scale) * transforms[mm.ParentBone.Index] * World;
-                            } else {
-                                be.World = transforms[mm.ParentBone.Index] * World;
-                            }
-                            be.View = game.Camera.Model.View;
-                            be.Projection = game.Camera.Model.Projection;
-                        }
-                        mm.Draw();
+            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+                var transforms = new Matrix[_model.Bones.Count];
+                _model.CopyAbsoluteBoneTransformsTo(transforms);
+                if (ParticleSystem != null) {
+                    if (ParticleSystem.Settings.Enabled) {
+                        ParticleSystem.Draw(game);
                     }
                 }
-            //}
+                foreach (ModelMesh mm in _model.Meshes) {
+                    foreach (BasicEffect be in mm.Effects) {
+                        be.Alpha = 1;
+                        be.EnableDefaultLighting();
+                        if (UseScale) {
+                            be.World = Matrix.CreateScale(Scale) * transforms[mm.ParentBone.Index] * World;
+                        } else {
+                            be.World = transforms[mm.ParentBone.Index] * World;
+                        }
+                        be.View = game.Camera.Model.View;
+                        be.Projection = game.Camera.Model.Projection;
+                    }
+                    mm.Draw();
+                }
+            }
         }
         /// <summary>
         /// Dispose
@@ -206,7 +205,6 @@ namespace Roguelancer.Models {
         public void Dispose(RoguelancerGame game) {
             Scale = new float();
             UseScale = false;
-            //ModelMode = ModelModeEnum.Unknown;
             CurrentThrust = new float();
             Velocity = new Vector3();
             Rotation = new Vector2();
@@ -222,7 +220,6 @@ namespace Roguelancer.Models {
             }
             _model = null;
         }
-
         #endregion
     }
 }

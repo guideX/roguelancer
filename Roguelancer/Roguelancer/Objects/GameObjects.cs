@@ -1,5 +1,6 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://team-nexgen.com
+using Roguelancer.Enum;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Particle;
@@ -61,26 +62,34 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            Model.Stations.Update(game);
-            Model.Planets.Update(game);
-            Model.Stars.Update(game);
-            Model.TradeLanes.Update(game);
-            Model.Ships.Update(game);
-            Model.Bullets.Update(game);
-            //Model.JumpHoles.Initialize(game);
+            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+                Model.Stations.Update(game);
+                Model.Planets.Update(game);
+                Model.Stars.Update(game);
+                Model.TradeLanes.Update(game);
+                Model.Ships.Update(game);
+                Model.Bullets.Update(game);
+                //Model.JumpHoles.Initialize(game);
+            } else {
+                Model.Stations.Update(game);
+            }
         }
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            Model.Stations.Draw(game);
-            Model.Planets.Draw(game);
-            Model.Stars.Draw(game);
-            Model.TradeLanes.Draw(game);
-            Model.Ships.Draw(game);
-            Model.Bullets.Draw(game);
-            //Model.JumpHoles.Draw(game);
+            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+                Model.Stations.Draw(game);
+                Model.Planets.Draw(game);
+                Model.Stars.Draw(game);
+                Model.TradeLanes.Draw(game);
+                Model.Ships.Draw(game);
+                Model.Bullets.Draw(game);
+                //Model.JumpHoles.Draw(game);
+            } else {
+                Model.Stations.Draw(game);
+            }
         }
         /// <summary>
         /// Reset

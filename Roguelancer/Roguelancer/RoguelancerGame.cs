@@ -156,6 +156,7 @@ namespace Roguelancer {
                 Graphics.Draw(this);
             } else if (GameState.Model.CurrentGameState == GameStates.Docked) {
                 GraphicsDevice.Clear(Color.Blue);
+                Objects.Draw(this);
             } else {
                 GraphicsDevice.Clear(Color.Black);
             }

@@ -113,9 +113,9 @@
     <Compile Include="Enum\GameCameraModeEnum.cs" />
     <Compile Include="Helpers\DebugTextHelper.cs" />
     <Compile Include="Helpers\ShipHelper.cs" />
-    <Compile Include="Helpers\TradelaneHelper.cs" />
     <Compile Include="Interfaces\IBloomComponent.cs" />
     <Compile Include="Interfaces\IBloomHandler.cs" />
+    <Compile Include="Interfaces\IDockableObject.cs" />
     <Compile Include="Interfaces\IGameMenu.cs" />
     <Compile Include="Interfaces\IGameStates.cs" />
     <Compile Include="Interfaces\IHudObject.cs" />

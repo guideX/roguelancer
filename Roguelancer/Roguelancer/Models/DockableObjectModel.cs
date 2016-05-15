@@ -1,4 +1,5 @@
-﻿using Roguelancer.Interfaces;
+﻿using Microsoft.Xna.Framework.Graphics;
+using Roguelancer.Interfaces;
 using System;
 using System.Collections.Generic;
 namespace Roguelancer.Models {
@@ -6,6 +7,10 @@ namespace Roguelancer.Models {
     /// Dockable Object Model
     /// </summary>
     public class DockableObjectModel {
+        /// <summary>
+        /// Background Texture
+        /// </summary>
+        public Texture2D BackgroundTexture { get; set; }
         /// <summary>
         /// Guid
         /// </summary>

@@ -37,8 +37,8 @@ namespace Roguelancer.Objects {
                     var o = ModelWorldObjects.Clone(obj);
                     var p = o.StartupPosition;
                     p.X = o.StartupPosition.X;
-                    p.Y = o.StartupPosition.Y;
-                    p.Z = o.StartupPosition.Z - (200000 * i);
+                    p.Y = o.StartupPosition.Y + (200000 * i);
+                    p.Z = o.StartupPosition.Z;// - (200000 * i);
                     o.StartupPosition = p;
                     var tradeLaneModel = new TradeLaneModel(game, o);
                     t.Models.Add(tradeLaneModel);

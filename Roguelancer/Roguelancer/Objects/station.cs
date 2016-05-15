@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Objects.Base;
+using Roguelancer.Enum;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Station Collection
@@ -116,6 +117,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             Model.Initialize(game);
+            Initialize(game, Model, StationID); // Initialize Dockable Object
         }
         /// <summary>
         /// Load Content
@@ -123,22 +125,28 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             Model.LoadContent(game);
+            LoadContent(game, Model, StationID); // Dockable Object Load Content
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            Model.UpdatePosition(); // Update Position
-            Model.Update(game); // Update
-            UpdateDockableObject(game, Model, StationID); // Update Station
+            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+                Model.UpdatePosition(); // Update Position
+                Model.Update(game); // Update
+            }
+            Update(game, Model, StationID); // Update Dockable Object Station Stuff
         }
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            Model.Draw(game);
+            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+                Model.Draw(game);
+            }
+            Draw(game, Model, StationID); // Draw Dockable Object Station Stuff
         }
         /// <summary>
         /// Dispose
