@@ -146,9 +146,7 @@ namespace Roguelancer.Models {
             StarSystemSettings = new List<StarSystemSettings>();
             StationPriceModels = new List<StationPriceModel>();
             CommoditiesModels = new List<CommodityModel>();
-            MenuText = "Roguelancer" + Environment.NewLine + Environment.NewLine + "10 = Play Game" + Environment.NewLine + "F9 = Return to menu" + Environment.NewLine + "ESC = Quit";
-            Font = "LucidaFont";
-            FontSmall = "LucidiaFontSmall";
+            MenuText = "";
             Resolution = new Vector2(1280, 1024);
             var rootDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\..\";
             GameSettingsIniFile = rootDir + @"configuration\settings\settings.ini";

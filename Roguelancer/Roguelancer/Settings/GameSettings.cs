@@ -20,6 +20,8 @@ namespace Roguelancer.Settings {
         #region "public methods"
         public GameSettings(RoguelancerGame game) {
             Model = new GameSettingsModel(game);
+            Model.Font = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "Font", "LucidaFont");
+            Model.FontSmall = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "FontSmall", "LucidiaFontSmall");
             Model.SensorTexture = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "SensorTexture");
             var b = false;
             if (bool.TryParse(NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "BloomEnabled"), out b)) { Model.BloomEnabled = b; }
