@@ -52,62 +52,69 @@ namespace Roguelancer.Objects {
                 switch (Model.CurrentMenu) {
                     case CurrentMenu.HomeMenu:
                         var _yoffset = game.Settings.Model.FullScreen ? -54 : 14;
-                        Model.MenuButtons.Add(new MenuButton(game, "New Game", "BUTTONS\\newgame") {
+                        Model.MenuButtons.Add(new MenuButton(game, "New Game") {
+                            Texture = game.Content.Load<Texture2D>("BUTTONS\\newgame"),
                             SortId = 1,
                             Position = new Vector2(50, 200),
                             TextPosition = new Vector2(50, 140),
                             Enabled = true,
-                            YOffset = _yoffset
+                            //YOffset = _yoffset
                         });
                         _yoffset = game.Settings.Model.FullScreen ? -74 : 16;
-                        Model.MenuButtons.Add(new MenuButton(game, "Load Game", "BUTTONS\\loadgame") {
+                        Model.MenuButtons.Add(new MenuButton(game, "Load Game") {
+                            Texture = game.Content.Load<Texture2D>("BUTTONS\\loadgame"),
                             SortId = 2,
                             Position = new Vector2(50, 290),
                             TextPosition = new Vector2(50, 205),
                             Enabled = true,
-                            YOffset = _yoffset
+                            //YOffset = _yoffset
                         });
                         _yoffset = game.Settings.Model.FullScreen ? -120 : 30;
-                        Model.MenuButtons.Add(new MenuButton(game, "Multiplayer", "BUTTONS\\multiplayer") {
+                        Model.MenuButtons.Add(new MenuButton(game, "Multiplayer") {
+                            Texture = game.Content.Load<Texture2D>("BUTTONS\\multiplayer"),
                             SortId = 3,
                             Position = new Vector2(50, 380),
                             TextPosition = new Vector2(50, 290),
                             Enabled = true,
-                            YOffset = _yoffset
+                            //YOffset = _yoffset
                         });
                         _yoffset = game.Settings.Model.FullScreen ? -150 : 26;
-                        Model.MenuButtons.Add(new MenuButton(game, "Options", "BUTTONS\\options") {
+                        Model.MenuButtons.Add(new MenuButton(game, "Options") {
+                            Texture = game.Content.Load<Texture2D>("BUTTONS\\options"),
                             SortId = 4,
                             Position = new Vector2(50, 470),
                             TextPosition = new Vector2(50, 350),
                             Enabled = true,
-                            YOffset = _yoffset
+                            //YOffset = _yoffset
                         });
                         _yoffset = game.Settings.Model.FullScreen ? -170 : 28;
-                        Model.MenuButtons.Add(new MenuButton(game, "Exit", "BUTTONS\\exit") {
+                        Model.MenuButtons.Add(new MenuButton(game, "Exit") {
+                            Texture = game.Content.Load<Texture2D>("BUTTONS\\exit"),
                             SortId = 5,
                             Position = new Vector2(50, 560),
                             TextPosition = new Vector2(50, 420),
                             Enabled = true,
-                            YOffset = _yoffset
+                            //YOffset = _yoffset
                         });
                         break;
                     case CurrentMenu.OptionsMenu:
                         _yoffset = game.Settings.Model.FullScreen ? 4 : 14;
-                        Model.MenuButtons.Add(new MenuButton(game, "Keyboard Controls", "BUTTONS\\keyboard") {
+                        Model.MenuButtons.Add(new MenuButton(game, "Keyboard Controls") {
+                            Texture = game.Content.Load<Texture2D>("BUTTONS\\keyboard"),
                             SortId = 1,
                             Position = new Vector2(50, 200),
                             TextPosition = new Vector2(50, 140),
                             Enabled = true,
-                            YOffset = _yoffset
+                            //YOffset = _yoffset
                         });
                         _yoffset = game.Settings.Model.FullScreen ? 6 : 16;
-                        Model.MenuButtons.Add(new MenuButton(game, "Return", "BUTTONS\\return") {
+                        Model.MenuButtons.Add(new MenuButton(game, "Return") {
+                            Texture = game.Content.Load<Texture2D>("BUTTONS\\return"),
                             SortId = 1,
                             Position = new Vector2(50, 290),
                             TextPosition = new Vector2(50, 205),
                             Enabled = true,
-                            YOffset = _yoffset
+                            //YOffset = _yoffset
                         });
                         break;
                 }

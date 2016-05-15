@@ -10,7 +10,6 @@ using Roguelancer.Enum;
 using Roguelancer.Helpers;
 using Roguelancer.Interfaces;
 using Microsoft.Xna.Framework.Graphics;
-
 namespace Roguelancer.Objects.Base {
     /// <summary>
     /// Dockable Object
