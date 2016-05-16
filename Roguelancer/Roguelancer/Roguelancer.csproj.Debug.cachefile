@@ -16,13 +16,6 @@ Content\SHIPS\CSV\CSV.xnb
 Content\bullet.xnb
 Content\docking_ring.xnb
 Content\SHIPS\COCKPIT1.xnb
-Content\FONTS\Arial.xnb
-Content\FONTS\LucidaFont.xnb
-Content\FONTS\HudFont.xnb
-Content\FONTS\LucidiaFontSmall.xnb
-Content\FONTS\AgencyFB.xnb
-Content\FONTS\AgencyFBSmall.xnb
-Content\SHIPS\PI_TRANSPORT\PI_TRANSPORT.xnb
 Content\Textures\Particle.xnb
 Content\Textures\ParticleColors.xnb
 Content\Textures\Stars.xnb
@@ -44,6 +37,14 @@ Content\BUTTONS\multiplayer.xnb
 Content\BUTTONS\keyboard.xnb
 Content\sensor.xnb
 Content\Menus\allpanels.xnb
+Content\Menus\item.xnb
+Content\FONTS\Arial.xnb
+Content\FONTS\LucidaFont.xnb
+Content\FONTS\HudFont.xnb
+Content\FONTS\LucidiaFontSmall.xnb
+Content\FONTS\AgencyFB.xnb
+Content\FONTS\AgencyFBSmall.xnb
+Content\SHIPS\PI_TRANSPORT\PI_TRANSPORT.xnb
 Content\Effects\Particle.xnb
 Content\Effects\BloomExtract.xnb
 Content\Effects\GaussianBlur.xnb
@@ -114,3 +115,5 @@ Content\SHIPS\PI_TRANSPORT\hold_0.xnb
 Content\SHIPS\PI_TRANSPORT\equip_0.xnb
 Content\SHIPS\PI_TRANSPORT\skull_0.xnb
 Content\SHIPS\PI_TRANSPORT\windows_0.xnb
+Content\COM\oxygen.xnb
+Content\COM\water.xnb

@@ -22,5 +22,9 @@ namespace Roguelancer.Models {
         /// Prices
         /// </summary>
         public List<StationPriceModel> Prices { get; set; }
+        /// <summary>
+        /// Image Path
+        /// </summary>
+        public string ImagePath { get; set; }
     }
 }

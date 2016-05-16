@@ -6,6 +6,8 @@ using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
 namespace Roguelancer.Settings {
     /// <summary>
     /// Game Settings
@@ -19,28 +21,28 @@ namespace Roguelancer.Settings {
         #endregion
         #region "public methods"
         public GameSettings(RoguelancerGame game) {
-            Model = new GameSettingsModel(game);
-            Model.Font = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "Font", "LucidaFont");
-            Model.FontSmall = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "FontSmall", "LucidiaFontSmall");
-            Model.SensorTexture = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "SensorTexture");
             var b = false;
-            if (bool.TryParse(NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "BloomEnabled"), out b)) { Model.BloomEnabled = b; }
-            if (bool.TryParse(NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "FullScreen"), out b)) { Model.FullScreen = b; }
-            Model.BulletMass = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Bullet", "Mass", 1.0f);
-            Model.BulletThrusterForce = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Bullet", "ThrusterForce", 44000.0f);
-            Model.BulletDragFactor = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Bullet", "DragFactor", 0.97f);
-            Model.BulletRechargeRate = NativeMethods.ReadINIInt(Model.GameSettingsIniFile, "Bullet", "RechargeRate", 240);
-            Model.PlayerShipUpdateDirectionX = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "UpdateDirectionX", 2.0f);
-            Model.PlayerShipUpdateDirectionY = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "UpdateDirectionY", 2.0f);
-            Model.PlayerShipShakeValue = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "ShakeValue", .8f);
-            Model.PlayerShipRotationXLeftAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationXLeftAdd", 1.0f);
-            Model.PlayerShipRotationXRightAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationXRightAdd", -1.0f);
-            Model.PlayerShipRotationYUpAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationYUpAdd", -1.0f);
-            Model.PlayerShipRotationYDownAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationYDownAdd", 1.0f);
-            Model.MenuBackgroundTexture = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "menu_background");
-            Model.Resolution = new Vector2(NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Graphics", "ResolutionX", 1280f), NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Graphics", "ResolutionY", 1024));
-            Model.CameraSettings = new CameraSettings(Model.CameraSettingsIniFile);
-            Model.ModelSettings = new List<SettingsModelObject>();
+            Model = new GameSettingsModel(game);
+            Model.Font = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "Font", "LucidaFont"); // Font
+            Model.FontSmall = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "FontSmall", "LucidiaFontSmall"); // Small Font
+            Model.SensorTexture = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "SensorTexture"); // Sensor Texture
+            if (bool.TryParse(NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "BloomEnabled"), out b)) { Model.BloomEnabled = b; } // Bloom Enabled
+            if (bool.TryParse(NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "FullScreen"), out b)) { Model.FullScreen = b; } // Full Screen
+            Model.BulletMass = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Bullet", "Mass", 1.0f); // Bullet
+            Model.BulletThrusterForce = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Bullet", "ThrusterForce", 44000.0f); // Thruster Force
+            Model.BulletDragFactor = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Bullet", "DragFactor", 0.97f); // Drag Factor
+            Model.BulletRechargeRate = NativeMethods.ReadINIInt(Model.GameSettingsIniFile, "Bullet", "RechargeRate", 240); // Recharge Rate
+            Model.PlayerShipUpdateDirectionX = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "UpdateDirectionX", 2.0f); // Update Direction X
+            Model.PlayerShipUpdateDirectionY = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "UpdateDirectionY", 2.0f); // Update Direction Y
+            Model.PlayerShipShakeValue = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "ShakeValue", .8f); // Shake Value
+            Model.PlayerShipRotationXLeftAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationXLeftAdd", 1.0f); // Player Ship Rotation X Left Add
+            Model.PlayerShipRotationXRightAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationXRightAdd", -1.0f); // Player Ship Rotation X Right Add
+            Model.PlayerShipRotationYUpAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationYUpAdd", -1.0f); // Player Ship Rotation Y Up Add
+            Model.PlayerShipRotationYDownAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationYDownAdd", 1.0f); // Player Ship Rotation Y Down Add
+            Model.MenuBackgroundTexture = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "menu_background"); // Menu Background
+            Model.Resolution = new Vector2(NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Graphics", "ResolutionX", 1280f), NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Graphics", "ResolutionY", 1024)); // Resolution
+            Model.CameraSettings = new CameraSettings(Model.CameraSettingsIniFile); // Camera Settings
+            Model.ModelSettings = new List<SettingsModelObject>(); // Model Settings
             for (var i = 1; i < NativeMethods.ReadINIInt(Model.ModelSettingsIniFile, "settings", "count", 0) + 1; ++i) {
                 Model.ModelSettings.Add(new SettingsModelObject(
                     NativeMethods.ReadINI(Model.ModelSettingsIniFile, i.ToString().Trim(), "path"),
@@ -68,28 +70,36 @@ namespace Roguelancer.Settings {
                     )
                 ));
             }
-            if (System.IO.File.Exists(Model.CommoditiesSettingsIniFile)) {
-                for (var i = 1; i < NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, "Settings", "Count", 0) + 1; ++i) {
-                    Model.StationPriceModels.Add(new StationPriceModel() {
-                        IsSelling = NativeMethods.ReadINIBool(Model.CommoditiesSettingsIniFile, i.ToString(), "IsSelling", false),
-                        Price = NativeMethods.ReadINIDecimal(Model.CommoditiesSettingsIniFile, i.ToString(), "Price", decimal.Zero),
-                        Selling = NativeMethods.ReadINIDecimal(Model.CommoditiesSettingsIniFile, i.ToString(), "Selling", decimal.Zero),
-                        StarSystemId = NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, i.ToString(), "system_index", 0),
-                        StationId = NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, i.ToString(), "station_index", 0),
-                        CommoditiesId = NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, i.ToString(), "commodities_index", 0),
-                        Qty = NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, i.ToString(), "qty", 0),
-                        StationPriceID = i
-                    });
-                }
-            }
             if (System.IO.File.Exists(Model.CommoditiesIniFile)) {
                 for (var i = 1; i < NativeMethods.ReadINIInt(Model.CommoditiesIniFile, "Settings", "Count", 0) + 1; ++i) {
                     Model.CommoditiesModels.Add(new CommodityModel() {
                         CommodityId = i,
                         Description = NativeMethods.ReadINI(Model.CommoditiesIniFile, i.ToString(), "Description", ""),
                         Body = NativeMethods.ReadINI(Model.CommoditiesIniFile, i.ToString(), "Body", ""),
-                        Prices = Model.StationPriceModels.Where(p => p.CommoditiesId == i).ToList()
+                        Prices = Model.StationPriceModels.Where(p => p.CommoditiesId == i).ToList(), 
+                        ImagePath = NativeMethods.ReadINI(Model.CommoditiesIniFile, i.ToString(), "ImagePath", "")
                     });
+                }
+            }
+            if (System.IO.File.Exists(Model.CommoditiesSettingsIniFile)) {
+                for (var i = 1; i < NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, "Settings", "Count", 0) + 1; ++i) {
+                    var n = NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, i.ToString(), "commodities_index", 0);
+                    
+                    var _commodity = Model.CommoditiesModels.Where(com => com.CommodityId == n);
+                    if (_commodity.Any()) {
+                        var commodity = _commodity.FirstOrDefault();
+                        Model.StationPriceModels.Add(new StationPriceModel() {
+                            IsSelling = NativeMethods.ReadINIBool(Model.CommoditiesSettingsIniFile, i.ToString(), "IsSelling", false),
+                            Price = NativeMethods.ReadINIDecimal(Model.CommoditiesSettingsIniFile, i.ToString(), "Price", decimal.Zero),
+                            Selling = NativeMethods.ReadINIDecimal(Model.CommoditiesSettingsIniFile, i.ToString(), "Selling", decimal.Zero),
+                            StarSystemId = NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, i.ToString(), "system_index", 0),
+                            StationId = NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, i.ToString(), "station_index", 0),
+                            CommoditiesId = n,
+                            Qty = NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, i.ToString(), "qty", 0),
+                            StationPriceID = i,
+                            //Image = game.Content.Load<Texture2D>(commodity.ImagePath)
+                        });
+                    }
                 }
             }
         }

@@ -116,6 +116,16 @@ namespace Roguelancer.Functionality {
             } else {
                 InputItems.Keys.C = false;
             }
+            if (CurrentKeyboardState.IsKeyDown(Keys.H)) {
+                InputItems.Keys.H = true;
+            } else {
+                InputItems.Keys.H = false;
+            }
+            if (CurrentKeyboardState.IsKeyDown(Keys.E)) {
+                InputItems.Keys.E = true;
+            } else {
+                InputItems.Keys.E = false;
+            }
             if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
                 if (CurrentKeyboardState.IsKeyDown(Keys.C)) {
                     if (LastKeyboardState.IsKeyUp(Keys.C)) {

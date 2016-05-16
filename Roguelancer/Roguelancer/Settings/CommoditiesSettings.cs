@@ -1,4 +1,5 @@
-﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
+﻿/*
+// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://team-nexgen.com
 using System.Linq;
 using Roguelancer.Functionality;
@@ -19,4 +20,4 @@ namespace Roguelancer.Settings {
 
         }
     }
-}
+}*/

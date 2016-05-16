@@ -114,7 +114,7 @@ namespace Roguelancer.Objects.Base {
         /// <param name="Model"></param>
         /// <param name="stationID"></param>
         public virtual void Initialize(RoguelancerGame game, GameModel Model, int? stationID) {
-
+            DockableObjectModel.DestinationRectangle = new Rectangle(0, 0, game.GraphicsDevice.PresentationParameters.BackBufferWidth, game.GraphicsDevice.PresentationParameters.BackBufferHeight);
         }
         /// <summary>
         /// Load Content
@@ -180,6 +180,12 @@ namespace Roguelancer.Objects.Base {
                         game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Commodities;
                         ListCommoditiesForSale(game, Enum.ModelType.Station, stationID.Value);
                     }
+                    if (game.Input.InputItems.Keys.H) {
+                        game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Hanger;
+                    }
+                    if (game.Input.InputItems.Keys.E) {
+                        game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Hanger;
+                    }
                     break;
                 case Enum.GameStates.Playing:
                     if (game.Input.InputItems.Keys.D) { // DOCK
@@ -208,8 +214,7 @@ namespace Roguelancer.Objects.Base {
                 case GameStates.Docked:
                     switch (game.GameState.Model.DockedGameState) {
                         case DockedGameStateEnum.Commodities:
-                            var rect = new Rectangle(0, 0, game.GraphicsDevice.PresentationParameters.BackBufferWidth, game.GraphicsDevice.PresentationParameters.BackBufferHeight);
-                            game.Graphics.Model.SpriteBatch.Draw(DockableObjectModel.BackgroundTexture, rect, Color.White);
+                            game.Graphics.Model.SpriteBatch.Draw(DockableObjectModel.BackgroundTexture, DockableObjectModel.DestinationRectangle, Color.White);
                             break;
                     }
                     break;

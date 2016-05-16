@@ -1,5 +1,6 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://team-nexgen.com
+using Microsoft.Xna.Framework.Graphics;
 namespace Roguelancer.Models {
     /// <summary>
     /// Station Price Model
@@ -45,5 +46,13 @@ namespace Roguelancer.Models {
         /// Commodity
         /// </summary>
         //public CommodityModel Commodity { get; set; }
+        /// <summary>
+        /// Model
+        /// </summary>
+        public Texture2D Image { get; set; }
+        /// <summary>
+        /// Badge Model
+        /// </summary>
+        public Texture2D ImageContainer { get; set; }
     }
 }
