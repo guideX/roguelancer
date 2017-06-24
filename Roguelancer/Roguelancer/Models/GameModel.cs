@@ -138,7 +138,6 @@ namespace Roguelancer.Models {
         /// </summary>
         public void UpdatePosition() {
             var rotationMatrix = Matrix.CreateFromAxisAngle(Right, Rotation.Y) * Matrix.CreateRotationY(Rotation.X);
-            //var rotationMatrix = Matrix.CreateFromAxisAngle(Right, Rotation.Y) * Matrix.CreateRotationY(Rotation.X);
             Direction = Vector3.TransformNormal(Direction, rotationMatrix);
             Up = Vector3.TransformNormal(Up, rotationMatrix);
             Direction.Normalize();

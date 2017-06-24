@@ -15,6 +15,14 @@ namespace Roguelancer.Models {
         /// </summary>
         public KeyInputModel Keys;
         /// <summary>
+        /// Keys
+        /// </summary>
+        public KeyInputModel OldKeys;
+        /// <summary>
+        /// Old Keys Counter
+        /// </summary>
+        public int OldKeysCounter;
+        /// <summary>
         /// Toggles
         /// </summary>
         public TogglesModel Toggles;

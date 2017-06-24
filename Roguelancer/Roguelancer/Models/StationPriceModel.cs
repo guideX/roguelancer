@@ -1,5 +1,6 @@
 ﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
 // http://team-nexgen.com
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 namespace Roguelancer.Models {
     /// <summary>
@@ -39,17 +40,25 @@ namespace Roguelancer.Models {
         /// </summary>
         public int Qty { get; set; }
         /// <summary>
-        /// Station
+        /// Image Rectangle
         /// </summary>
-        //public Station Station { get; set; }
+        public Rectangle ImageRect { get; set; }
         /// <summary>
-        /// Commodity
+        /// Image Container Rect
         /// </summary>
-        //public CommodityModel Commodity { get; set; }
+        public Rectangle ImageContainerRect { get; set; }
         /// <summary>
         /// Model
         /// </summary>
         public Texture2D Image { get; set; }
+        /// <summary>
+        /// Image Path
+        /// </summary>
+        public string ImagePath { get; set; }
+        /// <summary>
+        /// Image Path Container
+        /// </summary>
+        public string ImagePathContainer { get; set; }
         /// <summary>
         /// Badge Model
         /// </summary>

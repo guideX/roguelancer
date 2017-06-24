@@ -22,5 +22,11 @@ namespace Roguelancer.Models {
         /// Player Ship Control
         /// </summary>
         public IPlayerShipControl PlayerShipControl;
+        /// <summary>
+        /// Ship Model
+        /// </summary>
+        public ShipModel() {
+
+        }
     }
 }

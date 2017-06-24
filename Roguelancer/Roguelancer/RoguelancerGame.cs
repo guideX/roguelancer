@@ -18,7 +18,7 @@ namespace Roguelancer {
         /// <summary>
         /// Star System
         /// </summary>
-        public int StarSystemId { get; set; }
+        public int CurrentStarSystemId { get; set; }
         /// <summary>
         /// Hud
         /// </summary>
@@ -140,7 +140,7 @@ namespace Roguelancer {
             _bloom.Draw(this);
             if (GameState.Model.CurrentGameState == GameStates.Playing) {
                 if (GameState.Model.LastGameState != GameState.Model.CurrentGameState) {
-                    GraphicsDevice.Clear(Color.Black);
+                    GraphicsDevice.Clear(Color.Navy);
                 }
                 Graphics.Draw(this);
                 Objects.Draw(this);

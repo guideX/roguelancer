@@ -30,7 +30,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             var n = 0;
-            foreach (var obj in game.Settings.Model.StarSystemSettings[game.StarSystemId].TradeLanes.ToList()) {
+            foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].TradeLanes.ToList()) {
                 n++;
                 var t = new TradeLane(game);
                 for (var i = 0; i <= 8 - 1; i++) {

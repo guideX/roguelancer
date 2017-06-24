@@ -32,13 +32,16 @@ namespace Roguelancer.Functionality {
             Vector3 force, acceleration;
             var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds; // Elapsed time
             var rotationAmount = new Vector2(); // Create Vector for Rotation Amount
-            var w2 = (float)game.Graphics.Model.GraphicsDeviceManager.PreferredBackBufferWidth / Model.UpdateDirectionX;
-            var h2 = (float)game.Graphics.Model.GraphicsDeviceManager.PreferredBackBufferHeight / Model.UpdateDirectionY;
+            var w2 = game.Graphics.Model.GraphicsDeviceManager.PreferredBackBufferWidth / Model.UpdateDirectionX;
+            var h2 = game.Graphics.Model.GraphicsDeviceManager.PreferredBackBufferHeight / Model.UpdateDirectionY;
             if (Model.UseInput) {
                 if (game.Input.InputItems.Toggles.MouseMode && !game.Input.InputItems.Toggles.FreeMouseMode) { // Flying around but must click to adjust direction
                     if (game.Input.InputItems.Mouse.LeftButton) { // Left Button
-                        rotationAmount.X = (game.Input.InputItems.Mouse.Vector.X - w2) / -w2; // Adjust X
-                        rotationAmount.Y = (game.Input.InputItems.Mouse.Vector.Y - h2) / -h2; // Adjust Y
+                        var x = (game.Input.InputItems.Mouse.Vector.X - w2) / -w2;
+                        var y = (game.Input.InputItems.Mouse.Vector.Y - h2) / -h2;
+                        rotationAmount.X = x;
+                        rotationAmount.Y = y;
+                        // This is where the mouse movement is
                     }
                 } else if (!game.Input.InputItems.Toggles.MouseMode && game.Input.InputItems.Toggles.FreeMouseMode) { // Flying around
                     rotationAmount.X = (game.Input.InputItems.Mouse.Vector.X - w2) / -w2; // Adjust X
@@ -67,15 +70,17 @@ namespace Roguelancer.Functionality {
             model.Rotation = rotationAmount;
             model.UpdatePosition();
             if (Model.UseInput) {
+                //if (game.Input.InputItems.Keys.T) {
+                    //game.Input.InputItems.Keys.T = false;
+                    //if (game.Input.InputItems.OldKeys != null && !game.Input.InputItems.OldKeys.T) {
+                    //game.TargetNextObject();
+                //}
+                //}
+                //if (game.Input.InputItems.Keys.T && game.Input.InputItems.OldKeys != null && !game.Input.InputItems.OldKeys.T) {
+                //game.TargetNextObject();
+                //}
                 if (game.Input.InputItems.Keys.W) {
-                    game.Camera.Shake(Model.ShakeValue, 0f, false);
-                    if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAmount) {
-                        model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
-                    } else if (model.CurrentThrust < PlayerShipControlModel.MaxThrustAmount) {
-                        model.CurrentThrust = model.CurrentThrust + PlayerShipControlModel.ThrustAddSpeed;
-                    } else {
-                        model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
-                    }
+                    game.MoveForward(Model, model);
                 } else {
                     game.Camera.StopShaking();
                 }

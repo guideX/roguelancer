@@ -39,7 +39,7 @@ namespace Roguelancer.Models {
         /// Debug Text Model
         /// </summary>
         public DebugTextModel() {
-            ShowTime = 500;
+            ShowTime = 100;
         }
     }
 }

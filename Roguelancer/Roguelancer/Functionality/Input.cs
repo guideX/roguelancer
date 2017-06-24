@@ -43,6 +43,11 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
+            //InputItems.OldKeysCounter++;
+            //if (InputItems.OldKeysCounter > 5) {
+            InputItems.OldKeys = InputItems.Keys;
+            //InputItems.OldKeysCounter = 0;
+            //}
             if (game.Settings.Model.CameraSettings.Model.FieldOfView < 80 && game.Settings.Model.CameraSettings.Model.FieldOfView > 180) {
                 game.Settings.Model.CameraSettings.Model.FieldOfView = +game.Input.InputItems.Mouse.ScrollWheel;
             }
@@ -50,6 +55,18 @@ namespace Roguelancer.Functionality {
             InputItems.Mouse.ScrollWheel = InputItems.Mouse.State.ScrollWheelValue * .0001f;
             LastKeyboardState = CurrentKeyboardState;
             CurrentKeyboardState = Keyboard.GetState();
+            if (CurrentKeyboardState.IsKeyDown(Keys.T)) {
+                if (LastKeyboardState.IsKeyUp(Keys.T)) {
+                    game.TargetNextObject();
+                }
+            }
+            //if (!InputItems.OldKeys.T && CurrentKeyboardState.IsKeyDown(Keys.T)) {
+                //InputItems.Keys.T = true;
+                //InputItems.OldKeys.T = true;
+                //game.TargetNextObject();
+            //} else {
+                //InputItems.Keys.T = false;
+            //}
             if (CurrentKeyboardState.IsKeyDown(Keys.D1)) {
                 InputItems.Keys.One = true;
             } else {

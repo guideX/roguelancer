@@ -6,6 +6,14 @@ namespace Roguelancer.Models {
     /// </summary>
     public class PlayerShipControlModel {
         /// <summary>
+        /// Current Target
+        /// </summary>
+        public string CurrentTarget { get; set; }
+        /// <summary>
+        /// Last Target
+        /// </summary>
+        public string LastTarget { get; set; }
+        /// <summary>
         /// Use Input
         /// </summary>
         public bool UseInput { get; set; }
@@ -56,11 +64,11 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Max Thrust Amount
         /// </summary>
-        public const float MaxThrustAmount = 0.2f;
+        public const float MaxThrustAmount = 0.3f;
         /// <summary>
         /// Max Thrust Afterburner Amount
         /// </summary>
-        public const float MaxThrustAfterburnerAmount = 0.4f;
+        public const float MaxThrustAfterburnerAmount = 0.5f;
         /// <summary>
         /// thrust Add Speed
         /// </summary>
@@ -94,9 +102,27 @@ namespace Roguelancer.Models {
         /// </summary>
         public const float ThrustMinNotZero = .00001f;
         /// <summary>
+        /// Additional Mouse Drag Factor X
+        /// </summary>
+        public const float AdditionalMouseDragFactorX = 0;
+        /// <summary>
+        /// Additional Mouse Drag Factor Y
+        /// </summary>
+        public const float AdditionalMouseDragFactorY = 0;
+        /// <summary>
+        /// Use Additional Mouse Drag Factor
+        /// </summary>
+        public const bool UseAdditionalMouseDragFactor = true;
+        /// <summary>
         /// Player Ship Control Model
         /// </summary>
         public PlayerShipControlModel(RoguelancerGame game) {
+            var rootDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\..\";
+            var ini = rootDir + @"configuration\player\settings.ini";
+            //MaxCruiseSpeed = NativeMethods.ReadINIFloat(ini, "settings", "max_cruise_speed", 1.3f);
+            //LimitAltitude = NativeMethods.ReadINIBool(ini, "settings", "limit_altitude", true);
+            //MaxThrustReverse = NativeMethods.ReadINIFloat(ini, "settings", "max_thrust_reverse", -0.10f);
+            //ThrustReverseSpeed = NativeMethods.ReadINIFloat(ini, "settings", "thrust_reverse_speed", -0.009f);
             ShakeValue = .8f;
             UpdateDirectionX = game.Settings.Model.PlayerShipUpdateDirectionX;
             UpdateDirectionY = game.Settings.Model.PlayerShipUpdateDirectionY;
@@ -104,6 +130,7 @@ namespace Roguelancer.Models {
             RotationXRightAdd = game.Settings.Model.PlayerShipRotationXRightAdd;
             RotationYUpAdd = game.Settings.Model.PlayerShipRotationYUpAdd;
             RotationYDownAdd = game.Settings.Model.PlayerShipRotationYDownAdd;
+            CurrentTarget = "Farpoint Station";
         }
     }
 }

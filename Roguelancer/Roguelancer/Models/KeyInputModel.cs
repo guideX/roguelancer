@@ -86,6 +86,10 @@ namespace Roguelancer.Models {
         /// </summary>
         public bool W { get; set; }
         /// <summary>
+        /// T
+        /// </summary>
+        public bool T { get; set; }
+        /// <summary>
         /// S
         /// </summary>
         public bool S { get; set; }

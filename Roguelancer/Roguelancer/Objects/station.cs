@@ -30,7 +30,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             var n = 0;
-            foreach (var obj in game.Settings.Model.StarSystemSettings[game.StarSystemId].Stations) {
+            foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Stations) {
                 n++;
                 var s = new Station(game);
                 s.StationID = n;

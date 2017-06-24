@@ -77,14 +77,14 @@ namespace Roguelancer.Settings {
                         Description = NativeMethods.ReadINI(Model.CommoditiesIniFile, i.ToString(), "Description", ""),
                         Body = NativeMethods.ReadINI(Model.CommoditiesIniFile, i.ToString(), "Body", ""),
                         Prices = Model.StationPriceModels.Where(p => p.CommoditiesId == i).ToList(), 
-                        ImagePath = NativeMethods.ReadINI(Model.CommoditiesIniFile, i.ToString(), "ImagePath", "")
+                        ImagePath = NativeMethods.ReadINI(Model.CommoditiesIniFile, i.ToString(), "ImagePath", ""),
+                        ImagePathContainer = NativeMethods.ReadINI(Model.CommoditiesIniFile, i.ToString(), "ImagePathContainer", ""),
                     });
                 }
             }
             if (System.IO.File.Exists(Model.CommoditiesSettingsIniFile)) {
                 for (var i = 1; i < NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, "Settings", "Count", 0) + 1; ++i) {
                     var n = NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, i.ToString(), "commodities_index", 0);
-                    
                     var _commodity = Model.CommoditiesModels.Where(com => com.CommodityId == n);
                     if (_commodity.Any()) {
                         var commodity = _commodity.FirstOrDefault();
@@ -97,7 +97,8 @@ namespace Roguelancer.Settings {
                             CommoditiesId = n,
                             Qty = NativeMethods.ReadINIInt(Model.CommoditiesSettingsIniFile, i.ToString(), "qty", 0),
                             StationPriceID = i,
-                            //Image = game.Content.Load<Texture2D>(commodity.ImagePath)
+                            ImagePath = commodity.ImagePath,
+                            ImagePathContainer = commodity.ImagePathContainer
                         });
                     }
                 }

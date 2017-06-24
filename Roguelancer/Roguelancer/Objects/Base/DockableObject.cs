@@ -124,6 +124,10 @@ namespace Roguelancer.Objects.Base {
         /// <param name="stationID"></param>
         public virtual void LoadContent(RoguelancerGame game, GameModel Model, int? stationID) {
             DockableObjectModel.BackgroundTexture = game.Content.Load<Texture2D>(@"Menus\allpanels");
+            foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
+                obj.Image = game.Content.Load<Texture2D>(obj.ImagePath);
+                obj.ImageContainer = game.Content.Load<Texture2D>(obj.ImagePathContainer);
+            }
         }
         /// <summary>
         /// Update
@@ -158,6 +162,23 @@ namespace Roguelancer.Objects.Base {
                             if (game.Input.InputItems.Keys.Seven) { if (6 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[6].CommoditiesId, 1); } }
                             if (game.Input.InputItems.Keys.Eight) { if (7 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[7].CommoditiesId, 1); } }
                             if (game.Input.InputItems.Keys.Nine) { if (8 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[8].CommoditiesId, 1); } }
+                            switch (game.GameState.Model.CurrentGameState) {
+                                case GameStates.Docked:
+                                    switch (game.GameState.Model.DockedGameState) {
+                                        case DockedGameStateEnum.Commodities:
+                                            var n = 0;
+                                            var nn1 = 100;
+                                            var nn2 = 150;
+                                            foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
+                                                var color = Color.White;
+                                                obj.ImageRect = new Rectangle(4 + nn1, 4 + n + nn2, 53, 48);
+                                                obj.ImageContainerRect = new Rectangle(1 + nn1, 1 + n + nn2, 277, 55);
+                                                n = n + 50;
+                                            }
+                                            break;
+                                    }
+                                    break;
+                            }
                             break;
                         case Enum.DockedGameStateEnum.ShipDealer:
                             // TODO
@@ -215,6 +236,11 @@ namespace Roguelancer.Objects.Base {
                     switch (game.GameState.Model.DockedGameState) {
                         case DockedGameStateEnum.Commodities:
                             game.Graphics.Model.SpriteBatch.Draw(DockableObjectModel.BackgroundTexture, DockableObjectModel.DestinationRectangle, Color.White);
+                            foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
+                                var color = Color.White;
+                                game.Graphics.Model.SpriteBatch.Draw(obj.Image, obj.ImageRect, color);
+                                game.Graphics.Model.SpriteBatch.Draw(obj.ImageContainer, obj.ImageContainerRect, color);
+                            }
                             break;
                     }
                     break;

@@ -25,7 +25,7 @@ namespace Roguelancer.Objects {
             Model = new GameObjectsModel();
             Model.Stations = new StationCollection(game);
             Model.Planets = new PlanetCollection(game);
-            Model.Stars = new Starfields(game.Settings.Model.StarSystemSettings[game.StarSystemId].StarSettings);
+            Model.Stars = new Starfields(game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].StarSettings);
             Model.TradeLanes = new TradeLaneCollection(game);
             Model.Ships = new ShipCollection(game);
             Model.Bullets = new Bullets(game);

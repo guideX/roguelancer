@@ -26,5 +26,9 @@ namespace Roguelancer.Models {
         /// Image Path
         /// </summary>
         public string ImagePath { get; set; }
+        /// <summary>
+        /// Image Path Container
+        /// </summary>
+        public string ImagePathContainer { get; set; }
     }
 }
