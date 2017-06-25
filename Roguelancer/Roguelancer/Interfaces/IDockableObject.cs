@@ -1,7 +1,6 @@
 ﻿using Roguelancer.Enum;
 using Roguelancer.Models;
 using Roguelancer.Objects;
-using Roguelancer.Settings;
 namespace Roguelancer.Interfaces {
     /// <summary>
     /// Dockable Object
@@ -16,15 +15,15 @@ namespace Roguelancer.Interfaces {
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
-        /// <param name="worldObject"></param>
-        void Dock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject);
+        /// <param name="dockTo"></param>
+        void Dock(RoguelancerGame game, Ship ship, GameModel dockTo);
         /// <summary>
-        /// Undock
+        /// Un Dock
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
-        /// <param name="worldObject"></param>
-        void UnDock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject);
+        /// <param name="undockFrom"></param>
+        void UnDock(RoguelancerGame game, Ship ship, GameModel undockFrom);
         /// <summary>
         /// List Commodities For Sale
         /// </summary>

@@ -156,7 +156,7 @@ namespace Roguelancer.Objects {
                     if (sensorObject.Distance != (double)0) {
                         if (sensorObject.Distance < _maxDistance) {
                             var color = Color.LightBlue;
-                            if (sensorObject.Text == playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget) {
+                            if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null && sensorObject.Text == playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.WorldObject.Description) {
                                 color = Color.Red;
                             }
                             game.Graphics.Model.SpriteBatch.DrawString(Model.Font, sensorObject.Text + ": " + sensorObject.Distance.ToString("#.##"), sensorObject.FontPosition, color, 0, sensorObject.FontOrigin, 2.0f, SpriteEffects.None, 0.5f);

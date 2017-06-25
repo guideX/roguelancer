@@ -140,7 +140,7 @@ namespace Roguelancer {
             _bloom.Draw(this);
             if (GameState.Model.CurrentGameState == GameStates.Playing) {
                 if (GameState.Model.LastGameState != GameState.Model.CurrentGameState) {
-                    GraphicsDevice.Clear(Color.Navy);
+                    GraphicsDevice.Clear(Color.Black);
                 }
                 Graphics.Draw(this);
                 Objects.Draw(this);
@@ -152,7 +152,7 @@ namespace Roguelancer {
                 GameMenu.Draw(this);
                 Graphics.Draw(this);
             } else if (GameState.Model.CurrentGameState == GameStates.Docked) {
-                GraphicsDevice.Clear(Color.Blue);
+                GraphicsDevice.Clear(Color.Black);
                 Objects.Draw(this);
             } else {
                 GraphicsDevice.Clear(Color.Black);

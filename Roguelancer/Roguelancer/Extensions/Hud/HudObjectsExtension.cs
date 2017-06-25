@@ -1,9 +1,9 @@
-﻿using Microsoft.Xna.Framework;
-using Roguelancer;
+﻿using Roguelancer;
 using Roguelancer.Helpers;
 using Roguelancer.Models;
 using Roguelancer.Objects;
 using System.Collections.Generic;
+using Microsoft.Xna.Framework;
 /// <summary>
 /// Hud Objects Extension
 /// </summary>
@@ -43,64 +43,49 @@ public static class HudObjectsExtension {
         return results;
     }
     /// <summary>
+    /// Goto Currently Targeted Object
+    /// </summary>
+    /// <param name="game"></param>
+    public static void GotoCurrentlyTargetedObject(this RoguelancerGame game) {
+        var playerShip = ShipHelper.GetPlayerShip(game);
+        if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
+            playerShip.FaceObject(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
+            game.Input.InputItems.Toggles.Cruise = true;
+        } else {
+            DebugTextHelper.SetText(game, "Nothing targetted.", true);
+        }
+    }
+    /// <summary>
     /// Target Next
     /// </summary>
     public static void TargetNextObject(this RoguelancerGame game) {
         var sensorObjects = GetAllSensorObjects(game, false);
         var playerShip = ShipHelper.GetPlayerShip(game);
-        ///var b = false;
-        //var b2 = false;
         var lastSensorObjectMatchesCurrentTarget = false;
         var itemChosen = false;
         for (var i = 0; i <= sensorObjects.Count - 1; i++) {
-            /*
-            var last = false;
-            if (i == sensorObjects.Count - 1) {
-                last = true;
-            }*/
-            var currentSensorObjectMatchesCurrentTarget = sensorObjects[i].Obj.Model.WorldObject.Description == playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget;
+            var currentSensorObjectMatchesCurrentTarget = sensorObjects[i].Obj.Model == playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget;
             if (lastSensorObjectMatchesCurrentTarget) {
-                playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget = sensorObjects[i].Obj.Model.WorldObject.Description;
+                playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget = sensorObjects[i].Obj.Model;
                 DebugTextHelper.SetText(game, "Targeting " + sensorObjects[i].Obj.Model.WorldObject.Description, true);
-                //playerShip.ShipModel.PlayerShipControl.Model
                 itemChosen = true;
                 return;
             }
             lastSensorObjectMatchesCurrentTarget = currentSensorObjectMatchesCurrentTarget;
         }
         if (!itemChosen) {
-            var currentTarget = sensorObjects[0].Obj.Model.WorldObject.Description;
-            playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget = currentTarget;
-            DebugTextHelper.SetText(game, "Targeting " + currentTarget, true);
-
+            playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget = sensorObjects[0].Obj.Model;
+            DebugTextHelper.SetText(game, "Targeting " + sensorObjects[0].Obj.Model.WorldObject.Description, true);
+            itemChosen = true;
         }
-        /*
-        foreach (var sensorObject in sensorObjects) {
-            var currentSensorObjectMatchesCurrentTarget = sensorObject.Obj.Model.WorldObject.Description == playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget;
-            if (lastSensorObjectMatchesCurrentTarget && !currentSensorObjectMatchesCurrentTarget) {
-                playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget = sensorObject.Obj.Model.WorldObject.Description;
-                DebugTextHelper.SetText(game, "Targeting " + sensorObject.Obj.Model.WorldObject.Description, true);
-                itemChosen = true;
-                return;
-            }
-            lastSensorObjectMatchesCurrentTarget = sensorObject.Obj.Model.WorldObject.Description == playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget;
-        }
-        if (!itemChosen) {
-            playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget = sensorObjects[0].Text;
-            DebugTextHelper.SetText(game, "Targeting " + sensorObjects[0].Text, true);
-        }
-        //if (!b || (b && !b2)) {
-        //playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget = sensorObjects[0].Text;
-        //DebugTextHelper.SetText(game, "Targeting " + sensorObjects[0].Text, true);
-        //}
-        */
     }
     /// <summary>
     /// Move Forward
     /// </summary>
     /// <param name="game"></param>
-    public static void MoveForward(this RoguelancerGame game, PlayerShipControlModel player, GameModel model) {
-        game.Camera.Shake(player.ShakeValue, 0f, false);
+    public static void MoveForward(this RoguelancerGame game, GameModel model) {
+        var playerShip = ShipHelper.GetPlayerShip(game);
+        game.Camera.Shake(playerShip.ShipModel.PlayerShipControl.Model.ShakeValue, 0f, false);
         if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAmount) {
             model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
         } else if (model.CurrentThrust < PlayerShipControlModel.MaxThrustAmount) {
@@ -108,5 +93,15 @@ public static class HudObjectsExtension {
         } else {
             model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
         }
+    }
+    /// <summary>
+    /// Face Object
+    /// </summary>
+    /// <param name="theShipToFace"></param>
+    /// <param name="faceToThis"></param>
+    public static void FaceObject(this Ship theShipToFace, GameModel faceThis) {
+        var desiredDirection = Vector3.Normalize(faceThis.Position - theShipToFace.Model.Position);
+        theShipToFace.Model.Direction = desiredDirection;
+        theShipToFace.Model.Direction.Z += .18f;
     }
 }

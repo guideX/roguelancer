@@ -1,6 +1,4 @@
-﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://team-nexgen.com
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Roguelancer.Interfaces;
 using Roguelancer.Enum;
@@ -15,16 +13,14 @@ namespace Roguelancer.Functionality {
         /// Input Items
         /// </summary>
         public InputItemsModel InputItems { get; set; }
-        #endregion
-        #region "private properties"
         /// <summary>
         /// Last Keyboard State
         /// </summary>
-        private KeyboardState LastKeyboardState { get; set; }
+        public KeyboardState LastKeyboardState { get; set; }
         /// <summary>
         /// Current Keyboard State
         /// </summary>
-        private KeyboardState CurrentKeyboardState { get; set; }
+        public KeyboardState CurrentKeyboardState { get; set; }
         #endregion
         #region "public methods"
         /// <summary>
@@ -43,30 +39,16 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            //InputItems.OldKeysCounter++;
-            //if (InputItems.OldKeysCounter > 5) {
             InputItems.OldKeys = InputItems.Keys;
-            //InputItems.OldKeysCounter = 0;
-            //}
-            if (game.Settings.Model.CameraSettings.Model.FieldOfView < 80 && game.Settings.Model.CameraSettings.Model.FieldOfView > 180) {
-                game.Settings.Model.CameraSettings.Model.FieldOfView = +game.Input.InputItems.Mouse.ScrollWheel;
-            }
+            if (game.Settings.Model.CameraSettings.Model.FieldOfView < 80 && game.Settings.Model.CameraSettings.Model.FieldOfView > 180) game.Settings.Model.CameraSettings.Model.FieldOfView = +game.Input.InputItems.Mouse.ScrollWheel;
             InputItems.Mouse.State = Mouse.GetState();
             InputItems.Mouse.ScrollWheel = InputItems.Mouse.State.ScrollWheelValue * .0001f;
             LastKeyboardState = CurrentKeyboardState;
             CurrentKeyboardState = Keyboard.GetState();
-            if (CurrentKeyboardState.IsKeyDown(Keys.T)) {
-                if (LastKeyboardState.IsKeyUp(Keys.T)) {
-                    game.TargetNextObject();
-                }
-            }
-            //if (!InputItems.OldKeys.T && CurrentKeyboardState.IsKeyDown(Keys.T)) {
-                //InputItems.Keys.T = true;
-                //InputItems.OldKeys.T = true;
-                //game.TargetNextObject();
-            //} else {
-                //InputItems.Keys.T = false;
-            //}
+            InputItems.Keys.T = Keys.T.WasKeypressed(game);
+            InputItems.Keys.G = Keys.G.WasKeypressed(game);
+            if (InputItems.Keys.T) game.TargetNextObject();
+            if (InputItems.Keys.G) game.GotoCurrentlyTargetedObject();
             if (CurrentKeyboardState.IsKeyDown(Keys.D1)) {
                 InputItems.Keys.One = true;
             } else {
@@ -199,11 +181,7 @@ namespace Roguelancer.Functionality {
                 } else {
                     InputItems.Keys.Up = false;
                 }
-                if (CurrentKeyboardState.IsKeyDown(Keys.D)) {
-                    InputItems.Keys.D = true;
-                } else {
-                    InputItems.Keys.D = false;
-                }
+                InputItems.Keys.D = Keys.D.WasKeypressed(game);
                 if (CurrentKeyboardState.IsKeyDown(Keys.Down)) {
                     InputItems.Keys.Down = true;
                 } else {

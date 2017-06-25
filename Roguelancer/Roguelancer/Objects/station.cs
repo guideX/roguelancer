@@ -38,8 +38,11 @@ namespace Roguelancer.Objects {
                 s.DockableObjectModel.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.ID).ToList();
                 Model.Stations.Add(s);
             }
-            for (var i = 0; i <= Model.Stations.Count - 1; i++) {
-                Model.Stations[i].Initialize(game);
+            //for (var i = 0; i <= Model.Stations.Count - 1; i++) {
+            //Model.Stations[i].Initialize(game);
+            //}
+            foreach (var station in Model.Stations) {
+                station.Initialize(game);
             }
         }
         /// <summary>
@@ -47,8 +50,11 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            for (var i = 0; i <= Model.Stations.Count - 1; i++) {
-                Model.Stations[i].LoadContent(game);
+            //for (var i = 0; i <= Model.Stations.Count - 1; i++) {
+            //Model.Stations[i].LoadContent(game);
+            //}
+            foreach (var station in Model.Stations) {
+                station.LoadContent(game);
             }
         }
         /// <summary>
@@ -56,8 +62,11 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            for (var i = 0; i <= Model.Stations.Count - 1; i++) {
-                Model.Stations[i].Update(game);
+            //for (var i = 0; i <= Model.Stations.Count - 1; i++) {
+            //Model.Stations[i].Update(game);
+            //}
+            foreach (var station in Model.Stations) {
+                station.Update(game);
             }
         }
         /// <summary>
@@ -65,8 +74,11 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            for (var i = 0; i <= Model.Stations.Count - 1; i++) {
-                Model.Stations[i].Draw(game);
+            //for (var i = 0; i <= Model.Stations.Count - 1; i++) {
+            //Model.Stations[i].Draw(game);
+            //}
+            foreach (var station in Model.Stations) {
+                station.Draw(game);
             }
         }
         /// <summary>

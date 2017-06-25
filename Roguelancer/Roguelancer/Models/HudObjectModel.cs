@@ -20,7 +20,7 @@ namespace Roguelancer.Models {
         /// Font
         /// </summary>
         public SpriteFont Font { get; set; }
-        /// <summary>
+        /// <summary> 
         /// Sensor
         /// </summary>
         public Texture2D Sensor { get; set; }

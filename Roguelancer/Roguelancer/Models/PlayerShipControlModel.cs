@@ -8,7 +8,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Current Target
         /// </summary>
-        public string CurrentTarget { get; set; }
+        public GameModel CurrentTarget { get; set; }
         /// <summary>
         /// Last Target
         /// </summary>
@@ -130,7 +130,7 @@ namespace Roguelancer.Models {
             RotationXRightAdd = game.Settings.Model.PlayerShipRotationXRightAdd;
             RotationYUpAdd = game.Settings.Model.PlayerShipRotationYUpAdd;
             RotationYDownAdd = game.Settings.Model.PlayerShipRotationYDownAdd;
-            CurrentTarget = "Farpoint Station";
+            //CurrentTarget = "Farpoint Station";
         }
     }
 }

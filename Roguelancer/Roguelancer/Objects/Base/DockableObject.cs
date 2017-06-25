@@ -1,24 +1,24 @@
-﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://team-nexgen.com
-using System;
+﻿using System;
 using System.Text;
 using System.Linq;
 using Microsoft.Xna.Framework;
-using Roguelancer.Settings;
+using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Models;
 using Roguelancer.Enum;
 using Roguelancer.Helpers;
 using Roguelancer.Interfaces;
-using Microsoft.Xna.Framework.Graphics;
 namespace Roguelancer.Objects.Base {
     /// <summary>
     /// Dockable Object
     /// </summary>
     public abstract class DockableObject : IDockableObject {
+        #region "variables"
         /// <summary>
         /// Dockable Object Model
         /// </summary>
         public DockableObjectModel DockableObjectModel { get; set; }
+        #endregion
+        #region "methods"
         /// <summary>
         /// Dockable Object
         /// </summary>
@@ -26,32 +26,182 @@ namespace Roguelancer.Objects.Base {
             DockableObjectModel = new DockableObjectModel();
         }
         /// <summary>
+        /// Initialize
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="Model"></param>
+        /// <param name="stationID"></param>
+        public virtual void Initialize(RoguelancerGame game, GameModel Model, int? stationID) {
+            DockableObjectModel.DestinationRectangle = new Rectangle(0, 0, game.GraphicsDevice.PresentationParameters.BackBufferWidth, game.GraphicsDevice.PresentationParameters.BackBufferHeight);
+        }
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="Model"></param>
+        /// <param name="stationID"></param>
+        public virtual void LoadContent(RoguelancerGame game, GameModel Model, int? stationID) {
+            DockableObjectModel.BackgroundTexture = game.Content.Load<Texture2D>(@"Menus\allpanels");
+            foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
+                obj.Image = game.Content.Load<Texture2D>(obj.ImagePath);
+                obj.ImageContainer = game.Content.Load<Texture2D>(obj.ImagePathContainer);
+            }
+        }
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="Model"></param>
+        /// <param name="stationID"></param>
+        public virtual void Update(RoguelancerGame game, GameModel Model, int? stationID) {
+            var playerShip = ShipHelper.GetPlayerShip(game);
+            switch (game.GameState.Model.CurrentGameState) { // Current Game State
+                case Enum.GameStates.Docked: // Docked
+                    switch (game.GameState.Model.DockedGameState) { // Docked Game State
+                        case Enum.DockedGameStateEnum.Hanger: // Hanger
+                                                              // TODO
+                                                              // OPTION = LAUNCH
+                            break;
+                        case Enum.DockedGameStateEnum.EquipmentDealer: // Equipment Dealer
+                                                                       // TODO
+                            break;
+                        case Enum.DockedGameStateEnum.Bar: // Bar
+                                                           // TODO
+                                                           // OPTION1 = Talk to Bar Person
+                                                           // OPTION2 = Purchase information from Bar Person
+                                                           // OPTION3 = Purchase starchart from Bar Person
+                            break;
+                        case Enum.DockedGameStateEnum.Commodities: // Commodities
+                            if (game.Input.InputItems.Keys.One) { if (0 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[0].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Two) { if (1 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[1].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Three) { if (2 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[2].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Four) { if (3 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[3].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Five) { if (4 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[4].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Six) { if (5 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[5].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Seven) { if (6 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[6].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Eight) { if (7 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[7].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.Nine) { if (8 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[8].CommoditiesId, 1); } }
+                            switch (game.GameState.Model.CurrentGameState) {
+                                case GameStates.Docked:
+                                    switch (game.GameState.Model.DockedGameState) {
+                                        case DockedGameStateEnum.Commodities:
+                                            var n = 0;
+                                            var nn1 = 100;
+                                            var nn2 = 150;
+                                            foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
+                                                var color = Color.White;
+                                                obj.ImageRect = new Rectangle(4 + nn1, 4 + n + nn2, 53, 48);
+                                                obj.ImageContainerRect = new Rectangle(1 + nn1, 1 + n + nn2, 277, 55);
+                                                n = n + 50;
+                                            }
+                                            break;
+                                    }
+                                    break;
+                            }
+                            break;
+                        case Enum.DockedGameStateEnum.ShipDealer:
+                            // TODO
+                            // OPTION1 = Purchase Ship 1
+                            // OPTION2 = Purchase Ship 2
+                            // Etc
+                            break;
+                    }
+                    if (game.Input.InputItems.Keys.U) {
+                        game.Input.InputItems.Keys.U = false;
+                        if (playerShip.Docked) {
+                            var distance = (int)Vector3.Distance(playerShip.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
+                            if (distance < HudObject.DockDistanceAccept) {
+                                UnDock(game, playerShip, Model);
+                            }
+                        }
+                    }
+                    if (game.Input.InputItems.Keys.C) {
+                        game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Commodities;
+                        ListCommoditiesForSale(game, Enum.ModelType.Station, stationID.Value);
+                    }
+                    if (game.Input.InputItems.Keys.H) {
+                        game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Hanger;
+                    }
+                    if (game.Input.InputItems.Keys.E) {
+                        game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Hanger;
+                    }
+                    break;
+                case Enum.GameStates.Playing:
+                    if (game.Input.InputItems.Keys.D) { // DOCK
+                        game.Input.InputItems.Keys.D = false;
+                        if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget == Model) {
+                            if (!playerShip.Docked) {
+                                var distance = (int)Vector3.Distance(playerShip.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
+                                if (distance < HudObject.DockDistanceAccept) {
+                                    Dock(game, playerShip, Model);
+                                    game.Input.InputItems.Toggles.Cruise = false;
+                                } else {
+                                    playerShip.FaceObject(Model);
+                                    //playerShip.Model.CurrentThrust = PlayerShipControlModel.MaxCruiseSpeed;
+                                    DebugTextHelper.SetText(game, "Dock failed, destination is too far.", true);
+                                }
+                            }
+                        }
+                    }
+
+                    break;
+            }
+        }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="Model"></param>
+        /// <param name="stationID"></param>
+        public virtual void Draw(RoguelancerGame game, GameModel Model, int? stationID) {
+            switch (game.GameState.Model.CurrentGameState) {
+                case GameStates.Docked:
+                    switch (game.GameState.Model.DockedGameState) {
+                        case DockedGameStateEnum.Commodities:
+                            game.Graphics.Model.SpriteBatch.Draw(DockableObjectModel.BackgroundTexture, DockableObjectModel.DestinationRectangle, Color.White);
+                            foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
+                                var color = Color.White;
+                                game.Graphics.Model.SpriteBatch.Draw(obj.Image, obj.ImageRect, color);
+                                game.Graphics.Model.SpriteBatch.Draw(obj.ImageContainer, obj.ImageContainerRect, color);
+                            }
+                            break;
+                    }
+                    break;
+            }
+        }
+        /// <summary>
         /// Dock
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
-        public virtual void Dock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject) {
-            var _ship = ShipHelper.GetPlayerShip(game); // Get Player Ship
-            if (_ship == ship) { // If Docking Ship is Player Ship
-                game.GameState.Model.CurrentGameState = Enum.GameStates.Docked; // Set Current Game State to Docked
+        public virtual void Dock(RoguelancerGame game, Ship ship, GameModel dockTo) {
+            if (!ship.Docked) {
+                var playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
+                ship.Model.Velocity = new Vector3(0f, 0f, 0f);
+                ship.Model.CurrentThrust = 0f;
+                ship.Docked = true; // Set Docked Value
+                ship.DockedTo = dockTo; // Set Docket To
+                DockableObjectModel.DockedShips.Add(ship); // Add to Docked Ships
+                if (playerShip == ship) { // If Docking Ship is Player Ship
+                    game.GameState.Model.CurrentGameState = Enum.GameStates.Docked; // Set Current Game State to Docked
+                    DebugTextHelper.SetText(game, "Docking To " + dockTo.WorldObject.Description, true);
+                }
             }
-            ship.Docked = true; // Set Docked to True
-            DockableObjectModel.DockedShips.Add(ship); // Add to Docked Ships
-            DebugTextHelper.SetText(game, "Docked at '" + worldObject.Description + "'." + Environment.NewLine + " " + Environment.NewLine + "[H] = Hangar " + Environment.NewLine + "[B] = Bar " + Environment.NewLine + " [E] = Equipment Dealer " + Environment.NewLine + " [C] = Commodities " + Environment.NewLine + " [S] = Ship Dealer", true); // Set Debug Text
         }
         /// <summary>
         /// Undock
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
-        public virtual void UnDock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject) {
-            var playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
-            if (playerShip == ship) {
-                game.GameState.Model.CurrentGameState = Enum.GameStates.Playing;
+        public virtual void UnDock(RoguelancerGame game, Ship ship, GameModel undockFrom) {
+            if (ship.Docked) {
+                var playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
+                if (playerShip == ship) game.GameState.Model.CurrentGameState = Enum.GameStates.Playing;
+                ship.Docked = false;
+                ship.DockedTo = null;
+                DockableObjectModel.DockedShips.Remove(ship);
+                DebugTextHelper.SetText(game, "Undocked from '" + undockFrom.WorldObject.Description + "'.", true);
             }
-            ship.Docked = false;
-            DockableObjectModel.DockedShips.Remove(ship);
-            DebugTextHelper.SetText(game, "Undocked from '" + worldObject.Description + "'.", true);
         }
         /// <summary>
         /// Commodities for Sale
@@ -107,144 +257,6 @@ namespace Roguelancer.Objects.Base {
                 DebugTextHelper.SetText(game, "Item not available", true);
             }
         }
-        /// <summary>
-        /// Initialize
-        /// </summary>
-        /// <param name="game"></param>
-        /// <param name="Model"></param>
-        /// <param name="stationID"></param>
-        public virtual void Initialize(RoguelancerGame game, GameModel Model, int? stationID) {
-            DockableObjectModel.DestinationRectangle = new Rectangle(0, 0, game.GraphicsDevice.PresentationParameters.BackBufferWidth, game.GraphicsDevice.PresentationParameters.BackBufferHeight);
-        }
-        /// <summary>
-        /// Load Content
-        /// </summary>
-        /// <param name="game"></param>
-        /// <param name="Model"></param>
-        /// <param name="stationID"></param>
-        public virtual void LoadContent(RoguelancerGame game, GameModel Model, int? stationID) {
-            DockableObjectModel.BackgroundTexture = game.Content.Load<Texture2D>(@"Menus\allpanels");
-            foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
-                obj.Image = game.Content.Load<Texture2D>(obj.ImagePath);
-                obj.ImageContainer = game.Content.Load<Texture2D>(obj.ImagePathContainer);
-            }
-        }
-        /// <summary>
-        /// Update
-        /// </summary>
-        /// <param name="game"></param>
-        /// <param name="Model"></param>
-        /// <param name="stationID"></param>
-        public virtual void Update(RoguelancerGame game, GameModel Model, int? stationID) {
-            switch (game.GameState.Model.CurrentGameState) { // Current Game State
-                case Enum.GameStates.Docked: // Docked
-                    switch (game.GameState.Model.DockedGameState) { // Docked Game State
-                        case Enum.DockedGameStateEnum.Hanger: // Hanger
-                            // TODO
-                            // OPTION = LAUNCH
-                            break;
-                        case Enum.DockedGameStateEnum.EquipmentDealer: // Equipment Dealer
-                            // TODO
-                            break;
-                        case Enum.DockedGameStateEnum.Bar: // Bar
-                            // TODO
-                            // OPTION1 = Talk to Bar Person
-                            // OPTION2 = Purchase information from Bar Person
-                            // OPTION3 = Purchase starchart from Bar Person
-                            break;
-                        case Enum.DockedGameStateEnum.Commodities: // Commodities
-                            if (game.Input.InputItems.Keys.One) { if (0 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[0].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Two) { if (1 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[1].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Three) { if (2 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[2].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Four) { if (3 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[3].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Five) { if (4 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[4].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Six) { if (5 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[5].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Seven) { if (6 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[6].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Eight) { if (7 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[7].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Nine) { if (8 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[8].CommoditiesId, 1); } }
-                            switch (game.GameState.Model.CurrentGameState) {
-                                case GameStates.Docked:
-                                    switch (game.GameState.Model.DockedGameState) {
-                                        case DockedGameStateEnum.Commodities:
-                                            var n = 0;
-                                            var nn1 = 100;
-                                            var nn2 = 150;
-                                            foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
-                                                var color = Color.White;
-                                                obj.ImageRect = new Rectangle(4 + nn1, 4 + n + nn2, 53, 48);
-                                                obj.ImageContainerRect = new Rectangle(1 + nn1, 1 + n + nn2, 277, 55);
-                                                n = n + 50;
-                                            }
-                                            break;
-                                    }
-                                    break;
-                            }
-                            break;
-                        case Enum.DockedGameStateEnum.ShipDealer:
-                            // TODO
-                            // OPTION1 = Purchase Ship 1
-                            // OPTION2 = Purchase Ship 2
-                            // Etc
-                            break;
-                    }
-                    if (game.Input.InputItems.Keys.U) {
-                        game.Input.InputItems.Keys.U = false;
-                        var ship = ShipHelper.GetPlayerShip(game);
-                        if (ship.Docked) {
-                            var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
-                            if (distance < HudObject.DockDistanceAccept) {
-                                UnDock(game, ship, Model.WorldObject);
-                            }
-                        }
-                    }
-                    if (game.Input.InputItems.Keys.C) {
-                        game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Commodities;
-                        ListCommoditiesForSale(game, Enum.ModelType.Station, stationID.Value);
-                    }
-                    if (game.Input.InputItems.Keys.H) {
-                        game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Hanger;
-                    }
-                    if (game.Input.InputItems.Keys.E) {
-                        game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Hanger;
-                    }
-                    break;
-                case Enum.GameStates.Playing:
-                    if (game.Input.InputItems.Keys.D) { // DOCK
-                        game.Input.InputItems.Keys.D = false;
-                        var ship = ShipHelper.GetPlayerShip(game);
-                        if (!ship.Docked) {
-                            var distance = (int)Vector3.Distance(ship.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
-                            if (distance < HudObject.DockDistanceAccept) {
-                                Dock(game, ship, Model.WorldObject);
-                                ship.Model.Velocity = new Vector3(0f, 0f, 0f);
-                                ship.Model.CurrentThrust = 0f;
-                            }
-                        }
-                    }
-                    break;
-            }
-        }
-        /// <summary>
-        /// Draw
-        /// </summary>
-        /// <param name="game"></param>
-        /// <param name="Model"></param>
-        /// <param name="stationID"></param>
-        public virtual void Draw(RoguelancerGame game, GameModel Model, int? stationID) {
-            switch (game.GameState.Model.CurrentGameState) {
-                case GameStates.Docked:
-                    switch (game.GameState.Model.DockedGameState) {
-                        case DockedGameStateEnum.Commodities:
-                            game.Graphics.Model.SpriteBatch.Draw(DockableObjectModel.BackgroundTexture, DockableObjectModel.DestinationRectangle, Color.White);
-                            foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
-                                var color = Color.White;
-                                game.Graphics.Model.SpriteBatch.Draw(obj.Image, obj.ImageRect, color);
-                                game.Graphics.Model.SpriteBatch.Draw(obj.ImageContainer, obj.ImageContainerRect, color);
-                            }
-                            break;
-                    }
-                    break;
-            }
-        }
+        #endregion
     }
 }

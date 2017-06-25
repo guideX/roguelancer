@@ -70,17 +70,8 @@ namespace Roguelancer.Functionality {
             model.Rotation = rotationAmount;
             model.UpdatePosition();
             if (Model.UseInput) {
-                //if (game.Input.InputItems.Keys.T) {
-                    //game.Input.InputItems.Keys.T = false;
-                    //if (game.Input.InputItems.OldKeys != null && !game.Input.InputItems.OldKeys.T) {
-                    //game.TargetNextObject();
-                //}
-                //}
-                //if (game.Input.InputItems.Keys.T && game.Input.InputItems.OldKeys != null && !game.Input.InputItems.OldKeys.T) {
-                //game.TargetNextObject();
-                //}
                 if (game.Input.InputItems.Keys.W) {
-                    game.MoveForward(Model, model);
+                    game.MoveForward(model);
                 } else {
                     game.Camera.StopShaking();
                 }

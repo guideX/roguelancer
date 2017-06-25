@@ -22,13 +22,15 @@ namespace Roguelancer.Interfaces {
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
-        void Dock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject);
+        /// <param name="dockTo"></param>
+        void Dock(RoguelancerGame game, Ship ship, GameModel dockTo);
         /// <summary>
-        /// UnDoc
+        /// Un-Dock
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
-        void UnDock(RoguelancerGame game, Ship ship, ModelWorldObjects worldObject);
+        /// <param name="undockFrom"></param>
+        void UnDock(RoguelancerGame game, Ship ship, GameModel undockFrom);
         /// <summary>
         /// Commodities for Sale
         /// </summary>

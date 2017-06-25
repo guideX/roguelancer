@@ -96,6 +96,10 @@ namespace Roguelancer.Objects {
     public class Ship : IGame, ISensorObject, IDockableShip {
         #region "public properties"
         /// <summary>
+        /// Docked To
+        /// </summary>
+        public GameModel DockedTo { get; set; }
+        /// <summary>
         /// Docked
         /// </summary>
         public bool Docked { get; set; }
