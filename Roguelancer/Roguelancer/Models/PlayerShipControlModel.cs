@@ -1,10 +1,10 @@
-﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://team-nexgen.com
+﻿using Roguelancer.Functionality;
 namespace Roguelancer.Models {
     /// <summary>
     /// Player Ship Control Model
     /// </summary>
     public class PlayerShipControlModel {
+        #region "values that change constantly"
         /// <summary>
         /// Current Target
         /// </summary>
@@ -17,6 +17,8 @@ namespace Roguelancer.Models {
         /// Use Input
         /// </summary>
         public bool UseInput { get; set; }
+        #endregion
+        #region "values loaded by ini file"
         /// <summary>
         /// Shake Value
         /// </summary>
@@ -40,7 +42,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Rotation Y Up Add
         /// </summary>
-        public float RotationYUpAdd  { get; set; }
+        public float RotationYUpAdd { get; set; }
         /// <summary>
         /// Rotation Y Down Add
         /// </summary>
@@ -48,15 +50,17 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Rotation Rate
         /// </summary>
-        public const float RotationRate = 1.5f;
+        public float RotationRate { get; set; }
         /// <summary>
         /// Mass
         /// </summary>
-        public const float Mass = 1.0f;
+        public float Mass { get; set; }
         /// <summary>
         /// Thrust Force
         /// </summary>
-        public const float ThrustForce = 24000.0f;
+        public float ThrustForce { get; set; }
+        #endregion
+        #region "const"
         /// <summary>
         /// Drag Factor
         /// </summary>
@@ -113,23 +117,32 @@ namespace Roguelancer.Models {
         /// Use Additional Mouse Drag Factor
         /// </summary>
         public const bool UseAdditionalMouseDragFactor = true;
+        #endregion
         /// <summary>
         /// Player Ship Control Model
         /// </summary>
-        public PlayerShipControlModel(RoguelancerGame game) {
+        public PlayerShipControlModel(RoguelancerGame game, int shipID = 1) {
             var rootDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\..\";
             var ini = rootDir + @"configuration\player\settings.ini";
+            RotationRate = NativeMethods.ReadINIFloat(ini, "PlayerShip", "RotationRate", 1.5f);
+            UpdateDirectionX = NativeMethods.ReadINIFloat(ini, "PlayerShip", "UpdateDirectionX", 2.0f);
+            UpdateDirectionY = NativeMethods.ReadINIFloat(ini, "PlayerShip", "UpdateDirectionY", 2.0f);
+            RotationXLeftAdd = NativeMethods.ReadINIFloat(ini, "PlayerShip", "RotationXLeftAdd", 1.0f);
+            RotationXRightAdd = NativeMethods.ReadINIFloat(ini, "PlayerShip", "RotationXRightAdd", -1.0f);
+            RotationYUpAdd = NativeMethods.ReadINIFloat(ini, "PlayerShip", "RotationYUpAdd", -1.0f);
+            RotationYDownAdd = NativeMethods.ReadINIFloat(ini, "PlayerShip", "RotationYDownAdd", 1.0f);
+            ShakeValue = NativeMethods.ReadINIFloat(ini, "PlayerShip", "ShakeValue", 0.8f);
+            Mass = NativeMethods.ReadINIFloat(ini, "PlayerShip", "Mass", 1.0f);
+            ThrustForce = NativeMethods.ReadINIFloat(ini, "PlayerShip", "ThrustForce", 24000.0f);
             //MaxCruiseSpeed = NativeMethods.ReadINIFloat(ini, "settings", "max_cruise_speed", 1.3f);
             //LimitAltitude = NativeMethods.ReadINIBool(ini, "settings", "limit_altitude", true);
             //MaxThrustReverse = NativeMethods.ReadINIFloat(ini, "settings", "max_thrust_reverse", -0.10f);
             //ThrustReverseSpeed = NativeMethods.ReadINIFloat(ini, "settings", "thrust_reverse_speed", -0.009f);
-            ShakeValue = .8f;
-            UpdateDirectionX = game.Settings.Model.PlayerShipUpdateDirectionX;
-            UpdateDirectionY = game.Settings.Model.PlayerShipUpdateDirectionY;
-            RotationXLeftAdd = game.Settings.Model.PlayerShipRotationXLeftAdd;
-            RotationXRightAdd = game.Settings.Model.PlayerShipRotationXRightAdd;
-            RotationYUpAdd = game.Settings.Model.PlayerShipRotationYUpAdd;
-            RotationYDownAdd = game.Settings.Model.PlayerShipRotationYDownAdd;
+            //UpdateDirectionY = game.Settings.Model.PlayerShipUpdateDirectionY;
+            //RotationXLeftAdd = game.Settings.Model.PlayerShipRotationXLeftAdd;
+            //RotationXRightAdd = game.Settings.Model.PlayerShipRotationXRightAdd;
+            //RotationYUpAdd = game.Settings.Model.PlayerShipRotationYUpAdd;
+            //RotationYDownAdd = game.Settings.Model.PlayerShipRotationYDownAdd;
             //CurrentTarget = "Farpoint Station";
         }
     }

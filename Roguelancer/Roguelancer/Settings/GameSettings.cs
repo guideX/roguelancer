@@ -1,5 +1,5 @@
-﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://team-nexgen.com
+﻿
+
 using System.Linq;
 using System.Collections.Generic;
 using Roguelancer.Functionality;
@@ -32,13 +32,7 @@ namespace Roguelancer.Settings {
             Model.BulletThrusterForce = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Bullet", "ThrusterForce", 44000.0f); // Thruster Force
             Model.BulletDragFactor = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Bullet", "DragFactor", 0.97f); // Drag Factor
             Model.BulletRechargeRate = NativeMethods.ReadINIInt(Model.GameSettingsIniFile, "Bullet", "RechargeRate", 240); // Recharge Rate
-            Model.PlayerShipUpdateDirectionX = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "UpdateDirectionX", 2.0f); // Update Direction X
-            Model.PlayerShipUpdateDirectionY = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "UpdateDirectionY", 2.0f); // Update Direction Y
             Model.PlayerShipShakeValue = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "ShakeValue", .8f); // Shake Value
-            Model.PlayerShipRotationXLeftAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationXLeftAdd", 1.0f); // Player Ship Rotation X Left Add
-            Model.PlayerShipRotationXRightAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationXRightAdd", -1.0f); // Player Ship Rotation X Right Add
-            Model.PlayerShipRotationYUpAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationYUpAdd", -1.0f); // Player Ship Rotation Y Up Add
-            Model.PlayerShipRotationYDownAdd = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "PlayerShip", "PlayerShipRotationYDownAdd", 1.0f); // Player Ship Rotation Y Down Add
             Model.MenuBackgroundTexture = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "menu_background"); // Menu Background
             Model.Resolution = new Vector2(NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Graphics", "ResolutionX", 1280f), NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Graphics", "ResolutionY", 1024)); // Resolution
             Model.CameraSettings = new CameraSettings(Model.CameraSettingsIniFile); // Camera Settings

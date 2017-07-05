@@ -1,5 +1,5 @@
-﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://team-nexgen.com
+﻿
+
 using Microsoft.Xna.Framework;
 using Roguelancer.Particle.ParticleSystem;
 namespace Roguelancer.Interfaces {

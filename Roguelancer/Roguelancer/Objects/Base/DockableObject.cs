@@ -183,6 +183,7 @@ namespace Roguelancer.Objects.Base {
                 ship.DockedTo = dockTo; // Set Docket To
                 DockableObjectModel.DockedShips.Add(ship); // Add to Docked Ships
                 if (playerShip == ship) { // If Docking Ship is Player Ship
+                    //playerShip.Model.Up.Y = 0f;
                     game.GameState.Model.CurrentGameState = Enum.GameStates.Docked; // Set Current Game State to Docked
                     DebugTextHelper.SetText(game, "Docking To " + dockTo.WorldObject.Description, true);
                 }

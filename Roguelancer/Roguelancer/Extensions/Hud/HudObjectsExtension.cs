@@ -51,6 +51,7 @@ public static class HudObjectsExtension {
         if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
             playerShip.FaceObject(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
             game.Input.InputItems.Toggles.Cruise = true;
+            //playerShip.Model.Up.Y = 0f;
         } else {
             DebugTextHelper.SetText(game, "Nothing targetted.", true);
         }
@@ -79,21 +80,7 @@ public static class HudObjectsExtension {
             itemChosen = true;
         }
     }
-    /// <summary>
-    /// Move Forward
-    /// </summary>
-    /// <param name="game"></param>
-    public static void MoveForward(this RoguelancerGame game, GameModel model) {
-        var playerShip = ShipHelper.GetPlayerShip(game);
-        game.Camera.Shake(playerShip.ShipModel.PlayerShipControl.Model.ShakeValue, 0f, false);
-        if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAmount) {
-            model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
-        } else if (model.CurrentThrust < PlayerShipControlModel.MaxThrustAmount) {
-            model.CurrentThrust = model.CurrentThrust + PlayerShipControlModel.ThrustAddSpeed;
-        } else {
-            model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
-        }
-    }
+
     /// <summary>
     /// Face Object
     /// </summary>
@@ -103,5 +90,6 @@ public static class HudObjectsExtension {
         var desiredDirection = Vector3.Normalize(faceThis.Position - theShipToFace.Model.Position);
         theShipToFace.Model.Direction = desiredDirection;
         theShipToFace.Model.Direction.Z += .18f;
+        theShipToFace.Model.Up.Y = 0f;
     }
 }

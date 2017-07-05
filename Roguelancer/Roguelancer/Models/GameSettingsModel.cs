@@ -72,33 +72,13 @@ namespace Roguelancer.Models {
         /// </summary>
         public int BulletRechargeRate { get; set; }
         /// <summary>
-        /// Player Ship Update Direction X
-        /// </summary>
-        public float PlayerShipUpdateDirectionX { get; set; }
-        /// <summary>
         /// Player Ship Update Direction Y
         /// </summary>
-        public float PlayerShipUpdateDirectionY { get; set; }
+        //public float PlayerShipUpdateDirectionY { get; set; }
         /// <summary>
         /// Player Ship Shake Value
         /// </summary>
         public float PlayerShipShakeValue { get; set; }
-        /// <summary>
-        /// Player Ship Rotation X Left Add
-        /// </summary>
-        public float PlayerShipRotationXLeftAdd { get; set; }
-        /// <summary>
-        /// Player Ship Rotation X Right Add
-        /// </summary>
-        public float PlayerShipRotationXRightAdd { get; set; }
-        /// <summary>
-        /// Player Ship Rotation Y Up Add
-        /// </summary>
-        public float PlayerShipRotationYUpAdd { get; set; }
-        /// <summary>
-        /// Player Ship Rotation Y Down Add
-        /// </summary>
-        public float PlayerShipRotationYDownAdd { get; set; }
         /// <summary>
         /// Full Screen
         /// </summary>

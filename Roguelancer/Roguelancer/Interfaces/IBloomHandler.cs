@@ -1,6 +1,4 @@
-﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://team-nexgen.com
-using Roguelancer.Models;
+﻿using Roguelancer.Models;
 namespace Roguelancer.Interfaces {
     /// <summary>
     /// Bloom Component

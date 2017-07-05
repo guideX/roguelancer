@@ -1,6 +1,4 @@
-﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://team-nexgen.com
-using System;
+﻿using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Roguelancer.Interfaces;
@@ -85,9 +83,9 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Stop Shaking
         /// </summary>
-        public void StopShaking() {
-            Model.Shaking = false;
-        }
+        //public void StopShaking() {
+            //Model.Shaking = false;
+        //}
         #endregion
         #region "private functions"
         /// <summary>

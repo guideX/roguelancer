@@ -113,7 +113,7 @@
     <Compile Include="Enum\GameCameraModeEnum.cs" />
     <Compile Include="Extensions\Hud\HudObjectsExtension.cs" />
     <Compile Include="Extensions\InputExtensions.cs" />
-    <Compile Include="Extensions\ShipExtensions.cs" />
+    <Compile Include="Extensions\PlayerShipExtensions.cs" />
     <Compile Include="Helpers\DebugTextHelper.cs" />
     <Compile Include="Helpers\ShipHelper.cs" />
     <Compile Include="Interfaces\IBloomComponent.cs" />

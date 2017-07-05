@@ -1,5 +1,5 @@
-﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://team-nexgen.com
+﻿
+
 using System.Collections.Generic;
 using Roguelancer.Functionality;
 namespace Roguelancer.Settings {

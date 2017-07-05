@@ -1,6 +1,4 @@
-﻿// Roguelancer 0.1 Pre Alpha by Leon Aiossa
-// http://team-nexgen.com
-using Roguelancer.Objects;
+﻿using Roguelancer.Objects;
 using System.Linq;
 namespace Roguelancer.Helpers {
     /// <summary>
