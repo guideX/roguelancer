@@ -90,6 +90,6 @@ public static class HudObjectsExtension {
         var desiredDirection = Vector3.Normalize(faceThis.Position - theShipToFace.Model.Position);
         theShipToFace.Model.Direction = desiredDirection;
         theShipToFace.Model.Direction.Z += .18f;
-        theShipToFace.Model.Up.Y = 0f;
+        //theShipToFace.Model.Up.Y = 0f;
     }
 }

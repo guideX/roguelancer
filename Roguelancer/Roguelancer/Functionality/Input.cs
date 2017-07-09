@@ -3,6 +3,8 @@ using Microsoft.Xna.Framework.Input;
 using Roguelancer.Interfaces;
 using Roguelancer.Enum;
 using Roguelancer.Models;
+using Roguelancer.Helpers;
+
 namespace Roguelancer.Functionality {
     /// <summary>
     /// Input
@@ -234,10 +236,12 @@ namespace Roguelancer.Functionality {
             if (game.Input.InputItems.Keys.M) {
                 game.Input.InputItems.Toggles.MouseMode = true;
                 game.Input.InputItems.Toggles.FreeMouseMode = false;
+                DebugTextHelper.SetText(game, "Mouse Mode Enabled", true);
             }
             if (game.Input.InputItems.Keys.F) {
                 game.Input.InputItems.Toggles.MouseMode = false;
                 game.Input.InputItems.Toggles.FreeMouseMode = true;
+                DebugTextHelper.SetText(game, "Free Flight Mode Enabled", true);
             }
             if (game.Input.InputItems.Keys.F10) {
                 if (game.GameState.Model.CurrentGameState == GameStates.Menu) {

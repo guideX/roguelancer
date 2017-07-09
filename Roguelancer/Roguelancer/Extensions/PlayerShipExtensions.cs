@@ -1,8 +1,8 @@
-﻿using Microsoft.Xna.Framework;
-using Roguelancer;
+﻿using Roguelancer;
 using Roguelancer.Functionality;
 using Roguelancer.Helpers;
 using Roguelancer.Models;
+using Microsoft.Xna.Framework;
 /// <summary>
 /// Player Ship Extensions
 /// </summary>
@@ -44,7 +44,7 @@ public static class PlayerShipExtensions {
         var result = new Vector2();
         if (game.Input.InputItems.Mouse.LeftButton && game.Input.InputItems.Toggles.MouseMode && !game.Input.InputItems.Toggles.FreeMouseMode) {
             result = GetMouseRotationAmount(playerShipControl, game, playerShipControl.Model);
-        } else if (game.Input.InputItems.Mouse.LeftButton && !game.Input.InputItems.Toggles.MouseMode && game.Input.InputItems.Toggles.FreeMouseMode) {
+        } else if (!game.Input.InputItems.Toggles.MouseMode && game.Input.InputItems.Toggles.FreeMouseMode) {
             result = GetMouseRotationAmount(playerShipControl, game, playerShipControl.Model);
         }
         return result;
@@ -66,15 +66,14 @@ public static class PlayerShipExtensions {
         };
     }
     /// <summary>
-         /// Get Ship Rotation X Right
-         /// </summary>
-         /// <param name="playerShipControl"></param>
-         /// <param name="game"></param>
-         /// <returns></returns>
+    /// Get Ship Rotation X Right
+    /// </summary>
+    /// <param name="playerShipControl"></param>
+    /// <param name="game"></param>
+    /// <returns></returns>
     public static float GetShipRotationXRight(this PlayerShipControl playerShipControl) {
         return playerShipControl.Model.RotationXRightAdd; // Add Rotation Right
     }
-
     /// <summary>
     /// Move Forward
     /// </summary>
@@ -111,5 +110,17 @@ public static class PlayerShipExtensions {
         } else {
             model.CurrentThrust = PlayerShipControlModel.MaxThrustAfterburnerAmount;
         }
+    }
+    /// <summary>
+    /// Get Rotation Amount
+    /// </summary>
+    /// <param name="playerShipControl"></param>
+    /// <param name="rotationAmount"></param>
+    /// <param name="game"></param>
+    /// <returns></returns>
+    public static Vector2 GetRotationAmount(this PlayerShipControl playerShipControl, Vector2 rotationAmount, GameModel model, RoguelancerGame game) {
+        var obj = rotationAmount * playerShipControl.Model.RotationRate * (float)game.GameTime.ElapsedGameTime.TotalSeconds; // Slow Rotation Amount
+        if (model.Up.Y < 0) obj.X = -obj.X;
+        return obj;
     }
 }
