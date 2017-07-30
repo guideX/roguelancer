@@ -80,12 +80,6 @@ namespace Roguelancer.Functionality {
                 Model.ShakeTimer = 0f;
             }
         }
-        /// <summary>
-        /// Stop Shaking
-        /// </summary>
-        //public void StopShaking() {
-            //Model.Shaking = false;
-        //}
         #endregion
         #region "private functions"
         /// <summary>
