@@ -30,7 +30,7 @@ namespace Roguelancer.Objects {
             var n = 0;
             foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].TradeLanes.ToList()) {
                 n++;
-                var t = new TradeLane(game);
+                var t = new TradeLaneObject(game);
                 for (var i = 0; i <= 8 - 1; i++) {
                     var o = ModelWorldObjects.Clone(obj);
                     var p = o.StartupPosition;
@@ -95,7 +95,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Trade Lane
     /// </summary>
-    public class TradeLane : DockableObject, IGame, IDockable, ITradeLaneSensorObject {
+    public class TradeLaneObject : DockableObject, IGame, IDockable, ITradeLaneSensorObject {
         #region "public properties"
         /// <summary>
         /// Docked Ships
@@ -111,7 +111,7 @@ namespace Roguelancer.Objects {
         /// Entry Point
         /// </summary>
         /// <param name="game"></param>
-        public TradeLane(RoguelancerGame game) {
+        public TradeLaneObject(RoguelancerGame game) {
             Reset(game);
         }
         /// <summary>

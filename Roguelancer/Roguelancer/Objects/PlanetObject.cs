@@ -29,7 +29,7 @@ namespace Roguelancer.Objects {
             var n = 0;
             foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Planets) {
                 n++;
-                var s = new Planet(game);
+                var s = new PlanetObject(game);
                 s.StationID = n;
                 s.Model.WorldObject = obj;
                 //s.DockableObjectModel.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.ID).ToList();
@@ -84,7 +84,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Planet
     /// </summary>
-    public class Planet : DockableObject, IGame, IDockable, ISensorObject {
+    public class PlanetObject : DockableObject, IGame, IDockable, ISensorObject {
         #region "public properties"
         /// <summary>
         /// Model
@@ -104,7 +104,7 @@ namespace Roguelancer.Objects {
         /// Planet
         /// </summary>
         /// <param name="game"></param>
-        public Planet(RoguelancerGame game) {
+        public PlanetObject(RoguelancerGame game) {
             Reset(game);
             DockedShips = new List<ISensorObject>();
             //Model = new GameModel(game, null);

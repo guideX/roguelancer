@@ -7,7 +7,6 @@ using Roguelancer.Interfaces;
 using Roguelancer.Enum;
 using Roguelancer.Helpers;
 using Roguelancer.Settings;
-
 namespace Roguelancer.Objects {
     /// <summary>
     /// Bullets
@@ -61,8 +60,8 @@ namespace Roguelancer.Objects {
             if (game.Input.InputItems.Keys.ControlLeft || game.Input.InputItems.Keys.ControlRight || game.Input.InputItems.Mouse.RightButton) {
                 if (_model.AreBulletsAvailable) {
                     game.Camera.Shake(10f, 0f, false);
-                    _model.Bullets.Add(new Bullet(_model.PlayerShip, game, new Vector3(-100f, -200f, 0f), particleSystemSettings: _particleSystemSettings));
-                    _model.Bullets.Add(new Bullet(_model.PlayerShip, game, new Vector3(-100f, 700f, 0f), particleSystemSettings: _particleSystemSettings));
+                    _model.Bullets.Add(new BulletObject(_model.PlayerShip, game, new Vector3(-100f, -200f, 0f), particleSystemSettings: _particleSystemSettings));
+                    _model.Bullets.Add(new BulletObject(_model.PlayerShip, game, new Vector3(-100f, 700f, 0f), particleSystemSettings: _particleSystemSettings));
                     _model.AreBulletsAvailable = false;
                     _model.WeaponRechargedTime = DateTime.Now.AddMilliseconds(_model.RechargeRate);
                 }
@@ -124,7 +123,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Bullet
     /// </summary>
-    public class Bullet : IBullet {
+    public class BulletObject : IBullet {
         #region "public properties"
         /// <summary>
         /// Bullet Model
@@ -136,7 +135,7 @@ namespace Roguelancer.Objects {
         /// Entry Point
         /// </summary>
         /// <param name="texture"></param> 
-        public Bullet(ShipObject playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
+        public BulletObject(ShipObject playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
             Reset(playerShipModel, game, startupPosition, deathSeconds, scale, modelPath, bulletThrust, particleSystemSettings);
         }
         /// <summary>

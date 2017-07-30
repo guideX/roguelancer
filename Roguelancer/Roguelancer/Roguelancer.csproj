@@ -181,7 +181,7 @@
     <Compile Include="Models\TradeLaneModel.cs" />
     <Compile Include="Objects\Base\DockableObject.cs" />
     <Compile Include="Objects\HudObject.cs" />
-    <Compile Include="Objects\JumpHole.cs" />
+    <Compile Include="Objects\JumpHoleObject.cs" />
     <Compile Include="RoguelancerGame.cs" />
     <Compile Include="Functionality\GameCamera.cs" />
     <Compile Include="Functionality\DebugText.cs" />
@@ -200,18 +200,18 @@
     <Compile Include="Interfaces\IParticleSystem.cs" />
     <Compile Include="Interfaces\IPlayerShipControl.cs" />
     <Compile Include="Interfaces\IShipCollection.cs" />
-    <Compile Include="Objects\Bullet.cs" />
-    <Compile Include="Objects\GameMenu.cs" />
+    <Compile Include="Objects\BulletObject.cs" />
+    <Compile Include="Objects\GameMenuObject.cs" />
     <Compile Include="Objects\MenuButton.cs" />
     <Compile Include="Objects\GameObjects.cs" />
-    <Compile Include="Objects\Planet.cs">
+    <Compile Include="Objects\PlanetObject.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Objects\ShipObject.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Objects\Station.cs" />
-    <Compile Include="Objects\TradeLane.cs" />
+    <Compile Include="Objects\StationObject.cs" />
+    <Compile Include="Objects\TradeLaneObject.cs" />
     <Compile Include="Particle\Particle.cs" />
     <Compile Include="Particle\ParticleSystem\DynamicParticle.cs" />
     <Compile Include="Particle\ParticleSystem\DynamicParticleSystem.cs" />

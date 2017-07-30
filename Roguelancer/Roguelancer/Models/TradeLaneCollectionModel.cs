@@ -10,12 +10,12 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Trade Lanes
         /// </summary>
-        public List<TradeLane> TradeLanes;
+        public List<TradeLaneObject> TradeLanes;
         /// <summary>
         /// Entry Point
         /// </summary>
         public TradeLaneCollectionModel() {
-            TradeLanes = new List<TradeLane>();
+            TradeLanes = new List<TradeLaneObject>();
         }
     }
 }

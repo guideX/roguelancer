@@ -10,12 +10,12 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Jump Holes
         /// </summary>
-        public List<JumpHole> JumpHoles { get; set; }
+        public List<JumpHoleObject> JumpHoles { get; set; }
         /// <summary>
         /// Entry Point
         /// </summary>
         public JumpHoleCollectionModel() {
-            JumpHoles = new List<JumpHole>();
+            JumpHoles = new List<JumpHoleObject>();
         }
     }
 }

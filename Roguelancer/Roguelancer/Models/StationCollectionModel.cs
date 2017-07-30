@@ -10,12 +10,12 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Stations
         /// </summary>
-        public List<Station> Stations { get; set; }
+        public List<StationObject> Stations { get; set; }
         /// <summary>
         /// Station Collection Model
         /// </summary>
         public StationCollectionModel() {
-            Stations = new List<Station>();
+            Stations = new List<StationObject>();
         }
     }
 }

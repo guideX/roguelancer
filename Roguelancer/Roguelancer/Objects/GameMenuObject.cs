@@ -8,7 +8,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Game Menu
     /// </summary>
-    public class GameMenu : IGameMenu {
+    public class GameMenuObject : IGameMenu {
         #region "public properties"
         /// <summary>
         /// Model
@@ -19,7 +19,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Entry Point
         /// </summary>
-        public GameMenu(RoguelancerGame game) {
+        public GameMenuObject(RoguelancerGame game) {
             Model = new GameMenuModel();
         }
         /// <summary>

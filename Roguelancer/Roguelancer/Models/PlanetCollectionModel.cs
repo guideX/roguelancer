@@ -10,12 +10,12 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Planets
         /// </summary>
-        public List<Planet> Planets { get; set; }
+        public List<PlanetObject> Planets { get; set; }
         /// <summary>
         /// Planet Collection Model
         /// </summary>
         public PlanetCollectionModel() {
-            Planets = new List<Planet>();
+            Planets = new List<PlanetObject>();
         }
     }
 }

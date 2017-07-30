@@ -83,7 +83,7 @@ namespace Roguelancer {
             Input = new Input();
             DebugText = new DebugText(this);
             Objects = new GameObjects(this);
-            GameMenu = new GameMenu(this);
+            GameMenu = new GameMenuObject(this);
             Hud = new HudObject(this);
             GameMenu.Model.CurrentMenu = CurrentMenu.HomeMenu;
         }

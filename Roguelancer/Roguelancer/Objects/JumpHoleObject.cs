@@ -24,7 +24,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             foreach (var modelWorldObject in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].JumpHoles) {
-                var jumpHole = new JumpHole(game);
+                var jumpHole = new JumpHoleObject(game);
                 jumpHole.Model.WorldObject = modelWorldObject;
                 Model.JumpHoles.Add(jumpHole);
             }
@@ -72,7 +72,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Jump Hole
     /// </summary>
-    public class JumpHole : IGame {
+    public class JumpHoleObject : IGame {
         #region "public properties"
         /// <summary>
         /// Model
@@ -88,7 +88,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         #endregion
         #region "public methods"
-        public JumpHole(RoguelancerGame game) {
+        public JumpHoleObject(RoguelancerGame game) {
             Model = new GameModel(game, null);
             JumpHoleModel = new JumpHoleModel(game);
         }
