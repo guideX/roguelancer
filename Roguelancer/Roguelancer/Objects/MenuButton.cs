@@ -84,7 +84,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (game.GameState.Model.CurrentGameState == GameStates.Menu) {
+            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Menu) {
                 var mouseRectangle = new Rectangle(game.Input.InputItems.Mouse.State.X, game.Input.InputItems.Mouse.State.Y, 1, 1);
                 if (game.Settings.Model.FullScreen) {
                     _rectangle = new Rectangle((int)Position.X, (int)Position.Y, (int)_size.X, (int)_size.Y);
@@ -114,9 +114,9 @@ namespace Roguelancer.Objects {
                 if (Clicked) {
                     switch (_text) {
                         case "New Game":
-                            if (game.GameState.Model.CurrentGameState == GameStates.Menu) {
+                            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Menu) {
                                 game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
-                                game.GameState.Model.CurrentGameState = GameStates.Playing;
+                                game.GameState.Model.CurrentGameState = GameStatesEnum.Playing;
                                 Clicked = false;
                             }
                             break;
@@ -126,13 +126,13 @@ namespace Roguelancer.Objects {
                             break;
                         case "Options":
                             game.GameMenu.Model.CurrentMenu = CurrentMenu.OptionsMenu;
-                            game.GameState.Model.CurrentGameState = GameStates.Menu;
+                            game.GameState.Model.CurrentGameState = GameStatesEnum.Menu;
                             Clicked = false;
                             break;
                         case "Return":
                             if (game.GameMenu.Model.CurrentMenu == CurrentMenu.OptionsMenu) {
                                 game.GameMenu.Model.CurrentMenu = CurrentMenu.HomeMenu;
-                                game.GameState.Model.CurrentGameState = GameStates.Menu;
+                                game.GameState.Model.CurrentGameState = GameStatesEnum.Menu;
                                 Clicked = false;
                             }
                             break;

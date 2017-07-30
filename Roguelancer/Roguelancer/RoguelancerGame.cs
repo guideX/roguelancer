@@ -123,7 +123,7 @@ namespace Roguelancer {
             Camera.Update(this);
             DebugText.Update(this);
             GameMenu.Update(this);
-            if (GameState.Model.CurrentGameState == GameStates.Playing) {
+            if (GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 Hud.Update(this);
             }
             base.Update(gameTime);
@@ -136,20 +136,20 @@ namespace Roguelancer {
             GameTime = gameTime;
             Graphics.Model.SpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
             _bloom.Draw(this);
-            if (GameState.Model.CurrentGameState == GameStates.Playing) {
+            if (GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 if (GameState.Model.LastGameState != GameState.Model.CurrentGameState) {
                     GraphicsDevice.Clear(Color.Black);
                 }
                 Graphics.Draw(this);
                 Objects.Draw(this);
                 Hud.Draw(this);
-            } else if (GameState.Model.CurrentGameState == GameStates.Menu) {
+            } else if (GameState.Model.CurrentGameState == GameStatesEnum.Menu) {
                 if (GameState.Model.LastGameState != GameState.Model.CurrentGameState) {
                     GraphicsDevice.Clear(Color.Black);
                 }
                 GameMenu.Draw(this);
                 Graphics.Draw(this);
-            } else if (GameState.Model.CurrentGameState == GameStates.Docked) {
+            } else if (GameState.Model.CurrentGameState == GameStatesEnum.Docked) {
                 GraphicsDevice.Clear(Color.Black);
                 Objects.Draw(this);
             } else {

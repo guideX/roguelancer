@@ -18,7 +18,7 @@ namespace Roguelancer.Interfaces {
         /// <param name="height"></param>
         /// <param name="effect"></param>
         /// <param name="currentBuffer"></param>
-        void DrawFullscreenQuad(Texture2D texture, int width, int height, Effect effect, IntermediateBuffer currentBuffer);
+        void DrawFullscreenQuad(Texture2D texture, int width, int height, Effect effect, IntermediateBufferEnum currentBuffer);
         /// <summary>
         /// Set Blur Effect Parameters
         /// </summary>

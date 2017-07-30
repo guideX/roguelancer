@@ -60,7 +60,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 Model.Stations.Update(game);
                 Model.Planets.Update(game);
                 Model.Stars.Update(game);
@@ -78,7 +78,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 Model.Stations.Draw(game);
                 Model.Planets.Draw(game);
                 Model.Stars.Draw(game);

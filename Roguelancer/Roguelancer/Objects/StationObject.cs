@@ -130,7 +130,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 Model.UpdatePosition(); // Update Position
                 Model.Update(game); // Update
             }
@@ -141,7 +141,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 Model.Draw(game);
             }
             Draw(game, Model, StationID); // Draw Dockable Object Station Stuff

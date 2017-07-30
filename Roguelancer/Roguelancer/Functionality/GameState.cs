@@ -18,8 +18,8 @@ namespace Roguelancer.Functionality {
         /// </summary>
         public GameState(RoguelancerGame game) {
             Model = new GameStateModel();
-            Model.CurrentGameState = new GameStates();
-            Model.CurrentGameState = GameStates.Menu;
+            Model.CurrentGameState = new GameStatesEnum();
+            Model.CurrentGameState = GameStatesEnum.Menu;
             Model.DockedGameState = DockedGameStateEnum.Hanger;
         }
         #endregion

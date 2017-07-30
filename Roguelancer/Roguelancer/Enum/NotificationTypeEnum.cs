@@ -2,7 +2,7 @@
     /// <summary>
     /// Notification Type
     /// </summary>
-    public enum NotificationType {
+    public enum NotificationTypeEnum {
         /// <summary>
         /// Location
         /// </summary>

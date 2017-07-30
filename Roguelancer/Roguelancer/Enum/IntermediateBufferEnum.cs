@@ -2,7 +2,7 @@
     /// <summary>
     /// Intermediate Buffer
     /// </summary>
-    public enum IntermediateBuffer {
+    public enum IntermediateBufferEnum {
         /// <summary>
         /// IPreBloom
         /// </summary>

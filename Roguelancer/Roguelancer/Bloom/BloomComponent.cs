@@ -23,7 +23,7 @@ namespace Roguelancer.Bloom {
         /// <param name="game"></param>
         public BloomComponent(Game game) : base(game) {
             Model = new BloomComponentModel();
-            Model.ShowBuffer = IntermediateBuffer.iFinalResult;
+            Model.ShowBuffer = IntermediateBufferEnum.iFinalResult;
             if (game == null) {
                 throw new ArgumentNullException("game");
             }
@@ -69,11 +69,11 @@ namespace Roguelancer.Bloom {
         public override void Draw(GameTime gameTime) {
             GraphicsDevice.SamplerStates[1] = SamplerState.LinearClamp;
             Model.BloomExtractEffect.Parameters["BloomThreshold"].SetValue(Model.Settings.BloomThreshold);
-            DrawFullscreenQuad(Model.SceneRenderTarget, Model.RenderTarget1, Model.BloomExtractEffect, IntermediateBuffer.iPreBloom);
+            DrawFullscreenQuad(Model.SceneRenderTarget, Model.RenderTarget1, Model.BloomExtractEffect, IntermediateBufferEnum.iPreBloom);
             SetBlurEffectParameters(1.0f / (float)Model.RenderTarget1.Width, 0);
-            DrawFullscreenQuad(Model.RenderTarget1, Model.RenderTarget2, Model.GaussianBlurEffect, IntermediateBuffer.iBlurredHorizontally);
+            DrawFullscreenQuad(Model.RenderTarget1, Model.RenderTarget2, Model.GaussianBlurEffect, IntermediateBufferEnum.iBlurredHorizontally);
             SetBlurEffectParameters(0, 1.0f / (float)Model.RenderTarget1.Height);
-            DrawFullscreenQuad(Model.RenderTarget2, Model.RenderTarget1, Model.GaussianBlurEffect, IntermediateBuffer.iBlurredBothWays);
+            DrawFullscreenQuad(Model.RenderTarget2, Model.RenderTarget1, Model.GaussianBlurEffect, IntermediateBufferEnum.iBlurredBothWays);
             GraphicsDevice.SetRenderTarget(null);
             var parameters = Model.BloomCombineEffect.Parameters;
             parameters["BloomIntensity"].SetValue(Model.Settings.BloomIntensity);
@@ -82,7 +82,7 @@ namespace Roguelancer.Bloom {
             parameters["BaseSaturation"].SetValue(Model.Settings.BaseSaturation);
             GraphicsDevice.Textures[1] = Model.SceneRenderTarget;
             var viewport = GraphicsDevice.Viewport;
-            DrawFullscreenQuad(Model.RenderTarget1, viewport.Width, viewport.Height, Model.BloomCombineEffect, IntermediateBuffer.iFinalResult);
+            DrawFullscreenQuad(Model.RenderTarget1, viewport.Width, viewport.Height, Model.BloomCombineEffect, IntermediateBufferEnum.iFinalResult);
         }
         #endregion
         #region "private methods"
@@ -93,7 +93,7 @@ namespace Roguelancer.Bloom {
         /// <param name="renderTarget"></param>
         /// <param name="effect"></param>
         /// <param name="currentBuffer"></param>
-        private void DrawFullscreenQuad(Texture2D texture, RenderTarget2D renderTarget, Effect effect, IntermediateBuffer currentBuffer) {
+        private void DrawFullscreenQuad(Texture2D texture, RenderTarget2D renderTarget, Effect effect, IntermediateBufferEnum currentBuffer) {
             GraphicsDevice.SetRenderTarget(renderTarget);
             DrawFullscreenQuad(texture, renderTarget.Width, renderTarget.Height, effect, currentBuffer);
         }
@@ -105,7 +105,7 @@ namespace Roguelancer.Bloom {
         /// <param name="height"></param>
         /// <param name="effect"></param>
         /// <param name="currentBuffer"></param>
-        private void DrawFullscreenQuad(Texture2D texture, int width, int height, Effect effect, IntermediateBuffer currentBuffer) {
+        private void DrawFullscreenQuad(Texture2D texture, int width, int height, Effect effect, IntermediateBufferEnum currentBuffer) {
             if (Model.ShowBuffer < currentBuffer) {
                 effect = null;
             }

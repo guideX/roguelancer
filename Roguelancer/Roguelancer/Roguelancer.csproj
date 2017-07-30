@@ -127,11 +127,11 @@
     <None Include="configuration\commodities_settings.ini" />
     <None Include="configuration\objects\bullets.ini" />
     <Compile Include="Enum\DockedGameStateEnum.cs" />
-    <Compile Include="Enum\IntermediateBuffer.cs" />
+    <Compile Include="Enum\IntermediateBufferEnum.cs" />
     <Compile Include="Enum\ModelTypeEnum.cs" />
-    <Compile Include="Enum\GameStates.cs" />
+    <Compile Include="Enum\GameStatesEnum.cs" />
     <Compile Include="Enum\CurrentMenuEnum.cs" />
-    <Compile Include="Enum\NotificationType.cs" />
+    <Compile Include="Enum\NotificationTypeEnum.cs" />
     <Compile Include="Functionality\NativeMethods.cs">
       <SubType>Code</SubType>
     </Compile>

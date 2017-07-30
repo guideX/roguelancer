@@ -14,7 +14,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Show Buffer
         /// </summary>
-        public IntermediateBuffer ShowBuffer { get; set; }
+        public IntermediateBufferEnum ShowBuffer { get; set; }
         /// <summary>
         /// Sprite Batch
         /// </summary>

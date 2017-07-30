@@ -13,10 +13,10 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Current Game State
         /// </summary>
-        public GameStates CurrentGameState { get; set; }
+        public GameStatesEnum CurrentGameState { get; set; }
         /// <summary>
         /// Last Game State
         /// </summary>
-        public GameStates LastGameState { get; set; }
+        public GameStatesEnum LastGameState { get; set; }
     }
 }

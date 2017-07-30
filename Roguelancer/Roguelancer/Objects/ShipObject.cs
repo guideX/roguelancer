@@ -148,7 +148,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 if (ShipModel.PlayerShipControl.Model.UseInput) {
                     ShipModel.PlayerShipControl.UpdateModel(Model, game);
                     if (!game.Input.InputItems.Toggles.ToggleCamera) {

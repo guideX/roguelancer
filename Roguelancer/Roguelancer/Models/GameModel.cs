@@ -155,7 +155,7 @@ namespace Roguelancer.Models {
                 World.Right = Right;
                 World.Translation = Position;
             }
-            if (game.GameState.Model.CurrentGameState != GameStates.Playing) {
+            if (game.GameState.Model.CurrentGameState != GameStatesEnum.Playing) {
                 CurrentThrust = 0.0f;
                 game.Input.InputItems.Toggles.Cruise = false;
             }
@@ -172,7 +172,7 @@ namespace Roguelancer.Models {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 var transforms = new Matrix[_model.Bones.Count];
                 _model.CopyAbsoluteBoneTransformsTo(transforms);
                 if (ParticleSystem != null) {

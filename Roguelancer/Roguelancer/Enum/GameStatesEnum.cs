@@ -2,7 +2,7 @@
     /// <summary>
     /// Game States
     /// </summary>
-    public enum GameStates {
+    public enum GameStatesEnum {
         /// <summary>
         /// Uninitialized
         /// </summary>

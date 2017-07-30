@@ -126,7 +126,7 @@ namespace Roguelancer.Functionality {
             } else {
                 InputItems.Keys.E = false;
             }
-            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 if (CurrentKeyboardState.IsKeyDown(Keys.C)) {
                     if (LastKeyboardState.IsKeyUp(Keys.C)) {
                         if (InputItems.Toggles.Cruise) {
@@ -243,15 +243,15 @@ namespace Roguelancer.Functionality {
                 DebugTextHelper.SetText(game, "Free Flight Mode Enabled", true);
             }
             if (game.Input.InputItems.Keys.F10) {
-                if (game.GameState.Model.CurrentGameState == GameStates.Menu) {
+                if (game.GameState.Model.CurrentGameState == GameStatesEnum.Menu) {
                     game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
-                    game.GameState.Model.CurrentGameState = GameStates.Playing;
+                    game.GameState.Model.CurrentGameState = GameStatesEnum.Playing;
                 }
             }
             if (game.Input.InputItems.Keys.F9) {
-                if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+                if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                     game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
-                    game.GameState.Model.CurrentGameState = GameStates.Menu;
+                    game.GameState.Model.CurrentGameState = GameStatesEnum.Menu;
                 }
             }
         }
