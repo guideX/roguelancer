@@ -6,6 +6,8 @@ using Roguelancer.Models;
 using Roguelancer.Interfaces;
 using Roguelancer.Enum;
 using Roguelancer.Helpers;
+using Roguelancer.Settings;
+
 namespace Roguelancer.Objects {
     /// <summary>
     /// Bullets
@@ -134,7 +136,7 @@ namespace Roguelancer.Objects {
         /// Entry Point
         /// </summary>
         /// <param name="texture"></param> 
-        public Bullet(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
+        public Bullet(ShipObject playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
             Reset(playerShipModel, game, startupPosition, deathSeconds, scale, modelPath, bulletThrust, particleSystemSettings);
         }
         /// <summary>
@@ -193,7 +195,7 @@ namespace Roguelancer.Objects {
         /// Reset
         /// </summary>
         /// <param name="game"></param>
-        public void Reset(Ship playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
+        public void Reset(ShipObject playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
             BulletModel = new BulletModel(game);
             BulletModel.BulletThrust = bulletThrust;
             BulletModel.PlayerShip = playerShipModel;
@@ -201,8 +203,9 @@ namespace Roguelancer.Objects {
             BulletModel.Model = new GameModel(game, particleSystemSettings);
             BulletModel.Model.UseScale = true;
             BulletModel.Model.Scale = scale;
-            BulletModel.Model.WorldObject = new Settings.ModelWorldObjects(
+            BulletModel.Model.WorldObject = new ModelWorldObjects(
                 "bullet",
+                "",
                 BulletModel.PlayerShip.Model.Position + startupPosition,
                 new Vector3(0f, 0f, 0f),
                 new Settings.SettingsModelObject(

@@ -1,6 +1,4 @@
-﻿
-
-namespace Roguelancer.Settings {
+﻿namespace Roguelancer.Settings {
     public class StarSettings {
         public bool starsEnabled { get; set; }
         public int amountOfStarsPerSheet { get; set; }

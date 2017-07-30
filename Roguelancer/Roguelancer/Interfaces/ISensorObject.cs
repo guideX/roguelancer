@@ -1,6 +1,4 @@
-﻿
-
-using Roguelancer.Models;
+﻿using Roguelancer.Models;
 using System.Collections.Generic;
 namespace Roguelancer.Interfaces {
     /// <summary>

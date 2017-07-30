@@ -16,14 +16,14 @@ namespace Roguelancer.Interfaces {
         /// <param name="game"></param>
         /// <param name="ship"></param>
         /// <param name="dockTo"></param>
-        void Dock(RoguelancerGame game, Ship ship, GameModel dockTo);
+        void Dock(RoguelancerGame game, ShipObject ship, GameModel dockTo);
         /// <summary>
         /// Un Dock
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
         /// <param name="undockFrom"></param>
-        void UnDock(RoguelancerGame game, Ship ship, GameModel undockFrom);
+        void UnDock(RoguelancerGame game, ShipObject ship, GameModel undockFrom);
         /// <summary>
         /// List Commodities For Sale
         /// </summary>

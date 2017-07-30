@@ -125,6 +125,18 @@ namespace Roguelancer.Objects {
                         });
                         n = n + FontIncrement;
                     }
+                    foreach (var planet in game.Objects.Model.Planets.Model.Planets) {
+                        d = (double)Vector3.Distance(Model.PlayerShip.Model.Position, planet.Model.Position) / DivisionDistanceValue;
+                        text = planet.Model.WorldObject.Description;
+                        Model.Model.SensorObjects.Add(new HudSensorObject() {
+                            Obj = planet,
+                            Text = text,
+                            FontPosition = new Vector2(TextLeft, ImageTop + n),
+                            Distance = d,
+                            FontOrigin = Model.Font.MeasureString(text) / 2
+                        });
+                        n = n + FontIncrement;
+                    }
                     Model.UpdateOrderInt = _updateOrderInterval - 1;
                 } else {
                     foreach (var so in Model.Model.SensorObjects) {

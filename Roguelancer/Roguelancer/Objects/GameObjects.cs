@@ -70,6 +70,7 @@ namespace Roguelancer.Objects {
                 //Model.JumpHoles.Initialize(game);
             } else {
                 Model.Stations.Update(game);
+                Model.Planets.Update(game);
             }
         }
         /// <summary>
@@ -87,6 +88,7 @@ namespace Roguelancer.Objects {
                 //Model.JumpHoles.Draw(game);
             } else {
                 Model.Stations.Draw(game);
+                Model.Planets.Draw(game);
             }
         }
         /// <summary>

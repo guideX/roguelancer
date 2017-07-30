@@ -1,6 +1,4 @@
-﻿
-
-using Roguelancer.Interfaces;
+﻿using Roguelancer.Interfaces;
 namespace Roguelancer.Models {
     /// <summary>
     /// Ship Model

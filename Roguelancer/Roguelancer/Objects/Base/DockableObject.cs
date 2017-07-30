@@ -135,9 +135,17 @@ namespace Roguelancer.Objects.Base {
                                 if (distance < HudObject.DockDistanceAccept) {
                                     Dock(game, playerShip, Model);
                                     game.Input.InputItems.Toggles.Cruise = false;
+                                } else if(distance < HudObject.DockDistanceAccept * 2) {
+                                    if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
+                                        playerShip.FaceObject(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
+                                        Model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
+                                        Model.Velocity = new Vector3 { X = -2165.506f, Y = 7352.358f, Z = -14911.96f };
+                                        //DebugTextHelper.SetText(game, "Automatic Docking Initiated", true);
+                                    } else {
+                                        //DebugTextHelper.SetText(game, "Nothing targetted.", true);
+                                    }
                                 } else {
                                     playerShip.FaceObject(Model);
-                                    //playerShip.Model.CurrentThrust = PlayerShipControlModel.MaxCruiseSpeed;
                                     DebugTextHelper.SetText(game, "Dock failed, destination is too far.", true);
                                 }
                             }
@@ -174,7 +182,7 @@ namespace Roguelancer.Objects.Base {
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
-        public virtual void Dock(RoguelancerGame game, Ship ship, GameModel dockTo) {
+        public virtual void Dock(RoguelancerGame game, ShipObject ship, GameModel dockTo) {
             if (!ship.Docked) {
                 var playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
                 ship.Model.Velocity = new Vector3(0f, 0f, 0f);
@@ -194,7 +202,7 @@ namespace Roguelancer.Objects.Base {
         /// </summary>
         /// <param name="game"></param>
         /// <param name="ship"></param>
-        public virtual void UnDock(RoguelancerGame game, Ship ship, GameModel undockFrom) {
+        public virtual void UnDock(RoguelancerGame game, ShipObject ship, GameModel undockFrom) {
             if (ship.Docked) {
                 var playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
                 if (playerShip == ship) game.GameState.Model.CurrentGameState = Enum.GameStates.Playing;
@@ -211,6 +219,7 @@ namespace Roguelancer.Objects.Base {
         /// <returns></returns>
         public virtual void ListCommoditiesForSale(RoguelancerGame game, ModelType modelType, int stationID) {
             switch (modelType) {
+                case ModelType.Planet:
                 case ModelType.Station:
                     var sb = new StringBuilder();
                     var n = 0;

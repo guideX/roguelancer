@@ -10,12 +10,12 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Ships
         /// </summary>
-        public List<Ship> Ships { get; set; }
+        public List<ShipObject> Ships { get; set; }
         /// <summary>
         /// Ship Collection Model
         /// </summary>
         public ShipCollectionModel() {
-            Ships = new List<Ship>();
+            Ships = new List<ShipObject>();
         }
     }
 }

@@ -9,7 +9,7 @@ namespace Roguelancer.Helpers {
         /// Get Player Ship
         /// </summary>
         /// <returns></returns>
-        public static Ship GetPlayerShip(RoguelancerGame game) {
+        public static ShipObject GetPlayerShip(RoguelancerGame game) {
             return game.Objects.Model.Ships.Model.Ships.Where(s => s.ShipModel.PlayerShipControl.Model.UseInput).LastOrDefault();
         }
         /// <summary>
@@ -18,9 +18,9 @@ namespace Roguelancer.Helpers {
         /// <param name="oldShip"></param>
         /// <param name="game"></param>
         /// <returns></returns>
-        public static Ship Clone(Ship oldShip, RoguelancerGame game) {
-            Ship ship;
-            ship = new Ship(game);
+        public static ShipObject Clone(ShipObject oldShip, RoguelancerGame game) {
+            ShipObject ship;
+            ship = new ShipObject(game);
             ship.ShipModel.PlayerShipControl = oldShip.ShipModel.PlayerShipControl;
             ship.Model = oldShip.Model;
             ship.ShipModel.CargoHold = oldShip.ShipModel.CargoHold;

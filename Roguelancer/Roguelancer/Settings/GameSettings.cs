@@ -1,13 +1,9 @@
-﻿
-
-using System.Linq;
+﻿using System.Linq;
 using System.Collections.Generic;
 using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-
 namespace Roguelancer.Settings {
     /// <summary>
     /// Game Settings

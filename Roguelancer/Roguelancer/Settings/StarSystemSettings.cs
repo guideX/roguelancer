@@ -1,6 +1,4 @@
-﻿
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Roguelancer.Functionality;
 namespace Roguelancer.Settings {
     /// <summary>

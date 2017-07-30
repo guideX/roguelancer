@@ -4,7 +4,6 @@ using Roguelancer.Interfaces;
 using Roguelancer.Enum;
 using Roguelancer.Models;
 using Roguelancer.Helpers;
-
 namespace Roguelancer.Functionality {
     /// <summary>
     /// Input

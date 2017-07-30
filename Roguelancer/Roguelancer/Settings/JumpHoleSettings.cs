@@ -1,6 +1,4 @@
-﻿
-
-namespace Roguelancer.Settings {
+﻿namespace Roguelancer.Settings {
     /// <summary>
     /// Jump Hole Settings
     /// </summary>

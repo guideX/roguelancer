@@ -12,7 +12,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Player Ship
         /// </summary>
-        public Ship PlayerShip { get; set; }
+        public ShipObject PlayerShip { get; set; }
         /// <summary>
         /// Bullets
         /// </summary>

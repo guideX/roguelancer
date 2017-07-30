@@ -67,13 +67,13 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
             Model = new ShipCollectionModel();
-            var playerShip = new Ship(game);
-            Ship tempShip;
+            var playerShip = new ShipObject(game);
+            ShipObject tempShip;
             playerShip.Model.WorldObject = game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer).FirstOrDefault();
             playerShip.ShipModel.PlayerShipControl.Model.UseInput = true;
             Model.Ships.Add(playerShip);
             foreach (var modelWorldObject in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Ships.Where(s => !s.SettingsModelObject.isPlayer).ToList()) {
-                tempShip = new Ship(game);
+                tempShip = new ShipObject(game);
                 tempShip.Model = new GameModel(game, null);
                 tempShip.Model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
                 tempShip.ShipModel.PlayerShipControl.Model.UseInput = false;
@@ -91,12 +91,20 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Ship
     /// </summary>
-    public class Ship : IGame, ISensorObject, IDockableShip {
+    public class ShipObject : IGame, ISensorObject, IDockableShip {
         #region "public properties"
         /// <summary>
         /// Docked To
         /// </summary>
         public GameModel DockedTo { get; set; }
+        /// <summary>
+        /// Going To Object
+        /// </summary>
+        public GameModel GoingToObject { get; set; }
+        /// <summary>
+        /// Going To
+        /// </summary>
+        public bool GoingTo { get; set; }
         /// <summary>
         /// Docked
         /// </summary>
@@ -115,7 +123,7 @@ namespace Roguelancer.Objects {
         /// Ship
         /// </summary>
         /// <param name="game"></param>
-        public Ship(RoguelancerGame game) {
+        public ShipObject(RoguelancerGame game) {
             Reset(game);
         }
         /// <summary>

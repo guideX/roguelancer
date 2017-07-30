@@ -111,7 +111,7 @@
   <ItemGroup>
     <Compile Include="Bloom\BloomComponent.cs" />
     <Compile Include="Enum\GameCameraModeEnum.cs" />
-    <Compile Include="Extensions\Hud\HudObjectsExtension.cs" />
+    <Compile Include="Extensions\HudObjectsExtension.cs" />
     <Compile Include="Extensions\InputExtensions.cs" />
     <Compile Include="Extensions\PlayerShipExtensions.cs" />
     <Compile Include="Helpers\DebugTextHelper.cs" />
@@ -207,7 +207,7 @@
     <Compile Include="Objects\Planet.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Objects\Ship.cs">
+    <Compile Include="Objects\ShipObject.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Objects\Station.cs" />
@@ -246,6 +246,7 @@
     <Compile Include="Settings\StarSystemSettings.cs" />
     <Compile Include="Settings\TradeLaneSettings.cs" />
     <None Include="configuration\ships.ini" />
+    <None Include="configuration\systems\liberty\new_york\planets.ini" />
     <None Include="configuration\systems\test_system\tradelanes.ini" />
   </ItemGroup>
   <ItemGroup>
@@ -298,9 +299,7 @@
     <None Include="configuration\systems\test_system\ships.ini" />
     <None Include="configuration\systems\test_system\stations.ini" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="configuration\systems\liberty\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\Microsoft.Xna.GameStudio.targets" />
   <!--

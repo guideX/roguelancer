@@ -40,16 +40,28 @@ public static class HudObjectsExtension {
                 //FontOrigin = 
             });
         }
+        foreach (var planet in game.Objects.Model.Planets.Model.Planets) {
+            stationID++;
+            results.Add(new HudSensorObject() {
+                Obj = planet,
+                Distance = Vector3.Distance(playerShip.Model.Position, planet.Model.Position) / HudObject.DivisionDistanceValue,
+                Text = "Planet " + stationID.ToString(),
+                FontPosition = new Vector2(HudObject.TextLeft, HudObject.ImageTop),
+                //FontOrigin = 
+            });
+        }
         return results;
     }
     /// <summary>
-    /// Goto Currently Targeted Object
+    /// Goto Currently Targeted Object 
     /// </summary>
     /// <param name="game"></param>
     public static void GotoCurrentlyTargetedObject(this RoguelancerGame game) {
         var playerShip = ShipHelper.GetPlayerShip(game);
         if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
             playerShip.FaceObject(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
+            playerShip.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget;
+            playerShip.GoingTo = true;
             game.Input.InputItems.Toggles.Cruise = true;
             //playerShip.Model.Up.Y = 0f;
         } else {
@@ -80,13 +92,12 @@ public static class HudObjectsExtension {
             itemChosen = true;
         }
     }
-
     /// <summary>
     /// Face Object
     /// </summary>
     /// <param name="theShipToFace"></param>
     /// <param name="faceToThis"></param>
-    public static void FaceObject(this Ship theShipToFace, GameModel faceThis) {
+    public static void FaceObject(this ShipObject theShipToFace, GameModel faceThis) {
         var desiredDirection = Vector3.Normalize(faceThis.Position - theShipToFace.Model.Position);
         theShipToFace.Model.Direction = desiredDirection;
         theShipToFace.Model.Direction.Z += .18f;

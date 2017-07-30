@@ -1,6 +1,4 @@
-﻿
-
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Roguelancer.Enum;
 namespace Roguelancer.Settings {
     /// <summary>

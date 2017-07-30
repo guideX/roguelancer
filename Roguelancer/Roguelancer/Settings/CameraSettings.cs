@@ -1,6 +1,4 @@
-﻿
-
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Roguelancer.Functionality;
 using Roguelancer.Models;
 namespace Roguelancer.Settings {

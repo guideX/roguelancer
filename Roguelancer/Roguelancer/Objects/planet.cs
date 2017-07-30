@@ -1,8 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Objects.Base;
+using Roguelancer.Enum;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Planet Collection
@@ -26,13 +26,17 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            foreach (var modelWorldObject in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Planets) {
-                var planet = new Planet(game);
-                planet.Model.WorldObject = modelWorldObject;
-                Model.Planets.Add(planet);
+            var n = 0;
+            foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Planets) {
+                n++;
+                var s = new Planet(game);
+                s.StationID = n;
+                s.Model.WorldObject = obj;
+                //s.DockableObjectModel.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.ID).ToList();
+                Model.Planets.Add(s);
             }
-            for (int i = 0; i <= Model.Planets.Count - 1; i++) {
-                Model.Planets[i].Initialize(game);
+            foreach (var planet in Model.Planets) {
+                planet.Initialize(game);
             }
         }
         /// <summary>
@@ -40,8 +44,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            for (int i = 0; i <= Model.Planets.Count - 1; i++) {
-                Model.Planets[i].LoadContent(game);
+            foreach (var planet in Model.Planets) {
+                planet.LoadContent(game);
             }
         }
         /// <summary>
@@ -49,8 +53,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            for (int i = 0; i <= Model.Planets.Count - 1; i++) {
-                Model.Planets[i].Update(game);
+            foreach (var planet in Model.Planets) {
+                planet.Update(game);
             }
         }
         /// <summary>
@@ -58,8 +62,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            for (int i = 0; i <= Model.Planets.Count - 1; i++) {
-                Model.Planets[i].Draw(game);
+            foreach (var planet in Model.Planets) {
+                planet.Draw(game);
             }
         }
         /// <summary>
@@ -90,6 +94,10 @@ namespace Roguelancer.Objects {
         /// Docked Ships
         /// </summary>
         public List<ISensorObject> DockedShips { get; set; }
+        /// <summary>
+        /// Space Station ID
+        /// </summary>
+        public int StationID { get; set; }
         #endregion
         #region "public methods"
         /// <summary>
@@ -97,7 +105,9 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public Planet(RoguelancerGame game) {
-            Model = new GameModel(game, null);
+            Reset(game);
+            DockedShips = new List<ISensorObject>();
+            //Model = new GameModel(game, null);
         }
         /// <summary>
         /// Initialize
@@ -105,6 +115,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             Model.Initialize(game);
+            Initialize(game, Model, StationID); // Initialize Dockable Object
         }
         /// <summary>
         /// Load Content
@@ -112,28 +123,42 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             Model.LoadContent(game);
+            LoadContent(game, Model, StationID); // Dockable Object Load Content
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            Model.UpdatePosition();
-            Model.Update(game);
+            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+                Model.UpdatePosition(); // Update Position
+                Model.Update(game); // Update
+            }
+            Update(game, Model, StationID); // Update Dockable Object Station Stuff
         }
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            Model.Draw(game);
+            if (game.GameState.Model.CurrentGameState == GameStates.Playing) {
+                Model.Draw(game);
+            }
+            Draw(game, Model, StationID); // Draw Dockable Object Station Stuff
         }
         /// <summary>
         /// Dispose
         /// </summary>
         public void Dispose(RoguelancerGame game) {
+            Model = null;
         }
-
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset(RoguelancerGame game) {
+            Model = new GameModel(game, null);
+        }
         #endregion
     }
 }

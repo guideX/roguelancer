@@ -1,6 +1,4 @@
-﻿
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Xna.Framework;
 using Roguelancer.Functionality;
@@ -17,6 +15,10 @@ namespace Roguelancer.Settings {
         /// Description
         /// </summary>
         public string Description { get; set; }
+        /// <summary>
+        /// Description Long
+        /// </summary>
+        public string DescriptionLong { get; set; }
         /// <summary>
         /// Startup Position
         /// </summary>
@@ -83,6 +85,7 @@ namespace Roguelancer.Settings {
         /// <param name="initialDirection"></param>
         public ModelWorldObjects(
                 string description,
+                string descriptionLong,
                 Vector3 startupPosition,
                 Vector3 startupModelRotation,
                 SettingsModelObject settingsModelObject,
@@ -97,6 +100,7 @@ namespace Roguelancer.Settings {
                 int id
             ) {
             Description = description;
+            DescriptionLong = descriptionLong;
             StartupPosition = startupPosition;
             StartupRotation = startupModelRotation;
             SettingsModelObject = settingsModelObject;
@@ -118,6 +122,7 @@ namespace Roguelancer.Settings {
         public static ModelWorldObjects Clone(ModelWorldObjects oldObject) {
             return new ModelWorldObjects(
                     oldObject.Description,
+                    oldObject.DescriptionLong,
                     oldObject.StartupPosition,
                     oldObject.StartupRotation,
                     SettingsModelObject.Clone(oldObject.SettingsModelObject),
@@ -141,6 +146,7 @@ namespace Roguelancer.Settings {
         /// <returns></returns>
         public static ModelWorldObjects Read(int ID, List<SettingsModelObject> modelSettings, string iniFile, string section) {
             var description = NativeMethods.ReadINI(iniFile, section, "description", "");
+            var descriptionLong = NativeMethods.ReadINI(iniFile, section, "description_long", "");
             var startupPosition = NativeMethods.ReadINIVector3(iniFile, section, "startup_position_x", "startup_position_y", "startup_position_z");
             var startupModelRotation = NativeMethods.ReadINIVector3(iniFile, section, "startup_model_rotation_x", "startup_model_rotation_y", "startup_model_rotation_z");
             var settingsModelObject = SettingsModelObject.Clone(modelSettings.Where(s => s.enabled && s.modelId == NativeMethods.ReadINIInt(iniFile, section, "model_index", 0)).FirstOrDefault());
@@ -154,6 +160,7 @@ namespace Roguelancer.Settings {
             var cargoSpace = NativeMethods.ReadINIInt(iniFile, section, "cargo_space", 0);
             return new ModelWorldObjects(
                 description,
+                descriptionLong,
                 startupPosition,
                 startupModelRotation,
                 settingsModelObject,
