@@ -60,7 +60,8 @@ public static class HudObjectsExtension {
         var playerShip = ShipHelper.GetPlayerShip(game);
         if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
             playerShip.FaceObject(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
-            playerShip.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget;
+            playerShip.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation();
+            //if(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.)
             playerShip.GoingTo = true;
             game.Input.InputItems.Toggles.Cruise = true;
             //playerShip.Model.Up.Y = 0f;
@@ -80,6 +81,7 @@ public static class HudObjectsExtension {
             var currentSensorObjectMatchesCurrentTarget = sensorObjects[i].Obj.Model == playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget;
             if (lastSensorObjectMatchesCurrentTarget) {
                 playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget = sensorObjects[i].Obj.Model;
+                //playerShip.ShipModel.PlayerShipControl.Model.CurrentTargetStationObject = sensorObjects[i].Obj.Station; // sensorObjects[i].Obj.Model;
                 DebugTextHelper.SetText(game, "Targeting " + sensorObjects[i].Obj.Model.WorldObject.Description, true);
                 itemChosen = true;
                 return;
@@ -98,9 +100,11 @@ public static class HudObjectsExtension {
     /// <param name="theShipToFace"></param>
     /// <param name="faceToThis"></param>
     public static void FaceObject(this ShipObject theShipToFace, GameModel faceThis) {
-        var desiredDirection = Vector3.Normalize(faceThis.Position - theShipToFace.Model.Position);
-        theShipToFace.Model.Direction = desiredDirection;
-        theShipToFace.Model.Direction.Z += .18f;
-        //theShipToFace.Model.Up.Y = 0f;
+        if (faceThis != null && theShipToFace != null) {
+            var desiredDirection = Vector3.Normalize(faceThis.Position - theShipToFace.Model.Position);
+            theShipToFace.Model.Direction = desiredDirection;
+            theShipToFace.Model.Direction.Z += .18f;
+            //theShipToFace.Model.Up.Y = 0f;
+        }
     }
 }

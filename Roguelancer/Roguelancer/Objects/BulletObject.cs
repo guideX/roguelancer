@@ -199,7 +199,7 @@ namespace Roguelancer.Objects {
             BulletModel.BulletThrust = bulletThrust;
             BulletModel.PlayerShip = playerShipModel;
             BulletModel.DeathDate = DateTime.Now.AddSeconds(deathSeconds);
-            BulletModel.Model = new GameModel(game, particleSystemSettings);
+            BulletModel.Model = new GameModel(game, particleSystemSettings, null);
             BulletModel.Model.UseScale = true;
             BulletModel.Model.Scale = scale;
             BulletModel.Model.WorldObject = new ModelWorldObjects(

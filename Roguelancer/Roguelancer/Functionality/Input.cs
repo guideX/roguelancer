@@ -141,9 +141,11 @@ namespace Roguelancer.Functionality {
                         if (InputItems.Toggles.ToggleCamera) {
                             InputItems.Toggles.ToggleCamera = false;
                             InputItems.Toggles.RevertCamera = true;
+                            DebugTextHelper.SetText(game, "Revert Camera Mode", true);
                         } else {
                             InputItems.Toggles.ToggleCamera = true;
                             InputItems.Toggles.CameraSnapshot = true;
+                            DebugTextHelper.SetText(game, "Camera Snapshot Mode", true);
                         }
                     }
                 }
@@ -232,12 +234,12 @@ namespace Roguelancer.Functionality {
                 game.Input.InputItems.Toggles.RevertCamera = false;
                 game.Camera = game.CameraSnapshot;
             }
-            if (game.Input.InputItems.Keys.M) {
+            if (game.Input.InputItems.Keys.M && game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 game.Input.InputItems.Toggles.MouseMode = true;
                 game.Input.InputItems.Toggles.FreeMouseMode = false;
                 DebugTextHelper.SetText(game, "Mouse Mode Enabled", true);
             }
-            if (game.Input.InputItems.Keys.F) {
+            if (game.Input.InputItems.Keys.F && game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 game.Input.InputItems.Toggles.MouseMode = false;
                 game.Input.InputItems.Toggles.FreeMouseMode = true;
                 DebugTextHelper.SetText(game, "Free Flight Mode Enabled", true);

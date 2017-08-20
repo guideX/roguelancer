@@ -78,7 +78,8 @@ namespace Roguelancer.Models {
         /// Entry Point
         /// </summary>
         /// <param name="game"></param>
-        public GameModel(RoguelancerGame game, ParticleSystemSettingsModel particleSystemSettings) {
+        public GameModel(RoguelancerGame game, ParticleSystemSettingsModel particleSystemSettings, Objects.StationObject stationObject) {
+            if (stationObject != null) _parent = stationObject;
             MinimumAltitude = -350.0f;
             Velocity = Vector3.Zero;
             Position = new Vector3(.5f, MinimumAltitude, 0);
@@ -92,6 +93,10 @@ namespace Roguelancer.Models {
                 ParticleSystem = new ParticleSystem(game);
                 ParticleSystem.Settings = particleSystemSettings;
             }
+        }
+        private Objects.StationObject _parent;
+        public Objects.StationObject GetStation() {
+            return _parent;
         }
         /// <summary>
         /// Initialize

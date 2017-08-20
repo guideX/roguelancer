@@ -74,7 +74,7 @@ namespace Roguelancer.Objects {
             Model.Ships.Add(playerShip);
             foreach (var modelWorldObject in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Ships.Where(s => !s.SettingsModelObject.isPlayer).ToList()) {
                 tempShip = new ShipObject(game);
-                tempShip.Model = new GameModel(game, null);
+                tempShip.Model = new GameModel(game, null, null);
                 tempShip.Model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
                 tempShip.ShipModel.PlayerShipControl.Model.UseInput = false;
                 Model.Ships.Add(ShipHelper.Clone(tempShip, game));
@@ -100,7 +100,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Going To Object
         /// </summary>
-        public GameModel GoingToObject { get; set; }
+        public StationObject GoingToObject { get; set; }
         /// <summary>
         /// Going To
         /// </summary>
@@ -185,7 +185,7 @@ namespace Roguelancer.Objects {
             ShipModel = new ShipModel();
             ShipModel.Money = 2000.00m;
             ShipModel.CargoHold = new CargoHoldModel();
-            Model = new GameModel(game, null);
+            Model = new GameModel(game, null, null);
             ShipModel.PlayerShipControl = new PlayerShipControl(game);
             //HardPoints = new List<HardPoint>();
         }

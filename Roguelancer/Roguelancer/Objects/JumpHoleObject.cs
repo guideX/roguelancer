@@ -89,7 +89,7 @@ namespace Roguelancer.Objects {
         #endregion
         #region "public methods"
         public JumpHoleObject(RoguelancerGame game) {
-            Model = new GameModel(game, null);
+            Model = new GameModel(game, null, null);
             JumpHoleModel = new JumpHoleModel(game);
         }
         /// <summary>
@@ -130,7 +130,7 @@ namespace Roguelancer.Objects {
         /// Reset
         /// </summary>
         public void Reset(RoguelancerGame game) {
-            Model = new GameModel(game, null);
+            Model = new GameModel(game, null, null);
         }
         #endregion
     }

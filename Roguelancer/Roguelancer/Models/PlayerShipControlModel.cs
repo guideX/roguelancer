@@ -1,4 +1,5 @@
 ﻿using Roguelancer.Functionality;
+using Roguelancer.Objects;
 namespace Roguelancer.Models {
     /// <summary>
     /// Player Ship Control Model
@@ -8,7 +9,12 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Current Target
         /// </summary>
+        //public DockableObjectModel CurrentTarget { get; set; }
         public GameModel CurrentTarget { get; set; }
+        /// <summary>
+        /// Current Target Station Object
+        /// </summary>
+        //public StationObject CurrentTargetStationObject { get; set; }
         /// <summary>
         /// Last Target
         /// </summary>
@@ -17,6 +23,18 @@ namespace Roguelancer.Models {
         /// Use Input
         /// </summary>
         public bool UseInput { get; set; }
+        /// <summary>
+        /// Use Auto Dock
+        /// </summary>
+        public bool UseAutoDock { get; set; }
+        /// <summary>
+        /// Auto Dock Step
+        /// </summary>
+        public int AutoDockStep { get; set; }
+        /// <summary>
+        /// Auto Dock Time
+        /// </summary>
+        //public DateTime? AutoDockTime { get; set; }
         #endregion
         #region "values loaded by ini file"
         /// <summary>

@@ -110,9 +110,7 @@ namespace Roguelancer.Objects.Base {
                         game.Input.InputItems.Keys.U = false;
                         if (playerShip.Docked) {
                             var distance = (int)Vector3.Distance(playerShip.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
-                            if (distance < HudObject.DockDistanceAccept) {
-                                UnDock(game, playerShip, Model);
-                            }
+                            UnDock(game, playerShip, Model);
                         }
                     }
                     if (game.Input.InputItems.Keys.C) {
@@ -129,25 +127,23 @@ namespace Roguelancer.Objects.Base {
                 case Enum.GameStatesEnum.Playing:
                     if (game.Input.InputItems.Keys.D) { // DOCK
                         game.Input.InputItems.Keys.D = false;
-                        if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget == Model) {
-                            if (!playerShip.Docked) {
-                                var distance = (int)Vector3.Distance(playerShip.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
-                                if (distance < HudObject.DockDistanceAccept) {
-                                    Dock(game, playerShip, Model);
-                                    game.Input.InputItems.Toggles.Cruise = false;
-                                } else if(distance < HudObject.DockDistanceAccept * 2) {
-                                    if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
-                                        playerShip.FaceObject(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
-                                        Model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
-                                        Model.Velocity = new Vector3 { X = -2165.506f, Y = 7352.358f, Z = -14911.96f };
-                                        //DebugTextHelper.SetText(game, "Automatic Docking Initiated", true);
-                                    } else {
-                                        //DebugTextHelper.SetText(game, "Nothing targetted.", true);
-                                    }
+                        if (!playerShip.Docked) {
+                            var distance = (int)Vector3.Distance(playerShip.Model.Position, playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.Position) / HudObject.DivisionDistanceValue;
+                            if (distance < HudObject.DockDistanceAccept) {
+                                Dock(game, playerShip, playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
+                                game.Input.InputItems.Toggles.Cruise = false;
+                            } else if (distance < HudObject.DockDistanceAccept * 2) {
+                                if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
+                                    playerShip.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation(); // Set Docket To
+                                    DebugTextHelper.SetText(game, "Automatic Docking Initiated", true);
+                                    playerShip.ShipModel.PlayerShipControl.Model.UseAutoDock = true;
                                 } else {
-                                    playerShip.FaceObject(Model);
-                                    DebugTextHelper.SetText(game, "Dock failed, destination is too far.", true);
+                                    DebugTextHelper.SetText(game, "Nothing targetted.", true);
                                 }
+                            } else {
+                                game.Input.InputItems.Toggles.Cruise = false;
+                                playerShip.Model.Velocity = Vector3.Zero;
+                                DebugTextHelper.SetText(game, "Dock failed, destination is too far. " + distance.ToString(), true);
                             }
                         }
                     }
@@ -187,11 +183,10 @@ namespace Roguelancer.Objects.Base {
                 var playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
                 ship.Model.Velocity = new Vector3(0f, 0f, 0f);
                 ship.Model.CurrentThrust = 0f;
-                ship.Docked = true; // Set Docked Value
                 ship.DockedTo = dockTo; // Set Docket To
+                ship.Docked = true; // Set Docked Value
                 DockableObjectModel.DockedShips.Add(ship); // Add to Docked Ships
                 if (playerShip == ship) { // If Docking Ship is Player Ship
-                    //playerShip.Model.Up.Y = 0f;
                     game.GameState.Model.CurrentGameState = Enum.GameStatesEnum.Docked; // Set Current Game State to Docked
                     DebugTextHelper.SetText(game, "Docking To " + dockTo.WorldObject.Description, true);
                 }
@@ -226,7 +221,7 @@ namespace Roguelancer.Objects.Base {
                     foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
                         n++;
                         var commodity = game.Settings.Model.CommoditiesModels.Where(c => c.CommodityId == obj.CommoditiesId).FirstOrDefault();
-                        sb.AppendLine("[" + n.ToString () + "] Description: " + commodity.Description + ", Price: " + obj.Price.ToString() + Environment.NewLine);
+                        sb.AppendLine("[" + n.ToString() + "] Description: " + commodity.Description + ", Price: " + obj.Price.ToString() + Environment.NewLine);
                     }
                     if (game.GameState.Model.CurrentGameState == Enum.GameStatesEnum.Docked && game.GameState.Model.DockedGameState == Enum.DockedGameStateEnum.Commodities) {
                         DebugTextHelper.SetText(game, "Station Commodities:" + Environment.NewLine + sb.ToString() + Environment.NewLine, true);

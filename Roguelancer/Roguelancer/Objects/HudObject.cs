@@ -16,7 +16,7 @@ namespace Roguelancer.Objects {
         public HudObjectModel Model { get; set; }
         #endregion
         #region "public const"
-        public const int DockDistanceAccept = 20;
+        public const int DockDistanceAccept = 25;
         /// <summary>
         /// Division Distance Value
         /// </summary>

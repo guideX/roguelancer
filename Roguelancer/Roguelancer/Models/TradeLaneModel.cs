@@ -15,7 +15,7 @@ namespace Roguelancer.Models {
         /// </summary>
         /// <param name="game"></param>
         public TradeLaneModel(RoguelancerGame game, ModelWorldObjects o) {
-            Model = new GameModel(game, null) {
+            Model = new GameModel(game, null, null) {
                 WorldObject = o
             };
         }

@@ -1,6 +1,4 @@
-﻿
-
-using Roguelancer.Enum;
+﻿using Roguelancer.Enum;
 namespace Roguelancer.Models {
     /// <summary>
     /// Game State Model

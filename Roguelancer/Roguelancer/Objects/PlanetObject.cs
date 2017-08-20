@@ -157,7 +157,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
-            Model = new GameModel(game, null);
+            Model = new GameModel(game, null, null);
         }
         #endregion
     }
