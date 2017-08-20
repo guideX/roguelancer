@@ -1,6 +1,4 @@
-﻿
-
-using Roguelancer.Bloom;
+﻿using Roguelancer.Bloom;
 namespace Roguelancer.Models {
     /// <summary>
     /// Bloom Handler Model

@@ -1,6 +1,4 @@
-﻿
-
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 namespace Roguelancer.Models {
     /// <summary>
     /// Camera Settings Model

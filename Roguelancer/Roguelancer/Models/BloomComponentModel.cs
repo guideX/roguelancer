@@ -1,6 +1,4 @@
-﻿
-
-using Microsoft.Xna.Framework.Graphics;
+﻿using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Enum;
 namespace Roguelancer.Models {
     /// <summary>

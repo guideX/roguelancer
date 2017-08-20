@@ -1,6 +1,4 @@
-﻿
-
-using Roguelancer.Objects;
+﻿using Roguelancer.Objects;
 using System.Collections.Generic;
 namespace Roguelancer.Models {
     /// <summary>

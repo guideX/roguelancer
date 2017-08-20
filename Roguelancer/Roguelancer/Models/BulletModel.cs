@@ -1,6 +1,4 @@
-﻿
-
-using System;
+﻿using System;
 using Roguelancer.Objects;
 namespace Roguelancer.Models {
     /// <summary>

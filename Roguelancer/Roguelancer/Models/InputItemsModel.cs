@@ -1,6 +1,4 @@
-﻿
-
-using Roguelancer.Functionality;
+﻿using Roguelancer.Functionality;
 namespace Roguelancer.Models {
     /// <summary>
     /// Input Items

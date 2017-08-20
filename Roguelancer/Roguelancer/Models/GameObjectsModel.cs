@@ -1,6 +1,4 @@
-﻿
-
-using Roguelancer.Interfaces;
+﻿using Roguelancer.Interfaces;
 using Roguelancer.Objects;
 using Roguelancer.Particle;
 namespace Roguelancer.Models {

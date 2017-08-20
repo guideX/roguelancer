@@ -1,6 +1,4 @@
-﻿
-
-namespace Roguelancer.Models {
+﻿namespace Roguelancer.Models {
     /// <summary>
     /// Bloom Settings Model
     /// </summary>
