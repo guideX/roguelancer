@@ -15,6 +15,6 @@ namespace Roguelancer.Interfaces {
         /// Reset
         /// </summary>
         /// <param name="game"></param>
-        void Reset(RoguelancerGame game);
+        //void Reset(RoguelancerGame game);
     }
 }

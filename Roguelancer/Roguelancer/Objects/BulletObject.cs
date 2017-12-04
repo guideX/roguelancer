@@ -57,7 +57,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (game.Input.InputItems.Keys.ControlLeft || game.Input.InputItems.Keys.ControlRight || game.Input.InputItems.Mouse.RightButton) {
+            if (game.Input.InputItems.Keys.LeftControl.IsKeyDown || game.Input.InputItems.Keys.RightControl.IsKeyDown || game.Input.InputItems.Mouse.RightButton) {
                 if (_model.AreBulletsAvailable) {
                     game.Camera.Shake(10f, 0f, false);
                     _model.Bullets.Add(new BulletObject(_model.PlayerShip, game, new Vector3(-100f, -200f, 0f), particleSystemSettings: _particleSystemSettings));
@@ -94,22 +94,23 @@ namespace Roguelancer.Objects {
         /// </summary>
         public void Reset() {
             _model = new BulletsModel();
-            _particleSystemSettings = new ParticleSystemSettingsModel();
-            _particleSystemSettings.CameraArc = 2;
-            _particleSystemSettings.CameraRotation = 0f;
-            _particleSystemSettings.CameraDistance = 110;
-            _particleSystemSettings.FireRingSystemParticles = 20;
-            _particleSystemSettings.SmokePlumeParticles = 20;
-            _particleSystemSettings.SmokeRingParticles = 20;
-            _particleSystemSettings.Fire = true;
-            _particleSystemSettings.Enabled = false;
-            _particleSystemSettings.Smoke = true;
-            _particleSystemSettings.SmokeRing = true;
-            _particleSystemSettings.Explosions = true;
-            _particleSystemSettings.Projectiles = true;
-            _particleSystemSettings.ExplosionTexture = "Textures\\Explosion";
-            _particleSystemSettings.FireTexture = "Textures\\Fire";
-            _particleSystemSettings.SmokeTexture = "Textures\\Smoke";
+            _particleSystemSettings = new ParticleSystemSettingsModel() {
+                CameraArc = 2,
+                CameraRotation = 0f,
+                CameraDistance = 110,
+                FireRingSystemParticles = 20,
+                SmokePlumeParticles = 20,
+                SmokeRingParticles = 20,
+                Fire = true,
+                Enabled = false,
+                Smoke = true,
+                SmokeRing = true,
+                Explosions = true,
+                Projectiles = true,
+                ExplosionTexture = "Textures\\Explosion",
+                FireTexture = "Textures\\Fire",
+                SmokeTexture = "Textures\\Smoke"
+            };
             _model.Bullets = new List<IBullet>();
         }
         /// <summary>
@@ -117,6 +118,12 @@ namespace Roguelancer.Objects {
         /// </summary>
         public void Dispose(RoguelancerGame game) {
             _model = null;
+        }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset(RoguelancerGame game) {
         }
         #endregion
     }
@@ -225,6 +232,12 @@ namespace Roguelancer.Objects {
             );
             Initialize(game);
             LoadContent(game);
+        }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset(RoguelancerGame game) {
         }
         #endregion
     }

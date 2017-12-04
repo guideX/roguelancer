@@ -111,9 +111,12 @@
   <ItemGroup>
     <Compile Include="Bloom\BloomComponent.cs" />
     <Compile Include="Enum\GameCameraModeEnum.cs" />
+    <Compile Include="Enum\KeyboardAssignmentEnum.cs" />
     <Compile Include="Extensions\HudObjectsExtension.cs" />
+    <Compile Include="Extensions\InputExtension.cs" />
     <Compile Include="Extensions\InputExtensions.cs" />
     <Compile Include="Extensions\PlayerShipExtensions.cs" />
+    <Compile Include="Extensions\XnaExtensions.cs" />
     <Compile Include="Helpers\DebugTextHelper.cs" />
     <Compile Include="Helpers\ShipHelper.cs" />
     <Compile Include="Interfaces\IBloomComponent.cs" />
@@ -165,6 +168,8 @@
     <Compile Include="Models\InputItemsModel.cs" />
     <Compile Include="Models\JumpHoleCollectionModel.cs" />
     <Compile Include="Models\JumpHoleModel.cs" />
+    <Compile Include="Models\KeyAssignmentsModel.cs" />
+    <Compile Include="Models\KeyboardKeyStatusModel.cs" />
     <Compile Include="Models\KeyInputModel.cs" />
     <Compile Include="Models\MouseInputModel.cs" />
     <Compile Include="Models\ParticleStarSheetModel.cs" />

@@ -1,4 +1,5 @@
-﻿using Roguelancer.Functionality;
+﻿using Microsoft.Xna.Framework.Input;
+using Roguelancer.Functionality;
 namespace Roguelancer.Models {
     /// <summary>
     /// Input Items
@@ -12,14 +13,15 @@ namespace Roguelancer.Models {
         /// keys
         /// </summary>
         public KeyInputModel Keys;
+        //public KeyboardState Keys;
         /// <summary>
         /// Keys
         /// </summary>
-        public KeyInputModel OldKeys;
+        //public KeyInputModel OldKeys;
         /// <summary>
         /// Old Keys Counter
         /// </summary>
-        public int OldKeysCounter;
+        //public int OldKeysCounter;
         /// <summary>
         /// Toggles
         /// </summary>

@@ -72,15 +72,15 @@ namespace Roguelancer.Objects.Base {
                                                            // OPTION3 = Purchase starchart from Bar Person
                             break;
                         case Enum.DockedGameStateEnum.Commodities: // Commodities
-                            if (game.Input.InputItems.Keys.One) { if (0 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[0].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Two) { if (1 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[1].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Three) { if (2 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[2].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Four) { if (3 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[3].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Five) { if (4 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[4].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Six) { if (5 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[5].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Seven) { if (6 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[6].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Eight) { if (7 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[7].CommoditiesId, 1); } }
-                            if (game.Input.InputItems.Keys.Nine) { if (8 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[8].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.D1.IsKeyDown) { if (0 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[0].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.D2.IsKeyDown) { if (1 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[1].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.D3.IsKeyDown) { if (2 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[2].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.D4.IsKeyDown) { if (3 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[3].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.D5.IsKeyDown) { if (4 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[4].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.D6.IsKeyDown) { if (5 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[5].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.D7.IsKeyDown) { if (6 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[6].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.D8.IsKeyDown) { if (7 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[7].CommoditiesId, 1); } }
+                            if (game.Input.InputItems.Keys.D9.IsKeyDown) { if (8 < DockableObjectModel.StationPrices.Count) { PurchaseCommodity(game, DockableObjectModel.StationPrices[8].CommoditiesId, 1); } }
                             switch (game.GameState.Model.CurrentGameState) {
                                 case GameStatesEnum.Docked:
                                     switch (game.GameState.Model.DockedGameState) {
@@ -106,27 +106,27 @@ namespace Roguelancer.Objects.Base {
                             // Etc
                             break;
                     }
-                    if (game.Input.InputItems.Keys.U) {
-                        game.Input.InputItems.Keys.U = false;
+                    if (game.Input.InputItems.Keys.U.IsKeyDown) {
+                        game.Input.InputItems.Keys.U.IsKeyDown = false;
                         if (playerShip.Docked) {
                             var distance = (int)Vector3.Distance(playerShip.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
                             UnDock(game, playerShip, Model);
                         }
                     }
-                    if (game.Input.InputItems.Keys.C) {
+                    if (game.Input.InputItems.Keys.C.IsKeyDown) {
                         game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Commodities;
                         ListCommoditiesForSale(game, Enum.ModelType.Station, stationID.Value);
                     }
-                    if (game.Input.InputItems.Keys.H) {
+                    if (game.Input.InputItems.Keys.H.IsKeyDown) {
                         game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Hanger;
                     }
-                    if (game.Input.InputItems.Keys.E) {
+                    if (game.Input.InputItems.Keys.E.IsKeyDown) {
                         game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Hanger;
                     }
                     break;
                 case Enum.GameStatesEnum.Playing:
-                    if (game.Input.InputItems.Keys.D) { // DOCK
-                        game.Input.InputItems.Keys.D = false;
+                    if (game.Input.InputItems.Keys.D.WasKeyPressed) { // DOCK
+                        game.Input.InputItems.Keys.D.IsKeyDown = false;
                         if (!playerShip.Docked) {
                             var distance = (int)Vector3.Distance(playerShip.Model.Position, playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.Position) / HudObject.DivisionDistanceValue;
                             if (distance < HudObject.DockDistanceAccept) {

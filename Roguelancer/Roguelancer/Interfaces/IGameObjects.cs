@@ -1,11 +1,12 @@
-﻿
-
-using Roguelancer.Models;
+﻿using Roguelancer.Models;
 namespace Roguelancer.Interfaces {
     /// <summary>
     /// Game Objects
     /// </summary>
     public interface IGameObjects : IGame {
+        /// <summary>
+        /// Model
+        /// </summary>
         GameObjectsModel Model { get; set; }
         /// <summary>
         /// Ships
@@ -15,7 +16,7 @@ namespace Roguelancer.Interfaces {
         /// Reset
         /// </summary>
         /// <param name="game"></param>
-        void Reset(RoguelancerGame game);
+        //void Reset(RoguelancerGame game);
         /// <summary>
         /// Bullets
         /// </summary>

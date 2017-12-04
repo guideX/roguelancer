@@ -27,5 +27,10 @@
         /// Dispose
         /// </summary>
         void Dispose(RoguelancerGame game);
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        void Reset(RoguelancerGame game);
     }
 }

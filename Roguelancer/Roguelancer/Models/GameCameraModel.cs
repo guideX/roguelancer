@@ -78,7 +78,7 @@ namespace Roguelancer.Models {
         /// Entry Point
         /// </summary>
         public GameCameraModel() {
-            Mode = GameCameraModeEnum.Mode2;
+            Mode = GameCameraModeEnum.StandardMode;
             ShakeRandom = new Random();
             Up = Vector3.Up;
         }

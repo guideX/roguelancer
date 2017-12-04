@@ -67,6 +67,12 @@ namespace Roguelancer.Objects {
                 hole.Dispose(game);
             }
         }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset(RoguelancerGame game) {
+        }
         #endregion
     }
     /// <summary>

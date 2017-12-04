@@ -222,6 +222,12 @@ namespace Roguelancer.Models {
             }
             _model = null;
         }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset(RoguelancerGame game) {
+        }
         #endregion
     }
 }

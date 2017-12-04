@@ -78,10 +78,10 @@ public static class PlayerShipExtensions {
             } else if (!game.Input.InputItems.Toggles.MouseMode && game.Input.InputItems.Toggles.FreeMouseMode) {
                 result = GetMouseRotationAmount(playerShipControl, game, playerShipControl.Model);
             }
-            if (game.Input.InputItems.Keys.Left) result.X = playerShipControl.Model.RotationXLeftAdd; // Left
-            if (game.Input.InputItems.Keys.Right) result.X = playerShipControl.Model.RotationXRightAdd; // Add Rotation Right
-            if (game.Input.InputItems.Keys.Up) result.Y = playerShipControl.Model.RotationYUpAdd; // Up
-            if (game.Input.InputItems.Keys.Down) result.Y = playerShipControl.Model.RotationYDownAdd; // Down
+            if (game.Input.InputItems.Keys.Left.IsKeyDown) result.X = playerShipControl.Model.RotationXLeftAdd; // Left
+            if (game.Input.InputItems.Keys.Right.IsKeyDown) result.X = playerShipControl.Model.RotationXRightAdd; // Add Rotation Right
+            if (game.Input.InputItems.Keys.Up.IsKeyDown) result.Y = playerShipControl.Model.RotationYUpAdd; // Up
+            if (game.Input.InputItems.Keys.Down.IsKeyDown) result.Y = playerShipControl.Model.RotationYDownAdd; // Down
             result = result * playerShipControl.Model.RotationRate * (float)game.GameTime.ElapsedGameTime.TotalSeconds; // Slow Rotation Amount
             if (model.Up.Y < 0) result.X = -result.X;
         }
@@ -96,20 +96,20 @@ public static class PlayerShipExtensions {
     public static void UpdateThrust(this PlayerShipControl playerShipControl, RoguelancerGame game, GameModel model) {
         if (!playerShipControl.Model.UseAutoDock) {
             if (playerShipControl.Model.UseInput) {
-                if (game.Input.InputItems.Keys.W) {
+                if (game.Input.InputItems.Keys.W.IsKeyDown) {
                     playerShipControl.MoveForward(game, model);
                 } else {
                     playerShipControl.StopShaking(game);
                 }
                 if (game.Input.InputItems.Toggles.Cruise) { // Cruising
-                    if (game.Input.InputItems.Keys.S) {
+                    if (game.Input.InputItems.Keys.S.IsKeyDown) {
                         model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
                         game.Input.InputItems.Toggles.Cruise = false;
                     } else {
                         model.CurrentThrust = PlayerShipControlModel.MaxCruiseSpeed;
                     }
                 } else {
-                    if (game.Input.InputItems.Keys.Tab) { // Tab
+                    if (game.Input.InputItems.Keys.Tab.IsKeyDown) { // Tab
                         playerShipControl.UseAfterBurnThrust(game, model); // Use Afterburn Thrust
                     } else {
                         if (model.CurrentThrust > PlayerShipControlModel.MaxThrustAmount) {
@@ -117,13 +117,13 @@ public static class PlayerShipExtensions {
                             game.Camera.Shake(playerShipControl.Model.ShakeValue, 0f, false);
                         }
                     }
-                    if (game.Input.InputItems.Keys.X) {
+                    if (game.Input.InputItems.Keys.X.IsKeyDown) {
                         game.Camera.Shake(1f, 0f, false);
                         if (model.CurrentThrust > PlayerShipControlModel.MaxThrustReverse) {
                             model.CurrentThrust = model.CurrentThrust + PlayerShipControlModel.ThrustReverseSpeed;
                         }
                     }
-                    if (game.Input.InputItems.Keys.S) {
+                    if (game.Input.InputItems.Keys.S.IsKeyDown) {
                         playerShipControl.StopShaking(game);
                         if (model.CurrentThrust == 0) {
                         } else if (model.CurrentThrust > PlayerShipControlModel.MaxThrustAmount || model.CurrentThrust > -.0001) {
@@ -136,7 +136,7 @@ public static class PlayerShipExtensions {
                     }
                 }
             } else {
-                if (game.Input.InputItems.Keys.L) {
+                if (game.Input.InputItems.Keys.L.IsKeyDown) {
                     if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAfterburnerAmount) {
                         model.CurrentThrust = PlayerShipControlModel.MaxThrustAfterburnerAmount;
                     } else if (model.CurrentThrust < PlayerShipControlModel.MaxThrustAfterburnerAmount) {
@@ -148,7 +148,7 @@ public static class PlayerShipExtensions {
                     if (model.CurrentThrust > PlayerShipControlModel.MaxThrustAmount) {
                         model.CurrentThrust = model.CurrentThrust - PlayerShipControlModel.ThrustSlowDownSpeed;
                     } else {
-                        if (game.Input.InputItems.Keys.P) {
+                        if (game.Input.InputItems.Keys.P.IsKeyDown) {
                             if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAmount) {
                                 model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
                             } else if (model.CurrentThrust < PlayerShipControlModel.MaxThrustAmount) {
@@ -159,7 +159,7 @@ public static class PlayerShipExtensions {
                         }
                     }
                 }
-                if (game.Input.InputItems.Keys.K) {
+                if (game.Input.InputItems.Keys.K.IsKeyDown) {
                     if (model.CurrentThrust == 0) {
                     } else if (model.CurrentThrust > PlayerShipControlModel.MaxThrustAmount || model.CurrentThrust > -.0001) {
                         model.CurrentThrust = model.CurrentThrust - PlayerShipControlModel.ThrustSlowDownSpeed;

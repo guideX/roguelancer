@@ -57,5 +57,11 @@ namespace Roguelancer.Particle.System.ParticleSystems {
         /// </summary>
         public void Dispose(RoguelancerGame game) {
         }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset(RoguelancerGame game) {
+        }
     }
 }

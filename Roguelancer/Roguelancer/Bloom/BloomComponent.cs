@@ -1,6 +1,4 @@
-﻿
-
-using System;
+﻿using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Enum;
@@ -22,11 +20,10 @@ namespace Roguelancer.Bloom {
         /// </summary>
         /// <param name="game"></param>
         public BloomComponent(Game game) : base(game) {
-            Model = new BloomComponentModel();
-            Model.ShowBuffer = IntermediateBufferEnum.iFinalResult;
-            if (game == null) {
-                throw new ArgumentNullException("game");
-            }
+            if (game == null) throw new ArgumentNullException("game");
+            Model = new BloomComponentModel() {
+                ShowBuffer = IntermediateBufferEnum.iFinalResult
+            };
         }
         /// <summary>
         /// Load Content

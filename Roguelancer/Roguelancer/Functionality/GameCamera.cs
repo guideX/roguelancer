@@ -91,15 +91,14 @@ namespace Roguelancer.Functionality {
             transform.Forward = Model.ChaseDirection;
             transform.Up = Model.Up;
             transform.Right = Vector3.Cross(Model.Up, Model.ChaseDirection);
+            Model.DesiredPosition = Model.ChasePosition + Vector3.TransformNormal(game.Settings.Model.CameraSettings.Model.DesiredPositionOffset, transform);
             switch (Model.Mode) {
-                case Enum.GameCameraModeEnum.Mode0:
-                    Model.DesiredPosition = Model.ChasePosition + Vector3.TransformNormal(game.Settings.Model.CameraSettings.Model.DesiredPositionOffset, transform);
+                case Enum.GameCameraModeEnum.DogfightingMode:
                     Model.LookAt = Model.ChasePosition + Vector3.TransformNormal(game.Settings.Model.CameraSettings.Model.LookAtOffset, transform);
                     break;
-                case Enum.GameCameraModeEnum.Mode1:
+                case Enum.GameCameraModeEnum.ExperimentalMode:
                     break;
-                case Enum.GameCameraModeEnum.Mode2:
-                    Model.DesiredPosition = Model.ChasePosition + Vector3.TransformNormal(game.Settings.Model.CameraSettings.Model.DesiredPositionOffset, transform);
+                case Enum.GameCameraModeEnum.StandardMode:
                     Model.LookAt = Model.ChasePosition + game.Settings.Model.CameraSettings.Model.ThrustViewAmount * Model.ChaseDirection;
                     break;
             }
@@ -111,7 +110,7 @@ namespace Roguelancer.Functionality {
         /// <param name="_Y"></param>
         /// <param name="game"></param>
         private void UpdateNewCamera(float x, float y, RoguelancerGame game) {
-            if (Model.Mode != Enum.GameCameraModeEnum.Mode1) {
+            if (Model.Mode != Enum.GameCameraModeEnum.ExperimentalMode) {
                 return;
             }
             var transform = Matrix.Identity;
@@ -169,7 +168,7 @@ namespace Roguelancer.Functionality {
             Model.ChasePosition = playerShip.Model.Position;
             Model.ChaseDirection = playerShip.Model.Direction;
             Model.Up = playerShip.Model.Up;
-            if (Model.Mode == Enum.GameCameraModeEnum.Mode1) {
+            if (Model.Mode == Enum.GameCameraModeEnum.ExperimentalMode) {
                 if (game.Input.InputItems.Mouse.State.LeftButton == ButtonState.Pressed) {
                     UpdateNewCamera((float)game.Input.InputItems.Mouse.State.X / (float)game.GraphicsDevice.Viewport.Width, (float)game.Input.InputItems.Mouse.State.Y / (float)game.Graphics.Model.GraphicsDeviceManager.GraphicsDevice.Viewport.Height, game);
                 } else {

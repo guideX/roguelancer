@@ -1,6 +1,4 @@
-﻿
-
-using Roguelancer.Interfaces;
+﻿using Roguelancer.Interfaces;
 using Roguelancer.Models;
 namespace Roguelancer.Bloom {
     /// <summary>
@@ -20,8 +18,9 @@ namespace Roguelancer.Bloom {
         /// <param name="game"></param>
         public BloomHandler(RoguelancerGame game) {
             if (game.Settings.Model.BloomEnabled) {
-                Model = new BloomHandlerModel();
-                Model.Bloom = new BloomComponent(game);
+                Model = new BloomHandlerModel() {
+                    Bloom = new BloomComponent(game)
+                };
             }
         }
         /// <summary>
@@ -44,7 +43,7 @@ namespace Roguelancer.Bloom {
         /// <param name="_BloomVisible"></param>
         public void Update(RoguelancerGame game) {
             if (game.Settings.Model.BloomEnabled) {
-                Model.Bloom.Model.Settings = BloomSettingsModel.PresetSettings[Model.BloomSettings];
+                Model.Bloom.Model.Settings = BloomSettingsModel.PresetSettings[1];
                 Model.Bloom.Visible = true;
             }
         }

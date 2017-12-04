@@ -6,14 +6,14 @@
         /// <summary>
         /// Mode 0
         /// </summary>
-        Mode0 = 0, // ?? Need to figure out the differences
+        DogfightingMode = 0, // Use mouse to change direction model lags behind
         /// <summary>
         /// Mode 1
         /// </summary>
-        Mode1 = 1, // ?? Need to figure out the differences
+        ExperimentalMode = 1, // Fucked up twichy (Do Not Use!)
         /// <summary>
         /// Mode 2
         /// </summary>
-        Mode2 = 2 // ?? Need to figure out the differences
+        StandardMode = 2 // Use mouse to change direction smoothly
     }
 }

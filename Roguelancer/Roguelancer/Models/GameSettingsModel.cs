@@ -8,6 +8,14 @@ namespace Roguelancer.Models {
     /// </summary>
     public class GameSettingsModel {
         /// <summary>
+        /// Key Assignments
+        /// </summary>
+        public KeyAssignmentsModel KeyAssignments { get; set; }
+        /// <summary>
+        /// Key Assignments Cache
+        /// </summary>
+        //public KeyAssignmentsCacheModel KeyAssignmentsCache { get; set; }
+        /// <summary>
         /// Commodities Models
         /// </summary>
         public List<CommodityModel> CommoditiesModels { get; set; }
@@ -138,6 +146,8 @@ namespace Roguelancer.Models {
             SystemIniStartPath = rootDir + @"configuration\systems\";
             CommoditiesSettingsIniFile = rootDir + @"configuration\commodities_settings.ini";
             CommoditiesIniFile = rootDir + @"configuration\commodities.ini";
+            KeyAssignments = new KeyAssignmentsModel();
+            //KeyAssignmentsCache = new KeyAssignmentsCacheModel();
         }
     }
 }

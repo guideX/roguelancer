@@ -151,9 +151,9 @@ namespace Roguelancer.Objects {
             if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 if (ShipModel.PlayerShipControl.Model.UseInput) {
                     ShipModel.PlayerShipControl.UpdateModel(Model, game);
-                    if (!game.Input.InputItems.Toggles.ToggleCamera) {
+                    //if (!game.Input.InputItems.Toggles.ToggleCamera) {
                         Model.Update(game);
-                    }
+                    //}
                 } else {
                     Model.Update(game);
                 }
