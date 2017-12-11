@@ -106,8 +106,7 @@ namespace Roguelancer.Objects.Base {
                             // Etc
                             break;
                     }
-                    if (game.Input.InputItems.Keys.U.IsKeyDown) {
-                        game.Input.InputItems.Keys.U.IsKeyDown = false;
+                    if (game.Settings.Model.KeyAssignments.Undock.FindKeyBoardStatus(game.Input.InputItems.Keys).IsKeyDown) {
                         if (playerShip.Docked) {
                             var distance = (int)Vector3.Distance(playerShip.Model.Position, Model.Position) / HudObject.DivisionDistanceValue;
                             UnDock(game, playerShip, Model);
@@ -125,8 +124,9 @@ namespace Roguelancer.Objects.Base {
                     }
                     break;
                 case Enum.GameStatesEnum.Playing:
-                    if (game.Input.InputItems.Keys.D.WasKeyPressed) { // DOCK
-                        game.Input.InputItems.Keys.D.IsKeyDown = false;
+                    var dock = game.Settings.Model.KeyAssignments.Dock.FindKeyBoardStatus(game.Input.InputItems.Keys);
+                    if (dock.WasKeyPressed) {
+                        dock.IsKeyDown = false;
                         if (!playerShip.Docked) {
                             var distance = (int)Vector3.Distance(playerShip.Model.Position, playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.Position) / HudObject.DivisionDistanceValue;
                             if (distance < HudObject.DockDistanceAccept) {
@@ -147,7 +147,6 @@ namespace Roguelancer.Objects.Base {
                             }
                         }
                     }
-
                     break;
             }
         }

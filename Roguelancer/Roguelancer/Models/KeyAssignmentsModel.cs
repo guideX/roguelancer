@@ -3,7 +3,6 @@
     /// Key Assignments Model
     /// </summary>
     public class KeyAssignmentsModel {
-        /*
         /// <summary>
         /// Target
         /// </summary>
@@ -11,12 +10,19 @@
         /// <summary>
         /// Goto
         /// </summary>
-        public string Goto { get; set; }*/
+        public string Goto { get; set; }
+        /// <summary>
+        /// Dock
+        /// </summary>
+        public string Dock { get; set; }
+        /// <summary>
+        /// Undock
+        /// </summary>
+        public string Undock { get; set; }
         /// <summary>
         /// Exit
         /// </summary>
         public string Exit { get; set; }
-        /*
         /// <summary>
         /// Toggle Mode
         /// </summary>
@@ -32,7 +38,7 @@
         /// <summary>
         /// Mouse Mode
         /// </summary>
-        public string MouseMode { get; set; }*/
+        public string MouseMode { get; set; }
         /// <summary>
         /// Free Mouse Mode
         /// </summary>

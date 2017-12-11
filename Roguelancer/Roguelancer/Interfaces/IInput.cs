@@ -1,6 +1,4 @@
-﻿
-
-using Microsoft.Xna.Framework.Input;
+﻿using Microsoft.Xna.Framework.Input;
 using Roguelancer.Models;
 namespace Roguelancer.Interfaces {
     /// <summary>

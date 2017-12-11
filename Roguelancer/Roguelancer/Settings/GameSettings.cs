@@ -20,16 +20,18 @@ namespace Roguelancer.Settings {
             var b = false;
             Model = new GameSettingsModel(game);
             // Key Assignments
-            //Model.KeyAssignments.Cruise = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Cruise"); // Cruise
+            Model.KeyAssignments.Cruise = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Cruise"); // Cruise
             Model.KeyAssignments.CurrentGameState_Menu = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "CurrentGameState_Menu"); // Current Game State Menu
             Model.KeyAssignments.CurrentGameState_Playing = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "CurrentGameState_Playing"); // Current Game State Playing
             Model.KeyAssignments.Exit = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Exit"); // Exit
-            //Model.KeyAssignments.FreeMouseMode = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "FreeMouseMode"); // Free Mouse Mode
-            //Model.KeyAssignments.Goto = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Goto"); // Goto
-            //Model.KeyAssignments.MouseMode = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "MouseMode"); // Mouse Mode
-            //Model.KeyAssignments.Target = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Target"); // Target
-            //Model.KeyAssignments.ToggleCamera = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "ToggleCamera"); // Toggle Camera
-            //Model.KeyAssignments.ToggleMode = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "ToggleMode"); // Toggle Mode
+            Model.KeyAssignments.FreeMouseMode = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "FreeMouseMode"); // Free Mouse Mode
+            Model.KeyAssignments.Goto = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Goto"); // Goto
+            Model.KeyAssignments.Dock = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Dock");
+            Model.KeyAssignments.Undock = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Undock");
+            Model.KeyAssignments.MouseMode = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "MouseMode"); // Mouse Mode
+            Model.KeyAssignments.Target = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Target"); // Target
+            Model.KeyAssignments.ToggleCamera = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "ToggleCamera"); // Toggle Camera
+            Model.KeyAssignments.ToggleMode = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "ToggleMode"); // Toggle Mode
             // Settings
             Model.Font = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "Font", "LucidaFont"); // Font
             Model.FontSmall = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "FontSmall", "LucidiaFontSmall"); // Small Font

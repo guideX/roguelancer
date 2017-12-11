@@ -34,7 +34,6 @@ namespace Roguelancer.Functionality {
             InputItems.Mouse = new MouseInputModel();
             LastKeyboardState = new KeyboardState();
             CurrentKeyboardState = new KeyboardState();
-            
         }
         /// <summary>
         /// Load Content
@@ -135,11 +134,6 @@ namespace Roguelancer.Functionality {
                     }
                     break;
                 case GameStatesEnum.Playing:
-                    // Mouse
-                    if (InputItems.Keys.Escape.IsKeyDown) {
-                        game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
-                        game.GameState.Model.CurrentGameState = GameStatesEnum.Playing;
-                    }
                     if (InputItems.Mouse.State.LeftButton == ButtonState.Pressed) {
                         InputItems.Mouse.LeftButton = true;
                     } else {
@@ -152,25 +146,41 @@ namespace Roguelancer.Functionality {
                     }
                     InputItems.Mouse.Vector = new Vector2(InputItems.Mouse.State.X, InputItems.Mouse.State.Y);
                     // Keyboard
-                    // Go To Menu
-                    if (game.Settings.Model.KeyAssignments.CurrentGameState_Playing.FindKeyBoardStatus(InputItems.Keys).WasKeyPressed) {
-                        //if (game.Input.InputItems.Keys.F9.WasKeyPressed) {
+                    if (game.Settings.Model.KeyAssignments.Exit.FindKeyBoardStatus(InputItems.Keys).WasKeyPressed) {
                         game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
                         game.GameState.Model.CurrentGameState = GameStatesEnum.Menu;
                     }
-                    if (InputItems.Keys.T.WasKeyPressed) game.TargetNextObject();
-                    if (InputItems.Keys.G.WasKeyPressed) game.GotoCurrentlyTargetedObject();
-                    if (InputItems.Keys.I.WasKeyPressed) {
-                        this.ToggleMode(game);
+                    // Go To Menu
+                    if (game.Settings.Model.KeyAssignments.CurrentGameState_Playing.FindKeyBoardStatus(InputItems.Keys).WasKeyPressed) {
+                        game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
+                        game.GameState.Model.CurrentGameState = GameStatesEnum.Menu;
                     }
-                    if (InputItems.Keys.C.WasKeyPressed) {
+                    // Target
+                    if (game.Settings.Model.KeyAssignments.Target.FindKeyBoardStatus(InputItems.Keys).WasKeyPressed) {
+                        game.TargetNextObject();
+                    }
+                    // Goto
+                    if (game.Settings.Model.KeyAssignments.Goto.FindKeyBoardStatus(InputItems.Keys).WasKeyPressed) {
+                        game.GotoCurrentlyTargetedObject();
+                        DebugTextHelper.SetText(game, "Goto", true);
+                    }
+                    // Toggle Mode
+                    if (game.Settings.Model.KeyAssignments.ToggleMode.FindKeyBoardStatus(InputItems.Keys).WasKeyPressed) {
+                        this.ToggleMode(game);
+                        DebugTextHelper.SetText(game, "Toggle Mode", true);
+                    }
+                    // Cruise
+                    if (game.Settings.Model.KeyAssignments.Cruise.FindKeyBoardStatus(InputItems.Keys).WasKeyPressed) {
                         if (InputItems.Toggles.Cruise) {
                             InputItems.Toggles.Cruise = false;
+                            DebugTextHelper.SetText(game, "Cruise Mode Off", true);
                         } else {
                             InputItems.Toggles.Cruise = true;
+                            DebugTextHelper.SetText(game, "Cruise Mode On", true);
                         }
                     }
-                    if (CurrentKeyboardState.IsKeyDown(Keys.Space) && LastKeyboardState.IsKeyUp(Keys.Space)) {
+                    // Toggle Camera
+                    if (game.Settings.Model.KeyAssignments.ToggleCamera.FindKeyBoardStatus(InputItems.Keys).WasKeyPressed) {
                         if (InputItems.Toggles.ToggleCamera) {
                             InputItems.Toggles.ToggleCamera = false;
                             InputItems.Toggles.RevertCamera = true;
@@ -181,6 +191,7 @@ namespace Roguelancer.Functionality {
                             DebugTextHelper.SetText(game, "Camera Snapshot Mode", true);
                         }
                     }
+                    // Snapshot
                     if (game.Input.InputItems.Toggles.CameraSnapshot) {
                         game.Input.InputItems.Toggles.CameraSnapshot = false;
                         game.CameraSnapshot = game.Camera;
@@ -188,12 +199,14 @@ namespace Roguelancer.Functionality {
                         game.Input.InputItems.Toggles.RevertCamera = false;
                         game.Camera = game.CameraSnapshot;
                     }
-                    if (game.Input.InputItems.Keys.M.WasKeyPressed) {
+                    // Mouse Mode
+                    if (game.Settings.Model.KeyAssignments.MouseMode.FindKeyBoardStatus(InputItems.Keys).WasKeyPressed) {
                         game.Input.InputItems.Toggles.MouseMode = true;
                         game.Input.InputItems.Toggles.FreeMouseMode = false;
                         DebugTextHelper.SetText(game, "Mouse Mode Enabled", true);
                     }
-                    if (game.Input.InputItems.Keys.F.WasKeyPressed) {
+                    // Free Mouse Mode
+                    if (game.Settings.Model.KeyAssignments.FreeMouseMode.FindKeyBoardStatus(InputItems.Keys).WasKeyPressed) {
                         game.Input.InputItems.Toggles.MouseMode = false;
                         game.Input.InputItems.Toggles.FreeMouseMode = true;
                         DebugTextHelper.SetText(game, "Free Flight Mode Enabled", true);

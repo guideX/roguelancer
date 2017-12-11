@@ -1,4 +1,7 @@
 ﻿using Roguelancer.Enum;
+using System;
+using System.Linq.Expressions;
+
 namespace Roguelancer.Models {
     /// <summary>
     /// Keyboard Key Status Model

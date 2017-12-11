@@ -14,14 +14,7 @@ public static class InputExtension {
     /// <param name="keys"></param>
     /// <returns></returns>
     public static KeyboardKeyStatusModel FindKeyBoardStatus(this string str, KeyInputModel keys) {
-        switch (str) {
-            case "F10":
-                return keys.F10;
-            case "F9":
-                return keys.F9;
-            default:
-                return null;
-        }
+        return (KeyboardKeyStatusModel)keys.GetPropertyValue(str);
     }
     /// <summary>
     /// Toggle Mode
