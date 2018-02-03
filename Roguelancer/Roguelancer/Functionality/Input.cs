@@ -134,6 +134,7 @@ namespace Roguelancer.Functionality {
                     }
                     break;
                 case GameStatesEnum.Playing:
+                    // IF Left Button Pressed
                     if (InputItems.Mouse.State.LeftButton == ButtonState.Pressed) {
                         InputItems.Mouse.LeftButton = true;
                     } else {
@@ -145,7 +146,7 @@ namespace Roguelancer.Functionality {
                         InputItems.Mouse.RightButton = false;
                     }
                     InputItems.Mouse.Vector = new Vector2(InputItems.Mouse.State.X, InputItems.Mouse.State.Y);
-                    // Keyboard
+                    // Exit
                     if (game.Settings.Model.KeyAssignments.Exit.FindKeyBoardStatus(InputItems.Keys).WasKeyPressed) {
                         game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
                         game.GameState.Model.CurrentGameState = GameStatesEnum.Menu;

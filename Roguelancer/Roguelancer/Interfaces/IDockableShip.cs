@@ -1,11 +1,12 @@
-﻿namespace Roguelancer.Interfaces {
+﻿using Roguelancer.Models;
+namespace Roguelancer.Interfaces {
     /// <summary>
     /// Dockable Ship
     /// </summary>
     public interface IDockableShip {
         /// <summary>
-        /// Docked
+        /// Ship Model
         /// </summary>
-        bool Docked { get; set; }
+        ShipModel ShipModel { get; set; }
     }
 }

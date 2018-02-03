@@ -46,9 +46,9 @@ namespace Roguelancer.Settings {
             Model.MenuBackgroundTexture = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "menu_background"); // Menu Background
             Model.Resolution = new Vector2(NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Graphics", "ResolutionX", 1280f), NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Graphics", "ResolutionY", 1024)); // Resolution
             Model.CameraSettings = new CameraSettings(Model.CameraSettingsIniFile); // Camera Settings
-            Model.ModelSettings = new List<SettingsModelObject>(); // Model Settings
+            Model.ModelSettings = new List<SettingsObjectModel>(); // Model Settings
             for (var i = 1; i < NativeMethods.ReadINIInt(Model.ModelSettingsIniFile, "settings", "count", 0) + 1; ++i) {
-                Model.ModelSettings.Add(new SettingsModelObject(
+                Model.ModelSettings.Add(new SettingsObjectModel(
                     NativeMethods.ReadINI(Model.ModelSettingsIniFile, i.ToString().Trim(), "path"),
                     (Enum.ModelType)NativeMethods.ReadINIInt(Model.ModelSettingsIniFile, i.ToString().Trim(), "type", 0),
                     NativeMethods.ReadINIBool(Model.ModelSettingsIniFile, i.ToString().Trim(), "enabled", false),
@@ -61,8 +61,8 @@ namespace Roguelancer.Settings {
                     NativeMethods.ReadINI(Model.SystemsSettingsIniFile, i.ToString().Trim(), "path", ""),
                     Model.SystemIniStartPath,
                     Model.ModelSettings,
-                    ModelWorldObjects.Read(i, Model.ModelSettings, Model.PlayerIniFile, "settings"),
-                    new StarSettings(
+                    WorldObjectsSettings.Read(i, Model.ModelSettings, Model.PlayerIniFile, "settings"),
+                    new StarSettingsModel(
                         NativeMethods.ReadINIBool(Model.SystemsSettingsIniFile, i.ToString(), "starsEnabled", false),
                         NativeMethods.ReadINIInt(Model.SystemsSettingsIniFile, i.ToString(), "amountOfStarsPerSheet", 0),
                         NativeMethods.ReadINIInt(Model.SystemsSettingsIniFile, i.ToString(), "maxPositionX", 0),

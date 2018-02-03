@@ -4,6 +4,7 @@ using Roguelancer.Models;
 using Roguelancer.Objects;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
+using Roguelancer.Enum;
 /// <summary>
 /// Hud Objects Extension
 /// </summary>
@@ -22,9 +23,9 @@ public static class HudObjectsExtension {
                 shipID++;
                 results.Add(new HudSensorObject() {
                     Obj = ship,
-                    Distance = Vector3.Distance(playerShip.Model.Position, ship.Model.Position) / HudObject.DivisionDistanceValue,
+                    Distance = Vector3.Distance(playerShip.Model.Position, ship.Model.Position) / (int)HudEnums.DivisionDistanceValue,
                     Text = "Ship " + shipID.ToString(),
-                    FontPosition = new Vector2(HudObject.TextLeft, HudObject.ImageTop),
+                    FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
                     //FontOrigin = 
                 });
             }
@@ -34,9 +35,9 @@ public static class HudObjectsExtension {
             stationID++;
             results.Add(new HudSensorObject() {
                 Obj = station,
-                Distance = Vector3.Distance(playerShip.Model.Position, station.Model.Position) / HudObject.DivisionDistanceValue,
+                Distance = Vector3.Distance(playerShip.Model.Position, station.Model.Position) / (int)HudEnums.DivisionDistanceValue,
                 Text = "Station " + stationID.ToString(),
-                FontPosition = new Vector2(HudObject.TextLeft, HudObject.ImageTop),
+                FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
                 //FontOrigin = 
             });
         }
@@ -44,9 +45,9 @@ public static class HudObjectsExtension {
             stationID++;
             results.Add(new HudSensorObject() {
                 Obj = planet,
-                Distance = Vector3.Distance(playerShip.Model.Position, planet.Model.Position) / HudObject.DivisionDistanceValue,
+                Distance = Vector3.Distance(playerShip.Model.Position, planet.Model.Position) / (int)HudEnums.DivisionDistanceValue,
                 Text = "Planet " + stationID.ToString(),
-                FontPosition = new Vector2(HudObject.TextLeft, HudObject.ImageTop),
+                FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
                 //FontOrigin = 
             });
         }
@@ -60,9 +61,9 @@ public static class HudObjectsExtension {
         var playerShip = ShipHelper.GetPlayerShip(game);
         if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
             playerShip.FaceObject(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
-            playerShip.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation();
+            playerShip.ShipModel.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation();
             //if(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.)
-            playerShip.GoingTo = true;
+            playerShip.ShipModel.GoingTo = true;
             game.Input.InputItems.Toggles.Cruise = true;
             //playerShip.Model.Up.Y = 0f;
         } else {
@@ -82,7 +83,7 @@ public static class HudObjectsExtension {
             if (lastSensorObjectMatchesCurrentTarget) {
                 playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget = sensorObjects[i].Obj.Model;
                 //playerShip.ShipModel.PlayerShipControl.Model.CurrentTargetStationObject = sensorObjects[i].Obj.Station; // sensorObjects[i].Obj.Model;
-                DebugTextHelper.SetText(game, "Targeting " + sensorObjects[i].Obj.Model.WorldObject.Description, true);
+                DebugTextHelper.SetText(game, "Targeting " + sensorObjects[i].Obj.Model.WorldObject.Model.Description, true);
                 itemChosen = true;
                 return;
             }
@@ -90,7 +91,7 @@ public static class HudObjectsExtension {
         }
         if (!itemChosen) {
             playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget = sensorObjects[0].Obj.Model;
-            DebugTextHelper.SetText(game, "Targeting " + sensorObjects[0].Obj.Model.WorldObject.Description, true);
+            DebugTextHelper.SetText(game, "Targeting " + sensorObjects[0].Obj.Model.WorldObject.Model.Description, true);
             itemChosen = true;
         }
     }

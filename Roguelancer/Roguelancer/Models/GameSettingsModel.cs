@@ -50,7 +50,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Model Settings
         /// </summary>
-        public List<SettingsModelObject> ModelSettings { get; set; }
+        public List<SettingsObjectModel> ModelSettings { get; set; }
         /// <summary>
         /// Star System Settings
         /// </summary>

@@ -1,4 +1,5 @@
-﻿using Roguelancer.Enum;
+﻿using Roguelancer.Collections;
+using Roguelancer.Enum;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Particle;
@@ -23,10 +24,10 @@ namespace Roguelancer.Objects {
             Model = new GameObjectsModel() {
                 Stations = new StationCollection(game),
                 Planets = new PlanetCollection(game),
-                Stars = new Starfields(game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].StarSettings),
-                TradeLanes = new TradeLaneCollection(game),
+                Stars = new Starfields(game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.StarSettings),
+                //TradeLanes = new TradeLaneCollection(game),
                 Ships = new ShipCollection(game),
-                Bullets = new Bullets(game)
+                Bullets = new BulletCollection(game)
             };
             //Model.JumpHoles = new JumpHoleCollection();
         }
@@ -38,7 +39,7 @@ namespace Roguelancer.Objects {
             Model.Stations.Initialize(game);
             Model.Planets.Initialize(game);
             Model.Stars.Initialize(game);
-            Model.TradeLanes.Initialize(game);
+            //Model.TradeLanes.Initialize(game);
             Model.Ships.Initialize(game);
             Model.Bullets.Initialize(game);
             //Model.JumpHoles.Initialize(game);
@@ -51,7 +52,7 @@ namespace Roguelancer.Objects {
             Model.Stations.LoadContent(game);
             Model.Planets.LoadContent(game);
             Model.Stars.LoadContent(game);
-            Model.TradeLanes.LoadContent(game);
+            //Model.TradeLanes.LoadContent(game);
             Model.Ships.LoadContent(game);
             Model.Bullets.LoadContent(game);
             //Model.JumpHoles.Initialize(game);
@@ -65,7 +66,7 @@ namespace Roguelancer.Objects {
                 Model.Stations.Update(game);
                 Model.Planets.Update(game);
                 Model.Stars.Update(game);
-                Model.TradeLanes.Update(game);
+                //Model.TradeLanes.Update(game);
                 Model.Ships.Update(game);
                 Model.Bullets.Update(game);
                 //Model.JumpHoles.Initialize(game);
@@ -83,7 +84,7 @@ namespace Roguelancer.Objects {
                 Model.Stations.Draw(game);
                 Model.Planets.Draw(game);
                 Model.Stars.Draw(game);
-                Model.TradeLanes.Draw(game);
+                //Model.TradeLanes.Draw(game);
                 Model.Ships.Draw(game);
                 Model.Bullets.Draw(game);
                 //Model.JumpHoles.Draw(game);
@@ -97,18 +98,18 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
-            Model.TradeLanes.Reset(game);
+            //Model.TradeLanes.Reset(game);
             Model.Ships.Reset(game);
             Model.Stations = new StationCollection(game);
             Model.Planets = new PlanetCollection(game);
-            Model.Stars = new Starfields(new StarSettings(false, 0, 0, 0, 0, 0, 0, 0));
+            Model.Stars = new Starfields(new StarSettingsModel(false, 0, 0, 0, 0, 0, 0, 0));
             //Model.JumpHoles = new JumpHoleCollection();
         }
         /// <summary>
         /// Dispose
         /// </summary>
         public void Dispose(RoguelancerGame game) {
-            Model.TradeLanes.Dispose(game);
+            //Model.TradeLanes.Dispose(game);
             Model.Ships.Dispose(game);
             Model.Stations.Dispose(game);
             Model.Planets.Dispose(game);

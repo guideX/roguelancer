@@ -7,13 +7,9 @@ namespace Roguelancer.Interfaces {
     /// </summary>
     public interface IDockable : IGame {
         /// <summary>
-        /// Dockable Object Model
+        /// Station Model
         /// </summary>
-        //DockableObjectModel DockableObjectModel { get; set; }
-        /// <summary>
-        /// Docked Ships
-        /// </summary>
-        List<ISensorObject> DockedShips { get; set; }
+        StationModel StationModel { get; set; }
         /// <summary>
         /// Dock
         /// </summary>

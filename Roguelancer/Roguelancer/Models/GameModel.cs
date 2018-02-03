@@ -61,7 +61,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// World Object
         /// </summary>
-        public ModelWorldObjects WorldObject { get; set; }
+        public WorldObjectsSettings WorldObject { get; set; }
         /// <summary>
         /// Particle System
         /// </summary>
@@ -114,22 +114,22 @@ namespace Roguelancer.Models {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            if (WorldObject.SettingsModelObject.modelPath == "bullet") {
+            if (WorldObject.Model.SettingsModelObject.ModelPath == "bullet") {
                 _model = game.Objects.Model.Bullets.BulletsModel;
             } else {
-                _model = game.Content.Load<Model>(WorldObject.SettingsModelObject.modelPath);
+                _model = game.Content.Load<Model>(WorldObject.Model.SettingsModelObject.ModelPath);
             }
-            Position = WorldObject.StartupPosition;
-            Up = WorldObject.InitialModelUp;
-            Right = WorldObject.InitialModelRight;
-            Rotation = new Vector2(WorldObject.StartupRotation.X, WorldObject.StartupRotation.Y);
-            Velocity = WorldObject.InitialVelocity;
-            CurrentThrust = WorldObject.InitialCurrentThrust;
-            Scale = WorldObject.Scaling;
+            Position = WorldObject.Model.StartupPosition;
+            Up = WorldObject.Model.InitialModelUp;
+            Right = WorldObject.Model.InitialModelRight;
+            Rotation = new Vector2(WorldObject.Model.StartupRotation.X, WorldObject.Model.StartupRotation.Y);
+            Velocity = WorldObject.Model.InitialVelocity;
+            CurrentThrust = WorldObject.Model.InitialCurrentThrust;
+            Scale = WorldObject.Model.Scaling;
             if (Scale != 0f) {
                 UseScale = true;
             }
-            Direction = WorldObject.InitialDirection;
+            Direction = WorldObject.Model.InitialDirection;
             if (ParticleSystem != null) {
                 if (ParticleSystem.Settings.Enabled) {
                     ParticleSystem.LoadContent(game);

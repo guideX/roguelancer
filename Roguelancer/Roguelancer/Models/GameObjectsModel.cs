@@ -1,4 +1,5 @@
-﻿using Roguelancer.Interfaces;
+﻿using Roguelancer.Collections;
+using Roguelancer.Interfaces;
 using Roguelancer.Objects;
 using Roguelancer.Particle;
 namespace Roguelancer.Models {
@@ -13,11 +14,11 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Bullets
         /// </summary>
-        public Bullets Bullets { get; set; }
+        public BulletCollection Bullets { get; set; }
         /// <summary>
         /// Trade Lanes
         /// </summary>
-        public TradeLaneCollection TradeLanes { get; set; }
+        //public TradeLaneCollection TradeLanes { get; set; }
         /// <summary>
         /// Stations
         /// </summary>

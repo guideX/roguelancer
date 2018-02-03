@@ -6,6 +6,7 @@ using Microsoft.Xna.Framework;
 using System;
 using Roguelancer.Objects;
 using Roguelancer.Interfaces;
+using Roguelancer.Enum;
 /// <summary>
 /// Player Ship Extensions
 /// </summary>
@@ -178,17 +179,17 @@ public static class PlayerShipExtensions {
             var playerShip = ShipHelper.GetPlayerShip(game);
             switch (playerShipControl.Model.AutoDockStep) {
                 case 0:
-                    playerShip.FaceObject(playerShip.GoingToObject.Model);
+                    playerShip.FaceObject(playerShip.ShipModel.GoingToObject.Model);
                     model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
                     playerShipControl.Model.AutoDockStep = 1;
                     break;
                 case 1:
-                    if (playerShip.GoingToObject != null) {
-                        var distance = (int)Vector3.Distance(playerShip.Model.Position, playerShip.GoingToObject.Model.Position) / HudObject.DivisionDistanceValue;
-                        if (distance < HudObject.DockDistanceAccept) {
+                    if (playerShip.ShipModel.GoingToObject != null) {
+                        var distance = (int)Vector3.Distance(playerShip.Model.Position, playerShip.ShipModel.GoingToObject.Model.Position) / (int)HudEnums.DivisionDistanceValue;
+                        if (distance < (int)Roguelancer.Enum.HudEnums.DockDistanceAccept) {
                             playerShipControl.Model.UseAutoDock = false;
                             playerShipControl.Model.AutoDockStep = 0;
-                            playerShip.GoingToObject.Dock(game, playerShip, playerShip.GoingToObject.Model);
+                            playerShip.ShipModel.GoingToObject.Dock(game, playerShip, playerShip.ShipModel.GoingToObject.Model);
                         }
                     }
                     break;
@@ -222,12 +223,12 @@ public static class PlayerShipExtensions {
     /// <param name="game"></param>
     public static void CheckGoto(this PlayerShipControl playerShipControl, RoguelancerGame game) {
         var playerShip = ShipHelper.GetPlayerShip(game);
-        if (playerShip.GoingTo && playerShip.GoingToObject != null) {
-            var distance = (int)Vector3.Distance(playerShip.Model.Position, playerShip.GoingToObject.Model.Position) / HudObject.DivisionDistanceValue;
-            if (distance < HudObject.DockDistanceAccept * 2) {
+        if (playerShip.ShipModel.GoingTo && playerShip.ShipModel.GoingToObject != null) {
+            var distance = (int)Vector3.Distance(playerShip.Model.Position, playerShip.ShipModel.GoingToObject.Model.Position) / (int)HudEnums.DivisionDistanceValue;
+            if (distance < (int)HudEnums.DockDistanceAccept * 2) {
                 playerShip.Model.CurrentThrust = 0;
-                playerShip.GoingTo = false;
-                playerShip.GoingToObject = null;
+                playerShip.ShipModel.GoingTo = false;
+                playerShip.ShipModel.GoingToObject = null;
                 DebugTextHelper.SetText(game, "Goto Completed", true);
                 game.Input.InputItems.Toggles.Cruise = false;
                 //if (playerShip.Model.CurrentThrust != 0) {

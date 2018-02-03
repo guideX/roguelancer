@@ -1,49 +1,16 @@
 ﻿using System.Collections.Generic;
 using Roguelancer.Functionality;
+using Roguelancer.Models;
 namespace Roguelancer.Settings {
     /// <summary>
     /// Star System Settings
     /// </summary>
     public class StarSystemSettings {
-        #region "private properties"
-        /// <summary>
-        /// Path
-        /// </summary>
-        private string _path { get; set; }
-        /// <summary>
-        /// Star System ID
-        /// </summary>
-        private int _starSystemId { get; set; }
-        #endregion
         #region "public properties"
         /// <summary>
-        /// Ships
+        /// Model
         /// </summary>
-        public List<ModelWorldObjects> Ships { get; set; }
-        /// <summary>
-        /// Stations
-        /// </summary>
-        public List<ModelWorldObjects> Stations { get; set; }
-        /// <summary>
-        /// Bullets
-        /// </summary>
-        public List<ModelWorldObjects> Bullets { get; set; }
-        /// <summary>
-        /// Planets
-        /// </summary>
-        public List<ModelWorldObjects> Planets { get; set; }
-        /// <summary>
-        /// Trade Lanes
-        /// </summary>
-        public List<ModelWorldObjects> TradeLanes { get; set; }
-        /// <summary>
-        /// Jump Holes
-        /// </summary>
-        public List<ModelWorldObjects> JumpHoles { get; set; }
-        /// <summary>
-        /// Star Settings
-        /// </summary>
-        public StarSettings StarSettings { get; set; }
+        public StarSystemSettingsModel Model { get; set; }
         #endregion
         /// <summary>
         /// Star System Settings
@@ -58,36 +25,37 @@ namespace Roguelancer.Settings {
                 int starSystemId,
                 string path,
                 string systemIniStartPath,
-                List<SettingsModelObject> modelSettings,
-                ModelWorldObjects player,
-                StarSettings _starSettings
+                List<SettingsObjectModel> modelSettings,
+                WorldObjectsSettings player,
+                StarSettingsModel _starSettings
             ) {
-            Ships = new List<ModelWorldObjects>();
-            Planets = new List<ModelWorldObjects>();
-            Stations = new List<ModelWorldObjects>();
-            TradeLanes = new List<ModelWorldObjects>();
-            JumpHoles = new List<ModelWorldObjects>();
-            player.SettingsModelObject.isPlayer = true;
-            Ships.Add(player);
+            Model = new StarSystemSettingsModel();
+            Model.Ships = new List<WorldObjectsSettings>();
+            Model.Planets = new List<WorldObjectsSettings>();
+            Model.Stations = new List<WorldObjectsSettings>();
+            Model.TradeLanes = new List<WorldObjectsSettings>();
+            Model.JumpHoles = new List<WorldObjectsSettings>();
+            player.Model.SettingsModelObject.IsPlayer = true;
+            Model.Ships.Add(player);
             for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\ships.ini", "settings", "count", 0) + 1; ++i) {
-                Ships.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\ships.ini", i.ToString().Trim()));
+                Model.Ships.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\ships.ini", i.ToString().Trim()));
             }
             for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\stations.ini", "settings", "count", 0) + 1; ++i) {
-                Stations.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\stations.ini", i.ToString().Trim()));
+                Model.Stations.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\stations.ini", i.ToString().Trim()));
             }
             for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\bullets.ini", "settings", "count", 0) + 1; ++i) {
-                Bullets.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\bullets.ini", i.ToString().Trim()));
+                Model.Bullets.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\bullets.ini", i.ToString().Trim()));
             }
             for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\planets.ini", "settings", "count", 0) + 1; ++i) {
-                Planets.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\planets.ini", i.ToString().Trim()));
+                Model.Planets.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\planets.ini", i.ToString().Trim()));
             }
             for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\tradelanes.ini", "settings", "count", 0) + 1; ++i) {
-                TradeLanes.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\tradelanes.ini", i.ToString().Trim()));
+                Model.TradeLanes.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\tradelanes.ini", i.ToString().Trim()));
             }
             for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\jumpholes.ini", "settings", "count", 0) + 1; ++i) {
-                JumpHoles.Add(ModelWorldObjects.Read(i, modelSettings, systemIniStartPath + path + @"\jumpholes.ini", i.ToString().Trim()));
+                Model.JumpHoles.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\jumpholes.ini", i.ToString().Trim()));
             }
-            StarSettings = _starSettings;
+            Model.StarSettings = _starSettings;
         }
     }
 }

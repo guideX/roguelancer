@@ -1,114 +1,13 @@
-﻿using System.Linq;
-using Roguelancer.Functionality;
+﻿using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
-using Roguelancer.Settings;
 using Roguelancer.Models;
 using Roguelancer.Enum;
-using Roguelancer.Helpers;
 namespace Roguelancer.Objects {
-    /// <summary>
-    /// Ship Collection
-    /// </summary>
-    public class ShipCollection : IShipCollection {
-        #region "public properties"
-        /// <summary>
-        /// Model
-        /// </summary>
-        public ShipCollectionModel Model { get; set; }
-        #endregion
-        #region "public methods"
-        /// <summary>
-        /// Entry Point
-        /// </summary>
-        /// <param name="game"></param>
-        public ShipCollection(RoguelancerGame game) {
-            Model = new ShipCollectionModel();
-            Reset(game);
-        }
-        /// <summary>
-        /// Initialize
-        /// </summary>
-        /// <param name="game"></param>
-        public void Initialize(RoguelancerGame game) {
-            foreach (var _ship in Model.Ships) {
-                _ship.Initialize(game);
-            }
-        }
-        /// <summary>
-        /// Load Content
-        /// </summary>
-        /// <param name="game"></param>
-        public void LoadContent(RoguelancerGame game) {
-            foreach (var _ship in Model.Ships) {
-                _ship.LoadContent(game);
-            }
-        }
-        /// <summary>
-        /// Update
-        /// </summary>
-        /// <param name="game"></param>
-        public void Update(RoguelancerGame game) {
-            foreach (var _ship in Model.Ships) {
-                _ship.Update(game);
-            }
-        }
-        /// <summary>
-        /// Draw
-        /// </summary>
-        /// <param name="game"></param>
-        public void Draw(RoguelancerGame game) {
-            foreach (var _ship in Model.Ships) {
-                _ship.Draw(game);
-            }
-        }
-        /// <summary>
-        /// Reset
-        /// </summary>
-        /// <param name="game"></param>
-        public void Reset(RoguelancerGame game) {
-            Model = new ShipCollectionModel();
-            var playerShip = new ShipObject(game);
-            ShipObject tempShip;
-            playerShip.Model.WorldObject = game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Ships.Where(s => s.SettingsModelObject.modelType == ModelType.Ship && s.SettingsModelObject.isPlayer).FirstOrDefault();
-            playerShip.ShipModel.PlayerShipControl.Model.UseInput = true;
-            Model.Ships.Add(playerShip);
-            foreach (var modelWorldObject in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Ships.Where(s => !s.SettingsModelObject.isPlayer).ToList()) {
-                tempShip = new ShipObject(game);
-                tempShip.Model = new GameModel(game, null, null);
-                tempShip.Model.WorldObject = ModelWorldObjects.Clone(modelWorldObject);
-                tempShip.ShipModel.PlayerShipControl.Model.UseInput = false;
-                Model.Ships.Add(ShipHelper.Clone(tempShip, game));
-            }
-        }
-        /// <summary>
-        /// Dispose
-        /// </summary>
-        public void Dispose(RoguelancerGame game) {
-            Model = null;
-        }
-        #endregion
-    }
     /// <summary>
     /// Ship
     /// </summary>
     public class ShipObject : IGame, ISensorObject, IDockableShip {
         #region "public properties"
-        /// <summary>
-        /// Docked To
-        /// </summary>
-        public GameModel DockedTo { get; set; }
-        /// <summary>
-        /// Going To Object
-        /// </summary>
-        public StationObject GoingToObject { get; set; }
-        /// <summary>
-        /// Going To
-        /// </summary>
-        public bool GoingTo { get; set; }
-        /// <summary>
-        /// Docked
-        /// </summary>
-        public bool Docked { get; set; }
         /// <summary>
         /// Ship Model
         /// </summary>
@@ -152,7 +51,7 @@ namespace Roguelancer.Objects {
                 if (ShipModel.PlayerShipControl.Model.UseInput) {
                     ShipModel.PlayerShipControl.UpdateModel(Model, game);
                     //if (!game.Input.InputItems.Toggles.ToggleCamera) {
-                        Model.Update(game);
+                    Model.Update(game);
                     //}
                 } else {
                     Model.Update(game);
@@ -164,7 +63,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            if (!Docked) {
+            if (!ShipModel.Docked) {
                 Model.Draw(game);
             }
         }
@@ -172,7 +71,7 @@ namespace Roguelancer.Objects {
         /// Dispose
         /// </summary>
         public void Dispose(RoguelancerGame game) {
-            Docked = false;
+            ShipModel.Docked = false;
             Model.Dispose(game);
             Model = null;
             ShipModel = null;
@@ -182,12 +81,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
-            ShipModel = new ShipModel();
-            ShipModel.Money = 2000.00m;
-            ShipModel.CargoHold = new CargoHoldModel();
+            ShipModel = new ShipModel(game);
             Model = new GameModel(game, null, null);
-            ShipModel.PlayerShipControl = new PlayerShipControl(game);
-            //HardPoints = new List<HardPoint>();
         }
         #endregion
     }

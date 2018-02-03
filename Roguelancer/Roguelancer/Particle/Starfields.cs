@@ -1,11 +1,8 @@
-﻿
-
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
-using Roguelancer.Settings;
+using Roguelancer.Models;
 namespace Roguelancer.Particle {
     /// <summary>
     /// Starfields
@@ -43,14 +40,14 @@ namespace Roguelancer.Particle {
         /// <summary>
         /// Star Settings
         /// </summary>
-        private StarSettings _starSettings;
+        private StarSettingsModel _starSettings;
         #endregion
         #region "public methods"
         /// <summary>
         /// Starfields
         /// </summary>
         /// <param name="starSettings"></param>
-        public Starfields(StarSettings starSettings) {
+        public Starfields(StarSettingsModel starSettings) {
             _starSettings = starSettings;
         }
         /// <summary>
@@ -58,7 +55,7 @@ namespace Roguelancer.Particle {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            _stars = new ParticleStarSheet[_starSettings.numberOfStarSheets];
+            _stars = new ParticleStarSheet[_starSettings.NumberOfStarSheets];
         }
         /// <summary>
         /// Load Content
@@ -75,10 +72,10 @@ namespace Roguelancer.Particle {
             _starEffect = _explosionEffect.Clone();
             _starEffect.CurrentTechnique = _starEffect.Techniques["Technique1"];
             _starEffect.Parameters["theTexture"].SetValue(_explosionTexture);
-            n = _starSettings.maxPositionStartingY;
+            n = _starSettings.MaxPositionStartingY;
             for (var i = 0; i < _stars.Length; ++i) {
-                n = n - _starSettings.maxPositionIncrementY;
-                _stars[i] = new ParticleStarSheet(game, new Vector3(_starSettings.maxPositionX, _starSettings.maxPositionY, n), _starSettings.amountOfStarsPerSheet, _starTexture, _starEffect, _starSettings.maxSize);
+                n = n - _starSettings.MaxPositionIncrementY;
+                _stars[i] = new ParticleStarSheet(game, new Vector3(_starSettings.MaxPositionX, _starSettings.MaxPositionY, n), _starSettings.AmountOfStarsPerSheet, _starTexture, _starEffect, _starSettings.MaxSize);
             }
         }
         /// <summary>
