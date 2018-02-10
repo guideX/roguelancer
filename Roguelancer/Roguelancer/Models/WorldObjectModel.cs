@@ -1,6 +1,4 @@
 ﻿using Microsoft.Xna.Framework;
-using Roguelancer.Settings;
-
 namespace Roguelancer.Models {
     /// <summary>
     /// World Object Model
