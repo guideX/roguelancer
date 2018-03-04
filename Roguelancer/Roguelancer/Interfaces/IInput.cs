@@ -18,11 +18,6 @@ namespace Roguelancer.Interfaces {
         /// </summary>
         InputItemsModel InputItems { get; set; }
         /// <summary>
-        /// Load Content
-        /// </summary>
-        /// <param name="game"></param>
-        void LoadContent(RoguelancerGame game);
-        /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>

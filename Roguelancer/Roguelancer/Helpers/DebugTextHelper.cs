@@ -8,7 +8,7 @@
         /// </summary>
         /// <param name="game"></param>
         /// <param name="value"></param>
-        public static void SetText(RoguelancerGame game, string value, bool timerEnabled) {
+        public static void SetText(RoguelancerGame game, string value, bool timerEnabled = true) {
             game.DebugText.Model.TimerEnabled = timerEnabled;
             if (value != null) {
                 game.DebugText.Model.CurrentShowTime = 0;

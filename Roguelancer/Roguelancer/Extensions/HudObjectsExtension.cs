@@ -60,12 +60,17 @@ public static class HudObjectsExtension {
     public static void GotoCurrentlyTargetedObject(this RoguelancerGame game) {
         var playerShip = ShipHelper.GetPlayerShip(game);
         if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
-            playerShip.FaceObject(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
-            playerShip.ShipModel.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation();
-            //if(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.)
-            playerShip.ShipModel.GoingTo = true;
-            game.Input.InputItems.Toggles.Cruise = true;
-            //playerShip.Model.Up.Y = 0f;
+            var station = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation();
+            if (station != null & station.Model != null && station.Model.WorldObject != null) {
+                playerShip.FaceObject(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
+                playerShip.ShipModel.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation();
+                playerShip.ShipModel.GoingTo = true;
+                game.Input.InputItems.Toggles.Cruise = true;
+                //playerShip.Model.Up.Y = 0f;
+                DebugTextHelper.SetText(game, "Goto " + station.Model.WorldObject.Model.Description, true);
+            } else {
+                DebugTextHelper.SetText(game, "Goto Failed", true);
+            }
         } else {
             DebugTextHelper.SetText(game, "Nothing targetted.", true);
         }

@@ -106,7 +106,7 @@ namespace Roguelancer.Objects.Base {
                             // Etc
                             break;
                     }
-                    if (game.Settings.Model.KeyAssignments.Undock.FindKeyBoardStatus(game.Input.InputItems.Keys).IsKeyDown) {
+                    if (game.Settings.Model.KeyAssignments.Undock.FindIsKeyDown(game.Input.InputItems.Keys)) {
                         if (playerShip.ShipModel.Docked) {
                             var distance = (int)Vector3.Distance(playerShip.Model.Position, Model.Position) / (int)HudEnums.DivisionDistanceValue;
                             UnDock(game, playerShip, Model);
@@ -124,7 +124,7 @@ namespace Roguelancer.Objects.Base {
                     }
                     break;
                 case Enum.GameStatesEnum.Playing:
-                    var dock = game.Settings.Model.KeyAssignments.Dock.FindKeyBoardStatus(game.Input.InputItems.Keys);
+                    var dock = game.Settings.Model.KeyAssignments.Dock.FindKeyboardStatus(game.Input.InputItems.Keys);
                     if (dock.WasKeyPressed) {
                         dock.IsKeyDown = false;
                         if (!playerShip.ShipModel.Docked) {

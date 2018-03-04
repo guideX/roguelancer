@@ -194,6 +194,7 @@
     <Compile Include="Models\StationModel.cs" />
     <Compile Include="Models\StationPriceModel.cs" />
     <Compile Include="Models\TogglesModel.cs" />
+    <Compile Include="Models\TradeLaneModel.cs" />
     <Compile Include="Models\WorldObjectModel.cs" />
     <Compile Include="Objects\Base\DockableObject.cs" />
     <Compile Include="Objects\BulletObject.cs" />

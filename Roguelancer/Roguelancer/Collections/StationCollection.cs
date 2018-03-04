@@ -2,7 +2,6 @@
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Objects;
-
 namespace Roguelancer.Collections {
     /// <summary>
     /// Station Collection
