@@ -138,7 +138,7 @@ namespace Roguelancer.Functionality {
         /// <param name="key"></param>
         /// <param name="def"></param>
         /// <returns></returns>
-        public static float ReadIniFloat(string file, string section, string key, float def = 0.0f) {
+        private static float ReadIniFloat(string file, string section, string key, float def = 0.0f) {
             var msg = ReadINI(file, section, key, def.ToString());
             float result;
             float.TryParse(msg, out result);

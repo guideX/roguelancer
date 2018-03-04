@@ -21,7 +21,6 @@ public static class WorldObjectsExtensions {
                 oldObject.Model.InitialVelocity,
                 oldObject.Model.InitialCurrentThrust,
                 oldObject.Model.InitialDirection,
-                oldObject.Model.Scaling,
                 oldObject.Model.CargoSpace,
                 oldObject.Model.ID
             );

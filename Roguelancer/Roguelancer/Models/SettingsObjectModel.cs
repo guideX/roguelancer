@@ -12,7 +12,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Model Scaling
         /// </summary>
-        public Vector3 ModelScaling { get; set; }
+        //public Vector3 ModelScaling { get; set; }
         /// <summary>
         /// Enabled
         /// </summary>
@@ -30,17 +30,22 @@ namespace Roguelancer.Models {
         /// </summary>
         public bool IsPlayer { get; set; }
         /// <summary>
+        /// Scaling
+        /// </summary>
+        public float Scaling { get; set; }
+        /// <summary>
         /// Settings Object Model
         /// </summary>
         /// <param name="modelPath"></param>
         /// <param name="modelType"></param>
         /// <param name="enabled"></param>
         /// <param name="modelId"></param>
-        public SettingsObjectModel(string modelPath, ModelType modelType, bool enabled, int modelId) {
+        public SettingsObjectModel(string modelPath, ModelType modelType, bool enabled, int modelId, float scaling) {
             ModelPath = modelPath;
             ModelType = modelType;
             Enabled = enabled;
             ModelId = modelId;
+            Scaling = scaling;
         }
     }
 }

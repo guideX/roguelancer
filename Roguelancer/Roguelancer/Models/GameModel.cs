@@ -11,17 +11,9 @@ namespace Roguelancer.Models {
     public class GameModel : IGameModel {
         #region "public properties"
         /// <summary>
-        /// Scale
-        /// </summary>
-        public float Scale { get; set; }
-        /// <summary>
         /// Use Scale
         /// </summary>
         public bool UseScale { get; set; }
-        /// <summary>
-        /// Model Mode
-        /// </summary>
-        //public ModelModeEnum ModelMode { get; set; }
         /// <summary>
         /// Current Thrust
         /// </summary>
@@ -72,8 +64,16 @@ namespace Roguelancer.Models {
         /// Model
         /// </summary>
         private Model _model;
+        private IDockableSensorObject _parent;
         #endregion
         #region "public methods"
+        /// <summary>
+        /// Get Station
+        /// </summary>
+        /// <returns></returns>
+        public IDockableSensorObject GetStation() {
+            return _parent;
+        }
         /// <summary>
         /// Entry Point
         /// </summary>
@@ -93,10 +93,6 @@ namespace Roguelancer.Models {
                 ParticleSystem = new ParticleSystem(game);
                 ParticleSystem.Settings = particleSystemSettings;
             }
-        }
-        private IDockableSensorObject _parent;
-        public IDockableSensorObject GetStation() {
-            return _parent;
         }
         /// <summary>
         /// Initialize
@@ -125,10 +121,7 @@ namespace Roguelancer.Models {
             Rotation = new Vector2(WorldObject.Model.StartupRotation.X, WorldObject.Model.StartupRotation.Y);
             Velocity = WorldObject.Model.InitialVelocity;
             CurrentThrust = WorldObject.Model.InitialCurrentThrust;
-            Scale = WorldObject.Model.Scaling;
-            if (Scale != 0f) {
-                UseScale = true;
-            }
+            if (WorldObject.Model.SettingsModelObject.Scaling != 0f) UseScale = true;
             Direction = WorldObject.Model.InitialDirection;
             if (ParticleSystem != null) {
                 if (ParticleSystem.Settings.Enabled) {
@@ -190,9 +183,13 @@ namespace Roguelancer.Models {
                         be.Alpha = 1;
                         be.EnableDefaultLighting();
                         if (UseScale) {
-                            be.World = Matrix.CreateScale(Scale) * transforms[mm.ParentBone.Index] * World;
+                            be.World = 
+                                Matrix.CreateScale(WorldObject.Model.SettingsModelObject.Scaling) * 
+                                transforms[mm.ParentBone.Index] * 
+                                World
+                            ;
                         } else {
-                            be.World = transforms[mm.ParentBone.Index] * World;
+                           be.World = transforms[mm.ParentBone.Index] * World;
                         }
                         be.View = game.Camera.Model.View;
                         be.Projection = game.Camera.Model.Projection;
@@ -205,8 +202,8 @@ namespace Roguelancer.Models {
         /// Dispose
         /// </summary>
         public void Dispose(RoguelancerGame game) {
-            Scale = new float();
-            UseScale = false;
+            //Scale = new float();
+            //UseScale = false;
             CurrentThrust = new float();
             Velocity = new Vector3();
             Rotation = new Vector2();

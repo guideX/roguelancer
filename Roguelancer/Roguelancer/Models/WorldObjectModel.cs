@@ -23,7 +23,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Scaling
         /// </summary>
-        public float Scaling { get; set; }
+        //public float Scaling { get; set; }
         /// <summary>
         /// Startup Model Rotation
         /// </summary>

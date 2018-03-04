@@ -81,13 +81,14 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Reset(ShipObject playerShipModel, RoguelancerGame game, Vector3 startupPosition, int deathSeconds = 3, int scale = 3, string modelPath = "bullet", float bulletThrust = .5f, ParticleSystemSettingsModel particleSystemSettings = null) {
-            BulletModel = new BulletModel(game);
-            BulletModel.BulletThrust = bulletThrust;
-            BulletModel.PlayerShip = playerShipModel;
-            BulletModel.DeathDate = DateTime.Now.AddSeconds(deathSeconds);
-            BulletModel.Model = new GameModel(game, particleSystemSettings, null);
-            BulletModel.Model.UseScale = true;
-            BulletModel.Model.Scale = scale;
+            BulletModel = new BulletModel(game) {
+                BulletThrust = bulletThrust,
+                PlayerShip = playerShipModel,
+                DeathDate = DateTime.Now.AddSeconds(deathSeconds),
+                Model = new GameModel(game, particleSystemSettings, null)
+            };
+            //BulletModel.Model.UseScale = true;
+            //BulletModel.Model.Scale = scale;
             BulletModel.Model.WorldObject = new WorldObjectsSettings(
                 "bullet",
                 "",
@@ -97,7 +98,8 @@ namespace Roguelancer.Objects {
                     modelPath,
                     ModelType.Bullet,
                     true,
-                    13
+                    13,
+                    scale
                 ),
                 1,
                 BulletModel.PlayerShip.Model.Up,
@@ -105,7 +107,6 @@ namespace Roguelancer.Objects {
                 BulletModel.PlayerShip.Model.Velocity,
                 BulletModel.PlayerShip.Model.CurrentThrust,
                 BulletModel.PlayerShip.Model.Direction,
-                1.0f,
                 0,
                 0
             );

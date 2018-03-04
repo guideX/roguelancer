@@ -13,7 +13,8 @@ public static class SettingsObjectModelExtensions {
             oldObject.ModelPath,
             oldObject.ModelType,
             oldObject.Enabled,
-            oldObject.ModelId
+            oldObject.ModelId,
+            oldObject.Scaling
         );
     }
 }
