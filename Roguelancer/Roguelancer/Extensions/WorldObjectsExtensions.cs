@@ -1,4 +1,5 @@
-﻿using Roguelancer.Settings;
+﻿using Roguelancer.Models;
+using Roguelancer.Settings;
 /// <summary>
 /// World Objects Extensions
 /// </summary>
@@ -9,6 +10,7 @@ public static class WorldObjectsExtensions {
     /// <param name="oldObject"></param>
     /// <returns></returns>
     public static WorldObjectsSettings Clone(this WorldObjectsSettings oldObject) {
+        if (oldObject == null) throw new System.Exception("Cannot clone a null object.");
         return new WorldObjectsSettings(
                 oldObject.Model.Description,
                 oldObject.Model.DescriptionLong,

@@ -75,9 +75,11 @@ namespace Roguelancer.Collections {
             foreach (var modelWorldObject in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.Ships.Where(s => !s.Model.SettingsModelObject.IsPlayer).ToList()) {
                 tempShip = new ShipObject(game);
                 tempShip.Model = new GameModel(game, null, null);
-                tempShip.Model.WorldObject = modelWorldObject.Clone();
-                tempShip.ShipModel.PlayerShipControl.Model.UseInput = false;
-                Model.Ships.Add(ShipHelper.Clone(tempShip, game));
+                if (modelWorldObject != null) {
+                    tempShip.Model.WorldObject = modelWorldObject.Clone();
+                    tempShip.ShipModel.PlayerShipControl.Model.UseInput = false;
+                    Model.Ships.Add(ShipHelper.Clone(tempShip, game));
+                }
             }
         }
         /// <summary>

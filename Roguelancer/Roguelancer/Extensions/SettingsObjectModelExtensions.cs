@@ -9,6 +9,7 @@ public static class SettingsObjectModelExtensions {
     /// <param name="oldObject"></param>
     /// <returns></returns>
     public static SettingsObjectModel Clone(this SettingsObjectModel oldObject) {
+        if (oldObject == null) throw new System.Exception("Cannot clone a null object.");
         return new SettingsObjectModel(
             oldObject.ModelPath,
             oldObject.ModelType,

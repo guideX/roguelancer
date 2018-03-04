@@ -69,31 +69,36 @@ namespace Roguelancer.Settings {
             var descriptionLong = NativeMethods.ReadINI(iniFile, section, "description_long", "");
             var startupPosition = NativeMethods.ReadINIVector3(iniFile, section, "startup_position_x", "startup_position_y", "startup_position_z");
             var startupModelRotation = NativeMethods.ReadINIVector3(iniFile, section, "startup_model_rotation_x", "startup_model_rotation_y", "startup_model_rotation_z");
-            SettingsObjectModel settingsModelObject = modelSettings.Where(s => s.Enabled && s.ModelId == NativeMethods.ReadINIInt(iniFile, section, "model_index", 0)).FirstOrDefault().Clone();
-            var starSystemID = NativeMethods.ReadINIInt(iniFile, section, "system_index", 0);
-            var initialModelUp = NativeMethods.ReadINIVector3(iniFile, section, "initial_model_up_x", "initial_model_up_y", "initial_model_up_z");
-            var initialModelRight = NativeMethods.ReadINIVector3(iniFile, section, "initial_model_right_x", "initial_model_right_y", "initial_model_right_z");
-            var initialVelocity = NativeMethods.ReadINIVector3(iniFile, section, "initial_velocity_x", "initial_velocity_y", "initial_velocity_z");
-            var initialCurrentThrust = float.Parse(NativeMethods.ReadINI(iniFile, section, "initial_current_thrust", "0"));
-            var initialDirection = NativeMethods.ReadINIVector3(iniFile, section, "initial_direction_x", "initial_direction_y", "initial_direction_z");
-            //var scaling = NativeMethods.ReadINIFloat(iniFile, section, "model_scaling");
-            var cargoSpace = NativeMethods.ReadINIInt(iniFile, section, "cargo_space", 0);
-            return new WorldObjectsSettings(
-                description,
-                descriptionLong,
-                startupPosition,
-                startupModelRotation,
-                settingsModelObject,
-                starSystemID,
-                initialModelUp,
-                initialModelRight,
-                initialVelocity,
-                initialCurrentThrust,
-                initialDirection,
-                //scaling,
-                cargoSpace,
-                ID
-            );
+            var modelWorldObjectSettings = modelSettings.Where(s => s.Enabled && s.ModelId == NativeMethods.ReadINIInt(iniFile, section, "model_index", 0)).FirstOrDefault();
+            if (modelWorldObjectSettings != null) {
+                SettingsObjectModel settingsModelObject = modelWorldObjectSettings.Clone();
+                var starSystemID = NativeMethods.ReadINIInt(iniFile, section, "system_index", 0);
+                var initialModelUp = NativeMethods.ReadINIVector3(iniFile, section, "initial_model_up_x", "initial_model_up_y", "initial_model_up_z");
+                var initialModelRight = NativeMethods.ReadINIVector3(iniFile, section, "initial_model_right_x", "initial_model_right_y", "initial_model_right_z");
+                var initialVelocity = NativeMethods.ReadINIVector3(iniFile, section, "initial_velocity_x", "initial_velocity_y", "initial_velocity_z");
+                var initialCurrentThrust = float.Parse(NativeMethods.ReadINI(iniFile, section, "initial_current_thrust", "0"));
+                var initialDirection = NativeMethods.ReadINIVector3(iniFile, section, "initial_direction_x", "initial_direction_y", "initial_direction_z");
+                //var scaling = NativeMethods.ReadINIFloat(iniFile, section, "model_scaling");
+                var cargoSpace = NativeMethods.ReadINIInt(iniFile, section, "cargo_space", 0);
+                return new WorldObjectsSettings(
+                    description,
+                    descriptionLong,
+                    startupPosition,
+                    startupModelRotation,
+                    settingsModelObject,
+                    starSystemID,
+                    initialModelUp,
+                    initialModelRight,
+                    initialVelocity,
+                    initialCurrentThrust,
+                    initialDirection,
+                    //scaling,
+                    cargoSpace,
+                    ID
+                );
+            } else {
+                throw new System.Exception("Settings Not Found.");
+            }
         }
     }
 }

@@ -406,6 +406,57 @@
       <Processor>ModelProcessor</Processor>
     </Compile>
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="PLANETS\ALIEN_PLANET\ALIEN_PLANET.fbx">
+      <Name>ALIEN_PLANET</Name>
+      <Importer>FbxImporter</Importer>
+      <Processor>ModelProcessor</Processor>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="PLANETS\ALIEN_PLANET\4096_bump.jpg">
+      <Name>4096_bump</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="PLANETS\ALIEN_PLANET\4096_clouds.jpg">
+      <Name>4096_clouds</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="PLANETS\ALIEN_PLANET\4096_earth.jpg">
+      <Name>4096_earth</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="PLANETS\ALIEN_PLANET\4096_night_lights.jpg">
+      <Name>4096_night_lights</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="PLANETS\ALIEN_PLANET\4096_normal.jpg">
+      <Name>4096_normal</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="PLANETS\ALIEN_PLANET\planet_Bog1200.png">
+      <Name>planet_Bog1200</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+    <Compile Include="PLANETS\ALIEN_PLANET\Render1.png">
+      <Name>Render1</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="PLANETS\ALIEN_PLANET\planet_texture_001_by_ralasterphecy.jpg">
+      <Name>planet_texture_001_by_ralasterphecy</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+  </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\$(XnaFrameworkVersion)\Microsoft.Xna.GameStudio.ContentPipeline.targets" />
   <!--  To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

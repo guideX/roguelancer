@@ -21,7 +21,13 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public GameObjects(RoguelancerGame game) {
-            Model = new GameObjectsModel(game);
+            Model = new GameObjectsModel() {
+                Stations = new StationCollection(game),
+                Planets = new PlanetCollection(game),
+                Stars = new Starfields(game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.StarSettings),
+                Ships = new ShipCollection(game),
+                Bullets = new BulletCollection(game)
+            };
         }
         /// <summary>
         /// Initialize
