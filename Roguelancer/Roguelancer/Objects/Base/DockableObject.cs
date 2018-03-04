@@ -226,9 +226,7 @@ namespace Roguelancer.Objects.Base {
                         var commodity = game.Settings.Model.CommoditiesModels.Where(c => c.CommodityId == obj.CommoditiesId).FirstOrDefault();
                         sb.AppendLine("[" + n.ToString() + "] Description: " + commodity.Description + ", Price: " + obj.Price.ToString() + Environment.NewLine);
                     }
-                    if (game.GameState.Model.CurrentGameState == Enum.GameStatesEnum.Docked && game.GameState.Model.DockedGameState == Enum.DockedGameStateEnum.Commodities) {
-                        DebugTextHelper.SetText(game, "Station Commodities:" + Environment.NewLine + sb.ToString() + Environment.NewLine, true);
-                    }
+                    if (game.GameState.Model.CurrentGameState == Enum.GameStatesEnum.Docked && game.GameState.Model.DockedGameState == Enum.DockedGameStateEnum.Commodities) DebugTextHelper.SetText(game, "Station Commodities:" + Environment.NewLine + sb.ToString() + Environment.NewLine, true);
                     break;
                 default:
                     break;

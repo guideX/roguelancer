@@ -17,6 +17,20 @@ namespace Roguelancer.Actions {
             _game = game;
         }
         /// <summary>
+        /// Camera Snapshot
+        /// </summary>
+        public void CameraSnapshot() {
+            _game.Input.InputItems.Toggles.CameraSnapshot = false;
+            _game.CameraSnapshot = _game.Camera;
+        }
+        /// <summary>
+        /// Revert Camera
+        /// </summary>
+        public void RevertCamera() {
+            _game.Input.InputItems.Toggles.RevertCamera = false;
+            _game.Camera = _game.CameraSnapshot;
+        }
+        /// <summary>
         /// Free Mouse Mode
         /// </summary>
         /// <param name="game"></param>

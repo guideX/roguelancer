@@ -52,7 +52,7 @@ namespace Roguelancer.Objects {
             if (Model.UpdateOrderInt > (int)HudEnums.UpdateOrderInterval) {
                 if (Model.PlayerShip == null) { Model.PlayerShip = ShipHelper.GetPlayerShip(game.Objects.Model); }
                 Model.ScreenRectangle = new Rectangle((int)HudEnums.ImageLeft, (int)HudEnums.ImageTop, (int)HudEnums.ImageWidth, (int)HudEnums.ImageHeight);
-                if (((game.Objects.Model.Ships.Model.Ships.Count + game.Objects.Model.Stations.Model.Stations.Count + game.Objects.Model.Planets.Model.Planets.Count) - 1) != Model.Model.SensorObjects.Count) {
+                if (((game.Objects.Model.DockingRings.DockingRings.Count + game.Objects.Model.Ships.Model.Ships.Count + game.Objects.Model.Stations.Model.Stations.Count + game.Objects.Model.Planets.Model.Planets.Count) - 1) != Model.Model.SensorObjects.Count) {
                     Model.Model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();
                     foreach (var ship in game.Objects.Model.Ships.Model.Ships) {
                         shipId++;
@@ -86,6 +86,18 @@ namespace Roguelancer.Objects {
                         text = planet.Model.WorldObject.Model.Description;
                         Model.Model.SensorObjects.Add(new HudSensorObject() {
                             Obj = planet,
+                            Text = text,
+                            FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop + n),
+                            Distance = d,
+                            FontOrigin = Model.Font.MeasureString(text) / 2
+                        });
+                        n = n + (int)HudEnums.FontIncrement;
+                    }
+                    foreach (var dockingRing in game.Objects.Model.DockingRings.DockingRings) {
+                        d = (double)Vector3.Distance(Model.PlayerShip.Model.Position, dockingRing.Model.Position) / (int)HudEnums.DivisionDistanceValue;
+                        text = dockingRing.Model.WorldObject.Model.Description;
+                        Model.Model.SensorObjects.Add(new HudSensorObject() {
+                            Obj = dockingRing,
                             Text = text,
                             FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop + n),
                             Distance = d,
