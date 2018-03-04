@@ -29,12 +29,14 @@ namespace Roguelancer.Settings {
                 WorldObjectsSettings player,
                 StarSettingsModel _starSettings
             ) {
-            Model = new StarSystemSettingsModel();
-            Model.Ships = new List<WorldObjectsSettings>();
-            Model.Planets = new List<WorldObjectsSettings>();
-            Model.Stations = new List<WorldObjectsSettings>();
-            Model.TradeLanes = new List<WorldObjectsSettings>();
-            Model.JumpHoles = new List<WorldObjectsSettings>();
+            Model = new StarSystemSettingsModel() {
+                Ships = new List<WorldObjectsSettings>(),
+                Planets = new List<WorldObjectsSettings>(),
+                Stations = new List<WorldObjectsSettings>(),
+                TradeLanes = new List<WorldObjectsSettings>(),
+                JumpHoles = new List<WorldObjectsSettings>(),
+                DockingRings = new List<WorldObjectsSettings>()
+            };
             player.Model.SettingsModelObject.IsPlayer = true;
             Model.Ships.Add(player);
             for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\ships.ini", "settings", "count", 0) + 1; ++i) {
@@ -48,6 +50,9 @@ namespace Roguelancer.Settings {
             }
             for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\planets.ini", "settings", "count", 0) + 1; ++i) {
                 Model.Planets.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\planets.ini", i.ToString().Trim()));
+            }
+            for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\planets.ini", "settings", "count", 0) + 1; ++i) {
+                Model.DockingRings.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\planets.ini", i.ToString().Trim()));
             }
             for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\tradelanes.ini", "settings", "count", 0) + 1; ++i) {
                 Model.TradeLanes.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\tradelanes.ini", i.ToString().Trim()));

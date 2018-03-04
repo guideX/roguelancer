@@ -22,6 +22,10 @@ namespace Roguelancer.Models {
         /// </summary>
         public List<WorldObjectsSettings> Planets { get; set; }
         /// <summary>
+        /// Docking Rings
+        /// </summary>
+        public List<WorldObjectsSettings> DockingRings { get; set; }
+        /// <summary>
         /// Trade Lanes
         /// </summary>
         public List<WorldObjectsSettings> TradeLanes { get; set; }

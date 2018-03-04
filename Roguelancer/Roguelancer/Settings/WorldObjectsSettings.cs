@@ -13,8 +13,10 @@ namespace Roguelancer.Settings {
         /// </summary>
         public WorldObjectModel Model { get; set; }
         /// <summary>
-        /// Entry Point
+        /// Constructor
         /// </summary>
+        /// <param name="description"></param>
+        /// <param name="descriptionLong"></param>
         /// <param name="startupPosition"></param>
         /// <param name="startupModelRotation"></param>
         /// <param name="settingsModelObject"></param>
@@ -24,6 +26,8 @@ namespace Roguelancer.Settings {
         /// <param name="initialVelocity"></param>
         /// <param name="initialCurrentThrust"></param>
         /// <param name="initialDirection"></param>
+        /// <param name="cargoSpace"></param>
+        /// <param name="id"></param>
         public WorldObjectsSettings(
                 string description,
                 string descriptionLong,
@@ -36,7 +40,6 @@ namespace Roguelancer.Settings {
                 Vector3 initialVelocity,
                 float initialCurrentThrust,
                 Vector3 initialDirection,
-                //float scaling,
                 int cargoSpace,
                 int id
             ) {
@@ -52,7 +55,6 @@ namespace Roguelancer.Settings {
                 InitialVelocity = initialVelocity,
                 InitialCurrentThrust = initialCurrentThrust,
                 InitialDirection = initialDirection,
-                //Scaling = scaling,
                 CargoSpace = cargoSpace,
                 ID = id
             };
@@ -60,6 +62,7 @@ namespace Roguelancer.Settings {
         /// <summary>
         /// Read
         /// </summary>
+        /// <param name="ID"></param>
         /// <param name="modelSettings"></param>
         /// <param name="iniFile"></param>
         /// <param name="section"></param>
@@ -78,7 +81,6 @@ namespace Roguelancer.Settings {
                 var initialVelocity = NativeMethods.ReadINIVector3(iniFile, section, "initial_velocity_x", "initial_velocity_y", "initial_velocity_z");
                 var initialCurrentThrust = float.Parse(NativeMethods.ReadINI(iniFile, section, "initial_current_thrust", "0"));
                 var initialDirection = NativeMethods.ReadINIVector3(iniFile, section, "initial_direction_x", "initial_direction_y", "initial_direction_z");
-                //var scaling = NativeMethods.ReadINIFloat(iniFile, section, "model_scaling");
                 var cargoSpace = NativeMethods.ReadINIInt(iniFile, section, "cargo_space", 0);
                 return new WorldObjectsSettings(
                     description,
@@ -92,7 +94,6 @@ namespace Roguelancer.Settings {
                     initialVelocity,
                     initialCurrentThrust,
                     initialDirection,
-                    //scaling,
                     cargoSpace,
                     ID
                 );

@@ -6,7 +6,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Planet
     /// </summary>
-    public class PlanetObject : DockableObject, IGame, IDockableSensorObject {
+    public class DockingRingModel : DockableObject, IGame, IDockableSensorObject {
         #region "public properties"
         /// <summary>
         /// Model
@@ -22,7 +22,7 @@ namespace Roguelancer.Objects {
         /// Entry Point
         /// </summary>
         /// <param name="game"></param>
-        public PlanetObject(RoguelancerGame game) {
+        public DockingRingModel(RoguelancerGame game) {
             Reset(game);
         }
         /// <summary>
