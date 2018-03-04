@@ -124,7 +124,6 @@
     <Compile Include="Extensions\PlayerShipExtensions.cs" />
     <Compile Include="Extensions\SettingsObjectModelExtensions.cs" />
     <Compile Include="Extensions\WorldObjectsExtensions.cs" />
-    <Compile Include="Extensions\XnaExtensions.cs" />
     <Compile Include="Helpers\DebugTextHelper.cs" />
     <Compile Include="Helpers\ShipHelper.cs" />
     <Compile Include="Interfaces\IBloomComponent.cs" />
