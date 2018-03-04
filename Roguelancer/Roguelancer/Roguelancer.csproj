@@ -117,7 +117,6 @@
     <Compile Include="Enum\GameCameraModeEnum.cs" />
     <Compile Include="Enum\HudEnums.cs" />
     <Compile Include="Enum\KeyboardAssignmentEnum.cs" />
-    <Compile Include="Extensions\ClassExtensions.cs" />
     <Compile Include="Extensions\HudObjectsExtension.cs" />
     <Compile Include="Extensions\InputExtension.cs" />
     <Compile Include="Extensions\InputExtensions.cs" />

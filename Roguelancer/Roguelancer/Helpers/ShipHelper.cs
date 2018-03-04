@@ -1,4 +1,5 @@
-﻿using Roguelancer.Objects;
+﻿using Roguelancer.Models;
+using Roguelancer.Objects;
 using System.Linq;
 namespace Roguelancer.Helpers {
     /// <summary>
@@ -9,8 +10,8 @@ namespace Roguelancer.Helpers {
         /// Get Player Ship
         /// </summary>
         /// <returns></returns>
-        public static ShipObject GetPlayerShip(RoguelancerGame game) {
-            return game.Objects.Model.Ships.Model.Ships.Where(s => s.ShipModel.PlayerShipControl.Model.UseInput).LastOrDefault();
+        public static ShipObject GetPlayerShip(GameObjectsModel gameObjects) {
+            return gameObjects.Ships.Model.Ships.Where(s => s.ShipModel.PlayerShipControl.Model.UseInput).LastOrDefault();
         }
         /// <summary>
         /// Clone

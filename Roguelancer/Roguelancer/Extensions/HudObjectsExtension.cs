@@ -14,12 +14,12 @@ public static class HudObjectsExtension {
     /// </summary>
     /// <param name="game"></param>
     /// <returns></returns>
-    public static List<HudSensorObject> GetAllSensorObjects(this RoguelancerGame game, bool includeShips = false) {
-        var playerShip = ShipHelper.GetPlayerShip(game);
+    public static List<HudSensorObject> GetAllSensorObjects(this GameObjectsModel gameObjects, bool includeShips = false) {
+        var playerShip = ShipHelper.GetPlayerShip(gameObjects);
         var results = new List<HudSensorObject>();
         var shipID = 0;
         if (includeShips) {
-            foreach (var ship in game.Objects.Model.Ships.Model.Ships) {
+            foreach (var ship in gameObjects.Ships.Model.Ships) {
                 shipID++;
                 results.Add(new HudSensorObject() {
                     Obj = ship,
@@ -31,7 +31,7 @@ public static class HudObjectsExtension {
             }
         }
         var stationID = 0;
-        foreach (var station in game.Objects.Model.Stations.Model.Stations) {
+        foreach (var station in gameObjects.Stations.Model.Stations) {
             stationID++;
             results.Add(new HudSensorObject() {
                 Obj = station,
@@ -41,7 +41,7 @@ public static class HudObjectsExtension {
                 //FontOrigin = 
             });
         }
-        foreach (var planet in game.Objects.Model.Planets.Model.Planets) {
+        foreach (var planet in gameObjects.Planets.Model.Planets) {
             stationID++;
             results.Add(new HudSensorObject() {
                 Obj = planet,
@@ -58,7 +58,7 @@ public static class HudObjectsExtension {
     /// </summary>
     /// <param name="game"></param>
     public static void GotoCurrentlyTargetedObject(this RoguelancerGame game) {
-        var playerShip = ShipHelper.GetPlayerShip(game);
+        var playerShip = ShipHelper.GetPlayerShip(game.Objects.Model);
         if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
             var station = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation();
             if (station != null) {
@@ -81,8 +81,8 @@ public static class HudObjectsExtension {
     /// Target Next
     /// </summary>
     public static void TargetNextObject(this RoguelancerGame game) {
-        var sensorObjects = GetAllSensorObjects(game, false);
-        var playerShip = ShipHelper.GetPlayerShip(game);
+        var sensorObjects = GetAllSensorObjects(game.Objects.Model, false);
+        var playerShip = ShipHelper.GetPlayerShip(game.Objects.Model);
         var lastSensorObjectMatchesCurrentTarget = false;
         var itemChosen = false;
         for (var i = 0; i <= sensorObjects.Count - 1; i++) {

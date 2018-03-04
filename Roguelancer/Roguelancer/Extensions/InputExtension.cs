@@ -12,17 +12,17 @@ public static class InputExtension {
     /// Start Playing Menu
     /// </summary>
     /// <param name="game"></param>
-    public static void StartPlayingMenu(this RoguelancerGame game) {
-        game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
-        game.GameState.Model.CurrentGameState = GameStatesEnum.Playing;
+    public static void StartPlayingMenu(this GameStateModel gameState) {
+        gameState.LastGameState = gameState.CurrentGameState;
+        gameState.CurrentGameState = GameStatesEnum.Playing;
     }
     /// <summary>
     /// Exit Menu
     /// </summary>
     /// <param name="game"></param>
-    public static void ExitMenu(this RoguelancerGame game) {
-        game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
-        game.GameState.Model.CurrentGameState = GameStatesEnum.Menu;
+    public static void ExitMenu(this GameStateModel gameState) {
+        gameState.LastGameState = gameState.CurrentGameState;
+        gameState.CurrentGameState = GameStatesEnum.Menu;
     }
     /// <summary>
     /// Goto Menu

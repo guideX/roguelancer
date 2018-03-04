@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Roguelancer.Enum;
-using Roguelancer.Helpers;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 namespace Roguelancer.Functionality {
@@ -53,7 +52,7 @@ namespace Roguelancer.Functionality {
                 case GameStatesEnum.Menu:
                     // START PLAYING
                     if (game.Settings.Model.KeyAssignments.CurrentGameState_Menu.FindWasKeyPressed(InputItems.Keys))
-                        game.StartPlayingMenu();
+                        game.GameState.Model.StartPlayingMenu();
                     // EXIT GAME
                     if (game.Settings.Model.KeyAssignments.Exit.FindWasKeyPressed(InputItems.Keys))
                         game.Exit();
@@ -67,7 +66,7 @@ namespace Roguelancer.Functionality {
                     InputItems.Mouse.Vector = new Vector2(InputItems.Mouse.State.X, InputItems.Mouse.State.Y);
                     // EXIT
                     if (game.Settings.Model.KeyAssignments.Exit.FindWasKeyPressed(InputItems.Keys))
-                        game.ExitMenu();
+                        game.GameState.Model.ExitMenu();
                     // GO TO MENU
                     if (game.Settings.Model.KeyAssignments.CurrentGameState_Playing.FindWasKeyPressed(InputItems.Keys))
                         game.GotoMenu();

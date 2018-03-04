@@ -54,7 +54,7 @@ namespace Roguelancer.Objects.Base {
         /// <param name="Model"></param>
         /// <param name="stationID"></param>
         public virtual void Update(RoguelancerGame game, GameModel Model, int? stationID) {
-            var playerShip = ShipHelper.GetPlayerShip(game);
+            var playerShip = ShipHelper.GetPlayerShip(game.Objects.Model);
             switch (game.GameState.Model.CurrentGameState) { // Current Game State
                 case Enum.GameStatesEnum.Docked: // Docked
                     switch (game.GameState.Model.DockedGameState) { // Docked Game State
@@ -179,7 +179,7 @@ namespace Roguelancer.Objects.Base {
         /// <param name="ship"></param>
         public virtual void Dock(RoguelancerGame game, ShipObject ship, GameModel dockTo) {
             if (!ship.ShipModel.Docked) {
-                var playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
+                var playerShip = ShipHelper.GetPlayerShip(game.Objects.Model); // Get Player Ship
                 ship.Model.Velocity = new Vector3(0f, 0f, 0f);
                 ship.Model.CurrentThrust = 0f;
                 ship.ShipModel.DockedTo = dockTo; // Set Docket To
@@ -198,7 +198,7 @@ namespace Roguelancer.Objects.Base {
         /// <param name="ship"></param>
         public virtual void UnDock(RoguelancerGame game, ShipObject ship, GameModel undockFrom) {
             if (ship.ShipModel.Docked) {
-                var playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
+                var playerShip = ShipHelper.GetPlayerShip(game.Objects.Model); // Get Player Ship
                 if (playerShip == ship) game.GameState.Model.CurrentGameState = Enum.GameStatesEnum.Playing;
                 ship.ShipModel.Docked = false;
                 ship.ShipModel.DockedTo = null;
@@ -241,7 +241,7 @@ namespace Roguelancer.Objects.Base {
             if (stationPrices.Any()) {
                 var commodity = game.Settings.Model.CommoditiesModels.Where(c => c.CommodityId == commodityID).FirstOrDefault();
                 var stationPrice = DockableObjectModel.StationPrices.FirstOrDefault();
-                var ship = ShipHelper.GetPlayerShip(game); // Get Player Ship
+                var ship = ShipHelper.GetPlayerShip(game.Objects.Model); // Get Player Ship
                 if (ship.ShipModel.Money * qty >= stationPrice.Price * qty) {
                     if (stationPrice.Qty >= qty) {
                         ship.ShipModel.Money = ship.ShipModel.Money - stationPrice.Price;

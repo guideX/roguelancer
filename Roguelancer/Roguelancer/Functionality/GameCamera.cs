@@ -164,7 +164,7 @@ namespace Roguelancer.Functionality {
         /// </summary>
         /// <param name="game"></param>
         private void UpdateCameraChaseTarget(RoguelancerGame game) {
-            var playerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
+            var playerShip = ShipHelper.GetPlayerShip(game.Objects.Model); // Get Player Ship
             Model.ChasePosition = playerShip.Model.Position;
             Model.ChaseDirection = playerShip.Model.Direction;
             Model.Up = playerShip.Model.Up;
