@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Roguelancer.Interfaces;
+﻿using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Objects.Base;
 using Roguelancer.Enum;

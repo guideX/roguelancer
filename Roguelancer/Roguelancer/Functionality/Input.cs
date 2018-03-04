@@ -52,10 +52,8 @@ namespace Roguelancer.Functionality {
             switch (game.GameState.Model.CurrentGameState) {
                 case GameStatesEnum.Menu:
                     // START PLAYING
-                    if (game.Settings.Model.KeyAssignments.CurrentGameState_Menu.FindWasKeyPressed(InputItems.Keys)) {
-                        game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
-                        game.GameState.Model.CurrentGameState = GameStatesEnum.Playing;
-                    }
+                    if (game.Settings.Model.KeyAssignments.CurrentGameState_Menu.FindWasKeyPressed(InputItems.Keys))
+                        game.StartPlayingMenu();
                     // EXIT GAME
                     if (game.Settings.Model.KeyAssignments.Exit.FindWasKeyPressed(InputItems.Keys))
                         game.Exit();
@@ -68,15 +66,11 @@ namespace Roguelancer.Functionality {
                     // UPDATE MOUSE VECTOR
                     InputItems.Mouse.Vector = new Vector2(InputItems.Mouse.State.X, InputItems.Mouse.State.Y);
                     // EXIT
-                    if (game.Settings.Model.KeyAssignments.Exit.FindWasKeyPressed(InputItems.Keys)) {
-                        game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
-                        game.GameState.Model.CurrentGameState = GameStatesEnum.Menu;
-                    }
+                    if (game.Settings.Model.KeyAssignments.Exit.FindWasKeyPressed(InputItems.Keys))
+                        game.ExitMenu();
                     // GO TO MENU
-                    if (game.Settings.Model.KeyAssignments.CurrentGameState_Playing.FindWasKeyPressed(InputItems.Keys)) {
-                        game.GameState.Model.LastGameState = game.GameState.Model.CurrentGameState;
-                        game.GameState.Model.CurrentGameState = GameStatesEnum.Menu;
-                    }
+                    if (game.Settings.Model.KeyAssignments.CurrentGameState_Playing.FindWasKeyPressed(InputItems.Keys))
+                        game.GotoMenu();
                     // TARGET
                     if (game.Settings.Model.KeyAssignments.Target.FindWasKeyPressed(InputItems.Keys))
                         game.TargetNextObject();
@@ -84,32 +78,21 @@ namespace Roguelancer.Functionality {
                     if (game.Settings.Model.KeyAssignments.Goto.FindWasKeyPressed(InputItems.Keys))
                         game.GotoCurrentlyTargetedObject();
                     // TOGGLE MODE
-                    if (game.Settings.Model.KeyAssignments.ToggleMode.FindWasKeyPressed(InputItems.Keys)) {
+                    if (game.Settings.Model.KeyAssignments.ToggleMode.FindWasKeyPressed(InputItems.Keys))
                         this.ToggleMode(game);
-                        DebugTextHelper.SetText(game, "Toggle Mode", true);
-                    }
                     // CRUISE
-                    if (game.Settings.Model.KeyAssignments.Cruise.FindWasKeyPressed(InputItems.Keys)) {
-                        if (InputItems.Toggles.Cruise) {
-                            InputItems.Toggles.Cruise = false;
-                            DebugTextHelper.SetText(game, "Cruise Mode Off", true);
-                        } else {
-                            InputItems.Toggles.Cruise = true;
-                            DebugTextHelper.SetText(game, "Cruise Mode On", true);
-                        }
-                    }
+                    if (game.Settings.Model.KeyAssignments.Cruise.FindWasKeyPressed(InputItems.Keys))
+                        game.ToggleCruise();
                     // TOGGLE CAMERA
                     if (game.Settings.Model.KeyAssignments.ToggleCamera.FindWasKeyPressed(InputItems.Keys)) {
-                        if (InputItems.Toggles.ToggleCamera) {
-                            InputItems.Toggles.ToggleCamera = false;
-                            InputItems.Toggles.RevertCamera = true;
-                            DebugTextHelper.SetText(game, "Revert Camera Mode", true);
-                        } else {
-                            InputItems.Toggles.ToggleCamera = true;
-                            InputItems.Toggles.CameraSnapshot = true;
-                            DebugTextHelper.SetText(game, "Camera Snapshot Mode", true);
-                        }
+                        game.ToggleCamera();
                     }
+                    // MOUSE MODE
+                    if (game.Settings.Model.KeyAssignments.MouseMode.FindWasKeyPressed(InputItems.Keys))
+                        game.MouseMode();
+                    // FREE MOUSE MODE
+                    if (game.Settings.Model.KeyAssignments.FreeMouseMode.FindWasKeyPressed(InputItems.Keys))
+                        game.FreeMouseMode();
                     // SNAPSHOT
                     if (game.Input.InputItems.Toggles.CameraSnapshot) {
                         game.Input.InputItems.Toggles.CameraSnapshot = false;
@@ -117,18 +100,6 @@ namespace Roguelancer.Functionality {
                     } else if (game.Input.InputItems.Toggles.RevertCamera) {
                         game.Input.InputItems.Toggles.RevertCamera = false;
                         game.Camera = game.CameraSnapshot;
-                    }
-                    // MOUSE MODE
-                    if (game.Settings.Model.KeyAssignments.MouseMode.FindWasKeyPressed(InputItems.Keys)) {
-                        game.Input.InputItems.Toggles.MouseMode = true;
-                        game.Input.InputItems.Toggles.FreeMouseMode = false;
-                        DebugTextHelper.SetText(game, "Mouse Mode Enabled", true);
-                    }
-                    // FREE MOUSE MODE
-                    if (game.Settings.Model.KeyAssignments.FreeMouseMode.FindWasKeyPressed(InputItems.Keys)) {
-                        game.Input.InputItems.Toggles.MouseMode = false;
-                        game.Input.InputItems.Toggles.FreeMouseMode = true;
-                        DebugTextHelper.SetText(game, "Free Flight Mode Enabled", true);
                     }
                     break;
             }
