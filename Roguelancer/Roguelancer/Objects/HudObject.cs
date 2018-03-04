@@ -52,7 +52,7 @@ namespace Roguelancer.Objects {
             if (Model.UpdateOrderInt > (int)HudEnums.UpdateOrderInterval) {
                 if (Model.PlayerShip == null) { Model.PlayerShip = ShipHelper.GetPlayerShip(game); }
                 Model.ScreenRectangle = new Rectangle((int)HudEnums.ImageLeft, (int)HudEnums.ImageTop, (int)HudEnums.ImageWidth, (int)HudEnums.ImageHeight);
-                if (((game.Objects.Model.Ships.Model.Ships.Count + game.Objects.Model.Stations.Model.Stations.Count) - 1) != Model.Model.SensorObjects.Count) {
+                if (((game.Objects.Model.Ships.Model.Ships.Count + game.Objects.Model.Stations.Model.Stations.Count + game.Objects.Model.Planets.Model.Planets.Count) - 1) != Model.Model.SensorObjects.Count) {
                     Model.Model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();
                     foreach (var ship in game.Objects.Model.Ships.Model.Ships) {
                         shipId++;

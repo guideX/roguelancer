@@ -17,7 +17,8 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Going To Object
         /// </summary>
-        public StationObject GoingToObject { get; set; }
+        //public StationObject GoingToObject { get; set; }
+        public IDockableSensorObject GoingToObject { get; set; }
         /// <summary>
         /// Going To
         /// </summary>

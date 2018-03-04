@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework.Input;
 using Roguelancer;
+using Roguelancer.Enum;
 using Roguelancer.Models;
 /// <summary>
 /// Input Extensions

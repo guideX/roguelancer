@@ -129,6 +129,7 @@
     <Compile Include="Interfaces\IBloomComponent.cs" />
     <Compile Include="Interfaces\IBloomHandler.cs" />
     <Compile Include="Interfaces\IDockableObject.cs" />
+    <Compile Include="Interfaces\IDockableSensorObject.cs" />
     <Compile Include="Interfaces\IGameMenu.cs" />
     <Compile Include="Interfaces\IGameStates.cs" />
     <Compile Include="Interfaces\IHudObject.cs" />

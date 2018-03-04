@@ -7,7 +7,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Station
     /// </summary>
-    public class StationObject : DockableObject, IGame, IDockable, ISensorObject {
+    public class StationObject : DockableObject, IGame, IDockableSensorObject {
         #region "public properties"
         /// <summary>
         /// Model

@@ -7,20 +7,20 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Planet
     /// </summary>
-    public class PlanetObject : DockableObject, IGame, IDockable, ISensorObject {
+    public class PlanetObject : DockableObject, IGame, IDockableSensorObject {
         #region "public properties"
         /// <summary>
         /// Model
         /// </summary>
         public StationModel StationModel { get; set; }
         /// <summary>
-        /// Model
+        /// Game Model
         /// </summary>
         public GameModel Model { get; set; }
         #endregion
         #region "public methods"
         /// <summary>
-        /// Planet
+        /// Entry Point
         /// </summary>
         /// <param name="game"></param>
         public PlanetObject(RoguelancerGame game) {
@@ -74,7 +74,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
-            Model = new GameModel(game, null, null);
+            Model = new GameModel(game, null, this);
             StationModel = new StationModel();
         }
         #endregion

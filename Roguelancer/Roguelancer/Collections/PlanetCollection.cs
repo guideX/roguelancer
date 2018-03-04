@@ -1,7 +1,7 @@
-﻿using Roguelancer.Interfaces;
+﻿using System.Linq;
+using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Objects;
-
 namespace Roguelancer.Collections {
     /// <summary>
     /// Planet Collection
@@ -31,7 +31,7 @@ namespace Roguelancer.Collections {
                 var s = new PlanetObject(game);
                 s.StationModel.StationID = n;
                 s.Model.WorldObject = obj;
-                //s.DockableObjectModel.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.ID).ToList();
+                s.DockableObjectModel.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.Model.ID).ToList();
                 Model.Planets.Add(s);
             }
             foreach (var planet in Model.Planets) {
