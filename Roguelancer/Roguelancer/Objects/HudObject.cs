@@ -35,7 +35,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            Model.PlayerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
+            Model.PlayerShip = ShipHelper.GetPlayerShip(game.Objects.Model); // Get Player Ship
             Model.Font = game.Content.Load<SpriteFont>("FONTS\\" + game.Settings.Model.FontSmall);
             Model.Sensor = game.Content.Load<Texture2D>(game.Settings.Model.SensorTexture);
         }
@@ -50,7 +50,7 @@ namespace Roguelancer.Objects {
             var shipId = 0;
             Model.UpdateOrderInt++;
             if (Model.UpdateOrderInt > (int)HudEnums.UpdateOrderInterval) {
-                if (Model.PlayerShip == null) { Model.PlayerShip = ShipHelper.GetPlayerShip(game); }
+                if (Model.PlayerShip == null) { Model.PlayerShip = ShipHelper.GetPlayerShip(game.Objects.Model); }
                 Model.ScreenRectangle = new Rectangle((int)HudEnums.ImageLeft, (int)HudEnums.ImageTop, (int)HudEnums.ImageWidth, (int)HudEnums.ImageHeight);
                 if (((game.Objects.Model.Ships.Model.Ships.Count + game.Objects.Model.Stations.Model.Stations.Count + game.Objects.Model.Planets.Model.Planets.Count) - 1) != Model.Model.SensorObjects.Count) {
                     Model.Model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();
@@ -115,7 +115,7 @@ namespace Roguelancer.Objects {
         public void Draw(RoguelancerGame game) {
             //game.Graphics.SpriteBatch.Draw(_sensor, _screenRectangle, Color.White);
             var n = 0;
-            var playerShip = ShipHelper.GetPlayerShip(game);
+            var playerShip = ShipHelper.GetPlayerShip(game.Objects.Model);
             foreach (var sensorObject in Model.Model.SensorObjects) {
                 if (n < (int)HudEnums.MaxSensorObjects) {
                     var fontOrigin = Model.Font.MeasureString(sensorObject.Text) / 2;

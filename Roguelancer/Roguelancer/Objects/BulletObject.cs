@@ -46,7 +46,7 @@ namespace Roguelancer.Objects {
             Vector3 force, acceleration;
             var elapsed = (float)game.GameTime.ElapsedGameTime.TotalSeconds;
             var rotationAmount = new Vector2();
-            if (BulletModel.PlayerShip == null) { BulletModel.PlayerShip = ShipHelper.GetPlayerShip(game); }
+            if (BulletModel.PlayerShip == null) { BulletModel.PlayerShip = ShipHelper.GetPlayerShip(game.Objects.Model); }
             BulletModel.Model.CurrentThrust = BulletModel.BulletThrust + BulletModel.PlayerShip.Model.CurrentThrust;
             BulletModel.Model.Rotation = rotationAmount;
             BulletModel.Model.UpdatePosition();

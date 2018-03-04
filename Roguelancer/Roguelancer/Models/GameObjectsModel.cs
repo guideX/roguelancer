@@ -1,6 +1,5 @@
 ﻿using Roguelancer.Collections;
 using Roguelancer.Interfaces;
-using Roguelancer.Objects;
 using Roguelancer.Particle;
 namespace Roguelancer.Models {
     /// <summary>
@@ -35,5 +34,16 @@ namespace Roguelancer.Models {
         /// Jump Holes
         /// </summary>
         public JumpHoleCollection JumpHoles { get; set; }
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        public GameObjectsModel(RoguelancerGame game) {
+            Stations = new StationCollection(game);
+            Planets = new PlanetCollection(game);
+            Stars = new Starfields(game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.StarSettings);
+            //TradeLanes = new TradeLaneCollection(game),
+            Ships = new ShipCollection(game);
+            Bullets = new BulletCollection(game);
+        }
     }
 }

@@ -32,7 +32,7 @@ public static class PlayerShipExtensions {
     /// </summary>
     /// <param name="game"></param>
     public static void MoveForward(this IPlayerShipControl playerShipControl, RoguelancerGame game, GameModel model) {
-        var playerShip = ShipHelper.GetPlayerShip(game);
+        var playerShip = ShipHelper.GetPlayerShip(game.Objects.Model);
         game.Camera.Shake(playerShip.ShipModel.PlayerShipControl.Model.ShakeValue, 0f, false);
         if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAmount) {
             model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
@@ -176,7 +176,7 @@ public static class PlayerShipExtensions {
                 }
             }
         } else {
-            var playerShip = ShipHelper.GetPlayerShip(game);
+            var playerShip = ShipHelper.GetPlayerShip(game.Objects.Model);
             switch (playerShipControl.Model.AutoDockStep) {
                 case 0:
                     playerShip.FaceObject(playerShip.ShipModel.GoingToObject.Model);
@@ -222,7 +222,7 @@ public static class PlayerShipExtensions {
     /// <param name="playerShipControl"></param>
     /// <param name="game"></param>
     public static void CheckGoto(this PlayerShipControl playerShipControl, RoguelancerGame game) {
-        var playerShip = ShipHelper.GetPlayerShip(game);
+        var playerShip = ShipHelper.GetPlayerShip(game.Objects.Model);
         if (playerShip.ShipModel.GoingTo && playerShip.ShipModel.GoingToObject != null) {
             var distance = (int)Vector3.Distance(playerShip.Model.Position, playerShip.ShipModel.GoingToObject.Model.Position) / (int)HudEnums.DivisionDistanceValue;
             if (distance < (int)HudEnums.DockDistanceAccept * 2) {

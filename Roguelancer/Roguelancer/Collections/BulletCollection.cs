@@ -49,7 +49,7 @@ namespace Roguelancer.Collections {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             BulletsModel = game.Content.Load<Model>("bullet");
-            _model.PlayerShip = ShipHelper.GetPlayerShip(game); // Get Player Ship
+            _model.PlayerShip = ShipHelper.GetPlayerShip(game.Objects.Model); // Get Player Ship
         }
         /// <summary>
         /// Update
