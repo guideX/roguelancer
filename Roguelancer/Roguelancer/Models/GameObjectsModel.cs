@@ -35,5 +35,9 @@ namespace Roguelancer.Models {
         /// Jump Holes
         /// </summary>
         public JumpHoleCollection JumpHoles { get; set; }
+        /// <summary>
+        /// Docking Rings
+        /// </summary>
+        public DockingRingCollectionModel DockingRings { get; set; }
     }
 }

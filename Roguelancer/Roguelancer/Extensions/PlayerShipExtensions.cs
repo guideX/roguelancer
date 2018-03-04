@@ -226,31 +226,8 @@ public static class PlayerShipExtensions {
         if (playerShip.ShipModel.GoingTo && playerShip.ShipModel.GoingToObject != null) {
             var distance = (int)Vector3.Distance(playerShip.Model.Position, playerShip.ShipModel.GoingToObject.Model.Position) / (int)HudEnums.DivisionDistanceValue;
             if (distance < (int)HudEnums.DockDistanceAccept * 2) {
-                playerShip.Model.CurrentThrust = 0;
-                playerShip.ShipModel.GoingTo = false;
-                playerShip.ShipModel.GoingToObject = null;
+                game.InGameActions.FullStop();
                 DebugTextHelper.SetText(game, "Goto Completed", true);
-                game.Input.InputItems.Toggles.Cruise = false;
-                //if (playerShip.Model.CurrentThrust != 0) {
-                /*
-                playerShipControl.StopShaking(game);
-                if (playerShip.Model.CurrentThrust == 0) {
-                    playerShip.GoingTo = false;
-                    playerShip.GoingToObject = null;
-                } else if (playerShip.Model.CurrentThrust > PlayerShipControlModel.MaxThrustAmount || playerShip.Model.CurrentThrust > -.0001) {
-                    playerShip.Model.CurrentThrust = playerShip.Model.CurrentThrust - PlayerShipControlModel.ThrustSlowDownSpeed;
-                }
-                if (playerShip.Model.CurrentThrust < PlayerShipControlModel.ThrustMinNotZero) {
-                    playerShip.Model.CurrentThrust = 0;
-                }
-                if (playerShip.Model.CurrentThrust != 0) playerShip.Model.CurrentThrust = playerShip.Model.CurrentThrust - PlayerShipControlModel.ThrustSlowDownSpeed;
-                */
-                //} else {
-                //DebugTextHelper.SetText(game, "Goto Completed", true);
-                //playerShip.GoingTo = false;
-                //playerShip.GoingToObject = null;
-                //playerShip.Model.Velocity = Vector3.Zero;
-                //}
             }
         }
     }

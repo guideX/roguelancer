@@ -28,42 +28,34 @@ namespace Roguelancer.Collections {
             var n = 0;
             foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.Planets) {
                 n++;
-                var s = new PlanetObject(game);
+                var s = new DockingRingObject(game);
                 s.StationModel.StationID = n;
                 s.Model.WorldObject = obj;
                 s.DockableObjectModel.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.Model.ID).ToList();
                 Model.DockingRings.Add(s);
             }
-            foreach (var dockingRing in Model.DockingRings) {
-                dockingRing.Initialize(game);
-            }
+            foreach (var dockingRing in Model.DockingRings) dockingRing.Initialize(game);
         }
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            foreach (var dockingRing in Model.DockingRings) {
-                dockingRing.LoadContent(game);
-            }
+            foreach (var dockingRing in Model.DockingRings) dockingRing.LoadContent(game);
         }
         /// <summary>
         /// Upate
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            foreach (var dockingRing in Model.DockingRings) {
-                dockingRing.Update(game);
-            }
+            foreach (var dockingRing in Model.DockingRings) dockingRing.Update(game);
         }
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            foreach (var dockingRing in Model.DockingRings) {
-                dockingRing.Draw(game);
-            }
+            foreach (var dockingRing in Model.DockingRings) dockingRing.Draw(game);
         }
         /// <summary>
         /// Dispose

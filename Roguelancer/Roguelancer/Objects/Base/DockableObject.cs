@@ -128,22 +128,26 @@ namespace Roguelancer.Objects.Base {
                     if (dock.WasKeyPressed) {
                         dock.IsKeyDown = false;
                         if (!playerShip.ShipModel.Docked) {
-                            var distance = (int)Vector3.Distance(playerShip.Model.Position, playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.Position) / (int)HudEnums.DivisionDistanceValue;
-                            if (distance < (int)HudEnums.DockDistanceAccept) {
-                                Dock(game, playerShip, playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
-                                game.Input.InputItems.Toggles.Cruise = false;
-                            } else if (distance < (int)HudEnums.DockDistanceAccept * 2) {
-                                if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
-                                    playerShip.ShipModel.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation(); // Set Docket To
-                                    DebugTextHelper.SetText(game, "Automatic Docking Initiated", true);
-                                    playerShip.ShipModel.PlayerShipControl.Model.UseAutoDock = true;
+                            if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
+                                var distance = (int)Vector3.Distance(playerShip.Model.Position, playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.Position) / (int)HudEnums.DivisionDistanceValue;
+                                if (distance < (int)HudEnums.DockDistanceAccept) {
+                                    Dock(game, playerShip, playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
+                                    game.Input.InputItems.Toggles.Cruise = false;
+                                } else if (distance < (int)HudEnums.DockDistanceAccept * 2) {
+                                    if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
+                                        playerShip.ShipModel.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation(); // Set Docket To
+                                        DebugTextHelper.SetText(game, "Automatic Docking Initiated", true);
+                                        playerShip.ShipModel.PlayerShipControl.Model.UseAutoDock = true;
+                                    } else {
+                                        DebugTextHelper.SetText(game, "Nothing targetted.", true);
+                                    }
                                 } else {
-                                    DebugTextHelper.SetText(game, "Nothing targetted.", true);
+                                    game.Input.InputItems.Toggles.Cruise = false;
+                                    playerShip.Model.Velocity = Vector3.Zero;
+                                    DebugTextHelper.SetText(game, "Dock failed, destination is too far. " + distance.ToString(), true);
                                 }
                             } else {
-                                game.Input.InputItems.Toggles.Cruise = false;
-                                playerShip.Model.Velocity = Vector3.Zero;
-                                DebugTextHelper.SetText(game, "Dock failed, destination is too far. " + distance.ToString(), true);
+                                DebugTextHelper.SetText(game, "Dock failed." , true);
                             }
                         }
                     }

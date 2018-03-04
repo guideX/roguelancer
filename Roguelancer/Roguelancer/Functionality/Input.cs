@@ -52,7 +52,7 @@ namespace Roguelancer.Functionality {
                 case GameStatesEnum.Menu:
                     // START PLAYING
                     if (game.Settings.Model.KeyAssignments.CurrentGameState_Menu.FindWasKeyPressed(InputItems.Keys))
-                        game.GameState.Model.StartPlayingMenu();
+                        game.MenuActions.StartPlaying();
                     // EXIT GAME
                     if (game.Settings.Model.KeyAssignments.Exit.FindWasKeyPressed(InputItems.Keys))
                         game.Exit();
@@ -66,32 +66,32 @@ namespace Roguelancer.Functionality {
                     InputItems.Mouse.Vector = new Vector2(InputItems.Mouse.State.X, InputItems.Mouse.State.Y);
                     // EXIT
                     if (game.Settings.Model.KeyAssignments.Exit.FindWasKeyPressed(InputItems.Keys))
-                        game.GameState.Model.ExitMenu();
+                        game.MenuActions.ExitMenu();
                     // GO TO MENU
                     if (game.Settings.Model.KeyAssignments.CurrentGameState_Playing.FindWasKeyPressed(InputItems.Keys))
-                        game.GotoMenu();
+                        game.MenuActions.GotoMenu();
                     // TARGET
                     if (game.Settings.Model.KeyAssignments.Target.FindWasKeyPressed(InputItems.Keys))
-                        game.TargetNextObject();
+                        game.InGameActions.TargetNextObject();
                     // GOTO
                     if (game.Settings.Model.KeyAssignments.Goto.FindWasKeyPressed(InputItems.Keys))
-                        game.GotoCurrentlyTargetedObject();
+                        game.InGameActions.GotoCurrentlyTargetedObject();
                     // TOGGLE MODE
                     if (game.Settings.Model.KeyAssignments.ToggleMode.FindWasKeyPressed(InputItems.Keys))
-                        this.ToggleMode(game);
+                        game.InGameActions.ToggleMode();
                     // CRUISE
                     if (game.Settings.Model.KeyAssignments.Cruise.FindWasKeyPressed(InputItems.Keys))
-                        game.ToggleCruise();
+                        game.InGameActions.ToggleCruise();
                     // TOGGLE CAMERA
                     if (game.Settings.Model.KeyAssignments.ToggleCamera.FindWasKeyPressed(InputItems.Keys)) {
-                        game.ToggleCamera();
+                        game.InGameActions.ToggleCamera();
                     }
                     // MOUSE MODE
                     if (game.Settings.Model.KeyAssignments.MouseMode.FindWasKeyPressed(InputItems.Keys))
-                        game.MouseMode();
+                        game.InGameActions.MouseMode();
                     // FREE MOUSE MODE
                     if (game.Settings.Model.KeyAssignments.FreeMouseMode.FindWasKeyPressed(InputItems.Keys))
-                        game.FreeMouseMode();
+                        game.InGameActions.FreeMouseMode();
                     // SNAPSHOT
                     if (game.Input.InputItems.Toggles.CameraSnapshot) {
                         game.Input.InputItems.Toggles.CameraSnapshot = false;

@@ -4,7 +4,6 @@ using Roguelancer.Models;
 using Roguelancer.Enum;
 using Roguelancer.Helpers;
 using Roguelancer.Objects;
-
 namespace Roguelancer.Collections {
     /// <summary>
     /// Ship Collection
@@ -39,27 +38,21 @@ namespace Roguelancer.Collections {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            foreach (var _ship in Model.Ships) {
-                _ship.LoadContent(game);
-            }
+            foreach (var _ship in Model.Ships) _ship.LoadContent(game);
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            foreach (var _ship in Model.Ships) {
-                _ship.Update(game);
-            }
+            foreach (var _ship in Model.Ships) _ship.Update(game);
         }
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            foreach (var _ship in Model.Ships) {
-                _ship.Draw(game);
-            }
+            foreach (var _ship in Model.Ships) _ship.Draw(game);
         }
         /// <summary>
         /// Reset

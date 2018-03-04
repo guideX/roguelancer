@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Roguelancer.Objects;
+using System.Collections.Generic;
 namespace Roguelancer.Models {
     /// <summary>
     /// Docking Ring Collection Model
@@ -7,6 +8,6 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Docking Rings
         /// </summary>
-        public List<DockingRingModel> DockingRings { get; set; }
+        public List<DockingRingObject> DockingRings { get; set; }
     }
 }

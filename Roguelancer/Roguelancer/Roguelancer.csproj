@@ -109,7 +109,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Actions\InGameActions.cs" />
+    <Compile Include="Actions\MenuActions.cs" />
     <Compile Include="Bloom\BloomComponent.cs" />
+    <Compile Include="Collections\DockingRingCollection.cs" />
     <Compile Include="Collections\JumpHoleCollection.cs" />
     <Compile Include="Collections\PlanetCollection.cs" />
     <Compile Include="Collections\ShipCollection.cs" />
@@ -163,6 +166,8 @@
     <Compile Include="Models\CommodityModel.cs" />
     <Compile Include="Models\DebugTextModel.cs" />
     <Compile Include="Models\DockableObjectModel.cs" />
+    <Compile Include="Models\DockingRingCollectionModel.cs" />
+    <Compile Include="Models\DockingRingModel.cs" />
     <Compile Include="Models\GameCameraModel.cs" />
     <Compile Include="Models\GameGraphicsModel.cs" />
     <Compile Include="Models\GameMenuModel.cs" />
@@ -198,6 +203,7 @@
     <Compile Include="Objects\Base\DockableObject.cs" />
     <Compile Include="Objects\BulletObject.cs" />
     <Compile Include="Collections\BulletCollection.cs" />
+    <Compile Include="Objects\DockingRingObject.cs" />
     <Compile Include="Objects\HudObject.cs" />
     <Compile Include="Objects\JumpHoleObject.cs" />
     <Compile Include="RoguelancerGame.cs" />
@@ -264,6 +270,7 @@
   <ItemGroup>
     <None Include="configuration\commodities.ini" />
     <Content Include="configuration\menus.ini" />
+    <None Include="configuration\systems\test_system\dockingrings.ini" />
     <Content Include="Game.ico" />
     <Content Include="GameThumbnail.png" />
   </ItemGroup>

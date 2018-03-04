@@ -26,7 +26,9 @@ namespace Roguelancer.Objects {
                 Planets = new PlanetCollection(game),
                 Stars = new Starfields(game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.StarSettings),
                 Ships = new ShipCollection(game),
-                Bullets = new BulletCollection(game)
+                Bullets = new BulletCollection(game),
+                JumpHoles = new JumpHoleCollection(),
+                DockingRings = new DockingRingCollectionModel()
             };
         }
         /// <summary>

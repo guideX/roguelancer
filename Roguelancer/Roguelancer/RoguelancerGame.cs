@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Roguelancer.Actions;
 using Roguelancer.Bloom;
 using Roguelancer.Enum;
 using Roguelancer.Functionality;
@@ -58,6 +59,14 @@ namespace Roguelancer {
         /// </summary>
         public IGameMenu GameMenu { get; set; }
         /// <summary>
+        /// In Game Actions
+        /// </summary>
+        public InGameActions InGameActions { get; set; }
+        /// <summary>
+        /// Menu Actions
+        /// </summary>
+        public MenuActions MenuActions { get; set; }
+        /// <summary>
         /// Game Time
         /// </summary>
         public GameTime GameTime { get; set; }
@@ -85,6 +94,8 @@ namespace Roguelancer {
             Objects = new GameObjects(this);
             GameMenu = new GameMenuObject(this);
             Hud = new HudObject(this);
+            InGameActions = new InGameActions(this);
+            MenuActions = new MenuActions(this);
             GameMenu.Model.CurrentMenu = CurrentMenu.HomeMenu;
         }
         /// <summary>
