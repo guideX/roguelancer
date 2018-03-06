@@ -24,7 +24,8 @@ public static class WorldObjectsExtensions {
                 oldObject.Model.InitialCurrentThrust,
                 oldObject.Model.InitialDirection,
                 oldObject.Model.CargoSpace,
-                oldObject.Model.ID
+                oldObject.Model.ID,
+                oldObject.Model.Dockable
             );
     }
 }

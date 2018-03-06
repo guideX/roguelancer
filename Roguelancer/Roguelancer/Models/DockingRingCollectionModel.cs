@@ -8,6 +8,6 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Docking Rings
         /// </summary>
-        public List<DockingRingObject> DockingRings { get; set; } = new List<DockingRingObject>()
+        public List<DockingRingObject> DockingRings { get; set; } = new List<DockingRingObject>();
     }
 }

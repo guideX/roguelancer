@@ -28,7 +28,7 @@ namespace Roguelancer.Objects {
                 Ships = new ShipCollection(game),
                 Bullets = new BulletCollection(game),
                 JumpHoles = new JumpHoleCollection(),
-                DockingRings = new DockingRingCollectionModel()
+                DockingRings = new DockingRingCollection(game)
             };
         }
         /// <summary>
@@ -42,6 +42,7 @@ namespace Roguelancer.Objects {
             //Model.TradeLanes.Initialize(game);
             Model.Ships.Initialize(game);
             Model.Bullets.Initialize(game);
+            Model.DockingRings.Initialize(game);
             //Model.JumpHoles.Initialize(game);
         }
         /// <summary>
@@ -55,6 +56,7 @@ namespace Roguelancer.Objects {
             //Model.TradeLanes.LoadContent(game);
             Model.Ships.LoadContent(game);
             Model.Bullets.LoadContent(game);
+            Model.DockingRings.LoadContent(game);
             //Model.JumpHoles.Initialize(game);
         }
         /// <summary>
@@ -69,6 +71,7 @@ namespace Roguelancer.Objects {
                 //Model.TradeLanes.Update(game);
                 Model.Ships.Update(game);
                 Model.Bullets.Update(game);
+                Model.DockingRings.Update(game);
                 //Model.JumpHoles.Initialize(game);
             } else {
                 Model.Stations.Update(game);
@@ -87,6 +90,7 @@ namespace Roguelancer.Objects {
                 //Model.TradeLanes.Draw(game);
                 Model.Ships.Draw(game);
                 Model.Bullets.Draw(game);
+                Model.DockingRings.Draw(game);
                 //Model.JumpHoles.Draw(game);
             } else {
                 Model.Stations.Draw(game);
@@ -103,6 +107,7 @@ namespace Roguelancer.Objects {
             Model.Stations = new StationCollection(game);
             Model.Planets = new PlanetCollection(game);
             Model.Stars = new Starfields(new StarSettingsModel(false, 0, 0, 0, 0, 0, 0, 0));
+            Model.DockingRings = new DockingRingCollection(game);
             //Model.JumpHoles = new JumpHoleCollection();
         }
         /// <summary>
@@ -114,6 +119,7 @@ namespace Roguelancer.Objects {
             Model.Stations.Dispose(game);
             Model.Planets.Dispose(game);
             Model.Stars.Dispose(game);
+            Model.DockingRings.Dispose(game);
         }
         #endregion
     }

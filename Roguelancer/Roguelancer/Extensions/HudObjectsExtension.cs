@@ -26,7 +26,6 @@ public static class HudObjectsExtension {
                     Distance = Vector3.Distance(playerShip.Model.Position, ship.Model.Position) / (int)HudEnums.DivisionDistanceValue,
                     Text = "Ship " + shipID.ToString(),
                     FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
-                    //FontOrigin = 
                 });
             }
         }
@@ -38,7 +37,6 @@ public static class HudObjectsExtension {
                 Distance = Vector3.Distance(playerShip.Model.Position, station.Model.Position) / (int)HudEnums.DivisionDistanceValue,
                 Text = "Station " + stationID.ToString(),
                 FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
-                //FontOrigin = 
             });
         }
         foreach (var planet in gameObjects.Planets.Model.Planets) {
@@ -48,7 +46,15 @@ public static class HudObjectsExtension {
                 Distance = Vector3.Distance(playerShip.Model.Position, planet.Model.Position) / (int)HudEnums.DivisionDistanceValue,
                 Text = "Planet " + stationID.ToString(),
                 FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
-                //FontOrigin = 
+            });
+        }
+        foreach (var dockingRing in gameObjects.DockingRings.Model.DockingRings) {
+            stationID++;
+            results.Add(new HudSensorObject() {
+                Obj = dockingRing,
+                Distance = Vector3.Distance(playerShip.Model.Position, dockingRing.Model.Position) / (int)HudEnums.DivisionDistanceValue,
+                Text = "Docking Ring " + stationID.ToString(),
+                FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
             });
         }
         return results;

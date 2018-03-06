@@ -68,5 +68,9 @@ namespace Roguelancer.Models {
         /// Cargo Space
         /// </summary>
         public int CargoSpace { get; set; }
+        /// <summary>
+        /// Dockable
+        /// </summary>
+        public bool Dockable { get; set; }
     }
 }

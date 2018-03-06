@@ -38,6 +38,6 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Docking Rings
         /// </summary>
-        public DockingRingCollectionModel DockingRings { get; set; }
+        public DockingRingCollection DockingRings { get; set; }
     }
 }

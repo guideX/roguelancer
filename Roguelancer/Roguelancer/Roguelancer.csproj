@@ -118,6 +118,7 @@
     <Compile Include="Collections\PlanetCollection.cs" />
     <Compile Include="Collections\ShipCollection.cs" />
     <Compile Include="Collections\StationCollection.cs" />
+    <Compile Include="Collections\TradeLaneCollection.cs" />
     <Compile Include="Enum\GameCameraModeEnum.cs" />
     <Compile Include="Enum\HudEnums.cs" />
     <Compile Include="Enum\KeyboardAssignmentEnum.cs" />
@@ -127,6 +128,7 @@
     <Compile Include="Extensions\PlayerShipExtensions.cs" />
     <Compile Include="Extensions\SettingsObjectModelExtensions.cs" />
     <Compile Include="Extensions\WorldObjectsExtensions.cs" />
+    <Compile Include="Functionality\IniFile.cs" />
     <Compile Include="Helpers\DebugTextHelper.cs" />
     <Compile Include="Helpers\ShipHelper.cs" />
     <Compile Include="Interfaces\IBloomComponent.cs" />
@@ -199,6 +201,7 @@
     <Compile Include="Models\StationModel.cs" />
     <Compile Include="Models\StationPriceModel.cs" />
     <Compile Include="Models\TogglesModel.cs" />
+    <Compile Include="Models\TradeLaneCollectionModel.cs" />
     <Compile Include="Models\TradeLaneModel.cs" />
     <Compile Include="Models\WorldObjectModel.cs" />
     <Compile Include="Objects\Base\DockableObject.cs" />
@@ -207,6 +210,7 @@
     <Compile Include="Objects\DockingRingObject.cs" />
     <Compile Include="Objects\HudObject.cs" />
     <Compile Include="Objects\JumpHoleObject.cs" />
+    <Compile Include="Objects\TradeLaneObject.cs" />
     <Compile Include="RoguelancerGame.cs" />
     <Compile Include="Functionality\GameCamera.cs" />
     <Compile Include="Functionality\DebugText.cs" />
@@ -262,16 +266,18 @@
     <Compile Include="Roguelancer.cs" />
     <Compile Include="Settings\CameraSettings.cs" />
     <Compile Include="Settings\GameSettings.cs" />
+    <Compile Include="Settings\TradeLaneSettings.cs" />
     <Compile Include="Settings\WorldObjectsSettings.cs" />
     <Compile Include="Settings\StarSystemSettings.cs" />
     <None Include="configuration\ships.ini" />
     <None Include="configuration\systems\liberty\new_york\planets.ini" />
+    <None Include="configuration\systems\test_system\jumpholes.ini" />
+    <None Include="configuration\systems\test_system\rings.ini" />
     <None Include="configuration\systems\test_system\tradelanes.ini" />
   </ItemGroup>
   <ItemGroup>
     <None Include="configuration\commodities.ini" />
     <Content Include="configuration\menus.ini" />
-    <None Include="configuration\systems\test_system\dockingrings.ini" />
     <Content Include="Game.ico" />
     <Content Include="GameThumbnail.png" />
   </ItemGroup>

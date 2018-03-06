@@ -1,5 +1,6 @@
-﻿using System.Runtime.InteropServices;
+﻿/*
 using System.Text;
+using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework;
 namespace Roguelancer.Functionality {
     /// <summary>
@@ -65,7 +66,8 @@ namespace Roguelancer.Functionality {
         /// <param name="def"></param>
         /// <returns></returns>
         public static int ReadINIInt(string file, string section, string key, int def = 0) {
-            if (int.TryParse(ReadINI(file, section, key, def.ToString()), out int n)) {
+            int n = 0;
+            if (int.TryParse(ReadINI(file, section, key, def.ToString()), out n)) {
                 return n;
             } else {
                 return 0;
@@ -146,4 +148,4 @@ namespace Roguelancer.Functionality {
         }
         #endregion
     }
-}
+}*/

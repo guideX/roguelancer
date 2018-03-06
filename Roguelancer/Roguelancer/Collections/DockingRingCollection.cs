@@ -26,7 +26,7 @@ namespace Roguelancer.Collections {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             var n = 0;
-            foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.Planets) {
+            foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.DockingRings) {
                 n++;
                 var s = new DockingRingObject(game);
                 s.StationModel.StationID = n;

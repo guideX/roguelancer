@@ -41,7 +41,8 @@ namespace Roguelancer.Settings {
                 float initialCurrentThrust,
                 Vector3 initialDirection,
                 int cargoSpace,
-                int id
+                int id, 
+                bool dockable
             ) {
             Model = new WorldObjectModel() {
                 Description = description,
@@ -56,7 +57,8 @@ namespace Roguelancer.Settings {
                 InitialCurrentThrust = initialCurrentThrust,
                 InitialDirection = initialDirection,
                 CargoSpace = cargoSpace,
-                ID = id
+                ID = id,
+                Dockable = dockable
             };
         }
         /// <summary>
@@ -82,6 +84,7 @@ namespace Roguelancer.Settings {
                 var initialCurrentThrust = float.Parse(NativeMethods.ReadINI(iniFile, section, "initial_current_thrust", "0"));
                 var initialDirection = NativeMethods.ReadINIVector3(iniFile, section, "initial_direction_x", "initial_direction_y", "initial_direction_z");
                 var cargoSpace = NativeMethods.ReadINIInt(iniFile, section, "cargo_space", 0);
+                var dockable = NativeMethods.ReadINIBool(iniFile, section, "dockable", false);
                 return new WorldObjectsSettings(
                     description,
                     descriptionLong,
@@ -95,7 +98,8 @@ namespace Roguelancer.Settings {
                     initialCurrentThrust,
                     initialDirection,
                     cargoSpace,
-                    ID
+                    ID,
+                    dockable
                 );
             } else {
                 throw new System.Exception("Settings Not Found.");
