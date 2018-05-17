@@ -1,8 +1,6 @@
 ﻿using System.Collections.Generic;
 using Roguelancer.Functionality;
 using Roguelancer.Models;
-using System;
-
 namespace Roguelancer.Settings {
     /// <summary>
     /// Star System Settings
@@ -68,8 +66,10 @@ namespace Roguelancer.Settings {
         }
     }
 }
+
 /*
  * EDIT BY LIAM:
+ * Tuesday March 06th 2018
 fddddddddddddd cfcfcfcfcfcfcfcf
 
 gvb ......................
