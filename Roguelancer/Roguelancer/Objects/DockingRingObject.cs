@@ -6,7 +6,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Planet
     /// </summary>
-    public class DockingRingObject : DockableObject, IGame, IDockableSensorObject {
+    public class DockingRingObject : DockableObject, IGame, IDockableSensorObject, IObjectModel {
         #region "public properties"
         /// <summary>
         /// Model

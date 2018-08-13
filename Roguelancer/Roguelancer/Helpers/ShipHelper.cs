@@ -11,7 +11,7 @@ namespace Roguelancer.Helpers {
         /// </summary>
         /// <returns></returns>
         public static ShipObject GetPlayerShip(GameObjectsModel gameObjects) {
-            return gameObjects.Ships.Model.Ships.Where(s => s.ShipModel.PlayerShipControl.Model.UseInput).LastOrDefault();
+            return gameObjects.Ships.Objects.Where(s => s.ShipModel.PlayerShipControl.Model.UseInput).LastOrDefault();
         }
         /// <summary>
         /// Clone

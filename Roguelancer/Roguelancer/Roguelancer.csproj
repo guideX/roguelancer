@@ -113,6 +113,7 @@
     <Compile Include="Actions\InGameActions.cs" />
     <Compile Include="Actions\MenuActions.cs" />
     <Compile Include="Bloom\BloomComponent.cs" />
+    <Compile Include="Collections\Base\CollectionObject.cs" />
     <Compile Include="Collections\DockingRingCollection.cs" />
     <Compile Include="Collections\JumpHoleCollection.cs" />
     <Compile Include="Collections\PlanetCollection.cs" />
@@ -133,6 +134,7 @@
     <Compile Include="Helpers\ShipHelper.cs" />
     <Compile Include="Interfaces\IBloomComponent.cs" />
     <Compile Include="Interfaces\IBloomHandler.cs" />
+    <Compile Include="Interfaces\IObjectModel.cs" />
     <Compile Include="Interfaces\IDockableObject.cs" />
     <Compile Include="Interfaces\IDockableSensorObject.cs" />
     <Compile Include="Interfaces\IGameMenu.cs" />
@@ -165,11 +167,12 @@
     <Compile Include="Models\BulletsModel.cs" />
     <Compile Include="Models\CameraSettingsModel.cs" />
     <Compile Include="Models\CargoHoldModel.cs" />
+    <Compile Include="Models\Collection\Base\CollectionModel.cs" />
     <Compile Include="Models\CommodityBadgeModel.cs" />
     <Compile Include="Models\CommodityModel.cs" />
     <Compile Include="Models\DebugTextModel.cs" />
     <Compile Include="Models\DockableObjectModel.cs" />
-    <Compile Include="Models\DockingRingCollectionModel.cs" />
+    <Compile Include="Models\Collection\DockingRingCollectionModel.cs" />
     <Compile Include="Models\DockingRingModel.cs" />
     <Compile Include="Models\GameCameraModel.cs" />
     <Compile Include="Models\GameGraphicsModel.cs" />
@@ -181,7 +184,7 @@
     <Compile Include="Models\HudModel.cs" />
     <Compile Include="Models\HudObjectModel.cs" />
     <Compile Include="Models\InputItemsModel.cs" />
-    <Compile Include="Models\JumpHoleCollectionModel.cs" />
+    <Compile Include="Models\Collection\JumpHoleCollectionModel.cs" />
     <Compile Include="Models\JumpHoleModel.cs" />
     <Compile Include="Models\KeyAssignmentsModel.cs" />
     <Compile Include="Models\KeyboardKeyStatusModel.cs" />
@@ -189,7 +192,7 @@
     <Compile Include="Models\MouseInputModel.cs" />
     <Compile Include="Models\ParticleStarSheetModel.cs" />
     <Compile Include="Models\ParticleSystemSettingsModel.cs" />
-    <Compile Include="Models\PlanetCollectionModel.cs" />
+    <Compile Include="Models\Collection\PlanetCollectionModel.cs" />
     <Compile Include="Models\PlayerShipControlModel.cs" />
     <Compile Include="Models\SettingsObjectModel.cs" />
     <Compile Include="Models\ShipCollectionModel.cs" />
@@ -197,11 +200,11 @@
     <Compile Include="Models\StarSettingsModel.cs" />
     <Compile Include="Models\StarSystemSettingsModel.cs" />
     <Compile Include="Models\StaticParticleModel.cs" />
-    <Compile Include="Models\StationCollectionModel.cs" />
+    <Compile Include="Models\Collection\StationCollectionModel.cs" />
     <Compile Include="Models\StationModel.cs" />
     <Compile Include="Models\StationPriceModel.cs" />
     <Compile Include="Models\TogglesModel.cs" />
-    <Compile Include="Models\TradeLaneCollectionModel.cs" />
+    <Compile Include="Models\Collection\TradeLaneCollectionModel.cs" />
     <Compile Include="Models\TradeLaneModel.cs" />
     <Compile Include="Models\WorldObjectModel.cs" />
     <Compile Include="Objects\Base\DockableObject.cs" />
@@ -228,7 +231,6 @@
     <Compile Include="Interfaces\IParticleEmitter.cs" />
     <Compile Include="Interfaces\IParticleSystem.cs" />
     <Compile Include="Interfaces\IPlayerShipControl.cs" />
-    <Compile Include="Interfaces\IShipCollection.cs" />
     <Compile Include="Objects\GameMenuObject.cs" />
     <Compile Include="Objects\MenuButton.cs" />
     <Compile Include="Objects\GameObjects.cs" />

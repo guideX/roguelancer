@@ -52,9 +52,9 @@ namespace Roguelancer.Objects {
             if (Model.UpdateOrderInt > (int)HudEnums.UpdateOrderInterval) {
                 if (Model.PlayerShip == null) { Model.PlayerShip = ShipHelper.GetPlayerShip(game.Objects.Model); }
                 Model.ScreenRectangle = new Rectangle((int)HudEnums.ImageLeft, (int)HudEnums.ImageTop, (int)HudEnums.ImageWidth, (int)HudEnums.ImageHeight);
-                if (((game.Objects.Model.DockingRings.Model.DockingRings.Count + game.Objects.Model.Ships.Model.Ships.Count + game.Objects.Model.Stations.Model.Stations.Count + game.Objects.Model.Planets.Model.Planets.Count) - 1) != Model.Model.SensorObjects.Count) {
+                if (((game.Objects.Model.DockingRings.Objects.Count + game.Objects.Model.Ships.Objects.Count + game.Objects.Model.Stations.Objects.Count + game.Objects.Model.Planets.Objects.Count) - 1) != Model.Model.SensorObjects.Count) {
                     Model.Model.SensorObjects = new System.Collections.Generic.List<HudSensorObject>();
-                    foreach (var ship in game.Objects.Model.Ships.Model.Ships) {
+                    foreach (var ship in game.Objects.Model.Ships.Objects) {
                         shipId++;
                         d = Vector3.Distance(Model.PlayerShip.Model.Position, ship.Model.Position) / (int)HudEnums.DivisionDistanceValue;
                         text = "Ship " + shipId.ToString();
@@ -69,7 +69,7 @@ namespace Roguelancer.Objects {
                             n = n + (int)HudEnums.FontIncrement;
                         }
                     }
-                    foreach (var station in game.Objects.Model.Stations.Model.Stations) {
+                    foreach (var station in game.Objects.Model.Stations.Objects) {
                         d = (double)Vector3.Distance(Model.PlayerShip.Model.Position, station.Model.Position) / (int)HudEnums.DivisionDistanceValue;
                         text = station.Model.WorldObject.Model.Description;
                         Model.Model.SensorObjects.Add(new HudSensorObject() {
@@ -81,7 +81,7 @@ namespace Roguelancer.Objects {
                         });
                         n = n + (int)HudEnums.FontIncrement;
                     }
-                    foreach (var planet in game.Objects.Model.Planets.Model.Planets) {
+                    foreach (var planet in game.Objects.Model.Planets.Objects) {
                         d = (double)Vector3.Distance(Model.PlayerShip.Model.Position, planet.Model.Position) / (int)HudEnums.DivisionDistanceValue;
                         text = planet.Model.WorldObject.Model.Description;
                         Model.Model.SensorObjects.Add(new HudSensorObject() {
@@ -93,7 +93,7 @@ namespace Roguelancer.Objects {
                         });
                         n = n + (int)HudEnums.FontIncrement;
                     }
-                    foreach (var dockingRing in game.Objects.Model.DockingRings.Model.DockingRings) {
+                    foreach (var dockingRing in game.Objects.Model.DockingRings.Objects) {
                         d = (double)Vector3.Distance(Model.PlayerShip.Model.Position, dockingRing.Model.Position) / (int)HudEnums.DivisionDistanceValue;
                         text = dockingRing.Model.WorldObject.Model.Description;
                         Model.Model.SensorObjects.Add(new HudSensorObject() {

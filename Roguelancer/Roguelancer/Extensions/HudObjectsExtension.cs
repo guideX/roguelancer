@@ -19,7 +19,7 @@ public static class HudObjectsExtension {
         var results = new List<HudSensorObject>();
         var shipID = 0;
         if (includeShips) {
-            foreach (var ship in gameObjects.Ships.Model.Ships) {
+            foreach (var ship in gameObjects.Ships.Objects) {
                 shipID++;
                 results.Add(new HudSensorObject() {
                     Obj = ship,
@@ -30,7 +30,7 @@ public static class HudObjectsExtension {
             }
         }
         var stationID = 0;
-        foreach (var station in gameObjects.Stations.Model.Stations) {
+        foreach (var station in gameObjects.Stations.Objects) {
             stationID++;
             results.Add(new HudSensorObject() {
                 Obj = station,
@@ -39,7 +39,7 @@ public static class HudObjectsExtension {
                 FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
             });
         }
-        foreach (var planet in gameObjects.Planets.Model.Planets) {
+        foreach (var planet in gameObjects.Planets.Objects) {
             stationID++;
             results.Add(new HudSensorObject() {
                 Obj = planet,
@@ -48,7 +48,7 @@ public static class HudObjectsExtension {
                 FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
             });
         }
-        foreach (var dockingRing in gameObjects.DockingRings.Model.DockingRings) {
+        foreach (var dockingRing in gameObjects.DockingRings.Objects) {
             stationID++;
             results.Add(new HudSensorObject() {
                 Obj = dockingRing,

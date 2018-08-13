@@ -1,11 +1,13 @@
-﻿using Roguelancer.Interfaces;
+﻿using Roguelancer.Collections.Base;
+using Roguelancer.Interfaces;
 using Roguelancer.Models;
+using Roguelancer.Models.Collection;
 using Roguelancer.Objects;
 namespace Roguelancer.Collections {
     /// <summary>
     /// Jump Hole Collection
     /// </summary>
-    public class JumpHoleCollection : IGame {
+    public class JumpHoleCollection : CollectionObject<JumpHoleModel>, IGame {
         #region "public properties"
         /// <summary>
         /// Model
@@ -23,7 +25,7 @@ namespace Roguelancer.Collections {
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        public void Initialize(RoguelancerGame game) {
+        public override void Initialize(RoguelancerGame game) {
             var n = 0;
             foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.JumpHoles) {
                 n++;
@@ -34,47 +36,6 @@ namespace Roguelancer.Collections {
             foreach (var jumphole in Model.JumpHoles) {
                 jumphole.Initialize(game);
             }
-        }
-        /// <summary>
-        /// Load Content
-        /// </summary>
-        /// <param name="game"></param>
-        public void LoadContent(RoguelancerGame game) {
-            foreach (var hole in Model.JumpHoles) {
-                hole.LoadContent(game);
-            }
-        }
-        /// <summary>
-        /// Update
-        /// </summary>
-        /// <param name="game"></param>
-        public void Update(RoguelancerGame game) {
-            foreach (var hole in Model.JumpHoles) {
-                hole.Update(game);
-            }
-        }
-        /// <summary>
-        /// Draw
-        /// </summary>
-        /// <param name="game"></param>
-        public void Draw(RoguelancerGame game) {
-            foreach (var hole in Model.JumpHoles) {
-                hole.Draw(game);
-            }
-        }
-        /// <summary>
-        /// Dispose
-        /// </summary>
-        public void Dispose(RoguelancerGame game) {
-            foreach (var hole in Model.JumpHoles) {
-                hole.Dispose(game);
-            }
-        }
-        /// <summary>
-        /// Reset
-        /// </summary>
-        /// <param name="game"></param>
-        public void Reset(RoguelancerGame game) {
         }
         #endregion
     }

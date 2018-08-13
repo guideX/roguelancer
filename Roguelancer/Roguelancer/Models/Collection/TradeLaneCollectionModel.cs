@@ -1,6 +1,6 @@
 ﻿using Roguelancer.Objects;
 using System.Collections.Generic;
-namespace Roguelancer.Models {
+namespace Roguelancer.Models.Collection {
     /// <summary>
     /// Trade Lane Collection Model
     /// </summary>
@@ -8,12 +8,6 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Trade Lanes
         /// </summary>
-        public List<TradeLaneObject> TradeLanes;
-        /// <summary>
-        /// Entry Point
-        /// </summary>
-        public TradeLaneCollectionModel() {
-            TradeLanes = new List<TradeLaneObject>();
-        }
+        public List<TradeLaneObject> TradeLanes { get; set; } = new List<TradeLaneObject>();
     }
 }

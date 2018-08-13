@@ -1,6 +1,6 @@
 ﻿using Roguelancer.Objects;
 using System.Collections.Generic;
-namespace Roguelancer.Models {
+namespace Roguelancer.Models.Collection {
     /// <summary>
     /// Docking Ring Collection Model
     /// </summary>

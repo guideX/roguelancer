@@ -9,7 +9,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Ships
         /// </summary>
-        public IShipCollection Ships { get; set; }
+        public ShipCollection Ships { get; set; }
         /// <summary>
         /// Bullets
         /// </summary>

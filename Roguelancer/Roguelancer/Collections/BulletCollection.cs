@@ -6,11 +6,12 @@ using Roguelancer.Models;
 using Roguelancer.Interfaces;
 using Roguelancer.Helpers;
 using Roguelancer.Objects;
+using Roguelancer.Collections.Base;
 namespace Roguelancer.Collections {
     /// <summary>
     /// Bullet
     /// </summary>
-    public class BulletCollection : IGame {
+    public class BulletCollection : CollectionObject<BulletModel>, IGame {
         #region "public properties"
         /// <summary>
         /// Bullets Model
@@ -33,13 +34,13 @@ namespace Roguelancer.Collections {
         /// </summary>
         /// <param name="game"></param>
         public BulletCollection(RoguelancerGame game) {
-            Reset();
+            Reset(game);
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        public void Initialize(RoguelancerGame game) {
+        public override void Initialize(RoguelancerGame game) {
             _model.AreBulletsAvailable = true;
             _model.RechargeRate = game.Settings.Model.BulletRechargeRate;
         }
@@ -47,7 +48,7 @@ namespace Roguelancer.Collections {
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
-        public void LoadContent(RoguelancerGame game) {
+        public override void LoadContent(RoguelancerGame game) {
             BulletsModel = game.Content.Load<Model>("bullet");
             _model.PlayerShip = ShipHelper.GetPlayerShip(game.Objects.Model); // Get Player Ship
         }
@@ -55,7 +56,7 @@ namespace Roguelancer.Collections {
         /// Update
         /// </summary>
         /// <param name="game"></param>
-        public void Update(RoguelancerGame game) {
+        public override void Update(RoguelancerGame game) {
             if (game.Input.InputItems.Keys.LeftControl.IsKeyDown || game.Input.InputItems.Keys.RightControl.IsKeyDown || game.Input.InputItems.Mouse.RightButton) {
                 if (_model.AreBulletsAvailable) {
                     game.Camera.Shake(10f, 0f, false);
@@ -79,19 +80,11 @@ namespace Roguelancer.Collections {
                 }
             }
         }
-        /// <summary>
-        /// Draw
-        /// </summary>
-        /// <param name="game"></param>
-        public void Draw(RoguelancerGame game) {
-            foreach (var bullet in _model.Bullets) {
-                bullet.Draw(game);
-            }
-        }
+
         /// <summary>
         /// Reset
         /// </summary>
-        public void Reset() {
+        public override void Reset(RoguelancerGame game) {
             _model = new BulletsModel();
             _particleSystemSettings = new ParticleSystemSettingsModel() {
                 CameraArc = 2,
@@ -111,18 +104,6 @@ namespace Roguelancer.Collections {
                 SmokeTexture = "Textures\\Smoke"
             };
             _model.Bullets = new List<IBullet>();
-        }
-        /// <summary>
-        /// Dispose
-        /// </summary>
-        public void Dispose(RoguelancerGame game) {
-            _model = null;
-        }
-        /// <summary>
-        /// Reset
-        /// </summary>
-        /// <param name="game"></param>
-        public void Reset(RoguelancerGame game) {
         }
         #endregion
     }
