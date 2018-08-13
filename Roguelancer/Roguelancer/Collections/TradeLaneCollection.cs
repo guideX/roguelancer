@@ -1,4 +1,4 @@
-﻿/*using System.Linq;
+﻿using System.Linq;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Objects;
@@ -90,4 +90,4 @@ namespace Roguelancer.Collections {
         }
         #endregion
     }
-}*/
+}

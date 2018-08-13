@@ -75,9 +75,33 @@ namespace Roguelancer.Models {
             return _parent;
         }
         /// <summary>
-        /// Entry Point
+        /// Game Model
         /// </summary>
         /// <param name="game"></param>
+        /// <param name="particleSystemSettings"></param>
+        /// <param name="stationObject"></param>
+        public GameModel(RoguelancerGame game, ParticleSystemSettingsModel particleSystemSettings) {
+            //if (stationObject != null) _parent = stationObject;
+            MinimumAltitude = -350.0f;
+            Velocity = Vector3.Zero;
+            Position = new Vector3(.5f, MinimumAltitude, 0);
+            //Position = new Vector3(0, MinimumAltitude, 0);
+            Up = Vector3.Up;
+            Right = Vector3.Right;
+            CurrentThrust = 0.0f;
+            Direction = Vector3.Forward;
+            if (particleSystemSettings == null) { particleSystemSettings = new ParticleSystemSettingsModel(); }
+            if (particleSystemSettings.Enabled) {
+                ParticleSystem = new ParticleSystem(game);
+                ParticleSystem.Settings = particleSystemSettings;
+            }
+        }
+        /// <summary>
+        /// Game Model
+        /// </summary>
+        /// <param name="game"></param>
+        /// <param name="particleSystemSettings"></param>
+        /// <param name="stationObject"></param>
         public GameModel(RoguelancerGame game, ParticleSystemSettingsModel particleSystemSettings, IDockableSensorObject stationObject) {
             if (stationObject != null) _parent = stationObject;
             MinimumAltitude = -350.0f;
@@ -170,31 +194,33 @@ namespace Roguelancer.Models {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
-                var transforms = new Matrix[_model.Bones.Count];
-                _model.CopyAbsoluteBoneTransformsTo(transforms);
-                if (ParticleSystem != null) {
-                    if (ParticleSystem.Settings.Enabled) {
-                        ParticleSystem.Draw(game);
-                    }
-                }
-                foreach (ModelMesh mm in _model.Meshes) {
-                    foreach (BasicEffect be in mm.Effects) {
-                        be.Alpha = 1;
-                        be.EnableDefaultLighting();
-                        if (UseScale) {
-                            be.World = 
-                                Matrix.CreateScale(WorldObject.Model.SettingsModelObject.Scaling) * 
-                                transforms[mm.ParentBone.Index] * 
-                                World
-                            ;
-                        } else {
-                           be.World = transforms[mm.ParentBone.Index] * World;
+            if (_model != null) {
+                if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
+                    var transforms = new Matrix[_model.Bones.Count];
+                    _model.CopyAbsoluteBoneTransformsTo(transforms);
+                    if (ParticleSystem != null) {
+                        if (ParticleSystem.Settings.Enabled) {
+                            ParticleSystem.Draw(game);
                         }
-                        be.View = game.Camera.Model.View;
-                        be.Projection = game.Camera.Model.Projection;
                     }
-                    mm.Draw();
+                    foreach (ModelMesh mm in _model.Meshes) {
+                        foreach (BasicEffect be in mm.Effects) {
+                            be.Alpha = 1;
+                            be.EnableDefaultLighting();
+                            if (UseScale) {
+                                be.World =
+                                    Matrix.CreateScale(WorldObject.Model.SettingsModelObject.Scaling) *
+                                    transforms[mm.ParentBone.Index] *
+                                    World
+                                ;
+                            } else {
+                                be.World = transforms[mm.ParentBone.Index] * World;
+                            }
+                            be.View = game.Camera.Model.View;
+                            be.Projection = game.Camera.Model.Projection;
+                        }
+                        mm.Draw();
+                    }
                 }
             }
         }

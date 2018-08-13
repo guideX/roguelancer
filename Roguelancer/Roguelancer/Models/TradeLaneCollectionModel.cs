@@ -1,4 +1,4 @@
-﻿/*using Roguelancer.Objects;
+﻿using Roguelancer.Objects;
 using System.Collections.Generic;
 namespace Roguelancer.Models {
     /// <summary>
@@ -16,4 +16,4 @@ namespace Roguelancer.Models {
             TradeLanes = new List<TradeLaneObject>();
         }
     }
-}*/
+}

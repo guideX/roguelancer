@@ -1,4 +1,5 @@
-﻿using Roguelancer.Interfaces;
+﻿using Roguelancer.Enum;
+using Roguelancer.Interfaces;
 using Roguelancer.Models;
 namespace Roguelancer.Objects {
     /// <summary>
@@ -21,15 +22,14 @@ namespace Roguelancer.Objects {
         #endregion
         #region "public methods"
         public JumpHoleObject(RoguelancerGame game) {
-            Model = new GameModel(game, null, null);
-            JumpHoleModel = new JumpHoleModel(game);
+            Reset(game);
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            Model.Initialize(game);
+            Model.LoadContent(game);
         }
         /// <summary>
         /// Load Content
@@ -43,14 +43,19 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            Model.Update(game);
+            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
+                Model.UpdatePosition(); // Update Position
+                Model.Update(game); // Update
+            }
         }
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            Model.Draw(game);
+            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
+                Model.Draw(game);
+            }
         }
         /// <summary>
         /// Dispose
@@ -62,7 +67,7 @@ namespace Roguelancer.Objects {
         /// Reset
         /// </summary>
         public void Reset(RoguelancerGame game) {
-            Model = new GameModel(game, null, null);
+            Model = new GameModel(game, null);
         }
         #endregion
     }

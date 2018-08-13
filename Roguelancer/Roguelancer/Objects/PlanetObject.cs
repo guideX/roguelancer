@@ -66,7 +66,7 @@ namespace Roguelancer.Objects {
         /// Dispose
         /// </summary>
         public void Dispose(RoguelancerGame game) {
-            Model = null;
+            Model.Dispose(game);
         }
         /// <summary>
         /// Reset

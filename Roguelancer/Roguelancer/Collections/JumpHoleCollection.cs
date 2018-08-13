@@ -1,7 +1,6 @@
 ﻿using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Objects;
-
 namespace Roguelancer.Collections {
     /// <summary>
     /// Jump Hole Collection
@@ -25,13 +24,15 @@ namespace Roguelancer.Collections {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            foreach (var modelWorldObject in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.JumpHoles) {
-                var jumpHole = new JumpHoleObject(game);
-                jumpHole.Model.WorldObject = modelWorldObject;
-                Model.JumpHoles.Add(jumpHole);
+            var n = 0;
+            foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.JumpHoles) {
+                n++;
+                var s = new JumpHoleObject(game);
+                s.Model.WorldObject = obj;
+                Model.JumpHoles.Add(s);
             }
-            foreach (var hole in Model.JumpHoles) {
-                hole.Initialize(game);
+            foreach (var jumphole in Model.JumpHoles) {
+                jumphole.Initialize(game);
             }
         }
         /// <summary>
