@@ -1,29 +1,30 @@
-﻿using Roguelancer.Interfaces;
+﻿using Roguelancer.Enum;
+using Roguelancer.Interfaces;
 using Roguelancer.Models;
-using Roguelancer.Objects.Base;
-using Roguelancer.Enum;
-namespace Roguelancer.Objects {
+namespace Roguelancer.Objects.Base {
     /// <summary>
-    /// Planet
+    /// Dockable Game Object
     /// </summary>
-    public class DockingRingObject : DockableObject, IGame, IDockableSensorObject {
-        #region "public properties"
+    /// <typeparam name="T"></typeparam>
+    public abstract class DockableGameObject<T> : DockableObject, IGame where T : IGame {
+        /// <summary>
+        /// Sensor Object
+        /// </summary>
+        private IDockableSensorObject _sensorObject;
+        /// <summary>
+        /// Game Model
+        /// </summary>
+        public virtual GameModel Model { get; set; }
         /// <summary>
         /// Model
         /// </summary>
         public StationModel StationModel { get; set; }
         /// <summary>
-        /// Game Model
+        /// Dockable Game Object
         /// </summary>
-        public GameModel Model { get; set; }
-        #endregion
-        #region "public methods"
-        /// <summary>
-        /// Entry Point
-        /// </summary>
-        /// <param name="game"></param>
-        public DockingRingObject(RoguelancerGame game) {
-            Reset(game);
+        /// <param name="sensorObject"></param>
+        public void SetSensorObject(IDockableSensorObject sensorObject) {
+            _sensorObject = sensorObject;
         }
         /// <summary>
         /// Initialize
@@ -63,19 +64,19 @@ namespace Roguelancer.Objects {
             Draw(game, Model, StationModel.StationID); // Draw Dockable Object Station Stuff
         }
         /// <summary>
-        /// Dispose
-        /// </summary>
-        public void Dispose(RoguelancerGame game) {
-            Model = null;
-        }
-        /// <summary>
         /// Reset
         /// </summary>
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
-            Model = new GameModel(game, null, this);
+            Model = new GameModel(game, null, _sensorObject);
             StationModel = new StationModel();
         }
-        #endregion
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        /// <param name="game"></param>
+        public void Dispose(RoguelancerGame game) {
+            Model = null;
+        }
     }
 }

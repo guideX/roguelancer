@@ -6,7 +6,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Ship
     /// </summary>
-    public class ShipObject : IGame, ISensorObject, IDockableShip, IObjectModel {
+    public class ShipObject : IGame, ISensorObject, IDockableShip {
         #region "public properties"
         /// <summary>
         /// Ship Model
