@@ -8,7 +8,7 @@ namespace Roguelancer.Collections {
     /// <summary>
     /// Trade Lane Collection
     /// </summary>
-    public class TradeLaneCollection : CollectionObject<TradeLaneModel>, IGame {
+    public class TradeLaneCollection : CollectionObject<TradeLaneObject>, IGame {
         #region "public properties"
         /// <summary>
         /// Trade Lane Collection Model

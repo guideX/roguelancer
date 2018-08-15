@@ -11,7 +11,7 @@ namespace Roguelancer.Collections {
     /// <summary>
     /// Bullet
     /// </summary>
-    public class BulletCollection : CollectionObject<BulletModel>, IGame {
+    public class BulletCollection : CollectionObject<BulletObject>, IGame {
         #region "public properties"
         /// <summary>
         /// Bullets Model

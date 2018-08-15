@@ -7,7 +7,7 @@ namespace Roguelancer.Collections {
     /// <summary>
     /// Jump Hole Collection
     /// </summary>
-    public class JumpHoleCollection : CollectionObject<JumpHoleModel>, IGame {
+    public class JumpHoleCollection : CollectionObject<JumpHoleObject>, IGame {
         #region "public properties"
         /// <summary>
         /// Model
