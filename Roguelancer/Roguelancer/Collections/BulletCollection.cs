@@ -80,7 +80,6 @@ namespace Roguelancer.Collections {
                 }
             }
         }
-
         /// <summary>
         /// Reset
         /// </summary>

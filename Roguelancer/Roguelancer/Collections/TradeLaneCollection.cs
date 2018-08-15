@@ -2,19 +2,12 @@
 using Roguelancer.Collections.Base;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
-using Roguelancer.Models.Collection;
 using Roguelancer.Objects;
 namespace Roguelancer.Collections {
     /// <summary>
     /// Trade Lane Collection
     /// </summary>
     public class TradeLaneCollection : CollectionObject<TradeLaneObject>, IGame {
-        #region "public properties"
-        /// <summary>
-        /// Trade Lane Collection Model
-        /// </summary>
-        public TradeLaneCollectionModel Model { get; set; }
-        #endregion
         #region "public methods"
         /// <summary>
         /// Trade Lane Collection
@@ -41,10 +34,10 @@ namespace Roguelancer.Collections {
                     var tradeLaneModel = new TradeLaneModel(game, o);
                     t.Models.Add(tradeLaneModel);
                 }
-                Model.TradeLanes.Add(t);
+                Objects.Add(t);
             }
-            for (var i = 0; i <= Model.TradeLanes.Count - 1; i++) {
-                Model.TradeLanes[i].Initialize(game);
+            for (var i = 0; i <= Objects.Count - 1; i++) {
+                Objects[i].Initialize(game);
             }
         }
         #endregion

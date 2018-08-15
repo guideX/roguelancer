@@ -1,7 +1,6 @@
 ﻿using System.Linq;
 using Roguelancer.Collections.Base;
 using Roguelancer.Interfaces;
-using Roguelancer.Models.Collection;
 using Roguelancer.Objects;
 namespace Roguelancer.Collections {
     /// <summary>
