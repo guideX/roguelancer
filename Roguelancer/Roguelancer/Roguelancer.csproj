@@ -206,6 +206,7 @@
     <Compile Include="Objects\Base\GameObject.cs" />
     <Compile Include="Objects\BulletObject.cs" />
     <Compile Include="Collections\BulletCollection.cs" />
+    <Compile Include="Objects\DebugTextObject.cs" />
     <Compile Include="Objects\DockingRingObject.cs" />
     <Compile Include="Objects\HudObject.cs" />
     <Compile Include="Objects\JumpHoleObject.cs" />

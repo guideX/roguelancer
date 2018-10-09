@@ -20,9 +20,29 @@
         /// </summary>
         public string Undock { get; set; }
         /// <summary>
+        /// List Commodities For Sale
+        /// </summary>
+        public string ListCommoditiesForSale { get; set; }
+        /// <summary>
         /// Exit
         /// </summary>
         public string Exit { get; set; }
+        /// <summary>
+        /// Move Forward
+        /// </summary>
+        public string MoveForward { get; set; }
+        /// <summary>
+        /// Slow Down
+        /// </summary>
+        public string SlowDown { get; set; }
+        /// <summary>
+        /// After Burn
+        /// </summary>
+        public string Afterburn { get; set; }
+        /// <summary>
+        /// Stop Moving
+        /// </summary>
+        public string StopMoving { get; set; }
         /// <summary>
         /// Toggle Mode
         /// </summary>

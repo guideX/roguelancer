@@ -1,5 +1,4 @@
 ﻿using Roguelancer.Functionality;
-using Roguelancer.Objects;
 namespace Roguelancer.Models {
     /// <summary>
     /// Player Ship Control Model

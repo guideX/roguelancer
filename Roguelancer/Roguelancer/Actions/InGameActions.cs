@@ -105,18 +105,31 @@ namespace Roguelancer.Actions {
         public void GotoCurrentlyTargetedObject() {
             var playerShip = ShipHelper.GetPlayerShip(_game.Objects.Model);
             if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
-                var station = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation();
-                if (station != null) {
-                    if (station != null & station.Model != null && station.Model.WorldObject != null) {
-                        playerShip.FaceObject(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
-                        playerShip.ShipModel.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation();
-                        playerShip.ShipModel.GoingTo = true;
-                        _game.Input.InputItems.Toggles.Cruise = true;
-                        //playerShip.Model.Up.Y = 0f;
-                        DebugTextHelper.SetText(_game, "Goto " + station.Model.WorldObject.Model.Description, true);
+                var currentTarget = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget;
+                if (currentTarget != null) {
+                    playerShip.FaceObject(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
+                    playerShip.ShipModel.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation();
+                    playerShip.ShipModel.GoingTo = true;
+                    _game.Input.InputItems.Toggles.Cruise = true;
+                    //playerShip.Model.Up.Y = 0f;
+                    DebugTextHelper.SetText(_game, "Goto " + currentTarget.WorldObject.Model.Description, true);
+                    /*
+                    var station = currentTarget.GetStation();
+                    if (station != null) {
+                        if (station != null & station.Model != null && station.Model.WorldObject != null) {
+                            playerShip.FaceObject(playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
+                            playerShip.ShipModel.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation();
+                            playerShip.ShipModel.GoingTo = true;
+                            _game.Input.InputItems.Toggles.Cruise = true;
+                            //playerShip.Model.Up.Y = 0f;
+                            DebugTextHelper.SetText(_game, "Goto " + station.Model.WorldObject.Model.Description, true);
+                        } else {
+                            DebugTextHelper.SetText(_game, "Goto Failed", true);
+                        }
                     } else {
                         DebugTextHelper.SetText(_game, "Goto Failed", true);
                     }
+                    */
                 }
             } else {
                 DebugTextHelper.SetText(_game, "Nothing targetted.", true);

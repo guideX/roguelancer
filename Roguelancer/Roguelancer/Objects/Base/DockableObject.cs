@@ -112,7 +112,7 @@ namespace Roguelancer.Objects.Base {
                             UnDock(game, playerShip, Model);
                         }
                     }
-                    if (game.Input.InputItems.Keys.C.IsKeyDown) {
+                    if (game.Settings.Model.KeyAssignments.ListCommoditiesForSale.FindIsKeyDown(game.Input.InputItems.Keys)) {
                         game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Commodities;
                         ListCommoditiesForSale(game, Enum.ModelType.Station, stationID.Value);
                     }
@@ -133,7 +133,7 @@ namespace Roguelancer.Objects.Base {
                                 if (distance < (int)HudEnums.DockDistanceAccept) {
                                     Dock(game, playerShip, playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget);
                                     game.Input.InputItems.Toggles.Cruise = false;
-                                } else if (distance < (int)HudEnums.DockDistanceAccept * 2) {
+                                } else if (distance < (int)HudEnums.DockDistanceAccept) {
                                     if (playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget != null) {
                                         playerShip.ShipModel.GoingToObject = playerShip.ShipModel.PlayerShipControl.Model.CurrentTarget.GetStation(); // Set Docket To
                                         DebugTextHelper.SetText(game, "Automatic Docking Initiated", true);

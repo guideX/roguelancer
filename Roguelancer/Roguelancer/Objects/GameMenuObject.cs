@@ -19,7 +19,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Entry Point
         /// </summary>
-        public GameMenuObject(RoguelancerGame game) {
+        public GameMenuObject() {
             Model = new GameMenuModel();
         }
         /// <summary>

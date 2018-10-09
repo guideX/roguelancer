@@ -1,8 +1,4 @@
-﻿using Roguelancer;
-using Roguelancer.Enum;
-using Roguelancer.Functionality;
-using Roguelancer.Helpers;
-using Roguelancer.Models;
+﻿using Roguelancer.Models;
 using System.Linq;
 /// <summary>
 /// Input Extension

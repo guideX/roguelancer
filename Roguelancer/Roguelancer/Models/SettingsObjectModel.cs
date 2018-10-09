@@ -1,5 +1,4 @@
-﻿using Microsoft.Xna.Framework;
-using Roguelancer.Enum;
+﻿using Roguelancer.Enum;
 namespace Roguelancer.Models {
     /// <summary>
     /// Settings Object Model

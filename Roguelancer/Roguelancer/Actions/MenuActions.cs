@@ -1,4 +1,6 @@
 ﻿using Roguelancer.Enum;
+using Roguelancer.Helpers;
+using Roguelancer.Models;
 namespace Roguelancer.Actions {
     /// <summary>
     /// Menu Actions

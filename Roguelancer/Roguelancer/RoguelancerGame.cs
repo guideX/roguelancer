@@ -84,16 +84,16 @@ namespace Roguelancer {
         public RoguelancerGame() {
             Settings = new GameSettings(this);
             Content.RootDirectory = "Content";
-            GameState = new GameState(this);
+            GameState = new GameState();
             IsMouseVisible = true;
-            Camera = new GameCamera(this);
+            Camera = new GameCamera();
             Graphics = new GameGraphics(this);
             _bloom = new BloomHandler(this);
             Input = new Input();
-            DebugText = new DebugText(this);
+            DebugText = new DebugTextObject();
             Objects = new GameObjects(this);
-            GameMenu = new GameMenuObject(this);
-            Hud = new HudObject(this);
+            GameMenu = new GameMenuObject();
+            Hud = new HudObject();
             InGameActions = new InGameActions(this);
             MenuActions = new MenuActions(this);
             GameMenu.Model.CurrentMenu = CurrentMenu.HomeMenu;

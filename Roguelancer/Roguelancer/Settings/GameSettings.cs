@@ -17,17 +17,21 @@ namespace Roguelancer.Settings {
         #endregion
         #region "public methods"
         public GameSettings(RoguelancerGame game) {
-            var b = false;
             Model = new GameSettingsModel(game);
             // Key Assignments
+            Model.KeyAssignments.ListCommoditiesForSale = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "ListCommoditiesForSale"); // List Commodities For Sale
             Model.KeyAssignments.Cruise = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Cruise"); // Cruise
             Model.KeyAssignments.CurrentGameState_Menu = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "CurrentGameState_Menu"); // Current Game State Menu
             Model.KeyAssignments.CurrentGameState_Playing = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "CurrentGameState_Playing"); // Current Game State Playing
             Model.KeyAssignments.Exit = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Exit"); // Exit
             Model.KeyAssignments.FreeMouseMode = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "FreeMouseMode"); // Free Mouse Mode
             Model.KeyAssignments.Goto = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Goto"); // Goto
-            Model.KeyAssignments.Dock = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Dock");
-            Model.KeyAssignments.Undock = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Undock");
+            Model.KeyAssignments.Dock = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Dock"); // Dock
+            Model.KeyAssignments.Undock = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Undock"); // Undock
+            Model.KeyAssignments.MoveForward = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "MoveForward"); // Move Forward
+            Model.KeyAssignments.SlowDown = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "SlowDown"); // Slow Down
+            Model.KeyAssignments.Afterburn = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Afterburn"); // Afterburn
+            Model.KeyAssignments.StopMoving = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "StopMoving"); // Stop Moving
             Model.KeyAssignments.MouseMode = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "MouseMode"); // Mouse Mode
             Model.KeyAssignments.Target = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "Target"); // Target
             Model.KeyAssignments.ToggleCamera = NativeMethods.ReadINI(Model.PlayerIniFile, "Keys", "ToggleCamera"); // Toggle Camera
@@ -36,7 +40,7 @@ namespace Roguelancer.Settings {
             Model.Font = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "Font", "LucidaFont"); // Font
             Model.FontSmall = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "FontSmall", "LucidiaFontSmall"); // Small Font
             Model.SensorTexture = NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "SensorTexture"); // Sensor Texture
-            if (bool.TryParse(NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "BloomEnabled"), out b)) { Model.BloomEnabled = b; } // Bloom Enabled
+            if (bool.TryParse(NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "BloomEnabled"), out bool b)) { Model.BloomEnabled = b; } // Bloom Enabled
             if (bool.TryParse(NativeMethods.ReadINI(Model.GameSettingsIniFile, "Settings", "FullScreen"), out b)) { Model.FullScreen = b; } // Full Screen
             Model.BulletMass = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Bullet", "Mass", 1.0f); // Bullet
             Model.BulletThrusterForce = NativeMethods.ReadINIFloat(Model.GameSettingsIniFile, "Bullet", "ThrusterForce", 44000.0f); // Thruster Force

@@ -2,11 +2,11 @@
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
-namespace Roguelancer.Functionality {
+namespace Roguelancer.Objects {
     /// <summary>
     /// Debug Text
     /// </summary>
-    public class DebugText : IDebugText {
+    public class DebugTextObject : IDebugText {
         #region "public properties"
         /// <summary>
         /// Debug Text Model
@@ -17,9 +17,10 @@ namespace Roguelancer.Functionality {
         /// <summary>
         /// Debug Text
         /// </summary>
-        public DebugText(RoguelancerGame game) {
-            Model = new DebugTextModel();
-            Model.Text = "";
+        public DebugTextObject() {
+            Model = new DebugTextModel {
+                Text = ""
+            };
         }
         /// <summary>
         /// Load Content
