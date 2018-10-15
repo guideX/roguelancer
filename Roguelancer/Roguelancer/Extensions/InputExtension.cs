@@ -11,6 +11,7 @@ public static class InputExtension {
     /// <param name="keys"></param>
     /// <returns></returns>
     public static KeyboardKeyStatusModel FindKeyboardStatus(this string str, KeyInputModel keys) {
+    //public static KeyboardKeyStatusModel FindKeyboardStatus(this string str) {
         var obj = (object)keys;
         KeyboardKeyStatusModel result = null;
         if (str != null) {

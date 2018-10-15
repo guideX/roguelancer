@@ -96,7 +96,7 @@ namespace Roguelancer.Objects {
                 new Vector3(0f, 0f, 0f),
                 new SettingsObjectModel(
                     modelPath,
-                    ModelType.Bullet,
+                    ModelTypeEnum.Bullet,
                     true,
                     13,
                     scale

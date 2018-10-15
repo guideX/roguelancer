@@ -39,6 +39,15 @@ public static class HudObjectsExtension {
                 FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
             });
         }
+        foreach (var jumpHole in gameObjects.JumpHoles.Objects) {
+            stationID++;
+            results.Add(new HudSensorObject() {
+                Obj = jumpHole,
+                Distance = Vector3.Distance(playerShip.Model.Position, jumpHole.Model.Position) / (int)HudEnums.DivisionDistanceValue,
+                Text = "Jump Hole " + stationID.ToString(),
+                FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
+            });
+        }
         foreach (var planet in gameObjects.Planets.Objects) {
             stationID++;
             results.Add(new HudSensorObject() {

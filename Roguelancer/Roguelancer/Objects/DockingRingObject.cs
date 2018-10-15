@@ -11,7 +11,7 @@ namespace Roguelancer.Objects {
         /// <summary>
         /// Model
         /// </summary>
-        public StationModel StationModel { get; set; }
+        public DockableObjectTypeModel DockableObjectType { get; set; }
         /// <summary>
         /// Game Model
         /// </summary>
@@ -31,7 +31,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             Model.Initialize(game);
-            Initialize(game, Model, StationModel.StationID); // Initialize Dockable Object
+            Initialize(game, Model, DockableObjectType); // Initialize Dockable Object
         }
         /// <summary>
         /// Load Content
@@ -39,7 +39,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
             Model.LoadContent(game);
-            LoadContent(game, Model, StationModel.StationID); // Dockable Object Load Content
+            LoadContent(game, Model, DockableObjectType); // Dockable Object Load Content
         }
         /// <summary>
         /// Update
@@ -50,7 +50,7 @@ namespace Roguelancer.Objects {
                 Model.UpdatePosition(); // Update Position
                 Model.Update(game); // Update
             }
-            Update(game, Model, StationModel.StationID); // Update Dockable Object Station Stuff
+            Update(game, Model, DockableObjectType); // Update Dockable Object Station Stuff
         }
         /// <summary>
         /// Draw
@@ -60,7 +60,7 @@ namespace Roguelancer.Objects {
             if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 Model.Draw(game);
             }
-            Draw(game, Model, StationModel.StationID); // Draw Dockable Object Station Stuff
+            Draw(game, Model, DockableObjectType); // Draw Dockable Object Station Stuff
         }
         /// <summary>
         /// Dispose
@@ -74,7 +74,7 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
             Model = new GameModel(game, null, this);
-            StationModel = new StationModel();
+            DockableObjectType = new DockableObjectTypeModel();
         }
         #endregion
     }

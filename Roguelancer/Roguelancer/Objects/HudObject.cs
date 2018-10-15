@@ -81,6 +81,18 @@ namespace Roguelancer.Objects {
                         });
                         n = n + (int)HudEnums.FontIncrement;
                     }
+                    foreach (var jumpHole in game.Objects.Model.JumpHoles.Objects) {
+                        d = (double)Vector3.Distance(Model.PlayerShip.Model.Position, jumpHole.Model.Position) / (int)HudEnums.DivisionDistanceValue;
+                        text = jumpHole.Model.WorldObject.Model.Description;
+                        Model.Model.SensorObjects.Add(new HudSensorObject() {
+                            Obj = jumpHole,
+                            Text = text,
+                            FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop + n),
+                            Distance = d,
+                            FontOrigin = Model.Font.MeasureString(text) / 2
+                        });
+                        n = n + (int)HudEnums.FontIncrement;
+                    }
                     foreach (var planet in game.Objects.Model.Planets.Objects) {
                         d = (double)Vector3.Distance(Model.PlayerShip.Model.Position, planet.Model.Position) / (int)HudEnums.DivisionDistanceValue;
                         text = planet.Model.WorldObject.Model.Description;

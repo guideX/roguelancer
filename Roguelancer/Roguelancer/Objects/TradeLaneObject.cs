@@ -17,7 +17,7 @@ namespace Roguelancer.Objects {
         /// Game Model
         /// </summary>
         public List<TradeLaneModel> Models { get; set; }
-        public StationModel StationModel { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public DockableObjectTypeModel DockableObjectType { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         #endregion
         #region "public methods"
         /// <summary>

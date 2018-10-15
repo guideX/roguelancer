@@ -54,7 +54,7 @@ namespace Roguelancer.Settings {
             for (var i = 1; i < NativeMethods.ReadINIInt(Model.ModelSettingsIniFile, "settings", "count", 0) + 1; ++i) {
                 Model.ModelSettings.Add(new SettingsObjectModel(
                     NativeMethods.ReadINI(Model.ModelSettingsIniFile, i.ToString().Trim(), "path"),
-                    (Enum.ModelType)NativeMethods.ReadINIInt(Model.ModelSettingsIniFile, i.ToString().Trim(), "type", 0),
+                    (Enum.ModelTypeEnum)NativeMethods.ReadINIInt(Model.ModelSettingsIniFile, i.ToString().Trim(), "type", 0),
                     NativeMethods.ReadINIBool(Model.ModelSettingsIniFile, i.ToString().Trim(), "enabled", false),
                     i,
                     NativeMethods.ReadINIFloat(Model.ModelSettingsIniFile, i.ToString().Trim(), "model_scaling", 0f)

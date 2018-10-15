@@ -2,7 +2,7 @@
     /// <summary>
     /// Model Type
     /// </summary>
-    public enum ModelType {
+    public enum ModelTypeEnum {
         /// <summary>
         /// Ship
         /// </summary>

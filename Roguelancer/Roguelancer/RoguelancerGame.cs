@@ -1,6 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Roguelancer.Actions;
+//using Roguelancer.Actions;
 using Roguelancer.Bloom;
 using Roguelancer.Enum;
 using Roguelancer.Functionality;
@@ -25,15 +25,15 @@ namespace Roguelancer {
         /// <summary>
         /// Graphics
         /// </summary>
-        public IGameGraphics Graphics { get; set; }
+        //public IGameGraphics Graphics { get; set; }
         /// <summary>
         /// Settings
         /// </summary>
         public IGameSettings Settings { get; set; }
         /// <summary>
-        /// Camera
+        /// Graphics
         /// </summary>
-        public IGameCamera Camera { get; set; }
+        public GameGraphicsObject Graphics { get; set; }
         /// <summary>
         /// Input
         /// </summary>
@@ -61,11 +61,11 @@ namespace Roguelancer {
         /// <summary>
         /// In Game Actions
         /// </summary>
-        public InGameActions InGameActions { get; set; }
+        //public InGameActions InGameActions { get; set; }
         /// <summary>
         /// Menu Actions
         /// </summary>
-        public MenuActions MenuActions { get; set; }
+        //public MenuActions MenuActions { get; set; }
         /// <summary>
         /// Game Time
         /// </summary>
@@ -86,23 +86,22 @@ namespace Roguelancer {
             Content.RootDirectory = "Content";
             GameState = new GameState();
             IsMouseVisible = true;
-            Camera = new GameCamera();
-            Graphics = new GameGraphics(this);
+            Graphics = new GameGraphicsObject(this);
             _bloom = new BloomHandler(this);
             Input = new Input();
             DebugText = new DebugTextObject();
             Objects = new GameObjects(this);
             GameMenu = new GameMenuObject();
             Hud = new HudObject();
-            InGameActions = new InGameActions(this);
-            MenuActions = new MenuActions(this);
+            //InGameActions = new InGameActions(this);
+            //MenuActions = new MenuActions(this);
             GameMenu.Model.CurrentMenu = CurrentMenu.HomeMenu;
         }
         /// <summary>
         /// Initialize
         /// </summary>
         protected override void Initialize() {
-            Camera.Initialize(this);
+            Graphics.Initialize(this);
             _bloom.Initialize(this);
             Objects.Initialize(this);
             GameMenu.Initialize(this);
@@ -132,7 +131,7 @@ namespace Roguelancer {
             Input.Update(this);
             _bloom.Update(this);
             Objects.Update(this);
-            Camera.Update(this);
+            Graphics.Update(this);
             DebugText.Update(this);
             GameMenu.Update(this);
             if (GameState.Model.CurrentGameState == GameStatesEnum.Playing) {

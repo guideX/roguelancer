@@ -27,7 +27,7 @@ namespace Roguelancer.Objects {
                 Stars = new Starfields(game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.StarSettings),
                 Ships = new ShipCollection(game),
                 Bullets = new BulletCollection(game),
-                JumpHoles = new JumpHoleCollection(),
+                JumpHoles = new JumpHoleCollection(game),
                 DockingRings = new DockingRingCollection(game)
             };
         }
@@ -55,7 +55,7 @@ namespace Roguelancer.Objects {
             Model.Ships.LoadContent(game);
             Model.Bullets.LoadContent(game);
             Model.DockingRings.LoadContent(game);
-            Model.JumpHoles.Initialize(game);
+            Model.JumpHoles.LoadContent(game);
         }
         /// <summary>
         /// Update
@@ -69,7 +69,7 @@ namespace Roguelancer.Objects {
                 Model.Ships.Update(game);
                 Model.Bullets.Update(game);
                 Model.DockingRings.Update(game);
-                Model.JumpHoles.Initialize(game);
+                Model.JumpHoles.Update(game);
             } else {
                 Model.Stations.Update(game);
                 Model.Planets.Update(game);
@@ -103,7 +103,7 @@ namespace Roguelancer.Objects {
             Model.Planets = new PlanetCollection(game);
             Model.Stars = new Starfields(new StarSettingsModel(false, 0, 0, 0, 0, 0, 0, 0));
             Model.DockingRings = new DockingRingCollection(game);
-            Model.JumpHoles = new JumpHoleCollection();
+            Model.JumpHoles = new JumpHoleCollection(game);
         }
         /// <summary>
         /// Dispose

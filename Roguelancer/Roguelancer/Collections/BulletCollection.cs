@@ -59,7 +59,7 @@ namespace Roguelancer.Collections {
         public override void Update(RoguelancerGame game) {
             if (game.Input.InputItems.Keys.LeftControl.IsKeyDown || game.Input.InputItems.Keys.RightControl.IsKeyDown || game.Input.InputItems.Mouse.RightButton) {
                 if (_model.AreBulletsAvailable) {
-                    game.Camera.Shake(10f, 0f, false);
+                    game.Graphics.Shake(10f, 0f, false);
                     _model.Bullets.Add(new BulletObject(_model.PlayerShip, game, new Vector3(-100f, -200f, 0f), particleSystemSettings: _particleSystemSettings));
                     _model.Bullets.Add(new BulletObject(_model.PlayerShip, game, new Vector3(-100f, 700f, 0f), particleSystemSettings: _particleSystemSettings));
                     _model.AreBulletsAvailable = false;

@@ -1,15 +1,14 @@
 ﻿using Roguelancer.Models;
 using Roguelancer.Objects;
-using System.Collections.Generic;
 namespace Roguelancer.Interfaces {
     /// <summary>
     /// IDockable
     /// </summary>
     public interface IDockable : IGame {
         /// <summary>
-        /// Station Model
+        /// Dockable Object Type Model
         /// </summary>
-        StationModel StationModel { get; set; }
+        DockableObjectTypeModel DockableObjectType { get; set; }
         /// <summary>
         /// Dock
         /// </summary>

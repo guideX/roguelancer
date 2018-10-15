@@ -23,7 +23,7 @@ namespace Roguelancer.Collections {
             foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.Planets) {
                 n++;
                 var s = new PlanetObject(game);
-                s.StationModel.StationID = n;
+                s.DockableObjectType.ReferenceID = n;
                 s.Model.WorldObject = obj;
                 s.DockableObjectModel.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.Model.ID).ToList();
                 Objects.Add(s);

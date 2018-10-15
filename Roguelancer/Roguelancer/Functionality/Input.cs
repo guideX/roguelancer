@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Roguelancer.Enum;
+using Roguelancer.Helpers;
 using Roguelancer.Interfaces;
 using Roguelancer.Models;
 namespace Roguelancer.Functionality {
@@ -52,7 +53,7 @@ namespace Roguelancer.Functionality {
                 case GameStatesEnum.Menu:
                     
                     // START PLAYING
-                    if (game.Settings.Model.KeyAssignments.CurrentGameState_Menu.FindWasKeyPressed(InputItems.Keys)) game.MenuActions.StartPlaying();
+                    if (game.Settings.Model.KeyAssignments.CurrentGameState_Menu.FindWasKeyPressed(InputItems.Keys)) MenuActionsHelper.StartPlaying(game);
                     
                     // EXIT GAME
                     if (game.Settings.Model.KeyAssignments.Exit.FindWasKeyPressed(InputItems.Keys)) game.Exit();
@@ -69,37 +70,37 @@ namespace Roguelancer.Functionality {
                     InputItems.Mouse.Vector = new Vector2(InputItems.Mouse.State.X, InputItems.Mouse.State.Y);
                     
                     // EXIT
-                    if (game.Settings.Model.KeyAssignments.Exit.FindWasKeyPressed(InputItems.Keys)) game.MenuActions.ExitMenu();
+                    if (game.Settings.Model.KeyAssignments.Exit.FindWasKeyPressed(InputItems.Keys)) MenuActionsHelper.ExitMenu(game);
                     
                     // GO TO MENU
-                    if (game.Settings.Model.KeyAssignments.CurrentGameState_Playing.FindWasKeyPressed(InputItems.Keys)) game.MenuActions.GotoMenu();
+                    if (game.Settings.Model.KeyAssignments.CurrentGameState_Playing.FindWasKeyPressed(InputItems.Keys)) MenuActionsHelper.GotoMenu(game);
                     
                     // TARGET
-                    if (game.Settings.Model.KeyAssignments.Target.FindWasKeyPressed(InputItems.Keys)) game.InGameActions.TargetNextObject();
+                    if (game.Settings.Model.KeyAssignments.Target.FindWasKeyPressed(InputItems.Keys)) InGameActionsHelper.TargetNextObject(game);
                     
                     // GOTO
-                    if (game.Settings.Model.KeyAssignments.Goto.FindWasKeyPressed(InputItems.Keys)) game.InGameActions.GotoCurrentlyTargetedObject();
+                    if (game.Settings.Model.KeyAssignments.Goto.FindWasKeyPressed(InputItems.Keys)) InGameActionsHelper.GotoCurrentlyTargetedObject(game);
                     
                     // TOGGLE MODE
-                    if (game.Settings.Model.KeyAssignments.ToggleMode.FindWasKeyPressed(InputItems.Keys)) game.InGameActions.ToggleMode();
+                    if (game.Settings.Model.KeyAssignments.ToggleMode.FindWasKeyPressed(InputItems.Keys)) InGameActionsHelper.ToggleMode(game);
                     
                     // CRUISE
-                    if (game.Settings.Model.KeyAssignments.Cruise.FindWasKeyPressed(InputItems.Keys)) game.InGameActions.ToggleCruise();
+                    if (game.Settings.Model.KeyAssignments.Cruise.FindWasKeyPressed(InputItems.Keys)) InGameActionsHelper.ToggleCruise(game);
                     
                     // TOGGLE CAMERA
-                    if (game.Settings.Model.KeyAssignments.ToggleCamera.FindWasKeyPressed(InputItems.Keys)) game.InGameActions.ToggleCamera();
+                    if (game.Settings.Model.KeyAssignments.ToggleCamera.FindWasKeyPressed(InputItems.Keys)) InGameActionsHelper.ToggleCamera(game);
                     
                     // MOUSE MODE
-                    if (game.Settings.Model.KeyAssignments.MouseMode.FindWasKeyPressed(InputItems.Keys)) game.InGameActions.MouseMode();
+                    if (game.Settings.Model.KeyAssignments.MouseMode.FindWasKeyPressed(InputItems.Keys)) InGameActionsHelper.MouseMode(game);
                     
                     // FREE MOUSE MODE
-                    if (game.Settings.Model.KeyAssignments.FreeMouseMode.FindWasKeyPressed(InputItems.Keys)) game.InGameActions.FreeMouseMode();
+                    if (game.Settings.Model.KeyAssignments.FreeMouseMode.FindWasKeyPressed(InputItems.Keys)) InGameActionsHelper.FreeMouseMode(game);
                     
                     // SNAPSHOT
                     if (game.Input.InputItems.Toggles.CameraSnapshot)
-                        game.InGameActions.CameraSnapshot();
+                        InGameActionsHelper.CameraSnapshot(game);
                     else if (game.Input.InputItems.Toggles.RevertCamera)
-                        game.InGameActions.RevertCamera();
+                        InGameActionsHelper.RevertCamera(game);
                     break;
             }
         }

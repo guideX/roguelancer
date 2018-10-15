@@ -92,8 +92,9 @@ namespace Roguelancer.Models {
             Direction = Vector3.Forward;
             if (particleSystemSettings == null) { particleSystemSettings = new ParticleSystemSettingsModel(); }
             if (particleSystemSettings.Enabled) {
-                ParticleSystem = new ParticleSystem(game);
-                ParticleSystem.Settings = particleSystemSettings;
+                ParticleSystem = new ParticleSystem(game) {
+                    Settings = particleSystemSettings
+                };
             }
         }
         /// <summary>
@@ -114,8 +115,9 @@ namespace Roguelancer.Models {
             Direction = Vector3.Forward;
             if (particleSystemSettings == null) { particleSystemSettings = new ParticleSystemSettingsModel(); }
             if (particleSystemSettings.Enabled) {
-                ParticleSystem = new ParticleSystem(game);
-                ParticleSystem.Settings = particleSystemSettings;
+                ParticleSystem = new ParticleSystem(game) {
+                    Settings = particleSystemSettings
+                };
             }
         }
         /// <summary>
@@ -216,8 +218,8 @@ namespace Roguelancer.Models {
                             } else {
                                 be.World = transforms[mm.ParentBone.Index] * World;
                             }
-                            be.View = game.Camera.Model.View;
-                            be.Projection = game.Camera.Model.Projection;
+                            be.View = game.Graphics.Model.View;
+                            be.Projection = game.Graphics.Model.Projection;
                         }
                         mm.Draw();
                     }

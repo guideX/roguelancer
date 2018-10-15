@@ -1,11 +1,23 @@
-﻿using Roguelancer.Enum;
-using Roguelancer.Interfaces;
-using Roguelancer.Models;
+﻿using Roguelancer.Interfaces;
+using Roguelancer.Objects.Base;
+//using Roguelancer.Enum;
+//using Roguelancer.Models;
 namespace Roguelancer.Objects {
     /// <summary>
     /// Jump Hole
     /// </summary>
-    public class JumpHoleObject : IGame {
+    public class JumpHoleObject : DockableGameObject<StationObject>, IGame, IDockableSensorObject {
+        #region "public methods"
+        /// <summary>
+        /// Entry Point
+        /// </summary>
+        /// <param name="game"></param>
+        public JumpHoleObject(RoguelancerGame game) {
+            Reset(game);
+            SetSensorObject(this);
+        }
+        #endregion
+        /*
         #region "public properties"
         /// <summary>
         /// Model
@@ -70,5 +82,6 @@ namespace Roguelancer.Objects {
             Model = new GameModel(game, null);
         }
         #endregion
+        */
     }
 }

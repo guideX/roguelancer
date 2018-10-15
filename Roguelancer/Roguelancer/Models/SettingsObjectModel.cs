@@ -23,7 +23,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Model Type
         /// </summary>
-        public ModelType ModelType { get; set; }
+        public ModelTypeEnum ModelType { get; set; }
         /// <summary>
         /// Is Player
         /// </summary>
@@ -39,7 +39,7 @@ namespace Roguelancer.Models {
         /// <param name="modelType"></param>
         /// <param name="enabled"></param>
         /// <param name="modelId"></param>
-        public SettingsObjectModel(string modelPath, ModelType modelType, bool enabled, int modelId, float scaling) {
+        public SettingsObjectModel(string modelPath, ModelTypeEnum modelType, bool enabled, int modelId, float scaling) {
             ModelPath = modelPath;
             ModelType = modelType;
             Enabled = enabled;

@@ -22,6 +22,6 @@ namespace Roguelancer.Interfaces {
         /// <summary>
         /// Model
         /// </summary>
-        GameGraphicsModel Model { get; set; }
+        //GameGraphicsModel Model { get; set; }
     }
 }

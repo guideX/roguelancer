@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using Roguelancer.Collections.Base;
+using Roguelancer.Enum;
 using Roguelancer.Interfaces;
 using Roguelancer.Objects;
 namespace Roguelancer.Collections {
@@ -23,7 +24,8 @@ namespace Roguelancer.Collections {
             foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.Stations) {
                 n++;
                 var s = new StationObject(game);
-                s.StationModel.StationID = n;
+                s.DockableObjectType.ReferenceID = n;
+                s.DockableObjectType.ObjectType = ModelTypeEnum.Station;
                 s.Model.WorldObject = obj;
                 s.DockableObjectModel.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.Model.ID).ToList();
                 Objects.Add(s);

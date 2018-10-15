@@ -5,6 +5,10 @@ namespace Roguelancer.Models {
     /// </summary>
     public class WorldObjectModel {
         /// <summary>
+        /// System Guid
+        /// </summary>
+        public string SystemGuid { get; set; } = System.Guid.NewGuid().ToString();
+        /// <summary>
         /// ID
         /// </summary>
         public int ID { get; set; }
