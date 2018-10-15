@@ -36,26 +36,26 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            Model.Stations.Initialize(game);
-            Model.Planets.Initialize(game);
-            Model.Stars.Initialize(game);
-            Model.Ships.Initialize(game);
-            Model.Bullets.Initialize(game);
-            Model.DockingRings.Initialize(game);
-            Model.JumpHoles.Initialize(game);
+            if (Model.Stations != null) Model.Stations.Initialize(game);
+            if (Model.Planets != null) Model.Planets.Initialize(game);
+            if (Model.Stars != null) Model.Stars.Initialize(game);
+            if (Model.Ships != null) Model.Ships.Initialize(game);
+            if (Model.Bullets != null) Model.Bullets.Initialize(game);
+            if (Model.DockingRings != null) Model.DockingRings.Initialize(game);
+            if (Model.JumpHoles != null) Model.JumpHoles.Initialize(game);
         }
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            Model.Stations.LoadContent(game);
-            Model.Planets.LoadContent(game);
-            Model.Stars.LoadContent(game);
-            Model.Ships.LoadContent(game);
-            Model.Bullets.LoadContent(game);
-            Model.DockingRings.LoadContent(game);
-            Model.JumpHoles.LoadContent(game);
+            if (Model.Stations != null) Model.Stations.LoadContent(game);
+            if (Model.Planets != null) Model.Planets.LoadContent(game);
+            if (Model.Stars != null) Model.Stars.LoadContent(game);
+            if (Model.Ships != null) Model.Ships.LoadContent(game);
+            if (Model.Bullets != null) Model.Bullets.LoadContent(game);
+            if (Model.DockingRings != null) Model.DockingRings.LoadContent(game);
+            if (Model.JumpHoles != null) Model.JumpHoles.LoadContent(game);
         }
         /// <summary>
         /// Update
@@ -63,16 +63,16 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
-                Model.Stations.Update(game);
-                Model.Planets.Update(game);
-                Model.Stars.Update(game);
-                Model.Ships.Update(game);
-                Model.Bullets.Update(game);
-                Model.DockingRings.Update(game);
-                Model.JumpHoles.Update(game);
+                if (Model.Stations != null) Model.Stations.Update(game);
+                if (Model.Planets != null) Model.Planets.Update(game);
+                if (Model.Stars != null) Model.Stars.Update(game);
+                if (Model.Ships != null) Model.Ships.Update(game);
+                if (Model.Bullets != null) Model.Bullets.Update(game);
+                if (Model.DockingRings != null) Model.DockingRings.Update(game);
+                if (Model.JumpHoles != null) Model.JumpHoles.Update(game);
             } else {
-                Model.Stations.Update(game);
-                Model.Planets.Update(game);
+                if (Model.Stations != null) Model.Stations.Update(game);
+                if (Model.Planets != null) Model.Planets.Update(game);
             }
         }
         /// <summary>
@@ -81,13 +81,13 @@ namespace Roguelancer.Objects {
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
-                Model.Stations.Draw(game);
-                Model.Planets.Draw(game);
-                Model.Stars.Draw(game);
-                Model.Ships.Draw(game);
-                Model.Bullets.Draw(game);
-                Model.DockingRings.Draw(game);
-                Model.JumpHoles.Draw(game);
+                if (Model.Stations != null) Model.Stations.Draw(game);
+                if (Model.Planets != null) Model.Planets.Draw(game);
+                if (Model.Stars != null) Model.Stars.Draw(game);
+                if (Model.Ships != null) Model.Ships.Draw(game);
+                if (Model.Bullets != null) Model.Bullets.Draw(game);
+                if (Model.DockingRings != null) Model.DockingRings.Draw(game);
+                if (Model.JumpHoles != null) Model.JumpHoles.Draw(game);
             } else {
                 Model.Stations.Draw(game);
                 Model.Planets.Draw(game);
@@ -98,7 +98,7 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
-            Model.Ships.Reset(game);
+            if (Model.Ships != null) Model.Ships.Reset(game);
             Model.Stations = new StationCollection(game);
             Model.Planets = new PlanetCollection(game);
             Model.Stars = new Starfields(new StarSettingsModel(false, 0, 0, 0, 0, 0, 0, 0));
@@ -109,11 +109,11 @@ namespace Roguelancer.Objects {
         /// Dispose
         /// </summary>
         public void Dispose(RoguelancerGame game) {
-            Model.Ships.Dispose(game);
-            Model.Stations.Dispose(game);
-            Model.Planets.Dispose(game);
-            Model.Stars.Dispose(game);
-            Model.DockingRings.Dispose(game);
+            if (Model.Ships != null) Model.Ships.Dispose(game);
+            if (Model.Stations != null) Model.Stations.Dispose(game);
+            if (Model.Planets != null) Model.Planets.Dispose(game);
+            if (Model.Stars != null) Model.Stars.Dispose(game);
+            if (Model.DockingRings != null) Model.DockingRings.Dispose(game);
         }
         #endregion
     }

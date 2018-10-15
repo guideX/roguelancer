@@ -73,9 +73,11 @@ namespace Roguelancer.Particle {
             _starEffect.CurrentTechnique = _starEffect.Techniques["Technique1"];
             _starEffect.Parameters["theTexture"].SetValue(_explosionTexture);
             n = _starSettings.MaxPositionStartingY;
-            for (var i = 0; i < _stars.Length; ++i) {
-                n = n - _starSettings.MaxPositionIncrementY;
-                _stars[i] = new ParticleStarSheet(game, new Vector3(_starSettings.MaxPositionX, _starSettings.MaxPositionY, n), _starSettings.AmountOfStarsPerSheet, _starTexture, _starEffect, _starSettings.MaxSize);
+            if (_stars != null) {
+                for (var i = 0; i < _stars.Length; ++i) {
+                    n = n - _starSettings.MaxPositionIncrementY;
+                    _stars[i] = new ParticleStarSheet(game, new Vector3(_starSettings.MaxPositionX, _starSettings.MaxPositionY, n), _starSettings.AmountOfStarsPerSheet, _starTexture, _starEffect, _starSettings.MaxSize);
+                }
             }
         }
         /// <summary>
@@ -83,10 +85,12 @@ namespace Roguelancer.Particle {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            for (var i = 0; i < _stars.Length; ++i) {
-                _stars[i].Draw(game);
-                foreach (ParticleExplosion explosion in _explosions) {
-                    explosion.Draw(game);
+            if (_stars != null) {
+                for (var i = 0; i < _stars.Length; ++i) {
+                    _stars[i].Draw(game);
+                    foreach (ParticleExplosion explosion in _explosions) {
+                        explosion.Draw(game);
+                    }
                 }
             }
         }
@@ -95,14 +99,16 @@ namespace Roguelancer.Particle {
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            for (var i = 0; i < _stars.Length; ++i) {
-                _stars[i].Update(game);
-            }
-            for (var i = 0; i < _explosions.Count; ++i) {
-                _explosions[i].Update(game.GameTime);
-                if (_explosions[i].IsDead) {
-                    _explosions.RemoveAt(i);
-                    --i;
+            if (_stars != null) {
+                for (var i = 0; i < _stars.Length; ++i) {
+                    _stars[i].Update(game);
+                }
+                for (var i = 0; i < _explosions.Count; ++i) {
+                    _explosions[i].Update(game.GameTime);
+                    if (_explosions[i].IsDead) {
+                        _explosions.RemoveAt(i);
+                        --i;
+                    }
                 }
             }
         }

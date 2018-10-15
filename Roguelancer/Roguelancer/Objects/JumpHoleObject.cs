@@ -6,7 +6,7 @@ namespace Roguelancer.Objects {
     /// <summary>
     /// Jump Hole
     /// </summary>
-    public class JumpHoleObject : DockableGameObject<StationObject>, IGame, IDockableSensorObject {
+    public class JumpHoleObject : DockableGameObject<JumpHoleObject>, IGame, IDockableSensorObject {
         #region "public methods"
         /// <summary>
         /// Entry Point
