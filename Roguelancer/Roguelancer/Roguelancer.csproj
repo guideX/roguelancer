@@ -198,7 +198,6 @@
     <Compile Include="Models\TradeLaneModel.cs" />
     <Compile Include="Models\WorldObjectModel.cs" />
     <Compile Include="Objects\Base\DockableGameObject.cs" />
-    <Compile Include="Objects\Base\DockableJumpHoleObject.cs" />
     <Compile Include="Objects\Base\DockableObject.cs" />
     <Compile Include="Objects\Base\GameObject.cs" />
     <Compile Include="Objects\BulletObject.cs" />

@@ -72,12 +72,24 @@ namespace Roguelancer.Objects.Base {
                                             dock.IsKeyDown = false;
                                             if (Model.WorldObject.Model.StarSystemId != 0) {
                                                 // GOTO SYSTEM
-                                                game.CurrentStarSystemId = Model.WorldObject.Model.StarSystemId;
-                                                game.Objects.Reset(game);
+                                                var position = playerShip.Model.Position;
+                                                var direction = playerShip.Model.Direction;
 
+
+                                                game.CurrentStarSystemId = Model.WorldObject.Model.StarSystemId;
+                                                //game.Objects = new GameObjects(game);
+                                                game.Objects.Reset(game);
+                                                playerShip = ShipHelper.GetPlayerShip(game.Objects.Model);
+                                                playerShip.Model.WorldObject.Model.StarSystemId = Model.WorldObject.Model.StarSystemId;
+                                                playerShip.Model.Position = position;
+                                                playerShip.Model.Direction = direction;
+                                                //game.CurrentStarSystemId = Model.WorldObject.Model.StarSystemId;
+                                                //game.Graphics.Reset(game);
+                                                //game.Objects.Reset(game);
+                                                //playerShip = ShipHelper.GetPlayerShip(game.Objects.Model);
                                                 //game.Objects = new GameObjects(game);
                                                 //game.Hud = new HudObject();
-                                                playerShip.Model.WorldObject.Model.StarSystemId = Model.WorldObject.Model.StarSystemId;
+                                                //playerShip.Model.WorldObject.Model.StarSystemId = Model.WorldObject.Model.StarSystemId;
                                             }
                                         }
                                         break;
@@ -264,6 +276,9 @@ namespace Roguelancer.Objects.Base {
                         sb.AppendLine("[" + n.ToString() + "] Description: " + commodity.Description + ", Price: " + obj.Price.ToString() + Environment.NewLine);
                     }
                     if (game.GameState.Model.CurrentGameState == Enum.GameStatesEnum.Docked && game.GameState.Model.DockedGameState == Enum.DockedGameStateEnum.Commodities) DebugTextHelper.SetText(game, "Station Commodities:" + Environment.NewLine + sb.ToString() + Environment.NewLine, true);
+                    break;
+                case ModelTypeEnum.JumpHole:
+                    DebugTextHelper.SetText(game, "Jump Holes do not sell commodities", true);
                     break;
                 default:
                     break;

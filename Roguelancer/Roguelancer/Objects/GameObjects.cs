@@ -21,6 +21,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public GameObjects(RoguelancerGame game) {
+            Reset(game);
+            /*
             Model = new GameObjectsModel() {
                 Stations = new StationCollection(game),
                 Planets = new PlanetCollection(game),
@@ -30,6 +32,7 @@ namespace Roguelancer.Objects {
                 JumpHoles = new JumpHoleCollection(game),
                 DockingRings = new DockingRingCollection(game)
             };
+            */
         }
         /// <summary>
         /// Initialize
@@ -98,12 +101,23 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
+            /*
             if (Model.Ships != null) Model.Ships.Reset(game);
             Model.Stations = new StationCollection(game);
             Model.Planets = new PlanetCollection(game);
             Model.Stars = new Starfields(new StarSettingsModel(false, 0, 0, 0, 0, 0, 0, 0));
             Model.DockingRings = new DockingRingCollection(game);
             Model.JumpHoles = new JumpHoleCollection(game);
+            */
+            Model = new GameObjectsModel() {
+                Stations = new StationCollection(game),
+                Planets = new PlanetCollection(game),
+                Stars = new Starfields(game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.StarSettings),
+                Ships = new ShipCollection(game),
+                Bullets = new BulletCollection(game),
+                JumpHoles = new JumpHoleCollection(game),
+                DockingRings = new DockingRingCollection(game)
+            };
         }
         /// <summary>
         /// Dispose
