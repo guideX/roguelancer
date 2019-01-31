@@ -33,7 +33,7 @@ public static class PlayerShipExtensions {
     /// <param name="game"></param>
     public static void MoveForward(this IPlayerShipControl playerShipControl, RoguelancerGame game, GameModel model) {
         var playerShip = ShipHelper.GetPlayerShip(game.Objects.Model);
-        game.Graphics.Shake(playerShip.ShipModel.PlayerShipControl.Model.ShakeValue, 0f, false);
+        game.Camera.Shake(playerShip.ShipModel.PlayerShipControl.Model.ShakeValue, 0f, false);
         if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAmount) {
             model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
         } else if (model.CurrentThrust < PlayerShipControlModel.MaxThrustAmount) {
@@ -45,8 +45,8 @@ public static class PlayerShipExtensions {
     /// <summary>
     /// Stop Shaking
     /// </summary>
-    public static void StopShaking(this RoguelancerGame game) {
-        game.Graphics.Model.Shaking = false;
+    public static void StopShaking(this PlayerShipControl playerShipControl, RoguelancerGame game) {
+        game.Camera.Model.Shaking = false;
     }
     /// <summary>
     /// Use After Burn Thrust
@@ -55,7 +55,7 @@ public static class PlayerShipExtensions {
     /// <param name="game"></param>
     /// <param name="model"></param>
     public static void UseAfterBurnThrust(this PlayerShipControl playerShipControl, RoguelancerGame game, GameModel model) {
-        game.Graphics.Shake(playerShipControl.Model.ShakeValue, 0f, false);
+        game.Camera.Shake(playerShipControl.Model.ShakeValue, 0f, false);
         if (model.CurrentThrust == PlayerShipControlModel.MaxThrustAfterburnerAmount) {
             model.CurrentThrust = PlayerShipControlModel.MaxThrustAfterburnerAmount;
         } else if (model.CurrentThrust < PlayerShipControlModel.MaxThrustAfterburnerAmount) {
@@ -97,35 +97,35 @@ public static class PlayerShipExtensions {
     public static void UpdateThrust(this PlayerShipControl playerShipControl, RoguelancerGame game, GameModel model) {
         if (!playerShipControl.Model.UseAutoDock) {
             if (playerShipControl.Model.UseInput) {
-                if (game.Settings.Model.KeyAssignments.MoveForward.FindIsKeyDown(game.Input.InputItems.Keys)) {
+                if (game.Input.InputItems.Keys.W.IsKeyDown) {
                     playerShipControl.MoveForward(game, model);
                 } else {
-                    game.StopShaking();
+                    playerShipControl.StopShaking(game);
                 }
                 if (game.Input.InputItems.Toggles.Cruise) { // Cruising
-                    if (game.Settings.Model.KeyAssignments.SlowDown.FindIsKeyDown(game.Input.InputItems.Keys)) {
+                    if (game.Input.InputItems.Keys.S.IsKeyDown) {
                         model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
                         game.Input.InputItems.Toggles.Cruise = false;
                     } else {
                         model.CurrentThrust = PlayerShipControlModel.MaxCruiseSpeed;
                     }
                 } else {
-                    if (game.Settings.Model.KeyAssignments.Afterburn.FindIsKeyDown(game.Input.InputItems.Keys)) {
+                    if (game.Input.InputItems.Keys.Tab.IsKeyDown) { // Tab
                         playerShipControl.UseAfterBurnThrust(game, model); // Use Afterburn Thrust
                     } else {
                         if (model.CurrentThrust > PlayerShipControlModel.MaxThrustAmount) {
                             model.CurrentThrust = model.CurrentThrust - PlayerShipControlModel.ThrustSlowDownSpeed;
-                            game.Graphics.Shake(playerShipControl.Model.ShakeValue, 0f, false);
+                            game.Camera.Shake(playerShipControl.Model.ShakeValue, 0f, false);
                         }
                     }
-                    if (game.Settings.Model.KeyAssignments.StopMoving.FindIsKeyDown(game.Input.InputItems.Keys)) {
-                        game.Graphics.Shake(1f, 0f, false);
+                    if (game.Input.InputItems.Keys.X.IsKeyDown) {
+                        game.Camera.Shake(1f, 0f, false);
                         if (model.CurrentThrust > PlayerShipControlModel.MaxThrustReverse) {
                             model.CurrentThrust = model.CurrentThrust + PlayerShipControlModel.ThrustReverseSpeed;
                         }
                     }
-                    if (game.Settings.Model.KeyAssignments.SlowDown.FindIsKeyDown(game.Input.InputItems.Keys)) {
-                        game.StopShaking();
+                    if (game.Input.InputItems.Keys.S.IsKeyDown) {
+                        playerShipControl.StopShaking(game);
                         if (model.CurrentThrust == 0) {
                         } else if (model.CurrentThrust > PlayerShipControlModel.MaxThrustAmount || model.CurrentThrust > -.0001) {
                             model.CurrentThrust = model.CurrentThrust - PlayerShipControlModel.ThrustSlowDownSpeed;
@@ -179,13 +179,9 @@ public static class PlayerShipExtensions {
             var playerShip = ShipHelper.GetPlayerShip(game.Objects.Model);
             switch (playerShipControl.Model.AutoDockStep) {
                 case 0:
-                    if (playerShip.ShipModel.GoingToObject != null) {
-                        playerShip.FaceObject(playerShip.ShipModel.GoingToObject.Model);
-                        model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
-                        playerShipControl.Model.AutoDockStep = 1;
-                    } else {
-                        DebugTextHelper.SetText(game, "Dock Failed, no destination is set.");
-                    }
+                    playerShip.FaceObject(playerShip.ShipModel.GoingToObject.Model);
+                    model.CurrentThrust = PlayerShipControlModel.MaxThrustAmount;
+                    playerShipControl.Model.AutoDockStep = 1;
                     break;
                 case 1:
                     if (playerShip.ShipModel.GoingToObject != null) {
@@ -230,8 +226,7 @@ public static class PlayerShipExtensions {
         if (playerShip.ShipModel.GoingTo && playerShip.ShipModel.GoingToObject != null) {
             var distance = (int)Vector3.Distance(playerShip.Model.Position, playerShip.ShipModel.GoingToObject.Model.Position) / (int)HudEnums.DivisionDistanceValue;
             if (distance < (int)HudEnums.DockDistanceAccept * 2) {
-                //game.InGameActions.FullStop();
-                InGameActionsHelper.FullStop(game);
+                game.InGameActions.FullStop();
                 DebugTextHelper.SetText(game, "Goto Completed", true);
             }
         }

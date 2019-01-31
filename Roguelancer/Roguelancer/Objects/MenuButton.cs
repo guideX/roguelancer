@@ -125,13 +125,13 @@ namespace Roguelancer.Objects {
                         case "Multiplayer":
                             break;
                         case "Options":
-                            game.GameMenu.Model.CurrentMenu = CurrentMenu.OptionsMenu;
+                            game.GameMenu.CurrentMenu = CurrentMenu.OptionsMenu;
                             game.GameState.Model.CurrentGameState = GameStatesEnum.Menu;
                             Clicked = false;
                             break;
                         case "Return":
-                            if (game.GameMenu.Model.CurrentMenu == CurrentMenu.OptionsMenu) {
-                                game.GameMenu.Model.CurrentMenu = CurrentMenu.HomeMenu;
+                            if (game.GameMenu.CurrentMenu == CurrentMenu.OptionsMenu) {
+                                game.GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
                                 game.GameState.Model.CurrentGameState = GameStatesEnum.Menu;
                                 Clicked = false;
                             }

@@ -1,4 +1,4 @@
-﻿//using Roguelancer.Models;
+﻿using Roguelancer.Models;
 namespace Roguelancer.Interfaces {
     /// <summary>
     /// Game Camera
@@ -7,7 +7,7 @@ namespace Roguelancer.Interfaces {
         /// <summary>
         /// Game Camera Model
         /// </summary>
-        //GameCameraModel Model { get; set; }
+        GameCameraModel Model { get; set; }
         /// <summary>
         /// Initialize
         /// </summary>

@@ -1,6 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-//using Roguelancer.Actions;
+using Roguelancer.Actions;
 using Roguelancer.Bloom;
 using Roguelancer.Enum;
 using Roguelancer.Functionality;
@@ -15,37 +15,13 @@ namespace Roguelancer {
     public class RoguelancerGame : Game {
         #region "public properties"
         /// <summary>
-        /// Star System
-        /// </summary>
-        public int CurrentStarSystemId { get; set; }
-        /// <summary>
         /// Hud
         /// </summary>
         public IHudObject Hud { get; set; }
         /// <summary>
         /// Graphics
         /// </summary>
-        //public IGameGraphics Graphics { get; set; }
-        /// <summary>
-        /// Settings
-        /// </summary>
-        public IGameSettings Settings { get; set; }
-        /// <summary>
-        /// Graphics
-        /// </summary>
-        public GameGraphicsObject Graphics { get; set; }
-        /// <summary>
-        /// Input
-        /// </summary>
-        public IInput Input { get; set; }
-        /// <summary>
-        /// Debug Text
-        /// </summary>
-        public IDebugText DebugText { get; set; }
-        /// <summary>
-        /// Game State
-        /// </summary>
-        public IGameStates GameState { get; set; }
+        public IGameGraphics Graphics { get; set; }
         /// <summary>
         /// Objects
         /// </summary>
@@ -61,51 +37,66 @@ namespace Roguelancer {
         /// <summary>
         /// In Game Actions
         /// </summary>
-        //public InGameActions InGameActions { get; set; }
+        public InGameActions InGameActions { get; set; }
         /// <summary>
         /// Menu Actions
         /// </summary>
-        //public MenuActions MenuActions { get; set; }
+        public MenuActions MenuActions { get; set; }
+        /// <summary>
+        /// Bloom
+        /// </summary>
+        public BloomHandler Bloom;
         /// <summary>
         /// Game Time
         /// </summary>
         public GameTime GameTime { get; set; }
-        #endregion
-        #region "private properties"
         /// <summary>
-        /// Bloom
+        /// Star System
         /// </summary>
-        private BloomHandler _bloom;
+        public int CurrentStarSystemId { get; set; } = 1;
         /// <summary>
-        /// Entry Point
+        /// Settings
         /// </summary>
+        public IGameSettings Settings { get; set; } = new GameSettings();
+        /// <summary>
+        /// Camera
+        /// </summary>
+        public IGameCamera Camera { get; set; } = new GameCamera();
+        /// <summary>
+        /// Input
+        /// </summary>
+        public IInput Input { get; set; } = new Input();
+        /// <summary>
+        /// Debug Text
+        /// </summary>
+        public IDebugText DebugText { get; set; } = new DebugText();
+        /// <summary>
+        /// Game State
+        /// </summary>
+        public IGameStates GameState { get; set; } = new GameState();
         #endregion
         #region "public methods"
         public RoguelancerGame() {
-            Settings = new GameSettings(this);
             Content.RootDirectory = "Content";
-            GameState = new GameState();
             IsMouseVisible = true;
-            Graphics = new GameGraphicsObject(this);
-            _bloom = new BloomHandler(this);
-            Input = new Input();
-            DebugText = new DebugTextObject();
+            Graphics = new GameGraphics(this);
+            Bloom = new BloomHandler(this);
             Objects = new GameObjects(this);
-            GameMenu = new GameMenuObject();
-            Hud = new HudObject();
-            //InGameActions = new InGameActions(this);
-            //MenuActions = new MenuActions(this);
-            GameMenu.Model.CurrentMenu = CurrentMenu.HomeMenu;
+            GameMenu = new GameMenuObject(this);
+            Hud = new HudObject(this);
+            InGameActions = new InGameActions(this);
+            MenuActions = new MenuActions(this);
+            GameMenu.CurrentMenu = CurrentMenu.HomeMenu;
         }
         /// <summary>
         /// Initialize
         /// </summary>
         protected override void Initialize() {
-            Graphics.Initialize(this);
-            _bloom.Initialize(this);
-            Objects.Initialize(this);
-            GameMenu.Initialize(this);
-            Hud.Initialize(this);
+            Camera.Initialize(this);
+            Bloom.Initialize(this);
+            //Objects.Initialize(this);
+            //GameMenu.Initialize(this);
+            //Hud.Initialize(this);
             base.Initialize();
         }
         /// <summary>
@@ -118,8 +109,9 @@ namespace Roguelancer {
             Objects.LoadContent(this);
             DebugTextHelper.SetText(this, ".", false);
             GameMenu.LoadContent(this);
-            Hud.LoadContent(this);
+            //Hud.LoadContent(this);
             //Input.LoadContent(this);
+            Bloom.LoadContent(this);
             base.LoadContent();
         }
         /// <summary>
@@ -129,9 +121,9 @@ namespace Roguelancer {
         protected override void Update(GameTime gameTime) {
             GameTime = gameTime;
             Input.Update(this);
-            _bloom.Update(this);
+            Bloom.Update(this);
             Objects.Update(this);
-            Graphics.Update(this);
+            Camera.Update(this);
             DebugText.Update(this);
             GameMenu.Update(this);
             if (GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
@@ -146,7 +138,7 @@ namespace Roguelancer {
         protected override void Draw(GameTime gameTime) {
             GameTime = gameTime;
             Graphics.Model.SpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
-            _bloom.Draw(this);
+            Bloom.Draw(this);
             if (GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 if (GameState.Model.LastGameState != GameState.Model.CurrentGameState) {
                     GraphicsDevice.Clear(Color.Black);

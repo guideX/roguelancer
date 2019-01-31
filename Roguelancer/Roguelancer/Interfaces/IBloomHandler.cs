@@ -3,7 +3,7 @@ namespace Roguelancer.Interfaces {
     /// <summary>
     /// Bloom Component
     /// </summary>
-    public interface IBloomHandler {
+    public interface IBloomHandler : IGame {
         /// <summary>
         /// Model
         /// </summary>
@@ -12,16 +12,16 @@ namespace Roguelancer.Interfaces {
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        void Initialize(RoguelancerGame game);
+        //void Initialize(RoguelancerGame game);
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
-        void Update(RoguelancerGame game);
+        //void Update(RoguelancerGame game);
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
-        void Draw(RoguelancerGame game);
+        //void Draw(RoguelancerGame game);
     }
 }

@@ -35,8 +35,8 @@ namespace Roguelancer.Bloom {
         /// <summary>
         /// Load Content
         /// </summary>
-        //public void LoadContent(RoguelancerGame game) {
-        //}
+        public void LoadContent(RoguelancerGame game) {
+        }
         /// <summary>
         /// Update
         /// </summary>
@@ -54,6 +54,20 @@ namespace Roguelancer.Bloom {
             if (game.Settings.Model.BloomEnabled) {
                 Model.Bloom.BeginDraw();
             }
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        /// <param name="game"></param>
+        public void Dispose(RoguelancerGame game) {
+            //throw new System.NotImplementedException();
+        }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name=""></param>
+        public void Reset(RoguelancerGame game) {
+            //throw new System.NotImplementedException();
         }
         #endregion
     }

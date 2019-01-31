@@ -1,5 +1,5 @@
 ﻿using Roguelancer.Models;
-//using System.Collections.Generic;
+using System.Collections.Generic;
 namespace Roguelancer.Interfaces {
     /// <summary>
     /// Sensor Object

@@ -5,13 +5,18 @@ namespace Roguelancer.Models {
     /// </summary>
     public class WorldObjectModel {
         /// <summary>
-        /// System Guid
+        /// Jump Hole Target
         /// </summary>
-        public string SystemGuid { get; set; } = System.Guid.NewGuid().ToString();
+        public int? JumpHoleTarget { get; set; }
+        /// <summary>
+        /// Destination Index
+        /// </summary>
+        public int? DestinationIndex { get; set; }
         /// <summary>
         /// ID
         /// </summary>
         public int ID { get; set; }
+        //public string Guid { get; set; }
         /// <summary>
         /// Description
         /// </summary>

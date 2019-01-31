@@ -19,7 +19,7 @@ public static class HudObjectsExtension {
         var results = new List<HudSensorObject>();
         var shipID = 0;
         if (includeShips) {
-            foreach (var ship in gameObjects.Ships.Objects) {
+            foreach (var ship in gameObjects.Ships.Model.Ships) {
                 shipID++;
                 results.Add(new HudSensorObject() {
                     Obj = ship,
@@ -30,7 +30,7 @@ public static class HudObjectsExtension {
             }
         }
         var stationID = 0;
-        foreach (var station in gameObjects.Stations.Objects) {
+        foreach (var station in gameObjects.Stations.Model.Stations) {
             stationID++;
             results.Add(new HudSensorObject() {
                 Obj = station,
@@ -39,16 +39,7 @@ public static class HudObjectsExtension {
                 FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
             });
         }
-        foreach (var jumpHole in gameObjects.JumpHoles.Objects) {
-            stationID++;
-            results.Add(new HudSensorObject() {
-                Obj = jumpHole,
-                Distance = Vector3.Distance(playerShip.Model.Position, jumpHole.Model.Position) / (int)HudEnums.DivisionDistanceValue,
-                Text = "Jump Hole " + stationID.ToString(),
-                FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
-            });
-        }
-        foreach (var planet in gameObjects.Planets.Objects) {
+        foreach (var planet in gameObjects.Planets.Model.Planets) {
             stationID++;
             results.Add(new HudSensorObject() {
                 Obj = planet,
@@ -57,12 +48,21 @@ public static class HudObjectsExtension {
                 FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
             });
         }
-        foreach (var dockingRing in gameObjects.DockingRings.Objects) {
+        foreach (var dockingRing in gameObjects.DockingRings.Model.DockingRings) {
             stationID++;
             results.Add(new HudSensorObject() {
                 Obj = dockingRing,
                 Distance = Vector3.Distance(playerShip.Model.Position, dockingRing.Model.Position) / (int)HudEnums.DivisionDistanceValue,
                 Text = "Docking Ring " + stationID.ToString(),
+                FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
+            });
+        }
+        foreach (var jumpHole in gameObjects.JumpHoles.Model.JumpHoles) {
+            stationID++;
+            results.Add(new HudSensorObject() {
+                Obj = jumpHole,
+                Distance = Vector3.Distance(playerShip.Model.Position, jumpHole.Model.Position) / (int)HudEnums.DivisionDistanceValue,
+                Text = "Jump Hole " + stationID.ToString(),
                 FontPosition = new Vector2((int)HudEnums.TextLeft, (int)HudEnums.ImageTop),
             });
         }

@@ -29,10 +29,10 @@ namespace Roguelancer.Objects {
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        public void Initialize(RoguelancerGame game) {
-            Model.Initialize(game);
+        public void Initialize() {
+            //Model.Initialize();
             if (ShipModel.PlayerShipControl.Model.UseInput) {
-                ShipModel.PlayerShipControl = new PlayerShipControl(game);
+                ShipModel.PlayerShipControl = new PlayerShipControl();
             }
         }
         /// <summary>
@@ -81,8 +81,8 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
-            ShipModel = new ShipModel(game);
-            Model = new GameModel(game, null, null);
+            ShipModel = new ShipModel();
+            Model = new GameModel(game, null, null, ModelTypeEnum.Ship, Model?.Description);
         }
         #endregion
     }

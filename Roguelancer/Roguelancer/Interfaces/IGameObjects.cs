@@ -9,6 +9,11 @@ namespace Roguelancer.Interfaces {
         /// </summary>
         GameObjectsModel Model { get; set; }
         /// <summary>
+        /// Get Object Count
+        /// </summary>
+        /// <returns></returns>
+        int GetObjectCount();
+        /// <summary>
         /// Ships
         /// </summary>
         //IShipCollection Ships { get; set; }

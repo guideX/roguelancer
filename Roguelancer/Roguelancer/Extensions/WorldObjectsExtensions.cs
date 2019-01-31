@@ -25,7 +25,9 @@ public static class WorldObjectsExtensions {
                 oldObject.Model.InitialDirection,
                 oldObject.Model.CargoSpace,
                 oldObject.Model.ID,
-                oldObject.Model.Dockable
+                oldObject.Model.Dockable,
+                oldObject.Model.DestinationIndex,
+                oldObject.Model.JumpHoleTarget
             );
     }
 }

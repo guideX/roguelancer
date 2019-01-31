@@ -1,4 +1,5 @@
-﻿using Roguelancer.Interfaces;
+﻿/*
+using Roguelancer.Interfaces;
 using Roguelancer.Models;
 using Roguelancer.Objects.Base;
 using System.Collections.Generic;
@@ -17,7 +18,6 @@ namespace Roguelancer.Objects {
         /// Game Model
         /// </summary>
         public List<TradeLaneModel> Models { get; set; }
-        public DockableObjectTypeModel DockableObjectType { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
         #endregion
         #region "public methods"
         /// <summary>
@@ -82,4 +82,4 @@ namespace Roguelancer.Objects {
         }
         #endregion
     }
-}
+}*/

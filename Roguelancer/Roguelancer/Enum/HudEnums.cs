@@ -1,4 +1,4 @@
-﻿namespace Roguelancer.Enum {
+﻿ namespace Roguelancer.Enum {
     /// <summary>
     /// Hud Enums
     /// </summary>

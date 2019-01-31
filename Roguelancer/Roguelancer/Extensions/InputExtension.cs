@@ -1,4 +1,8 @@
-﻿using Roguelancer.Models;
+﻿using Roguelancer;
+using Roguelancer.Enum;
+using Roguelancer.Functionality;
+using Roguelancer.Helpers;
+using Roguelancer.Models;
 using System.Linq;
 /// <summary>
 /// Input Extension
@@ -11,7 +15,6 @@ public static class InputExtension {
     /// <param name="keys"></param>
     /// <returns></returns>
     public static KeyboardKeyStatusModel FindKeyboardStatus(this string str, KeyInputModel keys) {
-    //public static KeyboardKeyStatusModel FindKeyboardStatus(this string str) {
         var obj = (object)keys;
         KeyboardKeyStatusModel result = null;
         if (str != null) {

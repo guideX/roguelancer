@@ -46,19 +46,6 @@
         /// <summary>
         /// Current Game State: Playing
         /// </summary>
-        CurrentGameState_Playing = 10,
-        /// <summary>
-        /// Afterburn
-        /// </summary>
-        Afterburn = 11,
-        /// <summary>
-        /// Stop Moving
-        /// </summary>
-        StopMoving = 12,
-        /// <summary>
-        /// Slow Down
-        /// </summary>
-         SlowDown = 13
-
+        CurrentGameState_Playing = 10
     }
 }

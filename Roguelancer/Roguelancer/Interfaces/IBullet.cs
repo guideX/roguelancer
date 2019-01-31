@@ -1,17 +1,42 @@
-﻿using Roguelancer.Models;
+﻿using System;
+using Roguelancer.Models;
+using Roguelancer.Objects;
 namespace Roguelancer.Interfaces {
     /// <summary>
     /// Bullet
     /// </summary>
     public interface IBullet : IGame {
         /// <summary>
-        /// Bullet Model
+        /// Model
         /// </summary>
-        BulletModel BulletModel { get; set; }
+        GameModel Model { get; set; }
         /// <summary>
-        /// Dispose
+        /// Player Ship
         /// </summary>
-        /// <param name="game"></param>
-        //void Dispose(RoguelancerGame game);
+        ShipObject PlayerShip { get; set; }
+        /// <summary>
+        /// Mass
+        /// </summary>
+        float Mass { get; set; }
+        /// <summary>
+        /// Thrust Force
+        /// </summary>
+        float ThrustForce { get; set; }
+        /// <summary>
+        /// Drag Factor
+        /// </summary>
+        float DragFactor { get; set; }
+        /// <summary>
+        /// Bullet Death Date
+        /// </summary>
+        DateTime DeathDate { get; set; }
+        /// <summary>
+        /// Limit Altitude
+        /// </summary>
+        bool LimitAltitude { get; set; }
+        /// <summary>
+        /// Bullet Thrust
+        /// </summary>
+        float BulletThrust { get; set; }
     }
 }

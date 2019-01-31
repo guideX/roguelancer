@@ -16,7 +16,8 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Station
         /// </summary>
-        public int StationId { get; set; }
+        //public int StationId { get; set; }
+        public string StationGuid { get; set; }
         /// <summary>
         /// Commodities Id
         /// </summary>

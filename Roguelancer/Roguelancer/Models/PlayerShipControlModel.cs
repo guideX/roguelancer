@@ -1,4 +1,5 @@
 ﻿using Roguelancer.Functionality;
+using Roguelancer.Objects;
 namespace Roguelancer.Models {
     /// <summary>
     /// Player Ship Control Model
@@ -138,7 +139,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Player Ship Control Model
         /// </summary>
-        public PlayerShipControlModel(RoguelancerGame game, int shipID = 1) {
+        public PlayerShipControlModel(int shipID = 1) {
             var rootDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\..\";
             var ini = rootDir + @"configuration\player\settings.ini";
             RotationRate = NativeMethods.ReadINIFloat(ini, "PlayerShip", "RotationRate", 1.5f);

@@ -6,6 +6,10 @@ namespace Roguelancer.Models {
     /// </summary>
     public class StarSystemSettingsModel {
         /// <summary>
+        /// Description
+        /// </summary>
+        public string Description { get; set; }
+        /// <summary>
         /// Ships
         /// </summary>
         public List<WorldObjectsSettings> Ships { get; set; }

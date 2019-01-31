@@ -1,5 +1,6 @@
 ﻿using Roguelancer.Functionality;
 using Roguelancer.Interfaces;
+using Roguelancer.Objects;
 namespace Roguelancer.Models {
     /// <summary>
     /// Ship Model
@@ -41,10 +42,10 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Ship Model
         /// </summary>
-        public ShipModel(RoguelancerGame game) {
+        public ShipModel() {
             Money = 2000.00m;
             CargoHold = new CargoHoldModel();
-            PlayerShipControl = new PlayerShipControl(game);
+            PlayerShipControl = new PlayerShipControl();
             //HardPoints = new List<HardPoint>();
         }
     }

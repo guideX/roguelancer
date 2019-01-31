@@ -130,14 +130,14 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Game Settings Model
         /// </summary>
-        public GameSettingsModel(RoguelancerGame game) {
+        public GameSettingsModel() {
             StarSystemSettings = new List<StarSystemSettings>();
             StationPriceModels = new List<StationPriceModel>();
             CommoditiesModels = new List<CommodityModel>();
             MenuText = "";
             Resolution = new Vector2(1280, 1024);
-            //var rootDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\..\";
-            var rootDir = @"C:\dev\Roguelancer\Roguelancer\Roguelancer\bin\x86\Debug\";
+            var rootDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\..\";
+            //var rootDir = @"C:\dev\Roguelancer\Roguelancer\Roguelancer\bin\x86\Debug\";
             GameSettingsIniFile = rootDir + @"configuration\settings\settings.ini";
             ModelSettingsIniFile = rootDir + @"configuration\models.ini";
             SystemsSettingsIniFile = rootDir + @"configuration\systems\systems.ini";

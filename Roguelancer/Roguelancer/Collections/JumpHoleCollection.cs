@@ -1,65 +1,86 @@
-﻿using System.Linq;
-using Roguelancer.Collections.Base;
-using Roguelancer.Enum;
-using Roguelancer.Interfaces;
+﻿using Roguelancer.Interfaces;
+using Roguelancer.Models;
 using Roguelancer.Objects;
-//using Roguelancer.Collections.Base;
-//using Roguelancer.Interfaces;
-//using Roguelancer.Objects;
 namespace Roguelancer.Collections {
     /// <summary>
-    /// Station Collection
+    /// Jump Hole Collection
     /// </summary>
-    public class JumpHoleCollection : CollectionObject<JumpHoleObject>, IGame {
+    public class JumpHoleCollection : IGame {
+        #region "public properties"
+        /// <summary>
+        /// Model
+        /// </summary>
+        public JumpHoleCollectionModel Model { get; set; }
+        #endregion
         #region "public methods"
         /// <summary>
         /// Jump Hole Collection
         /// </summary>
-        public JumpHoleCollection(RoguelancerGame game) {
-            Reset(game);
+        public JumpHoleCollection() {
+            Model = new JumpHoleCollectionModel();
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        public override void Initialize(RoguelancerGame game) {
+        public void Initialize(RoguelancerGame game) {
             var n = 0;
-            var existingGuids = Objects.Select(o => o.Model.WorldObject.Model.SystemGuid).ToList();
-            foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.JumpHoles) {
-                if (!existingGuids.Contains(obj.Model.SystemGuid)) {
-                    n++;
-                    var j = new JumpHoleObject(game);
-                    j.DockableObjectType.ReferenceID = n;
-                    j.DockableObjectType.ObjectType = ModelTypeEnum.JumpHole;
-                    j.Model.WorldObject = obj;
-                    Objects.Add(j);
-                    j.Initialize(game);
-                }
-            }
-        }
-        #endregion
-    }
-    /*
-    /// <summary>
-    /// Jump Hole Collection
-    /// </summary>
-    public class JumpHoleCollection : CollectionObject<JumpHoleObject>, IGame {
-        #region "public methods"
-        /// <summary>
-        /// Initialize
-        /// </summary>
-        /// <param name="game"></param>
-        public override void Initialize(RoguelancerGame game) {
-            var n = 0;
-            foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.JumpHoles) {
+            foreach (var modelWorldObject in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId - 1].Model.JumpHoles) {
                 n++;
-                var s = new JumpHoleObject(game);
-                s.Model.WorldObject = obj;
-                Objects.Add(s);
+                var s = new StationObject(game);
+                var jumpHole = new JumpHoleObject(game);
+                jumpHole.Model.WorldObject = modelWorldObject;
+                jumpHole.StationModel.DestinationSystem = jumpHole.Model.WorldObject.Model.DestinationIndex;
+                jumpHole.StationModel.JumpHoleID = n;
+                jumpHole.StationModel.JumpHoleTarget = modelWorldObject.Model.JumpHoleTarget;
+                //s.DockableObjectModel.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.Model.ID).ToList();
+                Model.JumpHoles.Add(jumpHole);
             }
-            Objects.ForEach(o => o.Initialize(game));
+            foreach (var hole in Model.JumpHoles) {
+                hole.Initialize(game);
+            }
+        }
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="game"></param>
+        public void LoadContent(RoguelancerGame game) {
+            foreach (var hole in Model.JumpHoles) {
+                hole.LoadContent(game);
+            }
+        }
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="game"></param>
+        public void Update(RoguelancerGame game) {
+            foreach (var hole in Model.JumpHoles) {
+                hole.Update(game);
+            }
+        }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
+        public void Draw(RoguelancerGame game) {
+            foreach (var hole in Model.JumpHoles) {
+                hole.Draw(game);
+            }
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose(RoguelancerGame game) {
+            foreach (var hole in Model.JumpHoles) {
+                hole.Dispose(game);
+            }
+        }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset(RoguelancerGame game) {
         }
         #endregion
     }
-    */
 }

@@ -1,4 +1,4 @@
-﻿using Roguelancer.Settings;
+﻿/*using Roguelancer.Settings;
 namespace Roguelancer.Models {
     /// <summary>
     /// Trade Lane Model
@@ -18,4 +18,4 @@ namespace Roguelancer.Models {
             };
         }
     }
-}
+}*/

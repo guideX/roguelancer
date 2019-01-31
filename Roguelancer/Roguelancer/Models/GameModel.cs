@@ -51,6 +51,10 @@ namespace Roguelancer.Models {
         /// </summary>
         public float MinimumAltitude { get; set; }
         /// <summary>
+        /// Description
+        /// </summary>
+        public string Description { get; set; }
+        /// <summary>
         /// World Object
         /// </summary>
         public WorldObjectsSettings WorldObject { get; set; }
@@ -58,6 +62,10 @@ namespace Roguelancer.Models {
         /// Particle System
         /// </summary>
         public ParticleSystem ParticleSystem { get; set; }
+        /// <summary>
+        /// Object Type
+        /// </summary>
+        public ModelTypeEnum ObjectType { get; set; }
         #endregion
         #region "private properties"
         /// <summary>
@@ -75,35 +83,12 @@ namespace Roguelancer.Models {
             return _parent;
         }
         /// <summary>
-        /// Game Model
+        /// Entry Point
         /// </summary>
         /// <param name="game"></param>
-        /// <param name="particleSystemSettings"></param>
-        /// <param name="stationObject"></param>
-        public GameModel(RoguelancerGame game, ParticleSystemSettingsModel particleSystemSettings) {
-            //if (stationObject != null) _parent = stationObject;
-            MinimumAltitude = -350.0f;
-            Velocity = Vector3.Zero;
-            Position = new Vector3(.5f, MinimumAltitude, 0);
-            //Position = new Vector3(0, MinimumAltitude, 0);
-            Up = Vector3.Up;
-            Right = Vector3.Right;
-            CurrentThrust = 0.0f;
-            Direction = Vector3.Forward;
-            if (particleSystemSettings == null) { particleSystemSettings = new ParticleSystemSettingsModel(); }
-            if (particleSystemSettings.Enabled) {
-                ParticleSystem = new ParticleSystem(game) {
-                    Settings = particleSystemSettings
-                };
-            }
-        }
-        /// <summary>
-        /// Game Model
-        /// </summary>
-        /// <param name="game"></param>
-        /// <param name="particleSystemSettings"></param>
-        /// <param name="stationObject"></param>
-        public GameModel(RoguelancerGame game, ParticleSystemSettingsModel particleSystemSettings, IDockableSensorObject stationObject) {
+        public GameModel(RoguelancerGame game, ParticleSystemSettingsModel particleSystemSettings, IDockableSensorObject stationObject, ModelTypeEnum objectType, string description) {
+            Description = description;
+            ObjectType = objectType;
             if (stationObject != null) _parent = stationObject;
             MinimumAltitude = -350.0f;
             Velocity = Vector3.Zero;
@@ -115,16 +100,15 @@ namespace Roguelancer.Models {
             Direction = Vector3.Forward;
             if (particleSystemSettings == null) { particleSystemSettings = new ParticleSystemSettingsModel(); }
             if (particleSystemSettings.Enabled) {
-                ParticleSystem = new ParticleSystem(game) {
-                    Settings = particleSystemSettings
-                };
+                ParticleSystem = new ParticleSystem(game);
+                ParticleSystem.Settings = particleSystemSettings;
             }
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        public void Initialize(RoguelancerGame game) {
+        public void Initialize() {
             if (ParticleSystem != null) {
                 if (ParticleSystem.Settings.Enabled) {
                     ParticleSystem.Initialize(game);
@@ -196,33 +180,31 @@ namespace Roguelancer.Models {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            if (_model != null) {
-                if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
-                    var transforms = new Matrix[_model.Bones.Count];
-                    _model.CopyAbsoluteBoneTransformsTo(transforms);
-                    if (ParticleSystem != null) {
-                        if (ParticleSystem.Settings.Enabled) {
-                            ParticleSystem.Draw(game);
-                        }
+            if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing && _model != null) {
+                var transforms = new Matrix[_model.Bones.Count];
+                _model.CopyAbsoluteBoneTransformsTo(transforms);
+                if (ParticleSystem != null) {
+                    if (ParticleSystem.Settings.Enabled) {
+                        ParticleSystem.Draw(game);
                     }
-                    foreach (ModelMesh mm in _model.Meshes) {
-                        foreach (BasicEffect be in mm.Effects) {
-                            be.Alpha = 1;
-                            be.EnableDefaultLighting();
-                            if (UseScale) {
-                                be.World =
-                                    Matrix.CreateScale(WorldObject.Model.SettingsModelObject.Scaling) *
-                                    transforms[mm.ParentBone.Index] *
-                                    World
-                                ;
-                            } else {
-                                be.World = transforms[mm.ParentBone.Index] * World;
-                            }
-                            be.View = game.Graphics.Model.View;
-                            be.Projection = game.Graphics.Model.Projection;
+                }
+                foreach (ModelMesh mm in _model.Meshes) {
+                    foreach (BasicEffect be in mm.Effects) {
+                        be.Alpha = 1;
+                        be.EnableDefaultLighting();
+                        if (UseScale) {
+                            be.World = 
+                                Matrix.CreateScale(WorldObject.Model.SettingsModelObject.Scaling) * 
+                                transforms[mm.ParentBone.Index] * 
+                                World
+                            ;
+                        } else {
+                           be.World = transforms[mm.ParentBone.Index] * World;
                         }
-                        mm.Draw();
+                        be.View = game.Camera.Model.View;
+                        be.Projection = game.Camera.Model.Projection;
                     }
+                    mm.Draw();
                 }
             }
         }

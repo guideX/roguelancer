@@ -1,36 +1,84 @@
 ﻿using System.Linq;
-using Roguelancer.Collections.Base;
 using Roguelancer.Interfaces;
+using Roguelancer.Models;
 using Roguelancer.Objects;
 namespace Roguelancer.Collections {
     /// <summary>
     /// Planet Collection
     /// </summary>
-    public class PlanetCollection : CollectionObject<PlanetObject>, IGame {
+    public class PlanetCollection : IGame {
+        #region "public properties"
+        /// <summary>
+        /// Planet Collection Model
+        /// </summary>
+        public PlanetCollectionModel Model { get; set; }
+        #endregion
         #region "public methods"
         /// <summary>
         /// Planet Collection
         /// </summary>
-        public PlanetCollection(RoguelancerGame game) {
-            Reset(game);
+        public PlanetCollection() {
+            Reset();
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        public override void Initialize(RoguelancerGame game) {
-            var n = 0;
-            foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.Planets) {
-                n++;
+        public void Initialize(RoguelancerGame game) {
+            //var n = 0;
+            foreach (var obj in game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId - 1].Model.Planets) {
+                //n++;
+                var stationGuid = System.Guid.NewGuid().ToString();
                 var s = new PlanetObject(game);
-                s.DockableObjectType.ReferenceID = n;
+                //s.StationModel.StationID = n;
+                s.StationModel.StationGuid = stationGuid;
                 s.Model.WorldObject = obj;
-                s.DockableObjectModel.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.Model.ID).ToList();
-                Objects.Add(s);
+                //s.DockableObjectModel.StationPrices = game.Settings.Model.StationPriceModels.Where(p => p.StationId == obj.Model.ID).ToList();
+                Model.Planets.Add(s);
             }
-            foreach (var planet in Objects) {
+            foreach (var planet in Model.Planets) {
                 planet.Initialize(game);
             }
+        }
+        /// <summary>
+        /// Load Content
+        /// </summary>
+        /// <param name="game"></param>
+        public void LoadContent(RoguelancerGame game) {
+            foreach (var planet in Model.Planets) {
+                planet.LoadContent(game);
+            }
+        }
+        /// <summary>
+        /// Upate
+        /// </summary>
+        /// <param name="game"></param>
+        public void Update(RoguelancerGame game) {
+            foreach (var planet in Model.Planets) {
+                planet.Update(game);
+            }
+        }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
+        public void Draw(RoguelancerGame game) {
+            foreach (var planet in Model.Planets) {
+                planet.Draw(game);
+            }
+        }
+        /// <summary>
+        /// Dispose
+        /// </summary>
+        public void Dispose(RoguelancerGame game) {
+            Model = null;
+        }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset() {
+            Model = new PlanetCollectionModel();
         }
         #endregion
     }

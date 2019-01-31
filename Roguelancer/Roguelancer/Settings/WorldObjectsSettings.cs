@@ -28,6 +28,9 @@ namespace Roguelancer.Settings {
         /// <param name="initialDirection"></param>
         /// <param name="cargoSpace"></param>
         /// <param name="id"></param>
+        /// <param name="dockable"></param>
+        /// <param name="destinationIndex"></param>
+        /// <param name="jumpHoleTarget"></param>
         public WorldObjectsSettings(
                 string description,
                 string descriptionLong,
@@ -42,7 +45,9 @@ namespace Roguelancer.Settings {
                 Vector3 initialDirection,
                 int cargoSpace,
                 int id, 
-                bool dockable
+                bool dockable,
+                int? destinationIndex,
+                int? jumpHoleTarget
             ) {
             Model = new WorldObjectModel() {
                 Description = description,
@@ -58,7 +63,10 @@ namespace Roguelancer.Settings {
                 InitialDirection = initialDirection,
                 CargoSpace = cargoSpace,
                 ID = id,
-                Dockable = dockable
+                //Guid = guid,
+                Dockable = dockable,
+                DestinationIndex = destinationIndex,
+                JumpHoleTarget = jumpHoleTarget
             };
         }
         /// <summary>
@@ -70,6 +78,8 @@ namespace Roguelancer.Settings {
         /// <param name="section"></param>
         /// <returns></returns>
         public static WorldObjectsSettings Read(int ID, List<SettingsObjectModel> modelSettings, string iniFile, string section) {
+            int? jumpHoleTarget = NativeMethods.ReadINIInt(iniFile, section, "jump_hole_target", 0);
+            int? destinationIndex = NativeMethods.ReadINIInt(iniFile, section, "destination_index", 0);
             var description = NativeMethods.ReadINI(iniFile, section, "description", "");
             var descriptionLong = NativeMethods.ReadINI(iniFile, section, "description_long", "");
             var startupPosition = NativeMethods.ReadINIVector3(iniFile, section, "startup_position_x", "startup_position_y", "startup_position_z");
@@ -99,7 +109,9 @@ namespace Roguelancer.Settings {
                     initialDirection,
                     cargoSpace,
                     ID,
-                    dockable
+                    dockable,
+                    destinationIndex,
+                    jumpHoleTarget
                 );
             } else {
                 throw new System.Exception("Settings Not Found.");

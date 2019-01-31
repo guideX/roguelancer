@@ -1,4 +1,5 @@
-﻿using Roguelancer.Models;
+﻿using Roguelancer.Enum;
+using Roguelancer.Models;
 using Roguelancer.Objects;
 namespace Roguelancer.Interfaces {
     /// <summary>
@@ -29,7 +30,8 @@ namespace Roguelancer.Interfaces {
         /// <param name="game"></param>
         /// <param name="modelType"></param>
         /// <param name="stationID"></param>
-        void ListCommoditiesForSale(RoguelancerGame game, DockableObjectTypeModel dockableObjectType);
+        //void ListCommoditiesForSale(RoguelancerGame game, ModelType modelType, int stationID);
+        void ListCommoditiesForSale(RoguelancerGame game, ModelTypeEnum modelType, string stationGuid);
         /// <summary>
         /// Purchase Commodity
         /// </summary>
@@ -43,27 +45,31 @@ namespace Roguelancer.Interfaces {
         /// <param name="game"></param>
         /// <param name="Model"></param>
         /// <param name="stationID"></param>
-        void Initialize(RoguelancerGame game, GameModel Model, DockableObjectTypeModel dockableObjectType);
+        //void Initialize(RoguelancerGame game, GameModel Model, int? stationID);
+        void Initialize(RoguelancerGame game, GameModel Model, string stationGuid);
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         /// <param name="Model"></param>
         /// <param name="stationID"></param>
-        void LoadContent(RoguelancerGame game, GameModel Model, DockableObjectTypeModel dockableObjectType);
+        //void LoadContent(RoguelancerGame game, GameModel Model, int? stationID);
+        void LoadContent(RoguelancerGame game, GameModel Model, string stationGuid);
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         /// <param name="Model"></param>
         /// <param name="stationID"></param>
-        void Update(RoguelancerGame game, GameModel Model, DockableObjectTypeModel dockableObjectType);
+        //void Update(RoguelancerGame game, GameModel Model, int? stationID);
+        void Update(RoguelancerGame game, GameModel Model, string stationGuid);
         /// <summary>
         /// Draw
         /// </summary>
         /// <param name="game"></param>
         /// <param name="Model"></param>
         /// <param name="stationID"></param>
-        void Draw(RoguelancerGame game, GameModel Model, DockableObjectTypeModel dockableObjectType);
+        //void Draw(RoguelancerGame game, GameModel Model, int? stationID);
+        void Draw(RoguelancerGame game, GameModel Model, string stationGuid);
     }
 }

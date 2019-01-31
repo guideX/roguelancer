@@ -26,6 +26,10 @@
         /// <summary>
         /// Jump Hole
         /// </summary>
-        JumpHole = 6
+        JumpHole = 6,
+        /// <summary>
+        /// Docking Ring
+        /// </summary>
+        DockingRing = 7
     }
 }

@@ -1,4 +1,5 @@
-﻿namespace Roguelancer.Actions {
+﻿/*
+namespace Roguelancer.Actions {
     /// <summary>
     /// Docked Actions
     /// </summary>
@@ -16,3 +17,4 @@
         }
     }
 }
+*/

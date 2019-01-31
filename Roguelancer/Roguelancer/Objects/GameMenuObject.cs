@@ -11,73 +11,97 @@ namespace Roguelancer.Objects {
     public class GameMenuObject : IGameMenu {
         #region "public properties"
         /// <summary>
-        /// Model
+        /// Current Menu
         /// </summary>
-        public GameMenuModel Model { get; set; }
+        public CurrentMenu CurrentMenu { get; set; }
+        /// <summary>
+        /// Menu Buttons
+        /// </summary>
+        public List<MenuButton> MenuButtons { get; set; }
+        /// <summary>
+        /// Last Menu
+        /// </summary>
+        public CurrentMenu LastMenu { get; set; }
+        /// <summary>
+        /// Background Texture
+        /// </summary>
+        public Texture2D BackgroundTexture { get; set; }
+        /// <summary>
+        /// Screen Height
+        /// </summary>
+        public int ScreenHeight { get; set; }
+        /// <summary>
+        /// Screen Width
+        /// </summary>
+        public int ScreenWidth { get; set; }
+        /// <summary>
+        /// Screen Rectangle
+        /// </summary>
+        public Rectangle ScreenRectangle { get; set; }
         #endregion
         #region "public methods"
         /// <summary>
         /// Entry Point
         /// </summary>
-        public GameMenuObject() {
-            Model = new GameMenuModel();
+        public GameMenuObject(RoguelancerGame game) {
+            
         }
         /// <summary>
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            Model.CurrentMenu = CurrentMenu.HomeMenu; // Set Current Menu to Home
+            CurrentMenu = CurrentMenu.HomeMenu; // Set Current Menu to Home
         }
         /// <summary>
         /// Load Content
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            Model.BackgroundTexture = game.Content.Load<Texture2D>(game.Settings.Model.MenuBackgroundTexture);
-            Model.ScreenWidth = game.GraphicsDevice.PresentationParameters.BackBufferWidth;
-            Model.ScreenHeight = game.GraphicsDevice.PresentationParameters.BackBufferHeight;
-            Model.CurrentMenu = CurrentMenu.HomeMenu;
+            BackgroundTexture = game.Content.Load<Texture2D>(game.Settings.Model.MenuBackgroundTexture);
+            ScreenWidth = game.GraphicsDevice.PresentationParameters.BackBufferWidth;
+            ScreenHeight = game.GraphicsDevice.PresentationParameters.BackBufferHeight;
+            CurrentMenu = CurrentMenu.HomeMenu;
         }
         /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
-            if (Model.CurrentMenu != Model.LastMenu) {
-                Model.LastMenu = Model.CurrentMenu;
-                Model.MenuButtons = new List<MenuButton>();
-                switch (Model.CurrentMenu) {
+            if (CurrentMenu != LastMenu) {
+                LastMenu = CurrentMenu;
+                MenuButtons = new List<MenuButton>();
+                switch (CurrentMenu) {
                     case CurrentMenu.HomeMenu:
-                        Model.MenuButtons.Add(new MenuButton(game, "New Game") {
+                        MenuButtons.Add(new MenuButton(game, "New Game") {
                             Texture = game.Content.Load<Texture2D>("BUTTONS\\newgame"),
                             SortId = 1,
                             Position = new Vector2(50, 200),
                             TextPosition = new Vector2(50, 140),
                             Enabled = true
                         });
-                        Model.MenuButtons.Add(new MenuButton(game, "Load Game") {
+                        MenuButtons.Add(new MenuButton(game, "Load Game") {
                             Texture = game.Content.Load<Texture2D>("BUTTONS\\loadgame"),
                             SortId = 2,
                             Position = new Vector2(50, 290),
                             TextPosition = new Vector2(50, 205),
                             Enabled = true
                         });
-                        Model.MenuButtons.Add(new MenuButton(game, "Multiplayer") {
+                        MenuButtons.Add(new MenuButton(game, "Multiplayer") {
                             Texture = game.Content.Load<Texture2D>("BUTTONS\\multiplayer"),
                             SortId = 3,
                             Position = new Vector2(50, 380),
                             TextPosition = new Vector2(50, 290),
                             Enabled = true
                         });
-                        Model.MenuButtons.Add(new MenuButton(game, "Options") {
+                        MenuButtons.Add(new MenuButton(game, "Options") {
                             Texture = game.Content.Load<Texture2D>("BUTTONS\\options"),
                             SortId = 4,
                             Position = new Vector2(50, 470),
                             TextPosition = new Vector2(50, 350),
                             Enabled = true
                         });
-                        Model.MenuButtons.Add(new MenuButton(game, "Exit") {
+                        MenuButtons.Add(new MenuButton(game, "Exit") {
                             Texture = game.Content.Load<Texture2D>("BUTTONS\\exit"),
                             SortId = 5,
                             Position = new Vector2(50, 560),
@@ -86,14 +110,14 @@ namespace Roguelancer.Objects {
                         });
                         break;
                     case CurrentMenu.OptionsMenu:
-                        Model.MenuButtons.Add(new MenuButton(game, "Keyboard Controls") {
+                        MenuButtons.Add(new MenuButton(game, "Keyboard Controls") {
                             Texture = game.Content.Load<Texture2D>("BUTTONS\\keyboard"),
                             SortId = 1,
                             Position = new Vector2(50, 200),
                             TextPosition = new Vector2(50, 140),
                             Enabled = true
                         });
-                        Model.MenuButtons.Add(new MenuButton(game, "Return") {
+                        MenuButtons.Add(new MenuButton(game, "Return") {
                             Texture = game.Content.Load<Texture2D>("BUTTONS\\return"),
                             SortId = 1,
                             Position = new Vector2(50, 290),
@@ -103,7 +127,7 @@ namespace Roguelancer.Objects {
                         break;
                 }
             }
-            foreach (var button in Model.MenuButtons) {
+            foreach (var button in MenuButtons) {
                 button.Update(game);
             }
         }
@@ -112,9 +136,9 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
-            Model.ScreenRectangle = new Rectangle(0, 0, Model.ScreenWidth, Model.ScreenHeight);
-            game.Graphics.Model.SpriteBatch.Draw(Model.BackgroundTexture, Model.ScreenRectangle, Color.White);
-            foreach (var button in Model.MenuButtons) {
+            ScreenRectangle = new Rectangle(0, 0, ScreenWidth, ScreenHeight);
+            game.Graphics.Model.SpriteBatch.Draw(BackgroundTexture, ScreenRectangle, Color.White);
+            foreach (var button in MenuButtons) {
                 button.Draw(game);
             }
         }
@@ -122,19 +146,13 @@ namespace Roguelancer.Objects {
         /// Dispose
         /// </summary>
         public void Dispose(RoguelancerGame game) {
-            Model.MenuButtons = null;
-            Model.CurrentMenu = CurrentMenu.NotInitialized;
-            Model.LastMenu = CurrentMenu.NotInitialized;
-            Model.BackgroundTexture.Dispose();
-            Model.BackgroundTexture = null;
-            Model.ScreenHeight = 0;
-            Model.ScreenWidth = 0;
-        }
-        /// <summary>
-        /// Reset
-        /// </summary>
-        /// <param name="game"></param>
-        public void Reset(RoguelancerGame game) {
+            MenuButtons = null;
+            CurrentMenu = CurrentMenu.NotInitialized;
+            LastMenu = CurrentMenu.NotInitialized;
+            BackgroundTexture.Dispose();
+            BackgroundTexture = null;
+            ScreenHeight = 0;
+            ScreenWidth = 0;
         }
         #endregion
     }

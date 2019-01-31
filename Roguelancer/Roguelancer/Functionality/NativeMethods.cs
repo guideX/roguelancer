@@ -1,23 +1,14 @@
-﻿using Microsoft.Xna.Framework;
-using System.Runtime.InteropServices;
+﻿/*
 using System.Text;
+using System.Runtime.InteropServices;
+using Microsoft.Xna.Framework;
 namespace Roguelancer.Functionality {
     /// <summary>
-    /// Native Methods
+    /// Ini File
     /// </summary>
     public static class NativeMethods {
         /// <summary>
-        /// Write Private Profile String
-        /// </summary>
-        /// <param name="Section"></param>
-        /// <param name="Key"></param>
-        /// <param name="Value"></param>
-        /// <param name="FilePath"></param>
-        /// <returns></returns>
-        [DllImport("kernel32", CharSet = CharSet.Unicode)]
-        private static extern long WritePrivateProfileString(string Section, string Key, string Value, string FilePath);
-        /// <summary>
-        /// Get Private Profile String
+        /// Reading of INI Files
         /// </summary>
         /// <param name="Section"></param>
         /// <param name="Key"></param>
@@ -28,55 +19,27 @@ namespace Roguelancer.Functionality {
         /// <returns></returns>
         [DllImport("kernel32", CharSet = CharSet.Unicode)]
         private static extern int GetPrivateProfileString(string Section, string Key, string Default, StringBuilder RetVal, int Size, string FilePath);
-        /// <summary>
-        /// Read
-        /// </summary>
-        /// <param name="file"></param>
-        /// <param name="key"></param>
-        /// <param name="section"></param>
-        /// <param name="def"></param>
-        /// <returns></returns>
-        public static string ReadINI(string file, string section, string key, string def = "") {
-            var result = new StringBuilder(255);
-            GetPrivateProfileString(section, key, def, result, 255, file);
-            return result.ToString();
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool WritePrivateProfileString(string lpAppName, string lpKeyName, string lpString, string lpFileName);
+        public static string ReadINI(string file, string section, string key, string _default = "") {
+            var msg = new StringBuilder(500);
+            if (GetPrivateProfileString(section, key, "", msg, msg.Capacity, file) == 0) {
+                return _default;
+            } else {
+                return msg.ToString().Trim();
+            }
         }
         /// <summary>
-        /// Write
+        /// Writing of INI Files
         /// </summary>
-        /// <param name="Key"></param>
-        /// <param name="Value"></param>
-        /// <param name="Section"></param>
-        public static void Write(string file, string section, string key, string value) {
+        /// <param name="file"></param>
+        /// <param name="section"></param>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        public static void WriteINI(string file, string section, string key, string value) {
             WritePrivateProfileString(section, key, value, file);
         }
-        /// <summary>
-        /// Delete Key
-        /// </summary>
-        /// <param name="file"></param>
-        /// <param name="section"></param>
-        /// <param name="key"></param>
-        public static void DeleteKey(string file, string section, string key) {
-            Write(file, section, key, "");
-        }
-        /// <summary>
-        /// Delete Section
-        /// </summary>
-        /// <param name="file"></param>
-        /// <param name="section"></param>
-        /// <param name="key"></param>
-        public static void DeleteSection(string file, string section, string key) {
-            Write(file, section, null, null);
-        }
-        /// <summary>
-        /// Key Exists
-        /// </summary>
-        /// <param name="Key"></param>
-        /// <param name="Section"></param>
-        /// <returns></returns>
-        public static bool KeyExists(string file, string key, string section) {
-            return (ReadINI(file, section, key).Length != 0) ? true : false;
-        }
+        #region "public methods"
         /// <summary>
         /// Read Ini Float
         /// </summary>
@@ -183,5 +146,6 @@ namespace Roguelancer.Functionality {
             float.TryParse(msg, out result);
             return result;
         }
+        #endregion
     }
-}
+}*/

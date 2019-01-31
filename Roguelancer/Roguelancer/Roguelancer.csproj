@@ -109,15 +109,15 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Actions\InGameActions.cs" />
+    <Compile Include="Actions\MenuActions.cs" />
     <Compile Include="Bloom\BloomComponent.cs" />
-    <Compile Include="Collections\Base\CollectionObject.cs" />
     <Compile Include="Collections\DockingRingCollection.cs" />
     <Compile Include="Collections\JumpHoleCollection.cs" />
     <Compile Include="Collections\PlanetCollection.cs" />
     <Compile Include="Collections\ShipCollection.cs" />
     <Compile Include="Collections\StationCollection.cs" />
     <Compile Include="Collections\TradeLaneCollection.cs" />
-    <Compile Include="Enum\DockableObjectTypeEnum.cs" />
     <Compile Include="Enum\GameCameraModeEnum.cs" />
     <Compile Include="Enum\HudEnums.cs" />
     <Compile Include="Enum\KeyboardAssignmentEnum.cs" />
@@ -127,14 +127,11 @@
     <Compile Include="Extensions\PlayerShipExtensions.cs" />
     <Compile Include="Extensions\SettingsObjectModelExtensions.cs" />
     <Compile Include="Extensions\WorldObjectsExtensions.cs" />
-    <Compile Include="Functionality\NativeMethods.cs" />
+    <Compile Include="Functionality\IniFile.cs" />
     <Compile Include="Helpers\DebugTextHelper.cs" />
-    <Compile Include="Helpers\InGameActionsHelper.cs" />
-    <Compile Include="Helpers\MenuActionsHelper.cs" />
     <Compile Include="Helpers\ShipHelper.cs" />
     <Compile Include="Interfaces\IBloomComponent.cs" />
     <Compile Include="Interfaces\IBloomHandler.cs" />
-    <Compile Include="Interfaces\IObjectModel.cs" />
     <Compile Include="Interfaces\IDockableObject.cs" />
     <Compile Include="Interfaces\IDockableSensorObject.cs" />
     <Compile Include="Interfaces\IGameMenu.cs" />
@@ -150,6 +147,9 @@
     <Compile Include="Enum\GameStatesEnum.cs" />
     <Compile Include="Enum\CurrentMenuEnum.cs" />
     <Compile Include="Enum\NotificationTypeEnum.cs" />
+    <Compile Include="Functionality\NativeMethods.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Interfaces\IDebugText.cs" />
     <Compile Include="Interfaces\IDockable.cs" />
     <Compile Include="Interfaces\IDockableShip.cs" />
@@ -160,7 +160,6 @@
     <Compile Include="Models\BloomComponentModel.cs" />
     <Compile Include="Models\BloomHandlerModel.cs" />
     <Compile Include="Models\BloomSettingsModel.cs" />
-    <Compile Include="Models\BulletModel.cs" />
     <Compile Include="Models\BulletsModel.cs" />
     <Compile Include="Models\CameraSettingsModel.cs" />
     <Compile Include="Models\CargoHoldModel.cs" />
@@ -168,8 +167,10 @@
     <Compile Include="Models\CommodityModel.cs" />
     <Compile Include="Models\DebugTextModel.cs" />
     <Compile Include="Models\DockableObjectModel.cs" />
+    <Compile Include="Models\DockingRingCollectionModel.cs" />
     <Compile Include="Models\DockingRingModel.cs" />
-    <Compile Include="Models\GameGraphicsObjectModel.cs" />
+    <Compile Include="Models\GameCameraModel.cs" />
+    <Compile Include="Models\GameGraphicsModel.cs" />
     <Compile Include="Models\GameMenuModel.cs" />
     <Compile Include="Models\GameModel.cs" />
     <Compile Include="Models\GameObjectsModel.cs" />
@@ -178,6 +179,7 @@
     <Compile Include="Models\HudModel.cs" />
     <Compile Include="Models\HudObjectModel.cs" />
     <Compile Include="Models\InputItemsModel.cs" />
+    <Compile Include="Models\JumpHoleCollectionModel.cs" />
     <Compile Include="Models\JumpHoleModel.cs" />
     <Compile Include="Models\KeyAssignmentsModel.cs" />
     <Compile Include="Models\KeyboardKeyStatusModel.cs" />
@@ -185,6 +187,7 @@
     <Compile Include="Models\MouseInputModel.cs" />
     <Compile Include="Models\ParticleStarSheetModel.cs" />
     <Compile Include="Models\ParticleSystemSettingsModel.cs" />
+    <Compile Include="Models\PlanetCollectionModel.cs" />
     <Compile Include="Models\PlayerShipControlModel.cs" />
     <Compile Include="Models\SettingsObjectModel.cs" />
     <Compile Include="Models\ShipCollectionModel.cs" />
@@ -192,23 +195,24 @@
     <Compile Include="Models\StarSettingsModel.cs" />
     <Compile Include="Models\StarSystemSettingsModel.cs" />
     <Compile Include="Models\StaticParticleModel.cs" />
-    <Compile Include="Models\DockableObjectTypeModel.cs" />
+    <Compile Include="Models\StationCollectionModel.cs" />
+    <Compile Include="Models\StationModel.cs" />
     <Compile Include="Models\StationPriceModel.cs" />
     <Compile Include="Models\TogglesModel.cs" />
+    <Compile Include="Models\TradeLaneCollectionModel.cs" />
     <Compile Include="Models\TradeLaneModel.cs" />
     <Compile Include="Models\WorldObjectModel.cs" />
-    <Compile Include="Objects\Base\DockableGameObject.cs" />
     <Compile Include="Objects\Base\DockableObject.cs" />
-    <Compile Include="Objects\Base\GameObject.cs" />
     <Compile Include="Objects\BulletObject.cs" />
     <Compile Include="Collections\BulletCollection.cs" />
-    <Compile Include="Objects\DebugTextObject.cs" />
     <Compile Include="Objects\DockingRingObject.cs" />
-    <Compile Include="Objects\GameGraphicsObject.cs" />
     <Compile Include="Objects\HudObject.cs" />
     <Compile Include="Objects\JumpHoleObject.cs" />
     <Compile Include="Objects\TradeLaneObject.cs" />
     <Compile Include="RoguelancerGame.cs" />
+    <Compile Include="Functionality\GameCamera.cs" />
+    <Compile Include="Functionality\DebugText.cs" />
+    <Compile Include="Functionality\GameGraphics.cs" />
     <Compile Include="Functionality\Input.cs" />
     <Compile Include="Functionality\PlayerShipControl.cs" />
     <Compile Include="Functionality\GameState.cs" />
@@ -222,6 +226,7 @@
     <Compile Include="Interfaces\IParticleEmitter.cs" />
     <Compile Include="Interfaces\IParticleSystem.cs" />
     <Compile Include="Interfaces\IPlayerShipControl.cs" />
+    <Compile Include="Interfaces\IShipCollection.cs" />
     <Compile Include="Objects\GameMenuObject.cs" />
     <Compile Include="Objects\MenuButton.cs" />
     <Compile Include="Objects\GameObjects.cs" />
@@ -324,7 +329,9 @@
     <None Include="configuration\systems\test_system\ships.ini" />
     <None Include="configuration\systems\test_system\stations.ini" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Base\" />
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\Microsoft.Xna.GameStudio.targets" />
   <!--
