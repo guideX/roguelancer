@@ -17,8 +17,8 @@ namespace Roguelancer.Collections {
         /// <summary>
         /// Docking Ring Collection
         /// </summary>
-        public DockingRingCollection() {
-            Reset();
+        public DockingRingCollection(RoguelancerGame game) {
+            Reset(game);
         }
         /// <summary>
         /// Initialize
@@ -70,7 +70,7 @@ namespace Roguelancer.Collections {
         /// Reset
         /// </summary>
         /// <param name="game"></param>
-        public void Reset() {
+        public void Reset(RoguelancerGame game) {
             Model = new DockingRingCollectionModel();
         }
         #endregion

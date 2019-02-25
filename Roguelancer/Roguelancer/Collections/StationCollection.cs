@@ -80,7 +80,7 @@ namespace Roguelancer.Collections {
         /// </summary>
         /// <param name="game"></param>
         public void Reset(RoguelancerGame game) {
-            Model = new StationCollectionModel(game);
+            Model = new StationCollectionModel();
         }
         #endregion
     }

@@ -67,10 +67,18 @@ namespace Roguelancer.Particle {
             }
             _particleVertexBuffer = new VertexBuffer(game.GraphicsDevice, typeof(VertexPositionTexture), _verts.Length, BufferUsage.None);
         }
+        /// <summary>
+        /// Update
+        /// </summary>
+        /// <param name="game"></param>
         public void Update(RoguelancerGame game) {
             //lCamera = game.Camera;
             //lGraphicsDevice = _GraphicsDevice;
         }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
         public void Draw(RoguelancerGame game) {
             game.GraphicsDevice.SetVertexBuffer(_particleVertexBuffer);
             for (var i = 0; i < _maxParticles; ++i) {

@@ -68,12 +68,12 @@ namespace Roguelancer.Settings {
                     new StarSettingsModel(
                         NativeMethods.ReadINIBool(Model.SystemsSettingsIniFile, i.ToString(), "starsEnabled", false),
                         NativeMethods.ReadINIInt(Model.SystemsSettingsIniFile, i.ToString(), "amountOfStarsPerSheet", 0),
-                        NativeMethods.ReadINIInt(Model.SystemsSettingsIniFile, i.ToString(), "maxPositionX", 0),
-                        NativeMethods.ReadINIInt(Model.SystemsSettingsIniFile, i.ToString(), "maxPositionY", 0),
+                        NativeMethods.ReadINILong(Model.SystemsSettingsIniFile, i.ToString(), "maxPositionX", 0),
+                        NativeMethods.ReadINILong(Model.SystemsSettingsIniFile, i.ToString(), "maxPositionY", 0),
                         NativeMethods.ReadINIInt(Model.SystemsSettingsIniFile, i.ToString(), "maxSize", 0),
-                        NativeMethods.ReadINIInt(Model.SystemsSettingsIniFile, i.ToString(), "maxPositionIncrementY", 0),
-                        NativeMethods.ReadINIInt(Model.SystemsSettingsIniFile, i.ToString(), "maxPositionStartingY", 0),
-                        NativeMethods.ReadINIInt(Model.SystemsSettingsIniFile, i.ToString(), "numberOfStarSheets", 0)
+                        NativeMethods.ReadINILong(Model.SystemsSettingsIniFile, i.ToString(), "maxPositionIncrementY", 0),
+                        NativeMethods.ReadINILong(Model.SystemsSettingsIniFile, i.ToString(), "maxPositionStartingY", 0),
+                        NativeMethods.ReadINILong(Model.SystemsSettingsIniFile, i.ToString(), "numberOfStarSheets", 0)
                     )
                 ));
             }

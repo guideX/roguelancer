@@ -154,6 +154,13 @@ namespace Roguelancer.Objects {
             ScreenHeight = 0;
             ScreenWidth = 0;
         }
+        /// <summary>
+        /// Reset
+        /// </summary>
+        /// <param name="game"></param>
+        public void Reset(RoguelancerGame game) {
+
+        }
         #endregion
     }
 }

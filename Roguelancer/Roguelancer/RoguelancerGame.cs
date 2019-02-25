@@ -94,9 +94,9 @@ namespace Roguelancer {
         protected override void Initialize() {
             Camera.Initialize(this);
             Bloom.Initialize(this);
-            //Objects.Initialize(this);
-            //GameMenu.Initialize(this);
-            //Hud.Initialize(this);
+            Objects.Initialize(this);
+            GameMenu.Initialize(this);
+            Hud.Initialize(this);
             base.Initialize();
         }
         /// <summary>
@@ -109,7 +109,7 @@ namespace Roguelancer {
             Objects.LoadContent(this);
             DebugTextHelper.SetText(this, ".", false);
             GameMenu.LoadContent(this);
-            //Hud.LoadContent(this);
+            Hud.LoadContent(this);
             //Input.LoadContent(this);
             Bloom.LoadContent(this);
             base.LoadContent();

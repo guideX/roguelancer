@@ -129,6 +129,7 @@
     <Compile Include="Extensions\WorldObjectsExtensions.cs" />
     <Compile Include="Functionality\IniFile.cs" />
     <Compile Include="Helpers\DebugTextHelper.cs" />
+    <Compile Include="Helpers\RandomMathHelper.cs" />
     <Compile Include="Helpers\ShipHelper.cs" />
     <Compile Include="Interfaces\IBloomComponent.cs" />
     <Compile Include="Interfaces\IBloomHandler.cs" />
@@ -208,6 +209,7 @@
     <Compile Include="Objects\DockingRingObject.cs" />
     <Compile Include="Objects\HudObject.cs" />
     <Compile Include="Objects\JumpHoleObject.cs" />
+    <Compile Include="Objects\StarfieldObjects.cs" />
     <Compile Include="Objects\TradeLaneObject.cs" />
     <Compile Include="RoguelancerGame.cs" />
     <Compile Include="Functionality\GameCamera.cs" />
@@ -329,9 +331,7 @@
     <None Include="configuration\systems\test_system\ships.ini" />
     <None Include="configuration\systems\test_system\stations.ini" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Base\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\Microsoft.Xna.GameStudio.targets" />
   <!--

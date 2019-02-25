@@ -7,10 +7,8 @@ using Roguelancer.Models;
 using Roguelancer.Enum;
 using Roguelancer.Helpers;
 using Roguelancer.Interfaces;
-using Roguelancer.Bloom;
 using Roguelancer.Functionality;
 using Roguelancer.Actions;
-
 namespace Roguelancer.Objects.Base {
     /// <summary>
     /// Dockable Object
@@ -36,7 +34,6 @@ namespace Roguelancer.Objects.Base {
         /// <param name="Model"></param>
         /// <param name="stationID"></param>
         public virtual void Initialize(RoguelancerGame game, GameModel Model, string stationGuid) { 
-            //public virtual void Initialize(RoguelancerGame game, GameModel Model, int? stationID) {
             DockableObjectModel.DestinationRectangle = new Rectangle(0, 0, game.GraphicsDevice.PresentationParameters.BackBufferWidth, game.GraphicsDevice.PresentationParameters.BackBufferHeight);
         }
         /// <summary>
@@ -45,10 +42,8 @@ namespace Roguelancer.Objects.Base {
         /// <param name="game"></param>
         /// <param name="Model"></param>
         /// <param name="stationID"></param>
-        //public virtual void LoadContent(RoguelancerGame game, GameModel Model, int? stationID) {
         public virtual void LoadContent(RoguelancerGame game, GameModel Model, string stationGuid) {
             DockableObjectModel.BackgroundTexture = game.Content.Load<Texture2D>(@"Menus\allpanels");
-            //foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
             foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationGuid == stationGuid).ToList()) {
                 obj.Image = game.Content.Load<Texture2D>(obj.ImagePath);
                 obj.ImageContainer = game.Content.Load<Texture2D>(obj.ImagePathContainer);
@@ -96,7 +91,6 @@ namespace Roguelancer.Objects.Base {
                                             var n = 0;
                                             var nn1 = 100;
                                             var nn2 = 150;
-                                            //foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
                                             foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationGuid == stationGuid).ToList()) {
                                                 var color = Color.White;
                                                 obj.ImageRect = new Rectangle(4 + nn1, 4 + n + nn2, 53, 48);
@@ -123,7 +117,6 @@ namespace Roguelancer.Objects.Base {
                     }
                     if (game.Input.InputItems.Keys.C.IsKeyDown) {
                         game.GameState.Model.DockedGameState = Enum.DockedGameStateEnum.Commodities;
-                        //ListCommoditiesForSale(game, Enum.ModelType.Station, stationID.Value);
                         ListCommoditiesForSale(game, Enum.ModelTypeEnum.Station, stationGuid);
                     }
                     if (game.Input.InputItems.Keys.H.IsKeyDown) {
@@ -170,14 +163,12 @@ namespace Roguelancer.Objects.Base {
         /// <param name="game"></param>
         /// <param name="Model"></param>
         /// <param name="stationID"></param>
-        //public virtual void Draw(RoguelancerGame game, GameModel Model, int? stationID) {
         public virtual void Draw(RoguelancerGame game, GameModel Model, string stationGuid) {
             switch (game.GameState.Model.CurrentGameState) {
                 case GameStatesEnum.Docked:
                     switch (game.GameState.Model.DockedGameState) {
                         case DockedGameStateEnum.Commodities:
                             game.Graphics.Model.SpriteBatch.Draw(DockableObjectModel.BackgroundTexture, DockableObjectModel.DestinationRectangle, Color.White);
-                            //foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
                             foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationGuid == stationGuid).ToList()) {
                                 var color = Color.White;
                                 game.Graphics.Model.SpriteBatch.Draw(obj.Image, obj.ImageRect, color);
@@ -200,7 +191,6 @@ namespace Roguelancer.Objects.Base {
                 ship.Model.CurrentThrust = 0f; // Set Current Thrust to Not Moving
                 var station = dockTo.GetStation();
                 switch (dockTo.ObjectType) {
-                //switch (dockTo.WorldObject.Model.SettingsModelObject.ModelType) {
                     case ModelTypeEnum.Station:
                     case ModelTypeEnum.Planet:
                         ship.ShipModel.DockedTo = dockTo; // Set Docket To
@@ -220,9 +210,9 @@ namespace Roguelancer.Objects.Base {
                             game.Hud = new HudObject(game);
                             game.InGameActions = new InGameActions(game);
                             game.MenuActions = new MenuActions(game);
-                            //game.Objects.Initialize(game);
-                            //game.GameMenu.Initialize(game);
-                            //game.Hud.Initialize(game);
+                            game.Objects.Initialize(game);
+                            game.GameMenu.Initialize(game);
+                            game.Hud.Initialize(game);
                             game.Graphics.LoadContent(game);
                             game.DebugText.LoadContent(game);
                             game.DebugText.Update(game);
@@ -260,14 +250,12 @@ namespace Roguelancer.Objects.Base {
         /// </summary>
         /// <param name="game"></param>
         /// <returns></returns>
-        //public virtual void ListCommoditiesForSale(RoguelancerGame game, ModelType modelType, int stationID) {
         public virtual void ListCommoditiesForSale(RoguelancerGame game, ModelTypeEnum modelType, string stationGuid) {
             switch (modelType) {
                 case ModelTypeEnum.Planet:
                 case ModelTypeEnum.Station:
                     var sb = new StringBuilder();
                     var n = 0;
-                    //foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationId == stationID).ToList()) {
                     foreach (var obj in game.Settings.Model.StationPriceModels.Where(p => p.StationGuid == stationGuid).ToList()) {
                         n++;
                         var commodity = game.Settings.Model.CommoditiesModels.Where(c => c.CommodityId == obj.CommoditiesId).FirstOrDefault();

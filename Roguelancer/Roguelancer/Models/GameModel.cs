@@ -108,7 +108,7 @@ namespace Roguelancer.Models {
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        public void Initialize() {
+        public void Initialize(RoguelancerGame game) {
             if (ParticleSystem != null) {
                 if (ParticleSystem.Settings.Enabled) {
                     ParticleSystem.Initialize(game);

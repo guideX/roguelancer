@@ -34,8 +34,6 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            //Model.Initialize();
-            //Initialize(game, Model, StationModel.StationID); // Initialize Dockable Object
             Initialize(game, Model, StationModel.StationGuid); // Initialize Dockable Object
         }
         /// <summary>
@@ -45,7 +43,6 @@ namespace Roguelancer.Objects {
         public void LoadContent(RoguelancerGame game) {
             Model.LoadContent(game);
             LoadContent(game, Model, StationModel.StationGuid); // Dockable Object Load Content
-            //LoadContent(game, Model, StationModel.StationID); // Dockable Object Load Content
         }
         /// <summary>
         /// Update
@@ -56,7 +53,6 @@ namespace Roguelancer.Objects {
                 Model.UpdatePosition(); // Update Position
                 Model.Update(game); // Update
             }
-            //Update(game, Model, StationModel.StationID); // Update Dockable Object Station Stuff
             Update(game, Model, StationModel.StationGuid); // Update Dockable Object Station Stuff
         }
         /// <summary>
@@ -67,7 +63,6 @@ namespace Roguelancer.Objects {
             if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 Model.Draw(game);
             }
-            //Draw(game, Model, StationModel.StationID); // Draw Dockable Object Station Stuff
             Draw(game, Model, StationModel.StationGuid); // Draw Dockable Object Station Stuff
         }
         /// <summary>

@@ -17,16 +17,21 @@
         public StarSettingsModel(
                 bool starsEnabled,
                 int amountOfStarsPerSheet,
-                int maxPositionX,
-                int maxPositionY,
+                long maxPositionX,
+                long maxPositionY,
                 int maxSize,
-                int maxPositionIncrementY,
-                int maxPositionStartingY,
-                int numberOfStarSheets) {
+                long maxPositionIncrementY,
+                long maxPositionStartingY,
+                long numberOfStarSheets) {
             StarsEnabled = starsEnabled;
             AmountOfStarsPerSheet = amountOfStarsPerSheet;
             MaxPositionX = maxPositionX;
             MaxPositionY = maxPositionY;
+            MaxPositionIncrementY = maxPositionIncrementY;
+            MaxPositionStartingY = maxPositionStartingY;
+            MaxSize = maxSize;
+            NumberOfStarSheets = numberOfStarSheets;
+
         }
         /// <summary>
         /// Stars Enabled
@@ -39,11 +44,11 @@
         /// <summary>
         /// Max Position X
         /// </summary>
-        public int MaxPositionX { get; set; }
+        public long MaxPositionX { get; set; }
         /// <summary>
         /// Max Position Y
         /// </summary>
-        public int MaxPositionY { get; set; }
+        public long MaxPositionY { get; set; }
         /// <summary>
         /// Max Size
         /// </summary>
@@ -51,14 +56,14 @@
         /// <summary>
         /// Max Position Increment Y
         /// </summary>
-        public int MaxPositionIncrementY { get; set; }
+        public long MaxPositionIncrementY { get; set; }
         /// <summary>
         /// Max Position Starting Y
         /// </summary>
-        public int MaxPositionStartingY { get; set; }
+        public long MaxPositionStartingY { get; set; }
         /// <summary>
         /// Number of Star Sheets
         /// </summary>
-        public int NumberOfStarSheets { get; set; }
+        public long NumberOfStarSheets { get; set; }
     }
 }

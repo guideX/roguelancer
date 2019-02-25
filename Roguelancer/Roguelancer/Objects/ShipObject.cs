@@ -29,7 +29,7 @@ namespace Roguelancer.Objects {
         /// Initialize
         /// </summary>
         /// <param name="game"></param>
-        public void Initialize() {
+        public void Initialize(RoguelancerGame game) {
             //Model.Initialize();
             if (ShipModel.PlayerShipControl.Model.UseInput) {
                 ShipModel.PlayerShipControl = new PlayerShipControl();

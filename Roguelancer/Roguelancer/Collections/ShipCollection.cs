@@ -30,7 +30,7 @@ namespace Roguelancer.Collections {
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
             foreach (var _ship in Model.Ships) {
-                _ship.Initialize();
+                _ship.Initialize(game);
             }
         }
         /// <summary>
@@ -78,7 +78,7 @@ namespace Roguelancer.Collections {
         /// <summary>
         /// Dispose
         /// </summary>
-        public void Dispose() {
+        public void Dispose(RoguelancerGame game) {
             Model = null;
         }
         #endregion

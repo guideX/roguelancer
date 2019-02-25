@@ -62,7 +62,7 @@ namespace Roguelancer.Particle {
         /// </summary>
         /// <param name="game"></param>
         public void LoadContent(RoguelancerGame game) {
-            var n = 0;
+            long n = 0;
             _explosionTexture = game.Content.Load<Texture2D>("Textures\\Particle");
             _explosionColorsTexture = game.Content.Load<Texture2D>("Textures\\ParticleColors");
             _explosionEffect = game.Content.Load<Effect>("Effects\\Particle");
@@ -79,18 +79,6 @@ namespace Roguelancer.Particle {
             }
         }
         /// <summary>
-        /// Draw
-        /// </summary>
-        /// <param name="game"></param>
-        public void Draw(RoguelancerGame game) {
-            for (var i = 0; i < _stars.Length; ++i) {
-                _stars[i].Draw(game);
-                foreach (ParticleExplosion explosion in _explosions) {
-                    explosion.Draw(game);
-                }
-            }
-        }
-        /// <summary>
         /// Update
         /// </summary>
         /// <param name="game"></param>
@@ -103,6 +91,18 @@ namespace Roguelancer.Particle {
                 if (_explosions[i].IsDead) {
                     _explosions.RemoveAt(i);
                     --i;
+                }
+            }
+        }
+        /// <summary>
+        /// Draw
+        /// </summary>
+        /// <param name="game"></param>
+        public void Draw(RoguelancerGame game) {
+            for (var i = 0; i < _stars.Length; ++i) {
+                _stars[i].Draw(game);
+                foreach (ParticleExplosion explosion in _explosions) {
+                    explosion.Draw(game);
                 }
             }
         }
