@@ -29,9 +29,7 @@ namespace Roguelancer.Collections {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            foreach (var _ship in Model.Ships) {
-                _ship.Initialize(game);
-            }
+            foreach (var _ship in Model.Ships) _ship.Initialize(game);
         }
         /// <summary>
         /// Load Content

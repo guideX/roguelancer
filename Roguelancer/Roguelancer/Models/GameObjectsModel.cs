@@ -30,8 +30,8 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Stars
         /// </summary>
-        //public Starfields Stars { get; set; }
-        public Starfield Stars { get; set; }
+        public Starfields Stars { get; set; }
+        public Starfield StarField { get; set; }
         /// <summary>
         /// Jump Holes
         /// </summary>

@@ -45,7 +45,7 @@ namespace Roguelancer {
         /// <summary>
         /// Bloom
         /// </summary>
-        public BloomHandler Bloom;
+        //public BloomHandler Bloom;
         /// <summary>
         /// Game Time
         /// </summary>
@@ -80,7 +80,7 @@ namespace Roguelancer {
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
             Graphics = new GameGraphics(this);
-            Bloom = new BloomHandler(this);
+            //Bloom = new BloomHandler(this);
             Objects = new GameObjects(this);
             GameMenu = new GameMenuObject(this);
             Hud = new HudObject(this);
@@ -93,7 +93,7 @@ namespace Roguelancer {
         /// </summary>
         protected override void Initialize() {
             Camera.Initialize(this);
-            Bloom.Initialize(this);
+            //Bloom.Initialize(this);
             Objects.Initialize(this);
             GameMenu.Initialize(this);
             Hud.Initialize(this);
@@ -111,7 +111,7 @@ namespace Roguelancer {
             GameMenu.LoadContent(this);
             Hud.LoadContent(this);
             //Input.LoadContent(this);
-            Bloom.LoadContent(this);
+            //Bloom.LoadContent(this);
             base.LoadContent();
         }
         /// <summary>
@@ -121,7 +121,7 @@ namespace Roguelancer {
         protected override void Update(GameTime gameTime) {
             GameTime = gameTime;
             Input.Update(this);
-            Bloom.Update(this);
+            //Bloom.Update(this);
             Objects.Update(this);
             Camera.Update(this);
             DebugText.Update(this);
@@ -138,7 +138,7 @@ namespace Roguelancer {
         protected override void Draw(GameTime gameTime) {
             GameTime = gameTime;
             Graphics.Model.SpriteBatch.Begin(SpriteSortMode.BackToFront, BlendState.NonPremultiplied, SamplerState.AnisotropicWrap, DepthStencilState.Default, RasterizerState.CullNone);
-            Bloom.Draw(this);
+            //Bloom.Draw(this);
             if (GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 if (GameState.Model.LastGameState != GameState.Model.CurrentGameState) {
                     GraphicsDevice.Clear(Color.Black);

@@ -127,6 +127,7 @@
     <Compile Include="Extensions\PlayerShipExtensions.cs" />
     <Compile Include="Extensions\SettingsObjectModelExtensions.cs" />
     <Compile Include="Extensions\WorldObjectsExtensions.cs" />
+    <Compile Include="Extensions\XnaExtensions.cs" />
     <Compile Include="Functionality\IniFile.cs" />
     <Compile Include="Helpers\DebugTextHelper.cs" />
     <Compile Include="Helpers\RandomMathHelper.cs" />
@@ -331,7 +332,9 @@
     <None Include="configuration\systems\test_system\ships.ini" />
     <None Include="configuration\systems\test_system\stations.ini" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Models\Bloom\" />
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\Microsoft.Xna.GameStudio.targets" />
   <!--
