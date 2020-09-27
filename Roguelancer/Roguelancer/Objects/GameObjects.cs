@@ -47,12 +47,11 @@ namespace Roguelancer.Objects {
         /// </summary>
         /// <param name="game"></param>
         public void Initialize(RoguelancerGame game) {
-            Model.StarField = new Starfield(game.Camera.Model.Position.ToVector2(), game.GraphicsDevice, game.Content);
-            Model.Stars = new Particle.Starfields(game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.StarSettings);
-
+            //Model.StarField = new Starfield(game.Camera.Model.Position.ToVector2(), game.GraphicsDevice, game.Content);
+            //Model.Stars = new Particle.Starfields(game.Settings.Model.StarSystemSettings[game.CurrentStarSystemId].Model.StarSettings);
             Model.Stations.Initialize(game);
             Model.Planets.Initialize(game);
-            Model.Stars.Initialize(game);
+            //Model.Stars.Initialize(game);
             //Model.TradeLanes.Initialize(game);
             Model.Ships.Initialize(game);
             Model.Bullets.Initialize(game);
@@ -67,8 +66,8 @@ namespace Roguelancer.Objects {
         public void LoadContent(RoguelancerGame game) {
             Model.Stations.LoadContent(game);
             Model.Planets.LoadContent(game);
-            Model.StarField.LoadContent();
-            Model.Stars.LoadContent(game);
+            //Model.StarField.LoadContent();
+            //Model.Stars.LoadContent(game);
             //Model.TradeLanes.LoadContent(game);
             Model.Ships.LoadContent(game);
             Model.Bullets.LoadContent(game);
@@ -83,7 +82,7 @@ namespace Roguelancer.Objects {
             if (game.GameState.Model.CurrentGameState == GameStatesEnum.Playing) {
                 Model.Stations.Update(game);
                 Model.Planets.Update(game);
-                Model.Stars.Update(game);
+                //Model.Stars.Update(game);
                 //Model.TradeLanes.Update(game);
                 Model.Ships.Update(game);
                 Model.Bullets.Update(game);
@@ -103,8 +102,8 @@ namespace Roguelancer.Objects {
                 Model.Stations.Draw(game);
                 Model.Planets.Draw(game);
                 var playerShip = Helpers.ShipHelper.GetPlayerShip(game.Objects.Model);
-                Model.Stars.Draw(game);
-                Model.StarField.Draw(game.Camera.Model.Position.ToVector2());
+                //Model.Stars.Draw(game);
+                //Model.StarField.Draw(game.Camera.Model.Position.ToVector2());
                 //Model.TradeLanes.Draw(game);
                 Model.Ships.Draw(game);
                 Model.Bullets.Draw(game);
@@ -126,7 +125,7 @@ namespace Roguelancer.Objects {
             Model.Planets.Reset(game);
             var playerShip = Helpers.ShipHelper.GetPlayerShip(game.Objects.Model);
             Model.DockingRings.Reset(game);
-            Model.Stars.Reset(game);
+            //Model.Stars.Reset(game);
         }
         /// <summary>
         /// Dispose
