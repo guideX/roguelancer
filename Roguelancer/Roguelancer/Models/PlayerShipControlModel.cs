@@ -118,7 +118,7 @@ namespace Roguelancer.Models {
         /// <summary>
         /// Limit Altitude
         /// </summary>
-        public const bool LimitAltitude = true;
+        public const bool LimitAltitude = false;
         /// <summary>
         /// Thrust Min Not Zero
         /// </summary>

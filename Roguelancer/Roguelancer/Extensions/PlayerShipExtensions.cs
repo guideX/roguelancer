@@ -212,9 +212,9 @@ public static class PlayerShipExtensions {
         model.Velocity += acceleration * (float)game.GameTime.ElapsedGameTime.TotalSeconds;
         model.Velocity *= PlayerShipControlModel.DragFactor;
         model.Position += model.Velocity * (float)game.GameTime.ElapsedGameTime.TotalSeconds;
-        if (PlayerShipControlModel.LimitAltitude) {
-            model.Position.Y = Math.Max(model.Position.Y, model.MinimumAltitude);
-        }
+        //if (PlayerShipControlModel.LimitAltitude) {
+            //model.Position.Y = Math.Max(model.Position.Y, model.MinimumAltitude);
+        //}
     }
     /// <summary>
     /// Check Goto
