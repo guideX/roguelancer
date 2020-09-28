@@ -271,16 +271,18 @@
     <Compile Include="Settings\WorldObjectsSettings.cs" />
     <Compile Include="Settings\StarSystemSettings.cs" />
     <None Include="configuration\ships.ini" />
-    <None Include="configuration\systems\liberty\new_york\planets.ini" />
-    <None Include="configuration\systems\test_system2\jumpholes.ini" />
-    <None Include="configuration\systems\test_system2\planets.ini" />
-    <None Include="configuration\systems\test_system2\rings.ini" />
-    <None Include="configuration\systems\test_system2\ships.ini" />
-    <None Include="configuration\systems\test_system2\stations.ini" />
-    <None Include="configuration\systems\test_system2\tradelanes.ini" />
-    <None Include="configuration\systems\test_system\jumpholes.ini" />
-    <None Include="configuration\systems\test_system\rings.ini" />
-    <None Include="configuration\systems\test_system\tradelanes.ini" />
+    <None Include="configuration\systems\new_york\jumpholes.ini" />
+    <None Include="configuration\systems\new_york\planets.ini" />
+    <None Include="configuration\systems\new_york\rings.ini" />
+    <None Include="configuration\systems\new_york\ships.ini" />
+    <None Include="configuration\systems\new_york\stations.ini" />
+    <None Include="configuration\systems\new_york\tradelanes.ini" />
+    <None Include="configuration\systems\texas\jumpholes.ini" />
+    <None Include="configuration\systems\texas\planets.ini" />
+    <None Include="configuration\systems\texas\rings.ini" />
+    <None Include="configuration\systems\texas\ships.ini" />
+    <None Include="configuration\systems\texas\stations.ini" />
+    <None Include="configuration\systems\texas\tradelanes.ini" />
   </ItemGroup>
   <ItemGroup>
     <None Include="configuration\commodities.ini" />
@@ -328,9 +330,6 @@
     <None Include="configuration\player\settings.ini" />
     <None Include="configuration\settings\settings.ini" />
     <None Include="configuration\systems\systems.ini" />
-    <None Include="configuration\systems\test_system\planets.ini" />
-    <None Include="configuration\systems\test_system\ships.ini" />
-    <None Include="configuration\systems\test_system\stations.ini" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Models\Bloom\" />
