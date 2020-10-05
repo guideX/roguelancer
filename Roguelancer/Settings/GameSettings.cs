@@ -73,7 +73,8 @@ namespace Roguelancer.Settings {
                         NativeMethods.ReadINIInt(Model.SystemsSettingsIniFile, i.ToString(), "maxSize", 0),
                         NativeMethods.ReadINILong(Model.SystemsSettingsIniFile, i.ToString(), "maxPositionIncrementY", 0),
                         NativeMethods.ReadINILong(Model.SystemsSettingsIniFile, i.ToString(), "maxPositionStartingY", 0),
-                        NativeMethods.ReadINILong(Model.SystemsSettingsIniFile, i.ToString(), "numberOfStarSheets", 0)
+                        NativeMethods.ReadINILong(Model.SystemsSettingsIniFile, i.ToString(), "numberOfStarSheets", 0),
+                        NativeMethods.ReadINI(Model.SystemsSettingsIniFile, i.ToString(), "path", "")
                     )
                 ));
             }

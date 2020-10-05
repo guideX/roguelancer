@@ -136,7 +136,8 @@ namespace Roguelancer.Models {
             CommoditiesModels = new List<CommodityModel>();
             MenuText = "";
             Resolution = new Vector2(1280, 1024);
-            var rootDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\..\";
+            //var rootDir = System.IO.Directory.GetCurrentDirectory() + @"\..\..\..\";
+            var rootDir = System.IO.Directory.GetCurrentDirectory() + @"\"; //+ @"\..\..\..\";
             //var rootDir = @"C:\dev\Roguelancer\Roguelancer\Roguelancer\bin\x86\Debug\";
             GameSettingsIniFile = rootDir + @"configuration\settings\settings.ini";
             ModelSettingsIniFile = rootDir + @"configuration\models.ini";

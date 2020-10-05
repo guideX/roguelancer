@@ -41,29 +41,43 @@ namespace Roguelancer.Settings {
             };
             player.Model.SettingsModelObject.IsPlayer = true;
             Model.Ships.Add(player);
-            for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\ships.ini", "settings", "count", 0) + 1; ++i) {
-                Model.Ships.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\ships.ini", i.ToString().Trim()));
+            if (System.IO.File.Exists(systemIniStartPath + path + @"\ships.ini")) {
+                for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\ships.ini", "settings", "count", 0) + 1; ++i) {
+                    Model.Ships.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\ships.ini", i.ToString().Trim()));
+                }
             }
-            for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\stations.ini", "settings", "count", 0) + 1; ++i) {
-                Model.Stations.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\stations.ini", i.ToString().Trim()));
+            if (System.IO.File.Exists(systemIniStartPath + path + @"\stations.ini")) {
+                for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\stations.ini", "settings", "count", 0) + 1; ++i) {
+                    Model.Stations.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\stations.ini", i.ToString().Trim()));
+                }
             }
-            if (System.IO.File.Exists(systemIniStartPath + path + @"\planets.ini")) 
-                for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\planets.ini", "settings", "count", 0) + 1; ++i)
-                    Model.Planets.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\planets.ini", i.ToString().Trim()));
-            if (System.IO.File.Exists(systemIniStartPath + path + @"\rings.ini"))
+            var iniPath = systemIniStartPath + path + @"\planets.ini";
+            var iniPath2 = @"E:\devgithub\roguelancer\Roguelancer\Roguelancer\configuration\systems\new_york\planets.ini";
+            if (System.IO.File.Exists(iniPath)) {
+                var n = NativeMethods.ReadINI(iniPath, "settings", "count");
+                //for (var i = 1; i < n; ++i) {
+                    //Model.Planets.Add(WorldObjectsSettings.Read(i, modelSettings, iniPath, i.ToString().Trim()));
+                //}
+            }
+            if (System.IO.File.Exists(systemIniStartPath + path + @"\rings.ini")) {
                 for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\rings.ini", "settings", "count", 0) + 1; ++i)
                     Model.DockingRings.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\rings.ini", i.ToString().Trim()));
+            }
             //if (System.IO.File.Exists(systemIniStartPath + path + @"\rings.ini")) {
             //var ringsCount = NativeMethods.ReadINI(systemIniStartPath + path + @"\rings.ini", "settings", "count", "0");
             //for (var i = 1; i < Convert.ToInt32(ringsCount) + 1; ++i)
             //Model.DockingRings.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\rings.ini", i.ToString().Trim()));
             //}
-            if (System.IO.File.Exists(systemIniStartPath + path + @"\tradelanes.ini"))
-                for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\tradelanes.ini", "settings", "count", 0) + 1; ++i)
+            if (System.IO.File.Exists(systemIniStartPath + path + @"\tradelanes.ini")) {
+                for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\tradelanes.ini", "settings", "count", 0) + 1; ++i) {
                     Model.TradeLanes.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\tradelanes.ini", i.ToString().Trim()));
-            if (System.IO.File.Exists(systemIniStartPath + path + @"\jumpholes.ini"))
-                for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\jumpholes.ini", "settings", "count", 0) + 1; ++i) 
+                }
+            }
+            if (System.IO.File.Exists(systemIniStartPath + path + @"\jumpholes.ini")) {
+                for (var i = 1; i < NativeMethods.ReadINIInt(systemIniStartPath + path + @"\jumpholes.ini", "settings", "count", 0) + 1; ++i) {
                     Model.JumpHoles.Add(WorldObjectsSettings.Read(i, modelSettings, systemIniStartPath + path + @"\jumpholes.ini", i.ToString().Trim()));
+                }
+            }
             Model.StarSettings = _starSettings;
         }
     }

@@ -22,7 +22,8 @@
                 int maxSize,
                 long maxPositionIncrementY,
                 long maxPositionStartingY,
-                long numberOfStarSheets) {
+                long numberOfStarSheets,
+                string path) {
             StarsEnabled = starsEnabled;
             AmountOfStarsPerSheet = amountOfStarsPerSheet;
             MaxPositionX = maxPositionX;
@@ -31,8 +32,12 @@
             MaxPositionStartingY = maxPositionStartingY;
             MaxSize = maxSize;
             NumberOfStarSheets = numberOfStarSheets;
-
+            Path = path;
         }
+        /// <summary>
+        /// Path
+        /// </summary>
+        public string Path { get; set; }
         /// <summary>
         /// Stars Enabled
         /// </summary>

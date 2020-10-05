@@ -17,8 +17,9 @@ namespace Roguelancer.Functionality {
         /// Player Ship Control
         /// </summary>
         public PlayerShipControl() {
-            Model = new PlayerShipControlModel();
-            Model.UseInput = true;
+            Model = new PlayerShipControlModel {
+                UseInput = true
+            };
         }
         /// <summary>
         /// Update Model

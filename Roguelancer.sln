@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26430.6
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Roguelancer", "Roguelancer\Roguelancer\Roguelancer.csproj", "{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Roguelancer", "Roguelancer\Roguelancer.csproj", "{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoguelancerContent", "Roguelancer\RoguelancerContent\RoguelancerContent.contentproj", "{0555E32F-EA07-4A76-BB15-7148114CF03E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoguelancerContent", "RoguelancerContent\RoguelancerContent.contentproj", "{0555E32F-EA07-4A76-BB15-7148114CF03E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

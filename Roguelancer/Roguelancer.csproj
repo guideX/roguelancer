@@ -132,6 +132,7 @@
     <Compile Include="Helpers\DebugTextHelper.cs" />
     <Compile Include="Helpers\RandomMathHelper.cs" />
     <Compile Include="Helpers\ShipHelper.cs" />
+    <Compile Include="Helpers\StarSystemSettingsHelper.cs" />
     <Compile Include="Interfaces\IBloomComponent.cs" />
     <Compile Include="Interfaces\IBloomHandler.cs" />
     <Compile Include="Interfaces\IDockableObject.cs" />
