@@ -1,0 +1,348 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{C09CF347-E9CD-405C-ADF2-8786B16D2CAE}</ProjectGuid>
+    <ProjectTypeGuids>{6D335F3A-9D43-41b4-9D22-F6F17C4BE596};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <OutputType>WinExe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Roguelancer</RootNamespace>
+    <AssemblyName>Roguelancer</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
+    <XnaFrameworkVersion>v4.0</XnaFrameworkVersion>
+    <XnaPlatform>Windows</XnaPlatform>
+    <XnaProfile>HiDef</XnaProfile>
+    <XnaCrossPlatformGroupID>23b88b79-0b2c-4851-a228-245b9e69e0a2</XnaCrossPlatformGroupID>
+    <XnaOutputType>Game</XnaOutputType>
+    <ApplicationIcon>Game.ico</ApplicationIcon>
+    <Thumbnail>GameThumbnail.png</Thumbnail>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\x86\Debug</OutputPath>
+    <DefineConstants>DEBUG;TRACE;WINDOWS</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <NoStdLib>true</NoStdLib>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <PlatformTarget>x86</PlatformTarget>
+    <XnaCompressContent>false</XnaCompressContent>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\x86\Release</OutputPath>
+    <DefineConstants>TRACE;WINDOWS</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <NoStdLib>true</NoStdLib>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <PlatformTarget>x86</PlatformTarget>
+    <XnaCompressContent>true</XnaCompressContent>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.Xna.Framework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Microsoft.Xna.Framework.Game, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Microsoft.Xna.Framework.Graphics, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Microsoft.Xna.Framework.GamerServices, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Microsoft.Xna.Framework.Xact, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Microsoft.Xna.Framework.Video, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Microsoft.Xna.Framework.Avatar, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Microsoft.Xna.Framework.Net, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Microsoft.Xna.Framework.Storage, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="mscorlib">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System.Core">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System.Xml.Linq">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System.Net">
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Actions\InGameActions.cs" />
+    <Compile Include="Actions\MenuActions.cs" />
+    <Compile Include="Bloom\BloomComponent.cs" />
+    <Compile Include="Collections\DockingRingCollection.cs" />
+    <Compile Include="Collections\JumpHoleCollection.cs" />
+    <Compile Include="Collections\PlanetCollection.cs" />
+    <Compile Include="Collections\ShipCollection.cs" />
+    <Compile Include="Collections\StationCollection.cs" />
+    <Compile Include="Collections\TradeLaneCollection.cs" />
+    <Compile Include="Enum\GameCameraModeEnum.cs" />
+    <Compile Include="Enum\HudEnums.cs" />
+    <Compile Include="Enum\KeyboardAssignmentEnum.cs" />
+    <Compile Include="Extensions\HudObjectsExtension.cs" />
+    <Compile Include="Extensions\InputExtension.cs" />
+    <Compile Include="Extensions\InputExtensions.cs" />
+    <Compile Include="Extensions\PlayerShipExtensions.cs" />
+    <Compile Include="Extensions\SettingsObjectModelExtensions.cs" />
+    <Compile Include="Extensions\WorldObjectsExtensions.cs" />
+    <Compile Include="Extensions\XnaExtensions.cs" />
+    <Compile Include="Functionality\IniFile.cs" />
+    <Compile Include="Helpers\DebugTextHelper.cs" />
+    <Compile Include="Helpers\RandomMathHelper.cs" />
+    <Compile Include="Helpers\ShipHelper.cs" />
+    <Compile Include="Helpers\StarSystemSettingsHelper.cs" />
+    <Compile Include="Interfaces\IBloomComponent.cs" />
+    <Compile Include="Interfaces\IBloomHandler.cs" />
+    <Compile Include="Interfaces\IDockableObject.cs" />
+    <Compile Include="Interfaces\IDockableSensorObject.cs" />
+    <Compile Include="Interfaces\IGameMenu.cs" />
+    <Compile Include="Interfaces\IGameStates.cs" />
+    <Compile Include="Interfaces\IHudObject.cs" />
+    <Compile Include="Interfaces\IObjectCollection.cs" />
+    <Compile Include="Bloom\BloomHandler.cs" />
+    <None Include="configuration\commodities_settings.ini" />
+    <None Include="configuration\objects\bullets.ini" />
+    <Compile Include="Enum\DockedGameStateEnum.cs" />
+    <Compile Include="Enum\IntermediateBufferEnum.cs" />
+    <Compile Include="Enum\ModelTypeEnum.cs" />
+    <Compile Include="Enum\GameStatesEnum.cs" />
+    <Compile Include="Enum\CurrentMenuEnum.cs" />
+    <Compile Include="Enum\NotificationTypeEnum.cs" />
+    <Compile Include="Functionality\NativeMethods.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Interfaces\IDebugText.cs" />
+    <Compile Include="Interfaces\IDockable.cs" />
+    <Compile Include="Interfaces\IDockableShip.cs" />
+    <Compile Include="Interfaces\IGameGraphics.cs" />
+    <Compile Include="Interfaces\IGameSettings.cs" />
+    <Compile Include="Interfaces\IInput.cs" />
+    <Compile Include="Interfaces\ISensorObject.cs" />
+    <Compile Include="Models\BloomComponentModel.cs" />
+    <Compile Include="Models\BloomHandlerModel.cs" />
+    <Compile Include="Models\BloomSettingsModel.cs" />
+    <Compile Include="Models\BulletsModel.cs" />
+    <Compile Include="Models\CameraSettingsModel.cs" />
+    <Compile Include="Models\CargoHoldModel.cs" />
+    <Compile Include="Models\CommodityBadgeModel.cs" />
+    <Compile Include="Models\CommodityModel.cs" />
+    <Compile Include="Models\DebugTextModel.cs" />
+    <Compile Include="Models\DockableObjectModel.cs" />
+    <Compile Include="Models\DockingRingCollectionModel.cs" />
+    <Compile Include="Models\DockingRingModel.cs" />
+    <Compile Include="Models\GameCameraModel.cs" />
+    <Compile Include="Models\GameGraphicsModel.cs" />
+    <Compile Include="Models\GameMenuModel.cs" />
+    <Compile Include="Models\GameModel.cs" />
+    <Compile Include="Models\GameObjectsModel.cs" />
+    <Compile Include="Models\GameSettingsModel.cs" />
+    <Compile Include="Models\GameStateModel.cs" />
+    <Compile Include="Models\HudModel.cs" />
+    <Compile Include="Models\HudObjectModel.cs" />
+    <Compile Include="Models\InputItemsModel.cs" />
+    <Compile Include="Models\JumpHoleCollectionModel.cs" />
+    <Compile Include="Models\JumpHoleModel.cs" />
+    <Compile Include="Models\KeyAssignmentsModel.cs" />
+    <Compile Include="Models\KeyboardKeyStatusModel.cs" />
+    <Compile Include="Models\KeyInputModel.cs" />
+    <Compile Include="Models\MouseInputModel.cs" />
+    <Compile Include="Models\ParticleStarSheetModel.cs" />
+    <Compile Include="Models\ParticleSystemSettingsModel.cs" />
+    <Compile Include="Models\PlanetCollectionModel.cs" />
+    <Compile Include="Models\PlayerShipControlModel.cs" />
+    <Compile Include="Models\SettingsObjectModel.cs" />
+    <Compile Include="Models\ShipCollectionModel.cs" />
+    <Compile Include="Models\ShipModel.cs" />
+    <Compile Include="Models\StarSettingsModel.cs" />
+    <Compile Include="Models\StarSystemSettingsModel.cs" />
+    <Compile Include="Models\StaticParticleModel.cs" />
+    <Compile Include="Models\StationCollectionModel.cs" />
+    <Compile Include="Models\StationModel.cs" />
+    <Compile Include="Models\StationPriceModel.cs" />
+    <Compile Include="Models\TogglesModel.cs" />
+    <Compile Include="Models\TradeLaneCollectionModel.cs" />
+    <Compile Include="Models\TradeLaneModel.cs" />
+    <Compile Include="Models\WorldObjectModel.cs" />
+    <Compile Include="Objects\Base\DockableObject.cs" />
+    <Compile Include="Objects\BulletObject.cs" />
+    <Compile Include="Collections\BulletCollection.cs" />
+    <Compile Include="Objects\DockingRingObject.cs" />
+    <Compile Include="Objects\HudObject.cs" />
+    <Compile Include="Objects\JumpHoleObject.cs" />
+    <Compile Include="Objects\StarfieldObjects.cs" />
+    <Compile Include="Objects\TradeLaneObject.cs" />
+    <Compile Include="RoguelancerGame.cs" />
+    <Compile Include="Functionality\GameCamera.cs" />
+    <Compile Include="Functionality\DebugText.cs" />
+    <Compile Include="Functionality\GameGraphics.cs" />
+    <Compile Include="Functionality\Input.cs" />
+    <Compile Include="Functionality\PlayerShipControl.cs" />
+    <Compile Include="Functionality\GameState.cs" />
+    <Compile Include="Interfaces\IBullet.cs" />
+    <Compile Include="Interfaces\IGame.cs" />
+    <Compile Include="Interfaces\IGameCamera.cs" />
+    <Compile Include="Interfaces\IGameModel.cs" />
+    <Compile Include="Interfaces\IGameObjects.cs" />
+    <Compile Include="Interfaces\IParticle.cs" />
+    <Compile Include="Interfaces\IParticleAffector.cs" />
+    <Compile Include="Interfaces\IParticleEmitter.cs" />
+    <Compile Include="Interfaces\IParticleSystem.cs" />
+    <Compile Include="Interfaces\IPlayerShipControl.cs" />
+    <Compile Include="Interfaces\IShipCollection.cs" />
+    <Compile Include="Objects\GameMenuObject.cs" />
+    <Compile Include="Objects\MenuButton.cs" />
+    <Compile Include="Objects\GameObjects.cs" />
+    <Compile Include="Objects\PlanetObject.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Objects\ShipObject.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Objects\StationObject.cs" />
+    <Compile Include="Particle\Particle.cs" />
+    <Compile Include="Particle\ParticleSystem\DynamicParticle.cs" />
+    <Compile Include="Particle\ParticleSystem\DynamicParticleSystem.cs" />
+    <Compile Include="Particle\ParticleSystem\ParticleManager.cs" />
+    <Compile Include="Particle\ParticleSystem\ParticleSystem.cs" />
+    <Compile Include="Particle\ParticleSystem\StaticParticleSystem.cs" />
+    <Compile Include="Particle\Starfields.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Particle\System\Affectors\Affectors.cs" />
+    <Compile Include="Particle\System\Affectors\FadeOut.cs" />
+    <Compile Include="Particle\System\Affectors\VelocityAffector.cs" />
+    <Compile Include="Particle\System\Emitters\ParticleSystems\ExplosionParticleSystem.cs" />
+    <Compile Include="Particle\System\Emitters\ParticleSystems\ExplosionSmokeParticleSystem.cs" />
+    <Compile Include="Particle\System\Emitters\ParticleSystems\FireParticleSystem.cs" />
+    <Compile Include="Particle\System\Emitters\ParticleSystems\ProjectileTrailParticleSystem.cs" />
+    <Compile Include="Particle\System\Emitters\ParticleSystems\RandomHelper.cs" />
+    <Compile Include="Particle\System\Emitters\ParticleSystems\SmokeParticleSystem.cs" />
+    <Compile Include="Particle\System\Emitters\SmokePlumeEmitter.cs" />
+    <Compile Include="Particle\System\Emitters\SmokeRingEmitter.cs" />
+    <Compile Include="Particle\System\Emitters\TrailEmitter.cs" />
+    <Compile Include="Particle\System\ParticleSystem.cs" />
+    <Compile Include="Particle\System\Projectile.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Roguelancer.cs" />
+    <Compile Include="Settings\CameraSettings.cs" />
+    <Compile Include="Settings\GameSettings.cs" />
+    <Compile Include="Settings\TradeLaneSettings.cs" />
+    <Compile Include="Settings\WorldObjectsSettings.cs" />
+    <Compile Include="Settings\StarSystemSettings.cs" />
+    <None Include="configuration\ships.ini" />
+    <None Include="configuration\systems\new_york\jumpholes.ini" />
+    <None Include="configuration\systems\new_york\planets.ini" />
+    <None Include="configuration\systems\new_york\rings.ini" />
+    <None Include="configuration\systems\new_york\ships.ini" />
+    <None Include="configuration\systems\new_york\stations.ini" />
+    <None Include="configuration\systems\new_york\tradelanes.ini" />
+    <None Include="configuration\systems\texas\jumpholes.ini" />
+    <None Include="configuration\systems\texas\planets.ini" />
+    <None Include="configuration\systems\texas\rings.ini" />
+    <None Include="configuration\systems\texas\ships.ini" />
+    <None Include="configuration\systems\texas\stations.ini" />
+    <None Include="configuration\systems\texas\tradelanes.ini" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="configuration\commodities.ini" />
+    <Content Include="configuration\menus.ini" />
+    <Content Include="Game.ico" />
+    <Content Include="GameThumbnail.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <BootstrapperPackage Include=".NETFramework,Version=v4.0,Profile=Client">
+      <Visible>False</Visible>
+      <ProductName>Microsoft .NET Framework 4 Client Profile %28x86 and x64%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1 Client Profile</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Windows.Installer.3.1">
+      <Visible>False</Visible>
+      <ProductName>Windows Installer 3.1</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Xna.Framework.4.0">
+      <Visible>False</Visible>
+      <ProductName>Microsoft XNA Framework Redistributable 4.0</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RoguelancerContent\RoguelancerContent.contentproj">
+      <Project>{0555E32F-EA07-4A76-BB15-7148114CF03E}</Project>
+      <Name>RoguelancerContent %28Content%29</Name>
+      <XnaReferenceType>Content</XnaReferenceType>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="configuration\camera.ini" />
+    <None Include="configuration\models.ini" />
+    <None Include="configuration\player\settings.ini" />
+    <None Include="configuration\settings\settings.ini" />
+    <None Include="configuration\systems\systems.ini" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Models\Bloom\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\Microsoft.Xna.GameStudio.targets" />
+  <!--
+      To modify your build process, add your task inside one of the targets below and uncomment it. 
+      Other similar extension points exist, see Microsoft.Common.targets.
+      <Target Name="BeforeBuild">
+      </Target>
+      <Target Name="AfterBuild">
+      </Target>
+    -->
+</Project>
