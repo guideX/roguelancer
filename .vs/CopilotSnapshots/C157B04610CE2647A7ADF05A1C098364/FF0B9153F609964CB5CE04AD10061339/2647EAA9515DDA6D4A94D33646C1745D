@@ -1,0 +1,105 @@
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+
+namespace Roguelancer
+{
+    /// <summary>
+    /// Starfield background for space environment
+    /// </summary>
+    public class Starfield
+    {
+        private struct Star
+        {
+            public Vector3 Position;
+            public float Size;
+            public Color Color;
+        }
+
+        private Star[] _stars;
+        private VertexPositionColor[] _vertices;
+        private BasicEffect _effect;
+        private GraphicsDevice _graphicsDevice;
+
+        public Starfield(GraphicsDevice graphicsDevice, int starCount = 2000)
+        {
+            _graphicsDevice = graphicsDevice;
+            _stars = new Star[starCount];
+            _vertices = new VertexPositionColor[starCount];
+            
+            Random random = new Random();
+            
+            // Generate stars in a large sphere around origin
+            for (int i = 0; i < starCount; i++)
+            {
+                // Random point on sphere
+                float theta = (float)(random.NextDouble() * Math.PI * 2);
+                float phi = (float)(Math.Acos(2 * random.NextDouble() - 1));
+                float radius = 500f + (float)(random.NextDouble() * 2000f);
+                
+                Vector3 position = new Vector3(
+                    radius * (float)(Math.Sin(phi) * Math.Cos(theta)),
+                    radius * (float)(Math.Sin(phi) * Math.Sin(theta)),
+                    radius * (float)Math.Cos(phi)
+                );
+                
+                // Vary star brightness and color slightly
+                float brightness = 0.5f + (float)(random.NextDouble() * 0.5f);
+                Color color = new Color(
+                    brightness,
+                    brightness * (0.9f + (float)random.NextDouble() * 0.1f),
+                    brightness * (0.8f + (float)random.NextDouble() * 0.2f)
+                );
+                
+                _stars[i] = new Star
+                {
+                    Position = position,
+                    Size = 1f + (float)(random.NextDouble() * 2f),
+                    Color = color
+                };
+                
+                _vertices[i] = new VertexPositionColor(position, color);
+            }
+            
+            _effect = new BasicEffect(graphicsDevice)
+            {
+                VertexColorEnabled = true,
+                LightingEnabled = false
+            };
+        }
+
+        public void Draw(Matrix view, Matrix projection, Vector3 cameraPosition)
+        {
+            // Save current render states
+            var oldDepthStencilState = _graphicsDevice.DepthStencilState;
+            var oldBlendState = _graphicsDevice.BlendState;
+            var oldRasterizerState = _graphicsDevice.RasterizerState;
+            
+            // Update view and projection matrices
+            _effect.View = view;
+            _effect.Projection = projection;
+            _effect.World = Matrix.CreateTranslation(cameraPosition);
+            
+            // Draw stars as points with no depth testing (always in background)
+            _graphicsDevice.DepthStencilState = DepthStencilState.None;
+            _graphicsDevice.BlendState = BlendState.Additive;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            
+            foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                _graphicsDevice.DrawUserPrimitives(
+                    PrimitiveType.PointList,
+                    _vertices,
+                    0,
+                    _stars.Length
+                );
+            }
+            
+            // Restore render states
+            _graphicsDevice.DepthStencilState = oldDepthStencilState;
+            _graphicsDevice.BlendState = oldBlendState;
+            _graphicsDevice.RasterizerState = oldRasterizerState;
+        }
+    }
+}

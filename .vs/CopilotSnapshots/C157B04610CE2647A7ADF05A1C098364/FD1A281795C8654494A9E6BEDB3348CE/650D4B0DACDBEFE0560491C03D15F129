@@ -1,0 +1,293 @@
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using System;
+
+namespace Roguelancer
+{
+    public class Game1 : Game
+    {
+        private GraphicsDeviceManager _graphics;
+        private SpriteBatch _spriteBatch;
+        
+        // Game components
+        private Ship _playerShip;
+        private Camera _camera;
+        private Starfield _starfield;
+        private EngineGlow _engineGlow;
+        private SpriteFont _font;
+        
+        // Lighting
+        private Vector3 _lightDirection = Vector3.Normalize(new Vector3(1, -1, 1));
+
+        public Game1()
+        {
+            _graphics = new GraphicsDeviceManager(this);
+            Content.RootDirectory = "Content";
+            IsMouseVisible = false;
+            
+            // Set resolution
+            _graphics.PreferredBackBufferWidth = 1920;
+            _graphics.PreferredBackBufferHeight = 1080;
+            _graphics.IsFullScreen = false;
+            _graphics.ApplyChanges();
+        }
+
+        protected override void Initialize()
+        {
+            // Initialize camera
+            float aspectRatio = GraphicsDevice.Viewport.AspectRatio;
+            _camera = new Camera(aspectRatio);
+            
+            // Initialize player ship at origin
+            _playerShip = new Ship(Vector3.Zero);
+            
+            base.Initialize();
+        }
+
+        protected override void LoadContent()
+        {
+            _spriteBatch = new SpriteBatch(GraphicsDevice);
+            
+            // Load ship model
+            try
+            {
+                _playerShip.Model = Content.Load<Model>("SHIPS/scimitar/Scimitar2");
+                Console.WriteLine("Scimitar model loaded successfully!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading model: {ex.Message}");
+                Console.WriteLine("Make sure the FBX file is added to the Content Pipeline.");
+            }
+            
+            // Create starfield
+            _starfield = new Starfield(GraphicsDevice, 3000);
+            
+            // Create engine glow effect
+            _engineGlow = new EngineGlow(GraphicsDevice);
+            
+            // Try to load font for HUD (optional)
+            try
+            {
+                // We'll create a simple HUD without font for now
+                // _font = Content.Load<SpriteFont>("Fonts/HudFont");
+            }
+            catch
+            {
+                // Font not available, will skip HUD text
+            }
+        }
+
+        protected override void Update(GameTime gameTime)
+        {
+            KeyboardState keyboardState = Keyboard.GetState();
+            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            
+            // Exit on Escape
+            if (keyboardState.IsKeyDown(Keys.Escape))
+                Exit();
+            
+            // Update player ship
+            _playerShip.Update(gameTime, keyboardState);
+            
+            // Update mouse visibility based on flight mode
+            IsMouseVisible = _playerShip.MouseFlightEnabled;
+            
+            // Trigger camera shake when afterburner is activated
+            if (_playerShip.AfterburnerJustActivated)
+            {
+                // Strong initial shake that decays quickly
+                _camera.AddShake(2.0f, 4f);
+            }
+            
+            // Continuous mild shake while afterburner is active
+            if (_playerShip.IsAfterburnerActive)
+            {
+                _camera.AddShake(0.3f, 8f);
+            }
+            
+            // Update camera shake
+            _camera.UpdateShake(deltaTime);
+            
+            // Update camera to follow ship
+            _camera.Follow(_playerShip.Position, _playerShip.Forward, _playerShip.Up, 0.15f);
+
+            base.Update(gameTime);
+        }
+
+        protected override void Draw(GameTime gameTime)
+        {
+            // Clear to space black
+            GraphicsDevice.Clear(Color.Black);
+            
+            // === 3D RENDERING PHASE ===
+            // Set up 3D rendering states
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.SamplerStates[0] = SamplerState.LinearWrap;
+            // Re-enable proper culling for performance
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+            
+            // Draw starfield (drawn first, furthest back)
+            _starfield.Draw(_camera.View, _camera.Projection, _camera.Position);
+            
+            // Reset render states after starfield (it changes them)
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+            
+            // Draw ship
+            _playerShip.Draw(_camera.View, _camera.Projection, _lightDirection);
+            
+            // Draw engine glows (brighter during afterburner)
+            float glowIntensity = _playerShip.GetThrottle();
+            if (_playerShip.IsAfterburnerActive)
+                glowIntensity = 1.5f; // Extra bright for afterburner
+            
+            _engineGlow.DrawEngineGlows(_playerShip, _camera, Math.Max(0, glowIntensity));
+            
+            // === 2D UI RENDERING PHASE ===
+            // Reset all render states before SpriteBatch to prevent artifacts
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+            GraphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
+            
+            // Draw HUD
+            DrawHUD();
+
+            base.Draw(gameTime);
+        }
+        
+        private void DrawHUD()
+        {
+            _spriteBatch.Begin();
+            
+            // Get flight status
+            string flightStatus = _playerShip.GetFlightStatus();
+            Color statusColor = flightStatus switch
+            {
+                "AFTERBURNER" => Color.Red,
+                "CRUISE" => Color.Yellow,
+                "ENGINES KILLED" => Color.Gray,
+                "REVERSE" => Color.Orange,
+                _ => Color.Cyan
+            };
+            
+            // Draw speed and status
+            string speedText = $"Speed: {Math.Abs(_playerShip.Speed):F1}";
+            string maxSpeedText = _playerShip.IsAfterburnerActive ? $"/ {_playerShip.AfterburnerSpeed:F1}" :
+                                  _playerShip.IsCruiseActive ? $"/ {_playerShip.CruiseSpeed:F1}" :
+                                  $"/ {_playerShip.MaxSpeed:F1}";
+            
+            string throttleText = $"Throttle: {(_playerShip.GetThrottle() * 100):F0}%";
+            string statusText = $"Status: {flightStatus}";
+            
+            // Draw simple colored rectangles and text indicators
+            Vector2 hudPos = new Vector2(10, 10);
+            int lineHeight = 25;
+            
+            // Status indicator box
+            DrawRectangle(_spriteBatch, new Rectangle(10, 10, 250, 100), Color.Black * 0.6f);
+            
+            // If we had a font, we'd draw text here. For now, we'll use colored indicators
+            // Left side HUD info would go here
+            
+            // Draw throttle bar (vertical on right side)
+            int barWidth = 30;
+            int barHeight = 200;
+            Vector2 barPos = new Vector2(GraphicsDevice.Viewport.Width - barWidth - 20, 
+                                         GraphicsDevice.Viewport.Height / 2 - barHeight / 2);
+            
+            // Background
+            DrawRectangle(_spriteBatch, new Rectangle((int)barPos.X, (int)barPos.Y, barWidth, barHeight), 
+                         Color.Gray * 0.5f);
+            
+            // Throttle fill (from bottom up for positive, from middle down for negative)
+            float throttle = _playerShip.GetThrottle();
+            if (throttle >= 0)
+            {
+                int fillHeight = (int)(barHeight / 2 * throttle);
+                Color throttleColor = _playerShip.IsAfterburnerActive ? Color.Red :
+                                     _playerShip.IsCruiseActive ? Color.Yellow : Color.Cyan;
+                DrawRectangle(_spriteBatch, 
+                             new Rectangle((int)barPos.X, (int)barPos.Y + barHeight / 2 - fillHeight, 
+                                          barWidth, fillHeight), 
+                             throttleColor * 0.8f);
+            }
+            else
+            {
+                int fillHeight = (int)(barHeight / 2 * Math.Abs(throttle));
+                DrawRectangle(_spriteBatch, 
+                             new Rectangle((int)barPos.X, (int)barPos.Y + barHeight / 2, 
+                                          barWidth, fillHeight), 
+                             Color.Orange * 0.8f);
+            }
+            
+            // Center line
+            DrawRectangle(_spriteBatch, 
+                         new Rectangle((int)barPos.X, (int)barPos.Y + barHeight / 2 - 2, barWidth, 4), 
+                         Color.White);
+            
+            // Status indicators (colored boxes)
+            Vector2 statusPos = new Vector2(GraphicsDevice.Viewport.Width - 150, 20);
+            
+            if (_playerShip.IsAfterburnerActive)
+            {
+                DrawRectangle(_spriteBatch, new Rectangle((int)statusPos.X, (int)statusPos.Y, 120, 30), Color.Red * 0.7f);
+                DrawRectangle(_spriteBatch, new Rectangle((int)statusPos.X + 2, (int)statusPos.Y + 2, 116, 26), Color.Red * 0.3f);
+            }
+            else if (_playerShip.IsCruiseActive)
+            {
+                DrawRectangle(_spriteBatch, new Rectangle((int)statusPos.X, (int)statusPos.Y, 120, 30), Color.Yellow * 0.7f);
+                DrawRectangle(_spriteBatch, new Rectangle((int)statusPos.X + 2, (int)statusPos.Y + 2, 116, 26), Color.Yellow * 0.3f);
+            }
+            else if (_playerShip.EnginesKilled)
+            {
+                DrawRectangle(_spriteBatch, new Rectangle((int)statusPos.X, (int)statusPos.Y, 120, 30), Color.Gray * 0.7f);
+                DrawRectangle(_spriteBatch, new Rectangle((int)statusPos.X + 2, (int)statusPos.Y + 2, 116, 26), Color.Gray * 0.3f);
+            }
+            
+            // Control reference at bottom
+            DrawControlReference();
+            
+            _spriteBatch.End();
+        }
+        
+        private void DrawControlReference()
+        {
+            int bottomY = GraphicsDevice.Viewport.Height - 120;
+            DrawRectangle(_spriteBatch, new Rectangle(10, bottomY, 500, 110), Color.Black * 0.7f);
+            
+            // We'd normally draw text here, but without a font we'll just show a control panel box
+            // If you add a SpriteFont, you can uncomment and use this:
+            /*
+            if (_font != null)
+            {
+                Vector2 textPos = new Vector2(15, bottomY + 5);
+                int lineHeight = 18;
+                
+                _spriteBatch.DrawString(_font, "FLIGHT CONTROLS:", textPos, Color.Yellow);
+                textPos.Y += lineHeight;
+                _spriteBatch.DrawString(_font, "W: Forward | S: Stop/Reverse | TAB: Afterburner", textPos, Color.White);
+                textPos.Y += lineHeight;
+                _spriteBatch.DrawString(_font, "Arrows/IJKL: Pitch/Yaw | Q/E: Roll", textPos, Color.White);
+                textPos.Y += lineHeight;
+                _spriteBatch.DrawString(_font, "Shift+WASD: Strafe | Z: Cruise | X: Kill Engines", textPos, Color.White);
+                textPos.Y += lineHeight;
+                _spriteBatch.DrawString(_font, "R: Match Speed | ESC: Exit", textPos, Color.White);
+            }
+            */
+        }
+        
+        private void DrawRectangle(SpriteBatch spriteBatch, Rectangle rectangle, Color color)
+        {
+            // Create a 1x1 white texture if needed
+            Texture2D whitePixel = new Texture2D(GraphicsDevice, 1, 1);
+            whitePixel.SetData(new[] { Color.White });
+            
+            spriteBatch.Draw(whitePixel, rectangle, color);
+        }
+    }
+}

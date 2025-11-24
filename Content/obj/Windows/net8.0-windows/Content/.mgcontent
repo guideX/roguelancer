@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SourceFileCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Profile>Reach</Profile>
+  <Platform>Windows</Platform>
+  <Config />
+  <SourceFiles>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/FONTS/Arial.spritefont</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/FONTS/LucidaFont.spritefont</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/FONTS/HudFont.spritefont</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/FONTS/LucidiaFontSmall.spritefont</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/SHIPS/PI_TRANSPORT/PI_TRANSPORT.x</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/SHIPS/Subspace/ship1.x</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/SHIPS/Subspace/ship2.x</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/SHIPS/Subspace/ship3.x</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/SHIPS/Subspace/ship4.x</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/SHIPS/Subspace/ship5.x</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/SHIPS/Subspace/ship6.x</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/SHIPS/Subspace/ship7.x</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/SHIPS/Subspace/ship8.x</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Textures/Particle.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Textures/ParticleColors.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Textures/Stars.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Textures/star.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Textures/explosion.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Textures/fire.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Textures/smoke.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Textures/menu.jpg</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Textures/menu2.jpg</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/ASSETS/LOAD.jpg</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/BUTTONS/exit.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/BUTTONS/options.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/BUTTONS/play.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/BUTTONS/return.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/BUTTONS/loadgame.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/BUTTONS/menubutton.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/BUTTONS/newgame.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/BUTTONS/multiplayer.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/BUTTONS/keyboard.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/sensor.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Menus/allpanels.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Menus/item.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/COM/oxygen.jpg</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/COM/water.jpg</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/PLANETS/ALIEN_PLANET/4096_bump.jpg</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/PLANETS/ALIEN_PLANET/4096_clouds.jpg</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/PLANETS/ALIEN_PLANET/4096_earth.jpg</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/PLANETS/ALIEN_PLANET/4096_night_lights.jpg</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/PLANETS/ALIEN_PLANET/4096_normal.jpg</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/PLANETS/ALIEN_PLANET/planet_Bog1200.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/PLANETS/ALIEN_PLANET/Render1.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/PLANETS/ALIEN_PLANET/planet_texture_001_by_ralasterphecy.jpg</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/PLANETS/ALIEN_PLANET2/planet_Quom1200.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/PLANETS/ALIEN_PLANET2/Render1.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/PLANETS/ALIEN_PLANET2/Render2.png</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Effects/Particle.fx</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Effects/BloomExtract.fx</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Effects/GaussianBlur.fx</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/Effects/BloomCombine.fx</File>
+    <File>D:/devgitlab/Roguelancer/Roguelancer/Content/SHIPS/scimitar/Scimitar2.fbx</File>
+  </SourceFiles>
+  <DestFiles>
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
+  </DestFiles>
+</SourceFileCollection>

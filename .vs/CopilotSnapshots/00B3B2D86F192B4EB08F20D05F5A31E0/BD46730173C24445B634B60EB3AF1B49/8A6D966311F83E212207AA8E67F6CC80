@@ -1,0 +1,199 @@
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
+
+namespace Roguelancer
+{
+    /// <summary>
+    /// Renders a particle trail behind the ship's engines.
+    /// </summary>
+    public class EngineTrail
+    {
+        private class Particle
+        {
+            public Vector3 Position;
+            public Vector3 Velocity;
+            public float Life;          // Current life
+            public float MaxLife;       // Total lifespan
+            public float Size;          // Starting size
+        }
+        
+        private readonly List<Particle> _particles = new List<Particle>(2048);
+        private readonly GraphicsDevice _graphicsDevice;
+        private readonly BasicEffect _effect;
+        private readonly Texture2D _texture;
+        
+        // Emission control
+        public float EmissionRate = 200f; // particles per second per engine at full throttle
+        public float ParticleLife = 2.5f; // seconds
+        public float BaseSize = 3f;
+        
+        private float _emissionAccumulator;
+        
+        public EngineTrail(GraphicsDevice graphicsDevice)
+        {
+            _graphicsDevice = graphicsDevice;
+            _effect = new BasicEffect(graphicsDevice)
+            {
+                TextureEnabled = true,
+                VertexColorEnabled = true,
+                LightingEnabled = false
+            };
+            _texture = CreateSoftTexture(graphicsDevice, 32);
+            _effect.Texture = _texture;
+        }
+        
+        private Texture2D CreateSoftTexture(GraphicsDevice device, int size)
+        {
+            Texture2D tex = new Texture2D(device, size, size);
+            Color[] data = new Color[size * size];
+            Vector2 center = new Vector2(size / 2f);
+            float maxDist = size / 2f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x, y), center) / maxDist;
+                    float a = 1f - d;
+                    a = a * a; // soften
+                    byte alphaByte = (byte)(a * 255f);
+                    data[y * size + x] = new Color((byte)255, (byte)255, (byte)255, alphaByte);
+                }
+            }
+            tex.SetData(data);
+            return tex;
+        }
+        
+        public void Update(GameTime gameTime, Ship ship, float throttle)
+        {
+            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            
+            // Remove dead particles
+            for (int i = _particles.Count - 1; i >= 0; i--)
+            {
+                _particles[i].Life += dt;
+                if (_particles[i].Life >= _particles[i].MaxLife)
+                {
+                    _particles.RemoveAt(i);
+                }
+            }
+            
+            // Update remaining particles
+            foreach (var p in _particles)
+            {
+                p.Position += p.Velocity * dt;
+            }
+            
+            if (ship.Model == null) return;
+            
+            // Emission amount based on throttle and afterburner/cruise
+            float intensity = throttle;
+            if (ship.IsAfterburnerActive) intensity = 1.5f;
+            else if (ship.IsCruiseActive) intensity = 1.1f;
+            intensity = MathHelper.Clamp(intensity, 0.05f, 1.6f);
+            
+            float rate = EmissionRate * intensity;
+            _emissionAccumulator += rate * dt;
+            int emitCount = (int)_emissionAccumulator;
+            _emissionAccumulator -= emitCount;
+            if (emitCount <= 0) return;
+            
+            // Engine offsets (match EngineGlow, slightly further back)
+            Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
+            Matrix shipTransform = modelCorrection * ship.Orientation * Matrix.CreateTranslation(ship.Position);
+            Vector3[] offsets = new[]
+            {
+                new Vector3(-2.5f, 0f, 6.5f),
+                new Vector3(2.5f, 0f, 6.5f),
+                new Vector3(0f, 0f, 7.0f)
+            };
+            
+            // Emit particles
+            for (int e = 0; e < offsets.Length; e++)
+            {
+                Vector3 enginePos = Vector3.Transform(offsets[e], shipTransform);
+                for (int i = 0; i < emitCount / offsets.Length; i++)
+                {
+                    Particle p = new Particle();
+                    p.Position = enginePos;
+                    // Start moving opposite forward direction (exhaust), with slight random spread
+                    Vector3 baseDir = -ship.Forward;
+                    Vector3 rand = new Vector3(
+                        (float)(RandomSingleton.NextDouble() * 2 - 1) * 0.2f,
+                        (float)(RandomSingleton.NextDouble() * 2 - 1) * 0.2f,
+                        (float)(RandomSingleton.NextDouble() * 2 - 1) * 0.2f);
+                    p.Velocity = (baseDir + rand) * (30f + intensity * 60f);
+                    p.Life = 0f;
+                    p.MaxLife = ParticleLife * (ship.IsAfterburnerActive ? 0.7f : 1f); // faster dissipation during afterburner
+                    p.Size = BaseSize + intensity * 6f;
+                    _particles.Add(p);
+                }
+            }
+        }
+        
+        public void Draw(Camera camera)
+        {
+            if (_particles.Count == 0) return;
+            
+            var gd = _graphicsDevice;
+            var oldBlend = gd.BlendState;
+            var oldDepth = gd.DepthStencilState;
+            var oldRaster = gd.RasterizerState;
+            
+            gd.BlendState = BlendState.Additive;
+            gd.DepthStencilState = DepthStencilState.DepthRead;
+            gd.RasterizerState = RasterizerState.CullNone;
+            
+            _effect.View = camera.View;
+            _effect.Projection = camera.Projection;
+            _effect.World = Matrix.Identity;
+            
+            foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                foreach (var p in _particles)
+                {
+                    float t = p.Life / p.MaxLife;
+                    float alpha = 1f - t;
+                    alpha = alpha * (1f - t); // sharpen fade
+                    float size = p.Size * (1f + t * 0.3f); // slight growth
+                    Color color = shipColorFromLife(t) * alpha;
+                    DrawBillboard(p.Position, size, color, camera.Position);
+                }
+            }
+            
+            gd.BlendState = oldBlend;
+            gd.DepthStencilState = oldDepth;
+            gd.RasterizerState = oldRaster;
+        }
+        
+        private Color shipColorFromLife(float t)
+        {
+            // Shift from bright blue-white to faint orange
+            Vector3 start = new Vector3(0.6f, 0.8f, 1.0f);
+            Vector3 end = new Vector3(1.0f, 0.5f, 0.1f);
+            Vector3 col = Vector3.Lerp(start, end, t);
+            return new Color(col);
+        }
+        
+        private void DrawBillboard(Vector3 position, float size, Color color, Vector3 cameraPosition)
+        {
+            Vector3 forward = Vector3.Normalize(cameraPosition - position);
+            Vector3 right = Vector3.Normalize(Vector3.Cross(Vector3.Up, forward));
+            Vector3 up = Vector3.Cross(forward, right);
+            VertexPositionColorTexture[] v = new VertexPositionColorTexture[4];
+            v[0] = new VertexPositionColorTexture(position + (-right - up) * size, color, new Vector2(0, 1));
+            v[1] = new VertexPositionColorTexture(position + (right - up) * size, color, new Vector2(1, 1));
+            v[2] = new VertexPositionColorTexture(position + (-right + up) * size, color, new Vector2(0, 0));
+            v[3] = new VertexPositionColorTexture(position + (right + up) * size, color, new Vector2(1, 0));
+            short[] idx = {0,1,2,2,1,3};
+            _graphicsDevice.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, v, 0, 4, idx, 0, 2);
+        }
+        
+        private static class RandomSingleton
+        {
+            private static readonly System.Random _rnd = new System.Random();
+            public static double NextDouble() => _rnd.NextDouble();
+        }
+    }
+}

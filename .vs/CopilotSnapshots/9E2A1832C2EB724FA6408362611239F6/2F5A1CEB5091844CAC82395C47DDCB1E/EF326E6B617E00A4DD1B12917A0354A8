@@ -1,0 +1,150 @@
+﻿# Roguelancer - Freelancer-Style Space Flight Game
+
+## Overview
+A Freelancer-inspired space flight game built with MonoGame featuring:
+- **3D Ship Flight Mechanics** - Full 6-degrees of freedom space flight
+- **Chase Camera** - Smooth following camera that tracks your ship
+- **Starfield Background** - 3000+ procedurally placed stars
+- **Engine Glow Effects** - Dynamic thruster effects based on throttle
+- **HUD Display** - Speed, throttle, and position information
+
+## Controls
+
+### Flight Controls
+- **W** - Increase throttle
+- **S** - Decrease throttle
+- **Arrow Up / Q** - Pitch up
+- **Arrow Down / E** - Pitch down
+- **A / Arrow Left** - Turn left (yaw)
+- **D / Arrow Right** - Turn right (yaw)
+- **ESC** - Exit game
+
+### Flight Mechanics
+- The ship automatically banks when turning (like Freelancer)
+- Throttle controls your speed from 0% to 100%
+- Maximum speed: 50 units/second (configurable in Ship.cs)
+- Smooth camera follows behind the ship
+
+## Project Structure
+
+### Core Classes
+
+#### Ship.cs
+Contains all ship flight mechanics:
+- Position and orientation tracking
+- Keyboard input handling
+- Physics-based movement with acceleration
+- Banking and turning mechanics
+- Model rendering with lighting
+
+**Key Properties:**
+- `MaxSpeed` - Maximum flight speed (default: 50)
+- `Acceleration` - How fast the ship accelerates (default: 25)
+- `TurnSpeed` - Rotation speed (default: 2.5)
+- `BankAmount` - How much the ship banks during turns (default: 1.2)
+
+#### Camera.cs
+Chase camera system that follows the player:
+- Smooth camera movement with lerp
+- Maintains distance behind ship
+- Always looks ahead of the ship
+- Configurable field of view and distance
+
+#### Starfield.cs
+Procedural starfield generator:
+- Creates 3000 stars in a sphere around the player
+- Stars have varying brightness and color
+- Always centered on the camera (parallax effect)
+- Rendered as additive blend for glow effect
+
+#### EngineGlow.cs
+Engine thruster visual effects:
+- Billboard particles that face the camera
+- Intensity based on throttle
+- Procedurally generated glow texture
+- Additive blending for bright glow
+
+## Ship Model
+
+The game uses the **Scimitar** ship model from your content folder:
+- Location: `Content/SHIPS/scimitar/Scimitar2.fbx`
+- Includes multiple textures for different ship parts
+- The model is automatically loaded and rendered with lighting
+
+## Customization
+
+### Adjusting Ship Performance
+Edit `Ship.cs` properties in the constructor or after creation:
+
+```csharp
+_playerShip.MaxSpeed = 100f;        // Faster top speed
+_playerShip.Acceleration = 50f;     // Quicker acceleration
+_playerShip.TurnSpeed = 3.5f;       // More responsive turning
+_playerShip.BankAmount = 2.0f;      // More dramatic banking
+```
+
+### Adjusting Camera
+Edit `Camera.cs` private fields:
+
+```csharp
+private float _distance = 15f;  // Camera distance behind ship
+private float _height = 3f;     // Camera height above ship
+```
+
+### Adjusting Engine Glow Position
+Edit `EngineGlow.cs` engine offset positions in `DrawEngineGlows()`:
+
+```csharp
+List<Vector3> engineOffsets = new List<Vector3>
+{
+    new Vector3(-1.5f, -0.3f, -3f),  // Left engine
+    new Vector3(1.5f, -0.3f, -3f)    // Right engine
+};
+```
+
+## Adding More Content
+
+### Adding New Ships
+1. Copy ship model (FBX) to `Content/SHIPS/[shipname]/`
+2. Add to `Content.mgcb` file using the MGCB Editor or manually
+3. Load in code: `Content.Load<Model>("SHIPS/[shipname]/[modelname]")`
+
+### Adding More Visual Effects
+- **Laser Beams** - Create line primitives with glow
+- **Explosions** - Particle system with expanding spheres
+- **Shields** - Semi-transparent sphere around ship
+- **Space Stations** - Static 3D models in world space
+
+## Next Steps
+
+Here are some features you might want to add:
+
+1. **Mouse Flight** - Use mouse for more intuitive aiming
+2. **Combat System** - Weapons, projectiles, enemies
+3. **Physics** - Inertia-based flight model
+4. **HUD Enhancement** - Radar, targeting reticle, ship status
+5. **Space Objects** - Asteroids, stations, planets
+6. **Sound Effects** - Engine sounds, weapons, explosions
+7. **Multiple Ships** - Ship selection and different stats
+8. **Missions** - Objectives, waypoints, story
+9. **Trading** - Economy system like Freelancer
+10. **Multiplayer** - Network play
+
+## Technical Notes
+
+- Built with **MonoGame 3.8** for .NET 9
+- Uses **BasicEffect** for rendering (simple but effective)
+- All rendering is done with built-in MonoGame classes
+- No external dependencies beyond MonoGame
+- Ready for expansion with additional game systems
+
+## Running the Game
+
+Simply build and run:
+```bash
+dotnet run
+```
+
+Or press **F5** in Visual Studio to debug.
+
+Enjoy your space flight!

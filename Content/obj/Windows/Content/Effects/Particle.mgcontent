@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PipelineBuildEvent xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <SourceFile>D:/devgithub/Roguelancer/Roguelancer/Content/Effects/Particle.fx</SourceFile>
+  <SourceTime>2025-11-23T11:01:37.3190012-08:00</SourceTime>
+  <DestFile>D:/devgithub/Roguelancer/Roguelancer/Content/bin/Windows/Content/Effects/Particle.xnb</DestFile>
+  <DestTime>2025-11-23T11:03:12.1605523-08:00</DestTime>
+  <Importer>EffectImporter</Importer>
+  <ImporterTime>2025-10-20T07:25:32-07:00</ImporterTime>
+  <Processor>EffectProcessor</Processor>
+  <ProcessorTime>2025-10-20T07:25:32-07:00</ProcessorTime>
+  <Parameters>
+    <Key>DebugMode</Key>
+    <Value>Auto</Value>
+  </Parameters>
+  <Dependencies />
+  <BuildAsset />
+  <BuildOutput />
+</PipelineBuildEvent>

@@ -1,0 +1,164 @@
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using System;
+
+namespace Roguelancer
+{
+    /// <summary>
+    /// Player ship with Freelancer-style flight mechanics
+    /// </summary>
+    public class Ship
+    {
+        // Position and orientation
+        public Vector3 Position { get; set; }
+        public Matrix Orientation { get; private set; }
+        public Vector3 Velocity { get; set; }
+        
+        // Movement properties
+        public float Speed { get; private set; }
+        public float MaxSpeed { get; set; } = 50f;
+        public float Acceleration { get; set; } = 25f;
+        public float TurnSpeed { get; set; } = 2.5f;
+        public float BankAmount { get; set; } = 1.2f;
+        
+        // Ship state
+        private float _currentBankAngle = 0f;
+        private float _currentPitch = 0f;
+        private float _throttle = 0f;
+        
+        // Ship model
+        public Model Model { get; set; }
+        
+        // Direction vectors
+        public Vector3 Forward => Orientation.Forward;
+        public Vector3 Up => Orientation.Up;
+        public Vector3 Right => Orientation.Right;
+
+        public Ship(Vector3 startPosition)
+        {
+            Position = startPosition;
+            Orientation = Matrix.Identity;
+            Velocity = Vector3.Zero;
+        }
+
+        public void Update(GameTime gameTime, KeyboardState keyboardState)
+        {
+            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            
+            // Throttle control (W/S keys)
+            if (keyboardState.IsKeyDown(Keys.W))
+                _throttle = MathHelper.Clamp(_throttle + deltaTime * 2f, 0f, 1f);
+            else if (keyboardState.IsKeyDown(Keys.S))
+                _throttle = MathHelper.Clamp(_throttle - deltaTime * 2f, 0f, 1f);
+            
+            // Mouse flight (optional alternative to keys)
+            float pitchInput = 0f;
+            float yawInput = 0f;
+            
+            // Keyboard controls (Arrow keys or WASD)
+            if (keyboardState.IsKeyDown(Keys.Up))
+                pitchInput = 1f;
+            if (keyboardState.IsKeyDown(Keys.Down))
+                pitchInput = -1f;
+            if (keyboardState.IsKeyDown(Keys.Left))
+                yawInput = 1f;
+            if (keyboardState.IsKeyDown(Keys.Right))
+                yawInput = -1f;
+            
+            // Alternative WASD for turning (A/D for yaw)
+            if (keyboardState.IsKeyDown(Keys.A))
+                yawInput = 1f;
+            if (keyboardState.IsKeyDown(Keys.D))
+                yawInput = -1f;
+            if (keyboardState.IsKeyDown(Keys.Q))
+                pitchInput = 1f;
+            if (keyboardState.IsKeyDown(Keys.E))
+                pitchInput = -1f;
+            
+            // Apply rotation
+            float turnRate = TurnSpeed * deltaTime;
+            
+            if (Math.Abs(pitchInput) > 0.01f)
+            {
+                Orientation *= Matrix.CreateFromAxisAngle(Right, pitchInput * turnRate);
+                _currentPitch = pitchInput;
+            }
+            else
+            {
+                _currentPitch = MathHelper.Lerp(_currentPitch, 0f, deltaTime * 3f);
+            }
+            
+            if (Math.Abs(yawInput) > 0.01f)
+            {
+                Orientation *= Matrix.CreateFromAxisAngle(Up, yawInput * turnRate);
+                _currentBankAngle = MathHelper.Lerp(_currentBankAngle, -yawInput * BankAmount, deltaTime * 5f);
+            }
+            else
+            {
+                _currentBankAngle = MathHelper.Lerp(_currentBankAngle, 0f, deltaTime * 3f);
+            }
+            
+            // Apply banking
+            Orientation *= Matrix.CreateFromAxisAngle(Forward, _currentBankAngle * deltaTime);
+            
+            // Orthonormalize to prevent drift
+            Orientation = OrthonormalizeOrientation(Orientation);
+            
+            // Update speed based on throttle
+            Speed = _throttle * MaxSpeed;
+            
+            // Update velocity
+            Velocity = Forward * Speed;
+            
+            // Update position
+            Position += Velocity * deltaTime;
+        }
+
+        public void Draw(Matrix view, Matrix projection, Vector3 lightDirection)
+        {
+            if (Model == null) return;
+
+            Matrix world = Orientation * Matrix.CreateTranslation(Position);
+            
+            foreach (ModelMesh mesh in Model.Meshes)
+            {
+                foreach (BasicEffect effect in mesh.Effects)
+                {
+                    effect.World = world;
+                    effect.View = view;
+                    effect.Projection = projection;
+                    
+                    effect.EnableDefaultLighting();
+                    effect.PreferPerPixelLighting = true;
+                    effect.SpecularPower = 16f;
+                    
+                    // Lighting
+                    effect.DirectionalLight0.Direction = lightDirection;
+                    effect.DirectionalLight0.DiffuseColor = new Vector3(0.9f, 0.9f, 1.0f);
+                    effect.DirectionalLight0.SpecularColor = new Vector3(0.5f, 0.5f, 0.6f);
+                    
+                    effect.AmbientLightColor = new Vector3(0.2f, 0.2f, 0.25f);
+                }
+                
+                mesh.Draw();
+            }
+        }
+
+        private Matrix OrthonormalizeOrientation(Matrix orientation)
+        {
+            Vector3 forward = Vector3.Normalize(orientation.Forward);
+            Vector3 right = Vector3.Normalize(Vector3.Cross(Vector3.Up, forward));
+            Vector3 up = Vector3.Cross(forward, right);
+            
+            return new Matrix(
+                right.X, right.Y, right.Z, 0,
+                up.X, up.Y, up.Z, 0,
+                forward.X, forward.Y, forward.Z, 0,
+                0, 0, 0, 1
+            );
+        }
+
+        public float GetThrottle() => _throttle;
+    }
+}

@@ -1,0 +1,96 @@
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+
+namespace Roguelancer
+{
+    /// <summary>
+    /// Represents a sun/star in the game world
+    /// </summary>
+    public class Sun
+    {
+        public Vector3 Position { get; set; }
+        public Model Model { get; set; }
+        public float Scale { get; set; } = 100f;
+        public Color EmissiveColor { get; set; } = Color.White;
+        public float EmissiveIntensity { get; set; } = 1.5f;
+        
+        // Rotation for visual interest
+        private float _rotationAngle = 0f;
+        public float RotationSpeed { get; set; } = 0.1f;
+        
+        // Glow properties
+        public float GlowIntensity { get; set; } = 1.0f;
+        
+        public Sun(Vector3 position, float scale = 100f)
+        {
+            Position = position;
+            Scale = scale;
+        }
+        
+        public void Update(GameTime gameTime)
+        {
+            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            _rotationAngle += RotationSpeed * deltaTime;
+        }
+        
+        public void Draw(Matrix view, Matrix projection)
+        {
+            if (Model == null) return;
+            
+            // Create world matrix with rotation and scale
+            Matrix rotation = Matrix.CreateRotationY(_rotationAngle);
+            Matrix scale = Matrix.CreateScale(Scale);
+            Matrix translation = Matrix.CreateTranslation(Position);
+            Matrix world = scale * rotation * translation;
+            
+            foreach (ModelMesh mesh in Model.Meshes)
+            {
+                foreach (BasicEffect effect in mesh.Effects)
+                {
+                    effect.World = world;
+                    effect.View = view;
+                    effect.Projection = projection;
+                    
+                    // Make the sun self-illuminated but don't blow out the texture colors
+                    effect.EnableDefaultLighting();
+                    effect.PreferPerPixelLighting = true;
+                    
+                    // Reduced emissive to let texture colors show through
+                    effect.EmissiveColor = EmissiveColor.ToVector3() * (EmissiveIntensity * 0.3f);
+                    
+                    // Full bright ambient to illuminate the textured surface
+                    effect.AmbientLightColor = new Vector3(1.0f, 0.95f, 0.8f);
+                    
+                    // Minimal directional lighting to preserve texture detail
+                    effect.DirectionalLight0.Enabled = true;
+                    effect.DirectionalLight0.Direction = Vector3.Normalize(new Vector3(1, -1, 1));
+                    effect.DirectionalLight0.DiffuseColor = new Vector3(0.8f, 0.7f, 0.5f); // Warm tone
+                    effect.DirectionalLight0.SpecularColor = Vector3.Zero;
+                    
+                    // Disable other lights to prevent washing out
+                    effect.DirectionalLight1.Enabled = false;
+                    effect.DirectionalLight2.Enabled = false;
+                }
+                
+                mesh.Draw();
+            }
+        }
+        
+        /// <summary>
+        /// Get the direction from a point to the sun (for lighting calculations)
+        /// </summary>
+        public Vector3 GetLightDirection(Vector3 fromPosition)
+        {
+            return Vector3.Normalize(Position - fromPosition);
+        }
+        
+        /// <summary>
+        /// Get the distance from a point to the sun
+        /// </summary>
+        public float GetDistance(Vector3 fromPosition)
+        {
+            return Vector3.Distance(Position, fromPosition);
+        }
+    }
+}

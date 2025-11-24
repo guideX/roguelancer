@@ -1,0 +1,338 @@
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using System;
+
+namespace Roguelancer
+{
+    /// <summary>
+    /// Player ship with Freelancer-style flight mechanics
+    /// </summary>
+    public class Ship
+    {
+        // Position and orientation
+        public Vector3 Position { get; set; }
+        public Matrix Orientation { get; private set; }
+        public Vector3 Velocity { get; set; }
+        
+        // Movement properties
+        public float Speed { get; private set; }
+        public float MaxSpeed { get; set; } = 80f;
+        public float MaxReverseSpeed { get; set; } = 40f;
+        public float CruiseSpeed { get; set; } = 300f;
+        public float AfterburnerSpeed { get; set; } = 150f;
+        public float Acceleration { get; set; } = 40f;
+        public float TurnSpeed { get; set; } = 2.5f;
+        public float BankAmount { get; set; } = 1.2f;
+        public float StrafeSpeed { get; set; } = 30f;
+        
+        // Ship state
+        private float _currentBankAngle = 0f;
+        private float _currentPitch = 0f;
+        private float _throttle = 0f;
+        private float _targetSpeed = 0f;
+        private bool _wasEnginesKilled = false; // Track previous engine state
+
+        // Special states
+        public bool IsAfterburnerActive { get; private set; }
+        public bool IsCruiseActive { get; private set; }
+        public bool EnginesKilled { get; private set; }
+        public bool AfterburnerJustActivated { get; private set; }
+
+        // Keyboard state tracking
+        private KeyboardState _previousKeyboardState;
+        
+        // Ship model
+        public Model Model { get; set; }
+        
+        // Direction vectors
+        public Vector3 Forward => Orientation.Forward;
+        public Vector3 Up => Orientation.Up;
+        public Vector3 Right => Orientation.Right;
+
+        public Ship(Vector3 startPosition)
+        {
+            Position = startPosition;
+            // Reset to identity - we'll handle model orientation in Draw
+            Orientation = Matrix.Identity;
+            Velocity = Vector3.Zero;
+            _previousKeyboardState = Keyboard.GetState();
+        }
+
+        public void Update(GameTime gameTime, KeyboardState keyboardState)
+        {
+            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            
+            // Check for toggle keys (must be pressed this frame but not last frame)
+            bool tabPressed = keyboardState.IsKeyDown(Keys.Tab) && _previousKeyboardState.IsKeyUp(Keys.Tab);
+            bool zPressed = keyboardState.IsKeyDown(Keys.Z) && _previousKeyboardState.IsKeyUp(Keys.Z);
+            bool xPressed = keyboardState.IsKeyDown(Keys.X) && _previousKeyboardState.IsKeyUp(Keys.X);
+            
+            // TAB - Afterburner toggle
+            if (tabPressed)
+            {
+                bool wasActive = IsAfterburnerActive;
+                IsAfterburnerActive = !IsAfterburnerActive;
+                IsCruiseActive = false; // Cancel cruise
+                
+                // Set flag if we just turned it on
+                AfterburnerJustActivated = !wasActive && IsAfterburnerActive;
+            }
+            else
+            {
+                AfterburnerJustActivated = false;
+            }
+            
+            // Z - Cruise toggle
+            if (zPressed)
+            {
+                IsCruiseActive = !IsCruiseActive;
+                IsAfterburnerActive = false; // Cancel afterburner
+                if (IsCruiseActive)
+                {
+                    _targetSpeed = CruiseSpeed;
+                }
+            }
+            
+            // X - Kill engines (full stop)
+            if (xPressed)
+            {
+                EnginesKilled = !EnginesKilled;
+                if (EnginesKilled)
+                {
+                    _throttle = 0f;
+                    _targetSpeed = 0f;
+                    IsAfterburnerActive = false;
+                    IsCruiseActive = false;
+                    _wasEnginesKilled = true;
+                }
+            }
+            
+            if (!EnginesKilled)
+            {
+                // Apply thrust "kick" when re-engaging engines
+                if (_wasEnginesKilled && (keyboardState.IsKeyDown(Keys.W) || IsAfterburnerActive))
+                {
+                    // Give a forward impulse
+                    Position += Forward * 5f;
+                    _wasEnginesKilled = false;
+                }
+                
+                // W - Increase throttle / Full forward
+                if (keyboardState.IsKeyDown(Keys.W))
+                {
+                    if (IsCruiseActive)
+                        IsCruiseActive = false; // Cancel cruise
+                    
+                    _throttle = MathHelper.Clamp(_throttle + deltaTime * 2f, 0f, 1f);
+                    _targetSpeed = MaxSpeed * _throttle;
+                    
+                    if (IsAfterburnerActive)
+                        _targetSpeed = AfterburnerSpeed;
+                }
+                // S - Full stop / Reverse
+                else if (keyboardState.IsKeyDown(Keys.S))
+                {
+                    IsCruiseActive = false;
+                    IsAfterburnerActive = false;
+                    
+                    // First bring to stop, then reverse
+                    if (_throttle > 0f)
+                    {
+                        _throttle = MathHelper.Clamp(_throttle - deltaTime * 3f, 0f, 1f);
+                        _targetSpeed = MaxSpeed * _throttle;
+                    }
+                    else
+                    {
+                        _throttle = MathHelper.Clamp(_throttle - deltaTime * 2f, -0.5f, 0f);
+                        _targetSpeed = MaxReverseSpeed * _throttle; // Negative speed
+                    }
+                }
+                
+                // R - Match target speed (placeholder - currently resets to 50% throttle)
+                if (keyboardState.IsKeyDown(Keys.R) && _previousKeyboardState.IsKeyUp(Keys.R))
+                {
+                    _throttle = 0.5f;
+                    _targetSpeed = MaxSpeed * _throttle;
+                    IsCruiseActive = false;
+                    IsAfterburnerActive = false;
+                }
+            }
+            
+            // Mouse flight (optional alternative to keys)
+            float pitchInput = 0f;
+            float yawInput = 0f;
+            float rollInput = 0f;
+            
+            // Pitch controls (Up/Down arrows or I/K)
+            if (keyboardState.IsKeyDown(Keys.Up) || keyboardState.IsKeyDown(Keys.I))
+                pitchInput = 1f;
+            if (keyboardState.IsKeyDown(Keys.Down) || keyboardState.IsKeyDown(Keys.K))
+                pitchInput = -1f;
+            
+            // Yaw controls (Left/Right arrows or J/L or A/D)
+            if (keyboardState.IsKeyDown(Keys.Left) || keyboardState.IsKeyDown(Keys.J) || 
+                (keyboardState.IsKeyDown(Keys.A) && !keyboardState.IsKeyDown(Keys.LeftShift)))
+                yawInput = 1f;
+            if (keyboardState.IsKeyDown(Keys.Right) || keyboardState.IsKeyDown(Keys.L) || 
+                (keyboardState.IsKeyDown(Keys.D) && !keyboardState.IsKeyDown(Keys.LeftShift)))
+                yawInput = -1f;
+            
+            // Roll controls (Q/E)
+            if (keyboardState.IsKeyDown(Keys.Q))
+                rollInput = -1f;
+            if (keyboardState.IsKeyDown(Keys.E))
+                rollInput = 1f;
+            
+            // Strafe controls (Shift + A/D/W/S)
+            Vector3 strafeVelocity = Vector3.Zero;
+            if (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift))
+            {
+                if (keyboardState.IsKeyDown(Keys.A))
+                    strafeVelocity -= Right * StrafeSpeed;
+                if (keyboardState.IsKeyDown(Keys.D))
+                    strafeVelocity += Right * StrafeSpeed;
+                if (keyboardState.IsKeyDown(Keys.W))
+                    strafeVelocity += Up * StrafeSpeed;
+                if (keyboardState.IsKeyDown(Keys.S))
+                    strafeVelocity -= Up * StrafeSpeed;
+            }
+            
+            // Apply rotation
+            float turnRate = TurnSpeed * deltaTime;
+            
+            // Afterburner reduces turn speed
+            if (IsAfterburnerActive)
+                turnRate *= 0.6f;
+            
+            if (Math.Abs(pitchInput) > 0.01f)
+            {
+                Orientation *= Matrix.CreateFromAxisAngle(Right, pitchInput * turnRate);
+                _currentPitch = pitchInput;
+            }
+            else
+            {
+                _currentPitch = MathHelper.Lerp(_currentPitch, 0f, deltaTime * 3f);
+            }
+            
+            if (Math.Abs(yawInput) > 0.01f)
+            {
+                Orientation *= Matrix.CreateFromAxisAngle(Up, yawInput * turnRate);
+                _currentBankAngle = MathHelper.Lerp(_currentBankAngle, -yawInput * BankAmount, deltaTime * 5f);
+            }
+            else
+            {
+                _currentBankAngle = MathHelper.Lerp(_currentBankAngle, 0f, deltaTime * 3f);
+            }
+            
+            // Manual roll (overrides auto-banking)
+            if (Math.Abs(rollInput) > 0.01f)
+            {
+                Orientation *= Matrix.CreateFromAxisAngle(Forward, rollInput * turnRate * 1.5f);
+                _currentBankAngle = 0f; // Cancel auto-bank
+            }
+            else if (Math.Abs(yawInput) > 0.01f)
+            {
+                // Apply auto-banking only when not manually rolling
+                Orientation *= Matrix.CreateFromAxisAngle(Forward, _currentBankAngle * deltaTime);
+            }
+            
+            // Orthonormalize to prevent drift
+            Orientation = OrthonormalizeOrientation(Orientation);
+            
+            // Update speed based on throttle and special states
+            if (IsCruiseActive)
+            {
+                Speed = MathHelper.Lerp(Speed, _targetSpeed, deltaTime * 2f);
+            }
+            else if (EnginesKilled)
+            {
+                // Drift with current velocity, slow decay
+                Speed = MathHelper.Lerp(Speed, 0f, deltaTime * 0.5f);
+            }
+            else
+            {
+                // Normal acceleration
+                Speed = MathHelper.Lerp(Speed, _targetSpeed, deltaTime * Acceleration / MaxSpeed);
+            }
+            
+            // Update velocity
+            Velocity = Forward * Speed + strafeVelocity;
+            
+            // Update position
+            Position += Velocity * deltaTime;
+            
+            // Engine thrust kick effect
+            if (Math.Abs(Speed) > 1f && !_wasEnginesKilled && (IsAfterburnerActive || _throttle > 0))
+            {
+                // Add a kick effect when engines are engaged
+                Position += Vector3.Backward * 0.1f * Speed * deltaTime;
+            }
+            
+            // Update previous state
+            _wasEnginesKilled = EnginesKilled;
+            
+            // Store keyboard state for next frame
+            _previousKeyboardState = keyboardState;
+        }
+
+        public void Draw(Matrix view, Matrix projection, Vector3 lightDirection)
+        {
+            if (Model == null) return;
+
+            // Apply a correction rotation to the model itself
+            // Rotate 90 degrees down (pitch) and 180 degrees around (yaw) to see the back
+            Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
+            
+            Matrix world = modelCorrection * Orientation * Matrix.CreateTranslation(Position);
+            
+            foreach (ModelMesh mesh in Model.Meshes)
+            {
+                foreach (BasicEffect effect in mesh.Effects)
+                {
+                    effect.World = world;
+                    effect.View = view;
+                    effect.Projection = projection;
+                    
+                    effect.EnableDefaultLighting();
+                    effect.PreferPerPixelLighting = true;
+                    effect.SpecularPower = 16f;
+                    
+                    // Lighting
+                    effect.DirectionalLight0.Direction = lightDirection;
+                    effect.DirectionalLight0.DiffuseColor = new Vector3(0.9f, 0.9f, 1.0f);
+                    effect.DirectionalLight0.SpecularColor = new Vector3(0.5f, 0.5f, 0.6f);
+                    
+                    effect.AmbientLightColor = new Vector3(0.2f, 0.2f, 0.25f);
+                }
+                
+                mesh.Draw();
+            }
+        }
+
+        private Matrix OrthonormalizeOrientation(Matrix orientation)
+        {
+            Vector3 forward = Vector3.Normalize(orientation.Forward);
+            Vector3 right = Vector3.Normalize(Vector3.Cross(Vector3.Up, forward));
+            Vector3 up = Vector3.Cross(forward, right);
+            
+            return new Matrix(
+                right.X, right.Y, right.Z, 0,
+                up.X, up.Y, up.Z, 0,
+                forward.X, forward.Y, forward.Z, 0,
+                0, 0, 0, 1
+            );
+        }
+
+        public float GetThrottle() => _throttle;
+        
+        public string GetFlightStatus()
+        {
+            if (EnginesKilled) return "ENGINES KILLED";
+            if (IsCruiseActive) return "CRUISE";
+            if (IsAfterburnerActive) return "AFTERBURNER";
+            if (_throttle < 0) return "REVERSE";
+            return "NORMAL";
+        }
+    }
+}

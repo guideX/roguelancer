@@ -1,0 +1,67 @@
+﻿using Microsoft.Xna.Framework;
+using System;
+
+namespace Roguelancer
+{
+    /// <summary>
+    /// Freelancer-style chase camera that follows the player ship
+    /// </summary>
+    public class Camera
+    {
+        public Vector3 Position { get; set; }
+        public Vector3 Target { get; set; }
+        public Vector3 Up { get; set; }
+        
+        public Matrix View { get; private set; }
+        public Matrix Projection { get; private set; }
+        
+        private float _distance = 25f;  // Increased from 15f to prevent clipping
+        private float _height = 5f;     // Increased from 3f for better view
+        private readonly float _aspectRatio;
+        private readonly float _fieldOfView;
+        private readonly float _nearPlane;
+        private readonly float _farPlane;
+
+        public Camera(float aspectRatio, float fieldOfView = MathHelper.PiOver4, 
+                      float nearPlane = 1.0f, float farPlane = 10000f)  // Changed near plane from 0.1f to 1.0f
+        {
+            _aspectRatio = aspectRatio;
+            _fieldOfView = fieldOfView;
+            _nearPlane = nearPlane;
+            _farPlane = farPlane;
+            
+            Position = new Vector3(0, 5, 25);  // Start further back
+            Target = Vector3.Zero;
+            Up = Vector3.Up;
+            
+            UpdateProjection();
+            UpdateView();
+        }
+
+        public void Follow(Vector3 shipPosition, Vector3 shipForward, Vector3 shipUp, float smoothing = 0.1f)
+        {
+            // Calculate desired camera position behind the ship
+            Vector3 desiredPosition = shipPosition - shipForward * _distance + shipUp * _height;
+            
+            // Smooth camera movement
+            Position = Vector3.Lerp(Position, desiredPosition, smoothing);
+            
+            // Look at a point in front of the ship (not at the ship itself)
+            Target = Vector3.Lerp(Target, shipPosition + shipForward * 10f, smoothing);  // Increased from 5f to 10f
+            
+            Up = Vector3.Lerp(Up, shipUp, smoothing);
+            
+            UpdateView();
+        }
+
+        private void UpdateView()
+        {
+            View = Matrix.CreateLookAt(Position, Target, Up);
+        }
+
+        private void UpdateProjection()
+        {
+            Projection = Matrix.CreatePerspectiveFieldOfView(_fieldOfView, _aspectRatio, _nearPlane, _farPlane);
+        }
+    }
+}
