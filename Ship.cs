@@ -675,11 +675,11 @@ namespace Roguelancer
             }
             
             // ? SPEED MANAGEMENT - Smart deceleration curve
-            if (alignment > 0.9f) // Well aligned
+            if (alignment > 0.7f) // Well enough aligned (was 0.9f - more forgiving now)
             {
                 if (IsCruiseActive || _cruiseCharging)
                 {
-                    // CRUISE MODE - Full speed ahead
+                    // CRUISE MODE - Full speed ahead, let it charge while turning gently
                     _throttle = 1.0f;
                     _targetSpeed = CruiseSpeed;
                 }
@@ -712,19 +712,28 @@ namespace Roguelancer
             }
             else
             {
-                // TURNING - Reduce speed while not aligned
-                if (IsCruiseActive || _cruiseCharging)
+                // SHARP TURN NEEDED - Only cancel cruise if we're already at high speed
+                // Allow cruise CHARGING to continue during initial alignment
+                if (IsCruiseActive && Speed > CruiseSpeed * 0.5f)
                 {
-                    // Sharp turn needed - drop cruise
+                    // Already at cruise speed - need to drop it for sharp turn
                     IsCruiseActive = false;
                     _cruiseCharging = false;
                     _cruiseChargeTimer = 0f;
-                    Console.WriteLine("?? GOTO: Sharp turn - Cruise cancelled");
+                    Console.WriteLine("?? GOTO: Sharp turn at high speed - Cruise cancelled");
                 }
+                else if (_cruiseCharging && alignment < 0.3f)
+                {
+                    // VERY sharp turn while charging - cancel only if extremely misaligned
+                    _cruiseCharging = false;
+                    _cruiseChargeTimer = 0f;
+                    Console.WriteLine("?? GOTO: Extreme misalignment - Cruise charge cancelled");
+                }
+                // Otherwise let cruise charging continue while turning gently
                 
                 // Slow down for turning
-                _throttle = 0.3f;
-                _targetSpeed = MaxSpeed * 0.3f;
+                _throttle = 0.5f; // Increased from 0.3f to turn faster
+                _targetSpeed = MaxSpeed * 0.5f;
             }
         }
 

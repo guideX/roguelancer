@@ -17,6 +17,8 @@ namespace Roguelancer
         private Starfield _starfield;
         private EngineGlow _engineGlow;
         private EngineTrail _engineTrail; // NEW
+        private CruiseSparks _cruiseSparks; // ✨ NEW: Firefly sparks during cruise charge
+        private WeaponSystem _weaponSystem; // 🔫 NEW: Blaster weapon system
         private Sun _sun;
         private SpriteFont _font;
         
@@ -196,6 +198,12 @@ namespace Roguelancer
             // Initialize engine trail
             _engineTrail = new EngineTrail(GraphicsDevice);
             
+            // ✨ Initialize cruise sparks (firefly effect during charge)
+            _cruiseSparks = new CruiseSparks(GraphicsDevice);
+            
+            // 🔫 Initialize weapon system (blasters)
+            _weaponSystem = new WeaponSystem(GraphicsDevice);
+            
             // Initialize motion trail
             _motionTrail = new MotionTrail(GraphicsDevice);
             
@@ -329,13 +337,33 @@ namespace Roguelancer
             // Update engine trail with current throttle
             _engineTrail.Update(gameTime, _playerShip, _playerShip.GetThrottle());
             
-            // Update motion trail to show where we've been
-            _motionTrail.Update(deltaTime, _playerShip.Position, _playerShip.Speed);
+            // ✨ Update cruise sparks (firefly particles during charge)
+            _cruiseSparks.Update(gameTime, _playerShip);
             
-            // Update NPC ships
-            foreach (var npc in _npcShips)
+            // 🔫 Update weapon system
+            _weaponSystem.Update(gameTime);
+            
+            // 🔫 RIGHT MOUSE BUTTON: Fire weapons!
+            if (mouseState.RightButton == ButtonState.Pressed && _prevMouseState.RightButton == ButtonState.Released)
             {
-                npc.Update(gameTime);
+                // Calculate gun positions (offset from ship center)
+                Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
+                Matrix shipTransform = modelCorrection * _playerShip.Orientation * Matrix.CreateTranslation(_playerShip.Position);
+                
+                // Two gun positions (left and right)
+                Vector3[] gunOffsets = new[]
+                {
+                    new Vector3(-3f, 0f, -5f),  // Left gun
+                    new Vector3(3f, 0f, -5f)    // Right gun
+                };
+                
+                foreach (var offset in gunOffsets)
+                {
+                    Vector3 gunPosition = Vector3.Transform(offset, shipTransform);
+                    _weaponSystem.Fire(gunPosition, _playerShip.Forward, _playerShip.Velocity);
+                }
+                
+                Console.WriteLine("💥 Blasters fired!");
             }
             
             HandleTargetingInput(keyboardState);
@@ -345,6 +373,22 @@ namespace Roguelancer
 
         private void HandleTargetingInput(KeyboardState kb)
         {
+            MouseState mouseState = Mouse.GetState();
+            
+            // ✨ LEFT CLICK: Target object under mouse cursor
+            if (mouseState.LeftButton == ButtonState.Pressed && _prevMouseState.LeftButton == ButtonState.Released)
+            {
+                // Raycast from mouse position into 3D world
+                int clickedObjectIndex = GetObjectUnderMouse(mouseState.X, mouseState.Y);
+                if (clickedObjectIndex >= 0)
+                {
+                    _selectedSpaceObjectIndex = clickedObjectIndex;
+                    SpaceObject target = _spaceObjects[clickedObjectIndex];
+                    float distance = Vector3.Distance(_playerShip.Position, target.Position);
+                    Console.WriteLine($"🎯 Mouse targeting: {target.Name} at {distance/1000f:F2}km");
+                }
+            }
+            
             // Cycle selection with T (next) / Shift+T (previous)
             if (Pressed(kb, Keys.T) && !kb.IsKeyDown(Keys.LeftShift) && !kb.IsKeyDown(Keys.RightShift))
             {
@@ -377,11 +421,68 @@ namespace Roguelancer
             }
         }
         
+        // ✨ NEW: Raycast from mouse to find clicked object
+        private int GetObjectUnderMouse(int mouseX, int mouseY)
+        {
+            // Create ray from mouse cursor into 3D world
+            Vector3 nearPoint = GraphicsDevice.Viewport.Unproject(
+                new Vector3(mouseX, mouseY, 0), 
+                _camera.Projection, 
+                _camera.View, 
+                Matrix.Identity
+            );
+            
+            Vector3 farPoint = GraphicsDevice.Viewport.Unproject(
+                new Vector3(mouseX, mouseY, 1), 
+                _camera.Projection, 
+                _camera.View, 
+                Matrix.Identity
+            );
+            
+            Vector3 rayDirection = Vector3.Normalize(farPoint - nearPoint);
+            Vector3 rayOrigin = nearPoint;
+            
+            // Find closest object intersecting with ray
+            int closestObjectIndex = -1;
+            float closestDistance = float.MaxValue;
+            
+            for (int i = 0; i < _spaceObjects.Count; i++)
+            {
+                SpaceObject obj = _spaceObjects[i];
+                
+                // Simple sphere intersection test
+                Vector3 toObject = obj.Position - rayOrigin;
+                float projectionLength = Vector3.Dot(toObject, rayDirection);
+                
+                // Object is behind camera
+                if (projectionLength < 0) continue;
+                
+                Vector3 closestPoint = rayOrigin + rayDirection * projectionLength;
+                float distanceToCenter = Vector3.Distance(closestPoint, obj.Position);
+                
+                // Click radius = object radius + tolerance for easier clicking
+                float clickRadius = obj.Radius + 200f;
+                
+                if (distanceToCenter <= clickRadius)
+                {
+                    float distanceFromCamera = Vector3.Distance(rayOrigin, obj.Position);
+                    if (distanceFromCamera < closestDistance)
+                    {
+                        closestDistance = distanceFromCamera;
+                        closestObjectIndex = i;
+                    }
+                }
+            }
+            
+            return closestObjectIndex;
+        }
+        
         private bool Pressed(KeyboardState kb, Keys key)
         {
             return kb.IsKeyDown(key) && !_playerShip.MouseFlightEnabled && !_prevKeys.IsKeyDown(key);
         }
         private KeyboardState _prevKeys;
+        private MouseState _prevMouseState; // ✨ NEW: Track previous mouse state
         private float _debugTimer = 0f;
         private Vector3 _lastPlayerPosition;
         private bool _firstFrame = true;
@@ -389,6 +490,7 @@ namespace Roguelancer
         protected override void EndDraw()
         {
             _prevKeys = Keyboard.GetState();
+            _prevMouseState = Mouse.GetState(); // ✨ NEW: Track mouse state
             base.EndDraw();
         }
 
@@ -464,6 +566,12 @@ namespace Roguelancer
 
             _engineGlow.DrawEngineGlows(_playerShip, _camera, glowIntensity);
             
+            // ✨ Draw cruise sparks (firefly particles) - drawn after glow but before trail
+            _cruiseSparks.Draw(_camera);
+            
+            // 🔫 Draw weapon projectiles (blaster bolts)
+            _weaponSystem.Draw(_camera);
+            
             // Draw engine trail after glow for layering
             _engineTrail.Draw(_camera);
             
@@ -489,10 +597,51 @@ namespace Roguelancer
             DrawSpaceObjectBrackets();
             DrawGotoStatus();
             DrawSunDistanceIndicator(); // NEW: Show distance to sun
+            DrawCrosshair(); // ✨ NEW: Mouse crosshair
             
             _spriteBatch.End();
         }
         
+        private void DrawCrosshair()
+        {
+            MouseState mouseState = Mouse.GetState();
+            Vector2 mousePos = new Vector2(mouseState.X, mouseState.Y);
+            
+            // Crosshair size and style
+            int size = 20;
+            int thickness = 2;
+            int gap = 8; // Gap in the center
+            Color color = Color.Lime; // Bright green crosshair
+            
+            // Draw cross-style reticle
+            // Horizontal line (left)
+            _spriteBatch.Draw(_pixel, new Rectangle((int)mousePos.X - size, (int)mousePos.Y - thickness/2, size - gap, thickness), color);
+            // Horizontal line (right)
+            _spriteBatch.Draw(_pixel, new Rectangle((int)mousePos.X + gap, (int)mousePos.Y - thickness/2, size - gap, thickness), color);
+            // Vertical line (top)
+            _spriteBatch.Draw(_pixel, new Rectangle((int)mousePos.X - thickness/2, (int)mousePos.Y - size, thickness, size - gap), color);
+            // Vertical line (bottom)
+            _spriteBatch.Draw(_pixel, new Rectangle((int)mousePos.X - thickness/2, (int)mousePos.Y + gap, thickness, size - gap), color);
+            
+            // Center dot
+            int dotSize = 3;
+            _spriteBatch.Draw(_pixel, new Rectangle((int)mousePos.X - dotSize/2, (int)mousePos.Y - dotSize/2, dotSize, dotSize), color);
+            
+            // Outer circle brackets for extra style
+            int circleRadius = 30;
+            int bracketLength = 8;
+            int bracketThickness = 2;
+            
+            // Top bracket
+            _spriteBatch.Draw(_pixel, new Rectangle((int)mousePos.X - bracketThickness/2, (int)mousePos.Y - circleRadius, bracketThickness, bracketLength), color * 0.6f);
+            // Bottom bracket
+            _spriteBatch.Draw(_pixel, new Rectangle((int)mousePos.X - bracketThickness/2, (int)mousePos.Y + circleRadius - bracketLength, bracketThickness, bracketLength), color * 0.6f);
+            // Left bracket
+            _spriteBatch.Draw(_pixel, new Rectangle((int)mousePos.X - circleRadius, (int)mousePos.Y - bracketThickness/2, bracketLength, bracketThickness), color * 0.6f);
+            // Right bracket
+            _spriteBatch.Draw(_pixel, new Rectangle((int)mousePos.X + circleRadius - bracketLength, (int)mousePos.Y - bracketThickness/2, bracketLength, bracketThickness), color * 0.6f);
+        }
+
         private void DrawCurrentTargetDisplay()
         {
             // Only draw if we have a target selected
