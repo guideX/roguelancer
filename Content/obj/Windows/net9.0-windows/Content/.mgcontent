@@ -4,13 +4,13 @@
   <Platform>Windows</Platform>
   <Config />
   <SourceFiles>
-    <File>D:/devgitlab/Roguelancer2/Roguelancer/Content/Fonts/HudFont.spritefont</File>
-    <File>D:/devgitlab/Roguelancer2/Roguelancer/Content/SHIPS/scimitar/Scimitar2.fbx</File>
-    <File>D:/devgitlab/Roguelancer2/Roguelancer/Content/SHIPS/PI_TRANSPORT/PI_TRANSPORT.fbx</File>
-    <File>D:/devgitlab/Roguelancer2/Roguelancer/Content/SUN/unstablestar/suncyl1.jpg</File>
-    <File>D:/devgitlab/Roguelancer2/Roguelancer/Content/SUN/unstablestar/UnstableStar.fbx</File>
-    <File>D:/devgitlab/Roguelancer2/Roguelancer/Content/Textures/Particle.png</File>
-    <File>D:/devgitlab/Roguelancer2/Roguelancer/Content/Textures/Stars.png</File>
+    <File>D:/devgitlab/Roguelancer/Content/Fonts/HudFont.spritefont</File>
+    <File>D:/devgitlab/Roguelancer/Content/SHIPS/scimitar/Scimitar2.fbx</File>
+    <File>D:/devgitlab/Roguelancer/Content/SHIPS/PI_TRANSPORT/PI_TRANSPORT.fbx</File>
+    <File>D:/devgitlab/Roguelancer/Content/SUN/unstablestar/suncyl1.jpg</File>
+    <File>D:/devgitlab/Roguelancer/Content/SUN/unstablestar/UnstableStar.fbx</File>
+    <File>D:/devgitlab/Roguelancer/Content/Textures/Particle.png</File>
+    <File>D:/devgitlab/Roguelancer/Content/Textures/Stars.png</File>
   </SourceFiles>
   <DestFiles>
     <File xsi:nil="true" />

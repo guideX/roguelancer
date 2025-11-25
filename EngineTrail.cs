@@ -86,9 +86,22 @@ namespace Roguelancer
             if (ship.Model == null) return;
             
             float intensity = throttle;
-            if (ship.IsAfterburnerActive) intensity = 1.5f;
-            else if (ship.IsCruiseActive) intensity = 1.1f;
-            intensity = MathHelper.Clamp(intensity, 0.05f, 1.6f);
+            
+            // ? CRUISE CHARGING - Intense particle emission
+            if (ship.IsCruiseCharging)
+            {
+                intensity = MathHelper.Lerp(1.0f, 2.5f, ship.CruiseChargeProgress); // Ramp up!
+            }
+            else if (ship.IsAfterburnerActive)
+            {
+                intensity = 1.5f;
+            }
+            else if (ship.IsCruiseActive)
+            {
+                intensity = 1.8f; // More intense for active cruise
+            }
+            
+            intensity = MathHelper.Clamp(intensity, 0.05f, 2.5f); // Allow up to 2.5x intensity
             
             float rate = EmissionRate * intensity;
             _emissionAccumulator += rate * dt;
@@ -169,6 +182,7 @@ namespace Roguelancer
                 _indexBuffer[iBase + 5] = (short)(vBase + 3);
             }
             
+            // ? FIX: Save ALL render states including SamplerState
             var oldBlend = _graphicsDevice.BlendState;
             var oldDepth = _graphicsDevice.DepthStencilState;
             var oldRaster = _graphicsDevice.RasterizerState;
@@ -189,6 +203,7 @@ namespace Roguelancer
                 _graphicsDevice.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, _vertexBuffer, 0, count * 4, _indexBuffer, 0, count * 2);
             }
             
+            // ? FIX: Restore ALL render states
             _graphicsDevice.BlendState = oldBlend;
             _graphicsDevice.DepthStencilState = oldDepth;
             _graphicsDevice.RasterizerState = oldRaster;

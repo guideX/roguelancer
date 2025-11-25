@@ -17,14 +17,14 @@ namespace Roguelancer
         
         // Movement properties
         public float Speed { get; private set; }
-        public float MaxSpeed { get; set; } = 8000f; // Increased from 80 to 8000 (100x)
-        public float MaxReverseSpeed { get; set; } = 4000f; // Increased from 40 to 4000 (100x)
-        public float CruiseSpeed { get; set; } = 30000f; // Increased from 300 to 30000 (100x)
-        public float AfterburnerSpeed { get; set; } = 15000f; // Increased from 150 to 15000 (100x)
-        public float Acceleration { get; set; } = 4000f; // Increased from 40 to 4000 (100x)
-        public float TurnSpeed { get; set; } = 2.5f;
+        public float MaxSpeed { get; set; } = 16000f; // Was 8000, now 16000 (2x faster)
+        public float MaxReverseSpeed { get; set; } = 8000f; // Was 4000, now 8000 (2x faster)
+        public float CruiseSpeed { get; set; } = 60000f; // Was 30000, now 60000 (2x faster)
+        public float AfterburnerSpeed { get; set; } = 30000f; // Was 15000, now 30000 (2x faster)
+        public float Acceleration { get; set; } = 8000f; // Was 4000, now 8000 (2x faster acceleration)
+        public float TurnSpeed { get; set; } = 1.5f; // Was 2.5, now 1.5 (slower turns - 40% reduction)
         public float BankAmount { get; set; } = 1.2f;
-        public float StrafeSpeed { get; set; } = 3000f; // Increased from 30 to 3000 (100x)
+        public float StrafeSpeed { get; set; } = 6000f; // Was 3000, now 6000 (2x faster)
         
         // Ship state
         private float _currentBankAngle = 0f;
@@ -46,6 +46,16 @@ namespace Roguelancer
         public bool EnginesKilled { get; private set; }
         public bool AfterburnerJustActivated { get; private set; }
         public bool MouseFlightEnabled => _mouseFlightEnabled;
+        
+        // Cruise charge system (5-second buildup)
+        private bool _cruiseCharging = false;
+        private float _cruiseChargeTimer = 0f;
+        private const float CruiseChargeTime = 5f; // 5 seconds total
+        private const float CruiseLungeTime = 0.8f; // Initial lunge duration
+        private const float CruiseChargePhase = 3.5f; // Engine charge phase
+        private const float CruiseBurstTime = 0.7f; // Final burst phase
+        public bool IsCruiseCharging => _cruiseCharging;
+        public float CruiseChargeProgress => _cruiseCharging ? (_cruiseChargeTimer / CruiseChargeTime) : 0f;
 
         // Keyboard state tracking
         private KeyboardState _previousKeyboardState;
@@ -124,11 +134,30 @@ namespace Roguelancer
             bool shiftTPressed = keyboardState.IsKeyDown(Keys.LeftShift) && keyboardState.IsKeyDown(Keys.T) && _previousKeyboardState.IsKeyUp(Keys.T);
             bool ctrlTPressed = keyboardState.IsKeyDown(Keys.LeftControl) && keyboardState.IsKeyDown(Keys.T) && _previousKeyboardState.IsKeyUp(Keys.T);
             
-            // ESC: Free flight (stub) – retain existing exit behavior elsewhere if needed
+            // ESC: Cancel cruise/GOTO (Freelancer style) - no longer exits game
             if (keyboardState.IsKeyDown(Keys.Escape) && _previousKeyboardState.IsKeyUp(Keys.Escape))
             {
-                _freeFlightMode = true; // placeholder
-                Console.WriteLine("Free flight mode engaged (stub)");
+                // Cancel cruise mode
+                if (IsCruiseActive || _cruiseCharging)
+                {
+                    IsCruiseActive = false;
+                    _cruiseCharging = false;
+                    _cruiseChargeTimer = 0f;
+                    Console.WriteLine("ESC: Cruise mode cancelled");
+                }
+                
+                // Cancel GOTO autopilot
+                if (_gotoActive)
+                {
+                    CancelGoto();
+                }
+                
+                // Cancel afterburner (if active)
+                if (IsAfterburnerActive)
+                {
+                    // Afterburner is hold-to-use, so this just ensures it's off
+                    IsAfterburnerActive = false;
+                }
             }
             
             // Space toggles mouse flight persistent mode
@@ -162,29 +191,40 @@ namespace Roguelancer
                 }
             }
             
-            // Tab: Afterburner toggle
-            if (tabPressed)
+            // Tab: Afterburner (HOLD to use - no longer a toggle)
+            bool wasAfterburnerActive = IsAfterburnerActive;
+            IsAfterburnerActive = keyboardState.IsKeyDown(Keys.Tab); // Active ONLY while TAB is held
+            
+            if (IsAfterburnerActive)
             {
-                bool wasActive = IsAfterburnerActive;
-                IsAfterburnerActive = !IsAfterburnerActive;
-                IsCruiseActive = false; // Cancel cruise
-                
-                // Set flag if we just turned it on
-                AfterburnerJustActivated = !wasActive && IsAfterburnerActive;
-            }
-            else
-            {
-                AfterburnerJustActivated = false;
+                IsCruiseActive = false; // Cancel cruise when afterburner engaged
+                _cruiseCharging = false; // Cancel cruise charging
+                _cruiseChargeTimer = 0f;
             }
             
-            // Shift+W: Cruise toggle (Freelancer style)
+            // Set flag if we just turned it on
+            AfterburnerJustActivated = !wasAfterburnerActive && IsAfterburnerActive;
+            
+            // Shift+W: Cruise toggle (Freelancer style) - NOW WITH DRAMATIC CHARGE SEQUENCE
             bool cruiseCombo = keyboardState.IsKeyDown(Keys.W) && (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift));
             if (cruiseCombo && (_previousKeyboardState.IsKeyUp(Keys.W) || _previousKeyboardState.IsKeyUp(Keys.LeftShift)))
             {
-                IsCruiseActive = !IsCruiseActive;
-                IsAfterburnerActive = false; // Cancel afterburner
-                if (IsCruiseActive) { _targetSpeed = CruiseSpeed; }
-                Console.WriteLine("Cruise engine toggle: " + (IsCruiseActive ? "ON" : "OFF"));
+                if (!IsCruiseActive && !_cruiseCharging)
+                {
+                    // START CRUISE CHARGE SEQUENCE
+                    _cruiseCharging = true;
+                    _cruiseChargeTimer = 0f;
+                    IsAfterburnerActive = false; // Cancel afterburner
+                    Console.WriteLine("Cruise engines charging... (5 second buildup)");
+                }
+                else if (IsCruiseActive || _cruiseCharging)
+                {
+                    // CANCEL CRUISE
+                    IsCruiseActive = false;
+                    _cruiseCharging = false;
+                    _cruiseChargeTimer = 0f;
+                    Console.WriteLine("Cruise engine toggle: OFF");
+                }
             }
             
             // Z - Toggle Newtonian flight mode
@@ -358,9 +398,39 @@ namespace Roguelancer
             UpdateGoto(deltaTime);
             
             // Speed interpolation (for normal mode)
-            if (IsCruiseActive) 
+            if (_cruiseCharging)
             {
-                Speed = MathHelper.Lerp(Speed, _targetSpeed, deltaTime * 5f); // Faster cruise ramp-up (was 2f)
+                // ? CRUISE CHARGE SEQUENCE - 3 PHASES:
+                float chargeProgress = _cruiseChargeTimer / CruiseChargeTime;
+                
+                if (_cruiseChargeTimer < CruiseLungeTime)
+                {
+                    // PHASE 1: INITIAL LUNGE (0-0.8s) - Ship lurches forward
+                    float lungeFactor = _cruiseChargeTimer / CruiseLungeTime;
+                    float lungeBoost = MaxSpeed * 3f; // 3x normal speed lunge
+                    _targetSpeed = MathHelper.Lerp(Speed, lungeBoost, lungeFactor);
+                    Speed = MathHelper.Lerp(Speed, _targetSpeed, deltaTime * 10f); // Fast ramp-up
+                }
+                else if (_cruiseChargeTimer < CruiseChargePhase)
+                {
+                    // PHASE 2: ENGINE CHARGE (0.8-4.3s) - Engines build power, speed holds
+                    float chargePhaseProgress = (_cruiseChargeTimer - CruiseLungeTime) / (CruiseChargePhase - CruiseLungeTime);
+                    // Hold at boosted speed while engines charge
+                    _targetSpeed = MaxSpeed * (2f + chargePhaseProgress * 1.5f); // Build from 2x to 3.5x
+                    Speed = MathHelper.Lerp(Speed, _targetSpeed, deltaTime * 3f); // Hold steady
+                }
+                else
+                {
+                    // PHASE 3: BURST TO CRUISE (4.3-5.0s) - Explosive acceleration to cruise speed
+                    float burstProgress = (_cruiseChargeTimer - CruiseChargePhase) / CruiseBurstTime;
+                    _targetSpeed = MathHelper.Lerp(MaxSpeed * 3.5f, CruiseSpeed, burstProgress);
+                    Speed = MathHelper.Lerp(Speed, _targetSpeed, deltaTime * 15f); // RAPID burst!
+                }
+            }
+            else if (IsCruiseActive) 
+            {
+                // Normal cruise - maintain cruise speed
+                Speed = MathHelper.Lerp(Speed, CruiseSpeed, deltaTime * 5f);
             }
             else if (EnginesKilled) 
             {
@@ -407,6 +477,29 @@ namespace Roguelancer
             float targetPitchTilt = pitchInput * PitchTiltAmount; _pitchTiltAngle = MathHelper.Lerp(_pitchTiltAngle, targetPitchTilt, deltaTime * 5f);
             float targetBankTilt = -yawInput * BankTiltAmount; if (Math.Abs(rollInput) > 0.01f) targetBankTilt *= 0.2f; _bankTiltAngle = MathHelper.Lerp(_bankTiltAngle, targetBankTilt, deltaTime * 4f);
             
+            // Cruise charging logic (if applicable)
+            if (_cruiseCharging)
+            {
+                // Update charge timer
+                _cruiseChargeTimer += deltaTime;
+                
+                // Engage cruise active state after charge phase
+                if (_cruiseChargeTimer >= CruiseChargePhase && !IsCruiseActive)
+                {
+                    IsCruiseActive = true;
+                    _targetSpeed = CruiseSpeed; // Set to cruise speed
+                    Console.WriteLine("Cruise engaged (auto) after charge");
+                }
+                
+                // Handle burst phase
+                if (_cruiseChargeTimer >= CruiseChargeTime)
+                {
+                    _cruiseCharging = false;
+                    _cruiseChargeTimer = 0f;
+                    Console.WriteLine("Cruise charge completed");
+                }
+            }
+
             // Store previous states
             _prevLeftMouseState = mouseState.LeftButton; _previousKeyboardState = keyboardState;
         }
@@ -497,21 +590,28 @@ namespace Roguelancer
             _gotoTarget = target; 
             _gotoActive = true; 
             EnginesKilled = false; 
-            IsAfterburnerActive = false; 
             
             // Calculate distance to target
             float distance = Vector3.Distance(Position, target.Position);
             
-            // Auto-engage cruise if target is far away (>5000 units)
+            Console.WriteLine($"?? ActivateGoto called: Target={target.Name}, Distance={distance:F0} units ({distance/1000f:F1}k)");
+            
+            // ? AUTO-ENGAGE CRUISE for distant targets (>5000 units)
             if (distance > 5000f)
             {
-                IsCruiseActive = true;
-                Console.WriteLine($"GOTO activated: {target.Name} - Distance: {distance:F0} units - CRUISE ENGAGED");
+                // Start cruise charge sequence for long distance travel
+                _cruiseCharging = true;
+                _cruiseChargeTimer = 0f;
+                IsAfterburnerActive = false;
+                Console.WriteLine($"?? GOTO activated: {target.Name} - Distance: {distance / 1000f:F1}k - CRUISE CHARGING!");
+                Console.WriteLine($"   ? _cruiseCharging={_cruiseCharging}, _cruiseChargeTimer={_cruiseChargeTimer}");
             }
             else
             {
+                // Close target - use normal speed
                 IsCruiseActive = false;
-                Console.WriteLine($"GOTO activated: {target.Name} - Distance: {distance:F0} units");
+                _cruiseCharging = false;
+                Console.WriteLine($"?? GOTO activated: {target.Name} - Distance: {distance:F0} units - NORMAL SPEED");
             }
         }
         
@@ -526,71 +626,105 @@ namespace Roguelancer
         private void UpdateGoto(float deltaTime)
         {
             if (!_gotoActive || _gotoTarget == null) return;
+            
             Vector3 toTarget = _gotoTarget.Position - Position;
             float distance = toTarget.Length();
             
-            // Check if we've arrived
-            if (distance <= _gotoApproachDistance + _gotoTarget.Radius)
+            // ? ARRIVAL CHECK (within 300 units + object radius)
+            if (distance <= 300f + _gotoTarget.Radius)
             {
+                Console.WriteLine($"? GOTO: Arrived at {_gotoTarget.Name}!");
                 CancelGoto();
-                EnginesKilled = true; // come to a stop on arrival
-                IsCruiseActive = false; // Disable cruise on arrival
+                EnginesKilled = true; // Full stop on arrival
+                IsCruiseActive = false;
+                _cruiseCharging = false;
+                _cruiseChargeTimer = 0f;
                 return;
             }
             
-            // Auto-disengage cruise when getting close (within 2000 units)
-            if (IsCruiseActive && distance < 2000f)
+            // ?? CRUISE MANAGEMENT
+            if (IsCruiseActive || _cruiseCharging)
             {
-                IsCruiseActive = false;
-                Console.WriteLine($"GOTO: Approaching target - Cruise disengaged (Distance: {distance:F0} units)");
+                // AUTO-DISENGAGE cruise at 1.5k for smooth approach
+                if (distance < 1500f)
+                {
+                    IsCruiseActive = false;
+                    _cruiseCharging = false;
+                    _cruiseChargeTimer = 0f;
+                    Console.WriteLine($"?? GOTO: Approaching - Cruise disengaged at {distance:F0} units");
+                }
             }
             
-            // Desired direction
+            // ?? STEERING - Point toward target
             Vector3 desiredForward = Vector3.Normalize(toTarget);
-            // Rotate orientation gradually toward desired forward
             Vector3 currentForward = Forward;
+            float alignment = Vector3.Dot(currentForward, desiredForward);
+            
+            // Rotate toward target
             float alignSpeed = TurnSpeed * 0.8f * deltaTime;
-            // Compute axis-angle
             Vector3 rotationAxis = Vector3.Cross(currentForward, desiredForward);
             float axisLen = rotationAxis.Length();
+            
             if (axisLen > 0.0001f)
             {
                 rotationAxis /= axisLen;
-                float angle = (float)System.Math.Acos(MathHelper.Clamp(Vector3.Dot(currentForward, desiredForward), -1f, 1f));
-                float step = System.Math.Min(angle, alignSpeed);
+                float angle = (float)Math.Acos(MathHelper.Clamp(alignment, -1f, 1f));
+                float step = Math.Min(angle, alignSpeed);
                 Orientation *= Matrix.CreateFromAxisAngle(rotationAxis, step);
                 Orientation = OrthonormalizeOrientation(Orientation);
             }
             
-            // Throttle management depends on cruise state
-            float alignment = Vector3.Dot(Forward, desiredForward);
-            if (alignment > 0.95f)
+            // ? SPEED MANAGEMENT - Smart deceleration curve
+            if (alignment > 0.9f) // Well aligned
             {
-                // Well aligned - full speed ahead
-                if (IsCruiseActive)
+                if (IsCruiseActive || _cruiseCharging)
                 {
-                    // Cruise mode handles speed automatically
+                    // CRUISE MODE - Full speed ahead
                     _throttle = 1.0f;
                     _targetSpeed = CruiseSpeed;
                 }
+                else if (distance > 1500f)
+                {
+                    // FAR RANGE (1.5k - infinity) - Full normal speed
+                    _throttle = 1.0f;
+                    _targetSpeed = MaxSpeed;
+                }
+                else if (distance > 800f)
+                {
+                    // MID RANGE (800 - 1500) - Start slowing down (80% speed)
+                    float slowFactor = MathHelper.Lerp(0.8f, 1.0f, (distance - 800f) / 700f);
+                    _throttle = slowFactor;
+                    _targetSpeed = MaxSpeed * slowFactor;
+                }
+                else if (distance > 300f)
+                {
+                    // CLOSE RANGE (300 - 800) - Smooth deceleration curve
+                    float slowFactor = MathHelper.Lerp(0.1f, 0.8f, (distance - 300f) / 500f);
+                    _throttle = slowFactor;
+                    _targetSpeed = MaxSpeed * slowFactor;
+                }
                 else
                 {
-                    // Normal flight - ramp up throttle
-                    _throttle = MathHelper.Clamp(_throttle + deltaTime * 0.5f, 0.6f, 1f);
-                    _targetSpeed = MathHelper.Lerp(_targetSpeed, MaxSpeed * _throttle, deltaTime * 2f);
+                    // FINAL APPROACH (<300) - Minimum speed for precision
+                    _throttle = 0.1f;
+                    _targetSpeed = MaxSpeed * 0.1f;
                 }
             }
             else
             {
-                // Turning - slow down
-                if (IsCruiseActive)
+                // TURNING - Reduce speed while not aligned
+                if (IsCruiseActive || _cruiseCharging)
                 {
-                    // Drop cruise if we need to turn sharply
+                    // Sharp turn needed - drop cruise
                     IsCruiseActive = false;
-                    Console.WriteLine("GOTO: Sharp turn needed - Cruise disengaged");
+                    _cruiseCharging = false;
+                    _cruiseChargeTimer = 0f;
+                    Console.WriteLine("?? GOTO: Sharp turn - Cruise cancelled");
                 }
-                _throttle = MathHelper.Clamp(_throttle, 0f, 0.3f);
-                _targetSpeed = MathHelper.Lerp(_targetSpeed, MaxSpeed * _throttle, deltaTime * 2f);
+                
+                // Slow down for turning
+                _throttle = 0.3f;
+                _targetSpeed = MaxSpeed * 0.3f;
             }
         }
 

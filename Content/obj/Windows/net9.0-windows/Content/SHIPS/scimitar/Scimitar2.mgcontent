@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PipelineBuildEvent xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <SourceFile>D:/devgitlab/Roguelancer2/Roguelancer/Content/SHIPS/scimitar/Scimitar2.fbx</SourceFile>
+  <SourceFile>D:/devgitlab/Roguelancer/Content/SHIPS/scimitar/Scimitar2.fbx</SourceFile>
   <SourceTime>2018-03-16T12:08:14-07:00</SourceTime>
-  <DestFile>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2.xnb</DestFile>
-  <DestTime>2025-11-24T06:22:46.2317943-08:00</DestTime>
+  <DestFile>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2.xnb</DestFile>
+  <DestTime>2025-11-24T16:03:18.3782354-08:00</DestTime>
   <Importer>FbxImporter</Importer>
   <ImporterTime>2025-10-20T07:25:32-07:00</ImporterTime>
   <Processor>ModelProcessor</Processor>
@@ -66,19 +66,19 @@
   </Parameters>
   <Dependencies />
   <BuildAsset>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_hull1_0.xnb</string>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_hull2_0.xnb</string>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_hullblack_0.xnb</string>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_equip_0.xnb</string>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_intake1_0.xnb</string>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_intake2_0.xnb</string>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_grill_0.xnb</string>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_mount_0.xnb</string>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_metal_0.xnb</string>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_wing_0.xnb</string>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_cockpit1_0.xnb</string>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_cockpit2_0.xnb</string>
-    <string>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_screens_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_hull1_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_hull2_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_hullblack_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_equip_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_intake1_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_intake2_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_grill_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_mount_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_metal_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_wing_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_cockpit1_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_cockpit2_0.xnb</string>
+    <string>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_screens_0.xnb</string>
   </BuildAsset>
   <BuildOutput />
 </PipelineBuildEvent>

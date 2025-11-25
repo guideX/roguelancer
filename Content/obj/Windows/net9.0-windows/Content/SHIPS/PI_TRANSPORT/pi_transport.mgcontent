@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PipelineBuildEvent xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <SourceFile>D:/devgitlab/Roguelancer2/Roguelancer/Content/SHIPS/PI_TRANSPORT/PI_TRANSPORT.fbx</SourceFile>
+  <SourceFile>D:/devgitlab/Roguelancer/Content/SHIPS/PI_TRANSPORT/PI_TRANSPORT.fbx</SourceFile>
   <SourceTime>2025-11-23T08:07:36.241848-08:00</SourceTime>
-  <DestFile>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/PI_TRANSPORT/PI_TRANSPORT.xnb</DestFile>
-  <DestTime>2025-11-24T06:31:37.036063-08:00</DestTime>
+  <DestFile>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/PI_TRANSPORT/PI_TRANSPORT.xnb</DestFile>
+  <DestTime>2025-11-24T16:03:18.4452666-08:00</DestTime>
   <Importer>FbxImporter</Importer>
   <ImporterTime>2025-10-20T07:25:32-07:00</ImporterTime>
   <Processor>ModelProcessor</Processor>

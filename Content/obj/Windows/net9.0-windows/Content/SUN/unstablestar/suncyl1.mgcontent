@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PipelineBuildEvent xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <SourceFile>D:/devgitlab/Roguelancer2/Roguelancer/Content/SUN/unstablestar/suncyl1.jpg</SourceFile>
+  <SourceFile>D:/devgitlab/Roguelancer/Content/SUN/unstablestar/suncyl1.jpg</SourceFile>
   <SourceTime>2018-05-02T15:09:00-07:00</SourceTime>
-  <DestFile>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SUN/unstablestar/suncyl1.xnb</DestFile>
-  <DestTime>2025-11-23T22:50:11.8063487-08:00</DestTime>
+  <DestFile>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SUN/unstablestar/suncyl1.xnb</DestFile>
+  <DestTime>2025-11-24T16:03:18.6912345-08:00</DestTime>
   <Importer>TextureImporter</Importer>
   <ImporterTime>2025-10-20T07:25:32-07:00</ImporterTime>
   <Processor>TextureProcessor</Processor>

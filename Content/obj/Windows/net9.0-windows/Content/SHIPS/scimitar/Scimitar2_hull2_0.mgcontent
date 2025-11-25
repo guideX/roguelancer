@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PipelineBuildEvent xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-  <SourceFile>D:/devgitlab/Roguelancer2/Roguelancer/Content/SHIPS/scimitar/Scimitar2_hull2.png</SourceFile>
+  <SourceFile>D:/devgitlab/Roguelancer/Content/SHIPS/scimitar/Scimitar2_hull2.png</SourceFile>
   <SourceTime>2018-03-16T12:08:14-07:00</SourceTime>
-  <DestFile>D:/devgitlab/Roguelancer2/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_hull2_0.xnb</DestFile>
-  <DestTime>2025-11-24T06:22:45.7538532-08:00</DestTime>
+  <DestFile>D:/devgitlab/Roguelancer/Content/bin/Windows/Content/SHIPS/scimitar/Scimitar2_hull2_0.xnb</DestFile>
+  <DestTime>2025-11-24T16:03:17.8402365-08:00</DestTime>
   <Importer>TextureImporter</Importer>
   <ImporterTime>2025-10-20T07:25:32-07:00</ImporterTime>
   <Processor>TextureProcessor</Processor>

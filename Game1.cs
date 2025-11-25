@@ -47,8 +47,23 @@ namespace Roguelancer
             _graphics.PreferredBackBufferWidth = 1920;
             _graphics.PreferredBackBufferHeight = 1080;
             _graphics.IsFullScreen = false;
+            
+            // ✅ ENABLE CONSOLE WINDOW for debugging
+            // This will show a separate console window alongside the game
+            AllocConsole();
+            Console.WriteLine("========================================");
+            Console.WriteLine("    ROGUELANCER DEBUG CONSOLE");
+            Console.WriteLine("========================================");
+            Console.WriteLine("Game initialized. Console ready for debug output.");
+            Console.WriteLine();
+            
             _graphics.ApplyChanges();
         }
+        
+        // ✅ Windows API to create console window
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        static extern bool AllocConsole();
 
         protected override void Initialize()
         {
@@ -246,10 +261,9 @@ namespace Roguelancer
                 _lastPlayerPosition = _playerShip.Position;
             }
             
-            // Exit on Escape
-            if (keyboardState.IsKeyDown(Keys.Escape))
-                Exit();
-            
+            // NOTE: ESC now handled in Ship.cs - cancels cruise/GOTO instead of exiting
+            // To exit the game, close the window or press Alt+F4
+
             // Toggle turret view with H
             if (keyboardState.IsKeyDown(Keys.H) && _prevKeys.IsKeyUp(Keys.H))
             {
@@ -380,8 +394,8 @@ namespace Roguelancer
 
         protected override void Draw(GameTime gameTime)
         {
-            // Clear to space black
-            GraphicsDevice.Clear(Color.Black);
+            // ✅ FIX: Clear BOTH color AND depth buffers to prevent artifacts
+            GraphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Black, 1.0f, 0);
             
             // === 3D RENDERING PHASE ===
             // Set up 3D rendering states
@@ -426,12 +440,27 @@ namespace Roguelancer
             
             GraphicsDevice.DepthStencilState = oldDepth;
             
-            // Draw engine glows (brighter during afterburner)
+            // Draw engine glows with dramatic intensity during cruise charge
             float glowIntensity = Math.Max(0.2f, _playerShip.GetThrottle()); // Minimum idle glow
-            if (_playerShip.IsAfterburnerActive)
+            
+            if (_playerShip.IsCruiseCharging)
+            {
+                // ✨ CRUISE CHARGE GLOW - Ramps from 0.5 to 3.0 over 5 seconds
+                float chargeProgress = _playerShip.CruiseChargeProgress;
+                glowIntensity = MathHelper.Lerp(0.5f, 3.0f, chargeProgress); // Dramatic buildup!
+                
+                // Pulsing effect during charge
+                float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 8.0) * 0.2f + 0.8f;
+                glowIntensity *= pulse;
+            }
+            else if (_playerShip.IsAfterburnerActive)
+            {
                 glowIntensity = 1.8f; // Extra bright for afterburner
+            }
             else if (_playerShip.IsCruiseActive)
-                glowIntensity = 1.2f; // Bright for cruise
+            {
+                glowIntensity = 2.2f; // Very bright for active cruise
+            }
 
             _engineGlow.DrawEngineGlows(_playerShip, _camera, glowIntensity);
             
