@@ -39,6 +39,7 @@ namespace Roguelancer
         private Vector2 _lastMousePosition;
         private bool _mouseFlightInitialized = false;
         private ButtonState _prevLeftMouseState = ButtonState.Released;
+        private bool _isFreeLooking = false; // NEW: For click-and-drag free look
 
         // Special states
         public bool IsAfterburnerActive { get; private set; }
@@ -88,6 +89,9 @@ namespace Roguelancer
         private bool _newtonianMode = false;
         private Vector3 _newtonianVelocity = Vector3.Zero;
         public bool IsNewtonianMode => _newtonianMode;
+
+        // Notification System
+        private NotificationManager _notificationManager;
         
         public Ship(Vector3 startPosition)
         {
@@ -95,6 +99,11 @@ namespace Roguelancer
             Orientation = Matrix.CreateFromQuaternion(_rotation);
             Velocity = Vector3.Zero;
             _previousKeyboardState = Keyboard.GetState();
+        }
+
+        public void SetNotificationManager(NotificationManager manager)
+        {
+            _notificationManager = manager;
         }
 
         // Stub action methods
@@ -118,6 +127,7 @@ namespace Roguelancer
             
             bool spacebarPressed = keyboardState.IsKeyDown(Keys.Space) && _previousKeyboardState.IsKeyUp(Keys.Space);
             bool leftMouseHeld = mouseState.LeftButton == ButtonState.Pressed;
+            bool leftMouseClicked = leftMouseHeld && _prevLeftMouseState == ButtonState.Released;
             
             bool zPressed = keyboardState.IsKeyDown(Keys.Z) && _previousKeyboardState.IsKeyUp(Keys.Z);
             bool bPressed = keyboardState.IsKeyDown(Keys.B) && _previousKeyboardState.IsKeyUp(Keys.B);
@@ -137,23 +147,28 @@ namespace Roguelancer
                     IsCruiseActive = false;
                     _cruiseCharging = false;
                     _cruiseChargeTimer = 0f;
+                    _notificationManager?.ShowMessage("Cruise Mode Deactivated");
                     Console.WriteLine("ESC: Cruise mode cancelled");
                 }
                 if (_gotoActive) CancelGoto();
-                if (IsAfterburnerActive) IsAfterburnerActive = false;
+                if (IsAfterburnerActive)
+                {
+                    IsAfterburnerActive = false;
+                    _notificationManager?.ShowMessage("Afterburner Deactivated");
+                }
             }
             
-            // ✅ FIX: Use spacebar as a TOGGLE, not a hold
             if (spacebarPressed)
             {
-                _mouseFlightEnabled = !_mouseFlightEnabled;
                 if (_mouseFlightEnabled)
                 {
                     _mouseFlightInitialized = false; // Reset mouse position on mode entry
+                    _notificationManager?.ShowMessage("Mouse Flight Enabled");
                     Console.WriteLine("✈️ MOUSE FLIGHT MODE - Move mouse to steer");
                 }
                 else
                 {
+                    _notificationManager?.ShowMessage("Keyboard Flight Enabled");
                     Console.WriteLine("⌨️ FREE FLIGHT MODE - Arrow keys to steer");
                 }
             }
@@ -174,6 +189,11 @@ namespace Roguelancer
                 _cruiseChargeTimer = 0f;
             }
             
+            if (IsAfterburnerActive && !wasAfterburnerActive)
+            {
+                _notificationManager?.ShowMessage("Afterburner Engaged");
+            }
+            
             AfterburnerJustActivated = !wasAfterburnerActive && IsAfterburnerActive;
             
             bool cruiseCombo = keyboardState.IsKeyDown(Keys.W) && (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift));
@@ -184,6 +204,7 @@ namespace Roguelancer
                     _cruiseCharging = true;
                     _cruiseChargeTimer = 0f;
                     IsAfterburnerActive = false;
+                    _notificationManager?.ShowMessage("Cruise Charging");
                     Console.WriteLine("Cruise engines charging... (5 second buildup)");
                 }
                 else if (IsCruiseActive || _cruiseCharging)
@@ -191,6 +212,7 @@ namespace Roguelancer
                     IsCruiseActive = false;
                     _cruiseCharging = false;
                     _cruiseChargeTimer = 0f;
+                    _notificationManager?.ShowMessage("Cruise Deactivated");
                     Console.WriteLine("Cruise engine toggle: OFF");
                 }
             }
@@ -198,6 +220,7 @@ namespace Roguelancer
             if (zPressed)
             {
                 EnginesKilled = !EnginesKilled;
+                _notificationManager?.ShowMessage(EnginesKilled ? "Engines Killed" : "Engines Online");
                 Console.WriteLine("Engine kill (Z): " + (EnginesKilled ? "ENGAGED" : "DISENGAGED"));
                 if (EnginesKilled)
                 {
@@ -215,6 +238,7 @@ namespace Roguelancer
             {
                 _throttle = -0.5f;
                 _targetSpeed = MaxReverseSpeed * _throttle;
+                _notificationManager?.ShowMessage("Reverse Thrusters");
                 Console.WriteLine("Reverse thrust engaged (stub)");
             }
             
@@ -263,24 +287,38 @@ namespace Roguelancer
 
             if (_mouseFlightEnabled)
             {
-                Vector2 currentMousePos = new Vector2(mouseState.X, mouseState.Y);
-                if (!_mouseFlightInitialized)
+                // Freelancer-style "click and drag to free look"
+                if (leftMouseHeld && !_isFreeLooking)
                 {
-                    _lastMousePosition = currentMousePos;
-                    _mouseFlightInitialized = true;
+                    _isFreeLooking = true;
                 }
-                
-                Vector2 mouseDelta = currentMousePos - _lastMousePosition;
-                _lastMousePosition = currentMousePos;
-                
-                float mouseSensitivity = 0.15f;
-                float deadzone = 1f;
-                
-                if (Math.Abs(mouseDelta.X) > deadzone) yawInput = -mouseDelta.X * mouseSensitivity;
-                if (Math.Abs(mouseDelta.Y) > deadzone) pitchInput = -mouseDelta.Y * mouseSensitivity;
-                
-                yawInput = MathHelper.Clamp(yawInput, -1f, 1f);
-                pitchInput = MathHelper.Clamp(pitchInput, -1f, 1f);
+                else if (!leftMouseHeld)
+                {
+                    _isFreeLooking = false;
+                    _mouseFlightInitialized = false; // Reset mouse position when not steering
+                }
+
+                if (!_isFreeLooking)
+                {
+                    Vector2 currentMousePos = new Vector2(mouseState.X, mouseState.Y);
+                    if (!_mouseFlightInitialized)
+                    {
+                        _lastMousePosition = currentMousePos;
+                        _mouseFlightInitialized = true;
+                    }
+                    
+                    Vector2 mouseDelta = currentMousePos - _lastMousePosition;
+                    _lastMousePosition = currentMousePos;
+                    
+                    float mouseSensitivity = 0.15f;
+                    float deadzone = 1f;
+                    
+                    if (Math.Abs(mouseDelta.X) > deadzone) yawInput = -mouseDelta.X * mouseSensitivity;
+                    if (Math.Abs(mouseDelta.Y) > deadzone) pitchInput = -mouseDelta.Y * mouseSensitivity;
+                    
+                    yawInput = MathHelper.Clamp(yawInput, -1f, 1f);
+                    pitchInput = MathHelper.Clamp(pitchInput, -1f, 1f);
+                }
                 
                 if (keyboardState.IsKeyDown(Keys.Q)) rollInput = 1f;
                 if (keyboardState.IsKeyDown(Keys.E)) rollInput = -1f;
@@ -441,6 +479,7 @@ namespace Roguelancer
             _gotoTarget = target; 
             _gotoActive = true; 
             EnginesKilled = false; 
+            _notificationManager?.ShowMessage($"GOTO: {target.Name}");
             float distance = Vector3.Distance(Position, target.Position);
             
             if (distance > 5000f)
@@ -458,7 +497,11 @@ namespace Roguelancer
         
         public void CancelGoto()
         {
-            if (_gotoActive) Console.WriteLine("GOTO cancelled");
+            if (_gotoActive)
+            {
+                _notificationManager?.ShowMessage("GOTO Cancelled");
+                Console.WriteLine("GOTO cancelled");
+            }
             _gotoActive = false; 
             _gotoTarget = null;
         }
@@ -535,6 +578,7 @@ namespace Roguelancer
             _newtonianMode = !_newtonianMode;
             if (!_newtonianMode) _newtonianVelocity = Forward * Speed;
             else _newtonianVelocity = Velocity;
+            _notificationManager?.ShowMessage(_newtonianMode ? "Newtonian Flight" : "Standard Flight");
             Console.WriteLine($"Newtonian Mode: {(_newtonianMode ? "ENABLED" : "DISABLED")}");
         }
     }

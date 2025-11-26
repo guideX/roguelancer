@@ -21,6 +21,7 @@ namespace Roguelancer
         private WeaponSystem _weaponSystem; // 🔫 NEW: Blaster weapon system
         private Sun _sun;
         private SpriteFont _font;
+        private NotificationManager _notificationManager; // NEW: On-screen messages
         
         // Lighting
         private Vector3 _lightDirection = Vector3.Normalize(new Vector3(1, -1, 1));
@@ -228,6 +229,10 @@ namespace Roguelancer
             
             // Initialize motion trail
             _motionTrail = new MotionTrail(GraphicsDevice);
+
+            // Initialize notification manager
+            _notificationManager = new NotificationManager(_font, GraphicsDevice.Viewport);
+            _playerShip.SetNotificationManager(_notificationManager);
             
             _pixel = new Texture2D(GraphicsDevice, 1, 1);
             _pixel.SetData(new[] { Color.White });
@@ -299,6 +304,7 @@ namespace Roguelancer
             if (keyboardState.IsKeyDown(Keys.H) && _prevKeys.IsKeyUp(Keys.H))
             {
                 _camera.ToggleTurretView();
+                _notificationManager.ShowMessage(_camera.IsTurretViewActive ? "Turret View" : "Cockpit View");
             }
             
             // Turret view controls (mouse or arrow keys)
@@ -375,6 +381,9 @@ namespace Roguelancer
             
             // 🔫 Update weapon system
             _weaponSystem.Update(gameTime);
+
+            // Update notification manager
+            _notificationManager.Update(gameTime);
             
             // 🔫 RIGHT MOUSE BUTTON: Fire weapons!
             if (mouseState.RightButton == ButtonState.Pressed && _prevMouseState.RightButton == ButtonState.Released)
@@ -418,6 +427,7 @@ namespace Roguelancer
                     _selectedSpaceObjectIndex = clickedObjectIndex;
                     SpaceObject target = _spaceObjects[clickedObjectIndex];
                     float distance = Vector3.Distance(_playerShip.Position, target.Position);
+                    _notificationManager.ShowMessage($"Target: {target.Name}");
                     Console.WriteLine($"🎯 Mouse targeting: {target.Name} at {distance/1000f:F2}km");
                 }
             }
@@ -441,6 +451,7 @@ namespace Roguelancer
             if (Pressed(kb, Keys.T) && (kb.IsKeyDown(Keys.LeftControl) || kb.IsKeyDown(Keys.RightControl)))
             {
                 _selectedSpaceObjectIndex = -1;
+                _notificationManager.ShowMessage("Target Cleared");
             }
             // Activate GOTO with G (stub mapping) or Enter if object selected
             if (_selectedSpaceObjectIndex >= 0 && Pressed(kb, Keys.G))
@@ -596,7 +607,6 @@ namespace Roguelancer
             
             // Draw engine glows with dramatic intensity during cruise charge
             float glowIntensity = Math.Max(0.2f, _playerShip.GetThrottle()); // Minimum idle glow
-            glowIntensity = 4f; // FIXED: Always super intense glow effect for testing
             
             if (_playerShip.IsCruiseCharging)
             {
@@ -651,6 +661,9 @@ namespace Roguelancer
             DrawGotoStatus();
             DrawSunDistanceIndicator(); // NEW: Show distance to sun
             DrawCrosshair(); // ✨ NEW: Mouse crosshair
+
+            // Draw notifications on top of everything else
+            _notificationManager.Draw(_spriteBatch);
             
             _spriteBatch.End();
         }
