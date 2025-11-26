@@ -15,8 +15,8 @@ namespace Roguelancer
         public Matrix View { get; private set; }
         public Matrix Projection { get; private set; }
         
-        private float _distance = 10000f;  // Distance behind the ship (Freelancer scale)
-        private float _height = 50f;     // Minimal height - almost level with ship for pure chase cam
+        private float _distance = 150f;  // Distance behind the ship (Freelancer-style chase camera)
+        private float _height = 0f;     // Height offset (set to 0 for level view behind ship)
         private readonly float _aspectRatio;
         private readonly float _fieldOfView;
         private readonly float _nearPlane;
@@ -42,7 +42,9 @@ namespace Roguelancer
             _nearPlane = nearPlane;
             _farPlane = farPlane;
             
-            Position = new Vector3(0, 0, 10000f);  // Start at Freelancer-style distance
+            // Start camera behind the origin at the proper distance
+            // Ship starts at (0,0,0) facing forward (0,0,1), so camera should be at (0, _height, -_distance)
+            Position = new Vector3(0, _height, -_distance);
             Target = Vector3.Zero;
             Up = Vector3.Up;
             

@@ -114,8 +114,8 @@ namespace Roguelancer
                     intensity * 0.9f           // High alpha
                 );
                 
-                // Much larger size - was 1.5-3, now 5-15
-                float size = 5f + intensity * 10f;
+                // Scale glow size to match 0.1x ship scale
+                float size = (5f + intensity * 10f) * 0.1f; // Match ship's 0.1x scale
                 
                 DrawBillboard(engineWorldPos, size, glowColor, camera.Position);
             }

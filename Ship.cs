@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
@@ -17,28 +17,28 @@ namespace Roguelancer
         
         // Movement properties
         public float Speed { get; private set; }
-        public float MaxSpeed { get; set; } = 16000f; // Was 8000, now 16000 (2x faster)
-        public float MaxReverseSpeed { get; set; } = 8000f; // Was 4000, now 8000 (2x faster)
-        public float CruiseSpeed { get; set; } = 60000f; // Was 30000, now 60000 (2x faster)
-        public float AfterburnerSpeed { get; set; } = 30000f; // Was 15000, now 30000 (2x faster)
-        public float Acceleration { get; set; } = 8000f; // Was 4000, now 8000 (2x faster acceleration)
-        public float TurnSpeed { get; set; } = 1.5f; // Was 2.5, now 1.5 (slower turns - 40% reduction)
+        public float MaxSpeed { get; set; } = 1000f;
+        public float MaxReverseSpeed { get; set; } = 500f;
+        public float CruiseSpeed { get; set; } = 4000f; 
+        public float AfterburnerSpeed { get; set; } = 1500f; 
+        public float Acceleration { get; set; } = 400f; 
+        public float TurnSpeed { get; set; } = 1.5f;
         public float BankAmount { get; set; } = 1.2f;
-        public float StrafeSpeed { get; set; } = 6000f; // Was 3000, now 6000 (2x faster)
+        public float StrafeSpeed { get; set; } = 300;
         
         // Ship state
         private float _currentBankAngle = 0f;
         private float _currentPitch = 0f;
         private float _throttle = 0f;
         private float _targetSpeed = 0f;
-        private bool _wasEnginesKilled = false; // Track previous engine state
+        private bool _wasEnginesKilled = false;
+        private Quaternion _rotation = Quaternion.Identity;
 
         // Mouse flight mode
         private bool _mouseFlightEnabled = false;
         private Vector2 _lastMousePosition;
         private bool _mouseFlightInitialized = false;
-        private ButtonState _prevLeftMouseState = ButtonState.Released; // track previous left button
-        private bool _mouseFlightToggle = false; // persistent space-bar toggle
+        private ButtonState _prevLeftMouseState = ButtonState.Released;
 
         // Special states
         public bool IsAfterburnerActive { get; private set; }
@@ -47,13 +47,13 @@ namespace Roguelancer
         public bool AfterburnerJustActivated { get; private set; }
         public bool MouseFlightEnabled => _mouseFlightEnabled;
         
-        // Cruise charge system (5-second buildup)
+        // Cruise charge system
         private bool _cruiseCharging = false;
         private float _cruiseChargeTimer = 0f;
-        private const float CruiseChargeTime = 5f; // 5 seconds total
-        private const float CruiseLungeTime = 0.8f; // Initial lunge duration
-        private const float CruiseChargePhase = 3.5f; // Engine charge phase
-        private const float CruiseBurstTime = 0.7f; // Final burst phase
+        private const float CruiseChargeTime = 5f;
+        private const float CruiseLungeTime = 0.8f;
+        private const float CruiseChargePhase = 3.5f;
+        private const float CruiseBurstTime = 0.7f;
         public bool IsCruiseCharging => _cruiseCharging;
         public float CruiseChargeProgress => _cruiseCharging ? (_cruiseChargeTimer / CruiseChargeTime) : 0f;
 
@@ -64,25 +64,23 @@ namespace Roguelancer
         public Model Model { get; set; }
         
         // Direction vectors
-        public Vector3 Forward => Orientation.Forward;
-        public Vector3 Up => Orientation.Up;
-        public Vector3 Right => Orientation.Right;
+        public Vector3 Forward => Vector3.Transform(Vector3.Forward, _rotation);
+        public Vector3 Up => Vector3.Transform(Vector3.Up, _rotation);
+        public Vector3 Right => Vector3.Transform(Vector3.Right, _rotation);
 
         // Visual tilts
-        private float _pitchTiltAngle = 0f; // Visual nose up/down tilt
-        private const float PitchTiltAmount = 0.15f; // Max radians (~8.6 deg)
-        private float _bankTiltAngle = 0f; // Visual left/right bank
-        private const float BankTiltAmount = 0.25f; // Max radians (~14.3 deg)
+        private float _pitchTiltAngle = 0f;
+        private const float PitchTiltAmount = 0.15f;
+        private float _bankTiltAngle = 0f;
+        private const float BankTiltAmount = 0.25f;
 
-        // Combat & targeting state stubs
+        // Combat & targeting
         private bool _isDocking = false;
-        private object _currentTarget = null; // placeholder
-        private bool _freeFlightMode = true; // ESC sets true
+        private object _currentTarget = null;
         
         // Autopilot / GOTO
         private bool _gotoActive = false;
         private SpaceObject _gotoTarget = null;
-        private float _gotoApproachDistance = 500f; // distance to stop
         public bool IsGotoActive => _gotoActive;
         public SpaceObject CurrentGotoTarget => _gotoTarget;
         
@@ -94,14 +92,13 @@ namespace Roguelancer
         public Ship(Vector3 startPosition)
         {
             Position = startPosition;
-            // Reset to identity - we'll handle model orientation in Draw
-            Orientation = Matrix.Identity;
+            Orientation = Matrix.CreateFromQuaternion(_rotation);
             Velocity = Vector3.Zero;
             _previousKeyboardState = Keyboard.GetState();
         }
 
         // Stub action methods
-        private void FireActiveWeapons() { /* TODO: implement weapon firing */ Console.WriteLine("Fire weapons (stub)"); }
+        private void FireActiveWeapons() { Console.WriteLine("Fire weapons (stub)"); }
         private void LaunchMissile() { Console.WriteLine("Launch missile (stub)"); }
         private void LaunchTorpedo() { Console.WriteLine("Launch torpedo (stub)"); }
         private void LaunchMine() { Console.WriteLine("Launch mine (stub)"); }
@@ -119,25 +116,22 @@ namespace Roguelancer
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
             MouseState mouseState = Mouse.GetState();
             
-            // Toggle key detections
-            bool tabPressed = keyboardState.IsKeyDown(Keys.Tab) && _previousKeyboardState.IsKeyUp(Keys.Tab);
-            bool zPressed = keyboardState.IsKeyDown(Keys.Z) && _previousKeyboardState.IsKeyUp(Keys.Z); // Newtonian mode
-            bool xPressed = keyboardState.IsKeyDown(Keys.X) && _previousKeyboardState.IsKeyUp(Keys.X); // reverse thrust
-            bool spacePressed = keyboardState.IsKeyDown(Keys.Space) && _previousKeyboardState.IsKeyUp(Keys.Space);
-            bool hPressed = keyboardState.IsKeyDown(Keys.H) && _previousKeyboardState.IsKeyUp(Keys.H); // turret view
-            bool nPressed = keyboardState.IsKeyDown(Keys.N) && _previousKeyboardState.IsKeyUp(Keys.N); // engine kill
+            bool spacebarHeld = keyboardState.IsKeyDown(Keys.Space);
+            bool leftMouseHeld = mouseState.LeftButton == ButtonState.Pressed;
+            
+            bool zPressed = keyboardState.IsKeyDown(Keys.Z) && _previousKeyboardState.IsKeyUp(Keys.Z);
+            bool bPressed = keyboardState.IsKeyDown(Keys.B) && _previousKeyboardState.IsKeyUp(Keys.B);
+            bool xPressed = keyboardState.IsKeyDown(Keys.X) && _previousKeyboardState.IsKeyUp(Keys.X);
             bool f3Pressed = keyboardState.IsKeyDown(Keys.F3) && _previousKeyboardState.IsKeyUp(Keys.F3);
             bool rPressed = keyboardState.IsKeyDown(Keys.R) && _previousKeyboardState.IsKeyUp(Keys.R);
-            bool ctrlRPressed = keyboardState.IsKeyDown(Keys.LeftControl) && keyboardState.IsKeyDown(Keys.R) && _previousKeyboardState.IsKeyUp(Keys.R);
-            bool shiftRPressed = keyboardState.IsKeyDown(Keys.LeftShift) && keyboardState.IsKeyDown(Keys.R) && _previousKeyboardState.IsKeyUp(Keys.R);
+            bool ctrlRPressed = keyboardState.IsKeyDown(Keys.LeftControl) && rPressed;
+            bool shiftRPressed = keyboardState.IsKeyDown(Keys.LeftShift) && rPressed;
             bool tPressed = keyboardState.IsKeyDown(Keys.T) && _previousKeyboardState.IsKeyUp(Keys.T);
-            bool shiftTPressed = keyboardState.IsKeyDown(Keys.LeftShift) && keyboardState.IsKeyDown(Keys.T) && _previousKeyboardState.IsKeyUp(Keys.T);
-            bool ctrlTPressed = keyboardState.IsKeyDown(Keys.LeftControl) && keyboardState.IsKeyDown(Keys.T) && _previousKeyboardState.IsKeyUp(Keys.T);
+            bool shiftTPressed = keyboardState.IsKeyDown(Keys.LeftShift) && tPressed;
+            bool ctrlTPressed = keyboardState.IsKeyDown(Keys.LeftControl) && tPressed;
             
-            // ESC: Cancel cruise/GOTO (Freelancer style) - no longer exits game
             if (keyboardState.IsKeyDown(Keys.Escape) && _previousKeyboardState.IsKeyUp(Keys.Escape))
             {
-                // Cancel cruise mode
                 if (IsCruiseActive || _cruiseCharging)
                 {
                     IsCruiseActive = false;
@@ -145,81 +139,69 @@ namespace Roguelancer
                     _cruiseChargeTimer = 0f;
                     Console.WriteLine("ESC: Cruise mode cancelled");
                 }
-                
-                // Cancel GOTO autopilot
-                if (_gotoActive)
-                {
-                    CancelGoto();
-                }
-                
-                // Cancel afterburner (if active)
-                if (IsAfterburnerActive)
-                {
-                    // Afterburner is hold-to-use, so this just ensures it's off
-                    IsAfterburnerActive = false;
-                }
+                if (_gotoActive) CancelGoto();
+                if (IsAfterburnerActive) IsAfterburnerActive = false;
             }
             
-            // Space toggles mouse flight persistent mode
-            if (spacePressed)
+            if (spacebarHeld)
             {
-                _mouseFlightToggle = !_mouseFlightToggle;
-                if (_mouseFlightToggle)
+                if (!_mouseFlightEnabled)
                 {
                     _mouseFlightEnabled = true;
                     _mouseFlightInitialized = false;
-                }
-                else
-                {
-                    // When disabling toggle, fall back to hold logic state (release unless button currently held)
-                    _mouseFlightEnabled = mouseState.LeftButton == ButtonState.Pressed;
-                    if (_mouseFlightEnabled) _mouseFlightInitialized = false;
+                    Console.WriteLine("✈️ MOUSE FLIGHT MODE - Move mouse to steer");
                 }
             }
-            
-            // Hold left mouse enables temporary mouse flight if not toggled
-            if (!_mouseFlightToggle)
+            else
             {
-                if (mouseState.LeftButton == ButtonState.Pressed && _prevLeftMouseState == ButtonState.Released)
-                {
-                    _mouseFlightEnabled = true;
-                    _mouseFlightInitialized = false;
-                }
-                else if (mouseState.LeftButton == ButtonState.Released && _prevLeftMouseState == ButtonState.Pressed)
+                if (_mouseFlightEnabled)
                 {
                     _mouseFlightEnabled = false;
+                    Console.WriteLine("⌨️ FREE FLIGHT MODE - Arrow keys to steer");
                 }
             }
             
-            // Tab: Afterburner (HOLD to use - no longer a toggle)
+            bool temporaryFreeFlightActive = spacebarHeld && leftMouseHeld;
+            if (temporaryFreeFlightActive && _prevLeftMouseState == ButtonState.Released)
+            {
+                Console.WriteLine("🎯 TEMPORARY FREE FLIGHT - LMB held (targeting/clicking)");
+            }
+            else if (_mouseFlightEnabled && !temporaryFreeFlightActive && _prevLeftMouseState == ButtonState.Pressed && !leftMouseHeld)
+            {
+                Console.WriteLine("✈️ MOUSE FLIGHT RESUMED - LMB released");
+                _mouseFlightInitialized = false;
+            }
+            
+            bool fireWeapons = (mouseState.RightButton == ButtonState.Pressed && _prevLeftMouseState == ButtonState.Released) ||
+                              (keyboardState.IsKeyDown(Keys.LeftControl) && _previousKeyboardState.IsKeyUp(Keys.LeftControl)) ||
+                              (keyboardState.IsKeyDown(Keys.RightControl) && _previousKeyboardState.IsKeyUp(Keys.RightControl));
+            
+            if (fireWeapons) FireActiveWeapons();
+            
             bool wasAfterburnerActive = IsAfterburnerActive;
-            IsAfterburnerActive = keyboardState.IsKeyDown(Keys.Tab); // Active ONLY while TAB is held
+            IsAfterburnerActive = keyboardState.IsKeyDown(Keys.Tab);
             
             if (IsAfterburnerActive)
             {
-                IsCruiseActive = false; // Cancel cruise when afterburner engaged
-                _cruiseCharging = false; // Cancel cruise charging
+                IsCruiseActive = false;
+                _cruiseCharging = false;
                 _cruiseChargeTimer = 0f;
             }
             
-            // Set flag if we just turned it on
             AfterburnerJustActivated = !wasAfterburnerActive && IsAfterburnerActive;
             
-            // Shift+W: Cruise toggle (Freelancer style) - NOW WITH DRAMATIC CHARGE SEQUENCE
             bool cruiseCombo = keyboardState.IsKeyDown(Keys.W) && (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift));
             if (cruiseCombo && (_previousKeyboardState.IsKeyUp(Keys.W) || _previousKeyboardState.IsKeyUp(Keys.LeftShift)))
             {
                 if (!IsCruiseActive && !_cruiseCharging)
                 {
-                    // START CRUISE CHARGE SEQUENCE
                     _cruiseCharging = true;
                     _cruiseChargeTimer = 0f;
-                    IsAfterburnerActive = false; // Cancel afterburner
+                    IsAfterburnerActive = false;
                     Console.WriteLine("Cruise engines charging... (5 second buildup)");
                 }
                 else if (IsCruiseActive || _cruiseCharging)
                 {
-                    // CANCEL CRUISE
                     IsCruiseActive = false;
                     _cruiseCharging = false;
                     _cruiseChargeTimer = 0f;
@@ -227,24 +209,22 @@ namespace Roguelancer
                 }
             }
             
-            // Z - Toggle Newtonian flight mode
             if (zPressed)
             {
-                ToggleNewtonianMode();
-            }
-            
-            // N - Engine kill (was Z)
-            if (nPressed)
-            {
                 EnginesKilled = !EnginesKilled;
-                Console.WriteLine("Engine kill: " + (EnginesKilled ? "ENGAGED" : "DISENGAGED"));
+                Console.WriteLine("Engine kill (Z): " + (EnginesKilled ? "ENGAGED" : "DISENGAGED"));
                 if (EnginesKilled)
                 {
-                    _throttle = 0f; _targetSpeed = 0f; IsAfterburnerActive = false; IsCruiseActive = false; _wasEnginesKilled = true;
+                    _throttle = 0f; 
+                    _targetSpeed = 0f; 
+                    IsAfterburnerActive = false; 
+                    IsCruiseActive = false; 
+                    _wasEnginesKilled = true;
                 }
             }
             
-            // X: Reverse thrust (instant set reverse target)
+            if (bPressed) ToggleNewtonianMode();
+            
             if (xPressed && !EnginesKilled)
             {
                 _throttle = -0.5f;
@@ -252,185 +232,116 @@ namespace Roguelancer
                 Console.WriteLine("Reverse thrust engaged (stub)");
             }
             
-            // F3: Dock
             if (f3Pressed) Dock();
             
-            // Weapons/combat inputs (stubs)
-            // Left-click: Fire active weapons (conflicts with mouse flight hold � only fire if in toggle mode)
-            if (mouseState.LeftButton == ButtonState.Pressed && _mouseFlightToggle && _prevLeftMouseState == ButtonState.Released)
-            {
-                FireActiveWeapons();
-            }
-            // Q missile, Shift+Q torpedo
             if (keyboardState.IsKeyDown(Keys.Q) && _previousKeyboardState.IsKeyUp(Keys.Q))
             {
                 if (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift)) LaunchTorpedo();
                 else LaunchMissile();
             }
-            // E mine
             if (keyboardState.IsKeyDown(Keys.E) && _previousKeyboardState.IsKeyUp(Keys.E)) LaunchMine();
-            // C countermeasures
             if (keyboardState.IsKeyDown(Keys.C) && _previousKeyboardState.IsKeyUp(Keys.C)) LaunchCountermeasures();
             
-            // Targeting: R / Shift+R / Ctrl+R
             if (rPressed && !shiftRPressed && !ctrlRPressed) TargetClosestEnemy();
             if (shiftRPressed) NextEnemyTarget();
             if (ctrlRPressed) PreviousEnemyTarget();
             
-            // Target cycle: T / Shift+T / Ctrl+T
             if (tPressed && !shiftTPressed && !ctrlTPressed) NextTarget();
             if (shiftTPressed) PreviousTarget();
             if (ctrlTPressed) ClearTarget();
             
-            // Existing thrust and movement logic (retain W/S throttle adjustments)
             if (!EnginesKilled)
             {
+                if ((keyboardState.IsKeyDown(Keys.W) || keyboardState.IsKeyDown(Keys.S)) && _gotoActive)
+                {
+                    CancelGoto();
+                    Console.WriteLine("Manual throttle input cancelled GOTO.");
+                }
+
                 if (keyboardState.IsKeyDown(Keys.W) && !cruiseCombo && !IsCruiseActive)
                 {
                     _throttle = MathHelper.Clamp(_throttle + deltaTime * 2f, -0.5f, 1f);
-                    _targetSpeed = IsAfterburnerActive ? AfterburnerSpeed : (_throttle >= 0 ? MaxSpeed * _throttle : MaxReverseSpeed * _throttle);
                 }
-                else if (keyboardState.IsKeyDown(Keys.S))
+                else if (keyboardState.IsKeyDown(Keys.S) && !cruiseCombo && !IsCruiseActive)
                 {
-                    // Decelerate / reverse
-                    if (_throttle > 0f)
-                    {
-                        _throttle = MathHelper.Clamp(_throttle - deltaTime * 3f, 0f, 1f);
-                        _targetSpeed = MaxSpeed * _throttle;
-                    }
-                    else
-                    {
-                        _throttle = MathHelper.Clamp(_throttle - deltaTime * 2f, -0.5f, 0f);
-                        _targetSpeed = MaxReverseSpeed * _throttle;
-                    }
+                    _throttle = MathHelper.Clamp(_throttle - deltaTime * 3f, 0f, 1f);
+                }
+
+                if (!_gotoActive)
+                {
+                     _targetSpeed = IsAfterburnerActive ? AfterburnerSpeed : (_throttle >= 0 ? MaxSpeed * _throttle : MaxReverseSpeed * _throttle);
                 }
             }
             
-            // Flight controls inputs
-            float pitchInput = 0f;
-            float yawInput = 0f;
-            float rollInput = 0f;
+            float pitchInput = 0f, yawInput = 0f, rollInput = 0f;
+            bool mouseFlightActive = _mouseFlightEnabled && !temporaryFreeFlightActive;
 
-            if (_mouseFlightEnabled)
+            if (mouseFlightActive)
             {
-                // Mouse flight mode - Freelancer style
-                Vector2 screenCenter = new Vector2(960, 540); // Half of 1920x1080
                 Vector2 currentMousePos = new Vector2(mouseState.X, mouseState.Y);
-                
                 if (!_mouseFlightInitialized)
                 {
                     _lastMousePosition = currentMousePos;
                     _mouseFlightInitialized = true;
                 }
                 
-                // Calculate mouse offset from center
-                Vector2 mouseOffset = currentMousePos - screenCenter;
+                Vector2 mouseDelta = currentMousePos - _lastMousePosition;
+                _lastMousePosition = currentMousePos;
                 
-                // Mouse sensitivity settings
-                float mouseSensitivity = 0.003f;
-                float deadzone = 20f; // Pixels of deadzone in center
+                float mouseSensitivity = 0.15f;
+                float deadzone = 1f;
                 
-                // Apply deadzone
-                if (Math.Abs(mouseOffset.X) > deadzone)
-                {
-                    float adjustedX = mouseOffset.X - Math.Sign(mouseOffset.X) * deadzone;
-                    yawInput = -adjustedX * mouseSensitivity; // Negative for correct direction
-                }
+                if (Math.Abs(mouseDelta.X) > deadzone) yawInput = -mouseDelta.X * mouseSensitivity;
+                if (Math.Abs(mouseDelta.Y) > deadzone) pitchInput = -mouseDelta.Y * mouseSensitivity;
                 
-                if (Math.Abs(mouseOffset.Y) > deadzone)
-                {
-                    float adjustedY = mouseOffset.Y - Math.Sign(mouseOffset.Y) * deadzone;
-                    pitchInput = -adjustedY * mouseSensitivity; // Negative for correct direction
-                }
-                
-                // Clamp input values
                 yawInput = MathHelper.Clamp(yawInput, -1f, 1f);
                 pitchInput = MathHelper.Clamp(pitchInput, -1f, 1f);
                 
-                // Roll controls still work with Q/E in mouse mode
-                if (keyboardState.IsKeyDown(Keys.Q))
-                    rollInput = -1f;
-                if (keyboardState.IsKeyDown(Keys.E))
-                    rollInput = 1f;
+                if (keyboardState.IsKeyDown(Keys.Q)) rollInput = 1f;
+                if (keyboardState.IsKeyDown(Keys.E)) rollInput = -1f;
             }
             else
             {
-                // Keyboard flight mode
-                // Pitch controls (Up/Down arrows or I/K)
-                if (keyboardState.IsKeyDown(Keys.Up) || keyboardState.IsKeyDown(Keys.I))
-                    pitchInput = 1f;
-                if (keyboardState.IsKeyDown(Keys.Down) || keyboardState.IsKeyDown(Keys.K))
-                    pitchInput = -1f;
-                
-                // Yaw controls (Left/Right arrows or J/L or A/D)
-                if (keyboardState.IsKeyDown(Keys.Left) || keyboardState.IsKeyDown(Keys.J) || 
-                    (keyboardState.IsKeyDown(Keys.A) && !keyboardState.IsKeyDown(Keys.LeftShift)))
-                    yawInput = 1f;
-                if (keyboardState.IsKeyDown(Keys.Right) || keyboardState.IsKeyDown(Keys.L) || 
-                    (keyboardState.IsKeyDown(Keys.D) && !keyboardState.IsKeyDown(Keys.LeftShift)))
-                    yawInput = -1f;
-                
-                // Roll controls (Q/E)
-                if (keyboardState.IsKeyDown(Keys.Q))
-                    rollInput = -1f;
-                if (keyboardState.IsKeyDown(Keys.E))
-                    rollInput = 1f;
+                if (keyboardState.IsKeyDown(Keys.Up) || keyboardState.IsKeyDown(Keys.I)) pitchInput = 1f;
+                if (keyboardState.IsKeyDown(Keys.Down) || keyboardState.IsKeyDown(Keys.K)) pitchInput = -1f;
+                if (keyboardState.IsKeyDown(Keys.Left) || keyboardState.IsKeyDown(Keys.J) || (keyboardState.IsKeyDown(Keys.A) && !keyboardState.IsKeyDown(Keys.LeftShift))) yawInput = 1f;
+                if (keyboardState.IsKeyDown(Keys.Right) || keyboardState.IsKeyDown(Keys.L) || (keyboardState.IsKeyDown(Keys.D) && !keyboardState.IsKeyDown(Keys.LeftShift))) yawInput = -1f;
+                if (keyboardState.IsKeyDown(Keys.Q)) rollInput = 1f;
+                if (keyboardState.IsKeyDown(Keys.E)) rollInput = -1f;
             }
             
-            // Strafe (A/D always, vertical strafe with Shift+W/S retained?)
             Vector3 strafeVelocity = Vector3.Zero;
-            if (keyboardState.IsKeyDown(Keys.A)) strafeVelocity -= Right * StrafeSpeed;
-            if (keyboardState.IsKeyDown(Keys.D)) strafeVelocity += Right * StrafeSpeed;
+            if (keyboardState.IsKeyDown(Keys.A) && keyboardState.IsKeyDown(Keys.LeftShift)) strafeVelocity -= Right * StrafeSpeed;
+            if (keyboardState.IsKeyDown(Keys.D) && keyboardState.IsKeyDown(Keys.LeftShift)) strafeVelocity += Right * StrafeSpeed;
             if (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift))
             {
                 if (keyboardState.IsKeyDown(Keys.W) && !cruiseCombo) strafeVelocity += Up * StrafeSpeed;
                 if (keyboardState.IsKeyDown(Keys.S)) strafeVelocity -= Up * StrafeSpeed;
             }
             
-            // Rotation application
-            float turnRate = TurnSpeed * deltaTime; if (IsAfterburnerActive) turnRate *= 0.6f;
-            if (Math.Abs(pitchInput) > 0.01f) { Orientation *= Matrix.CreateFromAxisAngle(Right, pitchInput * turnRate); _currentPitch = pitchInput; } else _currentPitch = MathHelper.Lerp(_currentPitch, 0f, deltaTime * 3f);
-            if (Math.Abs(yawInput) > 0.01f) { Orientation *= Matrix.CreateFromAxisAngle(Up, yawInput * turnRate); _currentBankAngle = MathHelper.Lerp(_currentBankAngle, -yawInput * BankAmount, deltaTime * 5f); } else _currentBankAngle = MathHelper.Lerp(_currentBankAngle, 0f, deltaTime * 3f);
-            if (Math.Abs(rollInput) > 0.01f) { Orientation *= Matrix.CreateFromAxisAngle(Forward, rollInput * turnRate * 1.5f); _currentBankAngle = 0f; } else if (Math.Abs(yawInput) > 0.01f) { Orientation *= Matrix.CreateFromAxisAngle(Forward, _currentBankAngle * deltaTime); }
-            Orientation = OrthonormalizeOrientation(Orientation);
+            float turnRate = TurnSpeed * deltaTime;
+            if (IsAfterburnerActive) turnRate *= 0.6f;
             
-            // Autopilot GOTO handling (MOVED HERE - before speed interpolation!)
+            Quaternion rotationDelta = Quaternion.Identity;
+            if (Math.Abs(pitchInput) > 0.01f) rotationDelta *= Quaternion.CreateFromAxisAngle(Right, pitchInput * turnRate);
+            if (Math.Abs(yawInput) > 0.01f) rotationDelta *= Quaternion.CreateFromAxisAngle(Up, yawInput * turnRate);
+            if (Math.Abs(rollInput) > 0.01f) rotationDelta *= Quaternion.CreateFromAxisAngle(Forward, rollInput * turnRate * 1.5f);
+            
+            _rotation *= rotationDelta;
+            _rotation.Normalize();
+            Orientation = Matrix.CreateFromQuaternion(_rotation);
+            
             UpdateGoto(deltaTime);
             
-            // Speed interpolation (for normal mode)
             if (_cruiseCharging)
             {
-                // ? CRUISE CHARGE SEQUENCE - 3 PHASES:
-                float chargeProgress = _cruiseChargeTimer / CruiseChargeTime;
-                
-                if (_cruiseChargeTimer < CruiseLungeTime)
-                {
-                    // PHASE 1: INITIAL LUNGE (0-0.8s) - Ship lurches forward
-                    float lungeFactor = _cruiseChargeTimer / CruiseLungeTime;
-                    float lungeBoost = MaxSpeed * 3f; // 3x normal speed lunge
-                    _targetSpeed = MathHelper.Lerp(Speed, lungeBoost, lungeFactor);
-                    Speed = MathHelper.Lerp(Speed, _targetSpeed, deltaTime * 10f); // Fast ramp-up
-                }
-                else if (_cruiseChargeTimer < CruiseChargePhase)
-                {
-                    // PHASE 2: ENGINE CHARGE (0.8-4.3s) - Engines build power, speed holds
-                    float chargePhaseProgress = (_cruiseChargeTimer - CruiseLungeTime) / (CruiseChargePhase - CruiseLungeTime);
-                    // Hold at boosted speed while engines charge
-                    _targetSpeed = MaxSpeed * (2f + chargePhaseProgress * 1.5f); // Build from 2x to 3.5x
-                    Speed = MathHelper.Lerp(Speed, _targetSpeed, deltaTime * 3f); // Hold steady
-                }
-                else
-                {
-                    // PHASE 3: BURST TO CRUISE (4.3-5.0s) - Explosive acceleration to cruise speed
-                    float burstProgress = (_cruiseChargeTimer - CruiseChargePhase) / CruiseBurstTime;
-                    _targetSpeed = MathHelper.Lerp(MaxSpeed * 3.5f, CruiseSpeed, burstProgress);
-                    Speed = MathHelper.Lerp(Speed, _targetSpeed, deltaTime * 15f); // RAPID burst!
-                }
+                if (_cruiseChargeTimer < CruiseLungeTime) Speed = MathHelper.Lerp(Speed, MaxSpeed * 3f, deltaTime * 20f);
+                else if (_cruiseChargeTimer < CruiseChargePhase) Speed = MathHelper.Lerp(Speed, MaxSpeed * 3.5f, deltaTime * 6f);
+                else Speed = MathHelper.Lerp(Speed, CruiseSpeed, deltaTime * 30f);
             }
             else if (IsCruiseActive) 
             {
-                // Normal cruise - maintain cruise speed
-                Speed = MathHelper.Lerp(Speed, CruiseSpeed, deltaTime * 5f);
+                Speed = MathHelper.Lerp(Speed, CruiseSpeed, deltaTime * 10f);
             }
             else if (EnginesKilled) 
             {
@@ -438,82 +349,71 @@ namespace Roguelancer
             }
             else 
             {
-                Speed = MathHelper.Lerp(Speed, _targetSpeed, deltaTime * Acceleration / MaxSpeed);
+                Speed = MathHelper.Lerp(Speed, _targetSpeed, deltaTime * 5f);
             }
 
-            // Velocity calculation depends on flight mode
             if (_newtonianMode)
             {
-                // Newtonian mode: apply thrust as acceleration, maintain momentum
                 Vector3 thrustAccel = Vector3.Zero;
                 if (!EnginesKilled)
                 {
-                    // Forward/reverse thrust
-                    float thrustMag = _throttle * Acceleration;
+                    float thrustMag = _throttle * Acceleration * 2f;
                     thrustAccel += Forward * thrustMag;
                 }
-                // Add strafe to thrust (already calculated above)
-                thrustAccel += strafeVelocity / deltaTime; // convert strafe velocity to acceleration
-                
-                // Apply thrust acceleration
+                thrustAccel += strafeVelocity / deltaTime;
                 _newtonianVelocity += thrustAccel * deltaTime;
-                
-                // Optional: velocity damping (simulating light friction/drag)
-                float dampingFactor = 0.98f; // very light damping
-                _newtonianVelocity *= dampingFactor;
-                
+                _newtonianVelocity *= 0.98f;
                 Velocity = _newtonianVelocity;
                 Speed = Velocity.Length();
             }
             else
             {
-                // Normal mode
                 Velocity = Forward * Speed + strafeVelocity;
             }
             
             Position += Velocity * deltaTime;
             
-            // Visual tilts
-            float targetPitchTilt = pitchInput * PitchTiltAmount; _pitchTiltAngle = MathHelper.Lerp(_pitchTiltAngle, targetPitchTilt, deltaTime * 5f);
-            float targetBankTilt = -yawInput * BankTiltAmount; if (Math.Abs(rollInput) > 0.01f) targetBankTilt *= 0.2f; _bankTiltAngle = MathHelper.Lerp(_bankTiltAngle, targetBankTilt, deltaTime * 4f);
+            _pitchTiltAngle = MathHelper.Lerp(_pitchTiltAngle, pitchInput * PitchTiltAmount, deltaTime * 5f);
+            _bankTiltAngle = MathHelper.Lerp(_bankTiltAngle, -yawInput * BankTiltAmount, deltaTime * 4f);
             
-            // Cruise charging logic (if applicable)
             if (_cruiseCharging)
             {
-                // Update charge timer
                 _cruiseChargeTimer += deltaTime;
-                
-                // Engage cruise active state after charge phase
                 if (_cruiseChargeTimer >= CruiseChargePhase && !IsCruiseActive)
                 {
                     IsCruiseActive = true;
-                    _targetSpeed = CruiseSpeed; // Set to cruise speed
-                    Console.WriteLine("Cruise engaged (auto) after charge");
+                    _targetSpeed = CruiseSpeed;
                 }
-                
-                // Handle burst phase
                 if (_cruiseChargeTimer >= CruiseChargeTime)
                 {
                     _cruiseCharging = false;
                     _cruiseChargeTimer = 0f;
-                    Console.WriteLine("Cruise charge completed");
                 }
             }
 
-            // Store previous states
-            _prevLeftMouseState = mouseState.LeftButton; _previousKeyboardState = keyboardState;
+            _prevLeftMouseState = mouseState.LeftButton; 
+            _previousKeyboardState = keyboardState;
         }
 
         public void Draw(Matrix view, Matrix projection, Vector3 lightDirection)
         {
             if (Model == null) return;
 
+            Matrix modelScale = Matrix.CreateScale(0.1f);
             Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
             
-            // Visual tilt matrices (applied relative to ship orientation)
             Matrix pitchTilt = Matrix.CreateFromAxisAngle(Orientation.Right, _pitchTiltAngle);
             Matrix bankTilt = Matrix.CreateFromAxisAngle(Orientation.Forward, _bankTiltAngle);
-            Matrix world = modelCorrection * Orientation * pitchTilt * bankTilt * Matrix.CreateTranslation(Position);
+            Matrix world = modelScale * modelCorrection * Orientation * pitchTilt * bankTilt * Matrix.CreateTranslation(Position);
+            
+            var graphicsDevice = Model.Meshes[0].Effects[0].GraphicsDevice;
+            var oldBlendState = graphicsDevice.BlendState;
+            var oldDepthStencilState = graphicsDevice.DepthStencilState;
+            var oldRasterizerState = graphicsDevice.RasterizerState;
+            
+            graphicsDevice.BlendState = BlendState.Opaque;
+            graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
             
             foreach (ModelMesh mesh in Model.Meshes)
             {
@@ -522,54 +422,21 @@ namespace Roguelancer
                     effect.World = world;
                     effect.View = view;
                     effect.Projection = projection;
-                    
                     effect.EnableDefaultLighting();
                     effect.PreferPerPixelLighting = true;
                     effect.SpecularPower = 16f;
-                    
-                    // Force full alpha - no transparency
                     effect.Alpha = 1.0f;
-                    
-                    // Lighting
                     effect.DirectionalLight0.Direction = lightDirection;
                     effect.DirectionalLight0.DiffuseColor = new Vector3(0.9f, 0.9f, 1.0f);
                     effect.DirectionalLight0.SpecularColor = new Vector3(0.5f, 0.5f, 0.6f);
-                    
                     effect.AmbientLightColor = new Vector3(0.2f, 0.2f, 0.25f);
                 }
-                
                 mesh.Draw();
             }
-        }
-
-        private Matrix OrthonormalizeOrientation(Matrix orientation)
-        {
-            // Stable Gram-Schmidt orthonormalization preserving combined pitch/yaw/roll
-            Vector3 forward = orientation.Forward;
-            Vector3 right = orientation.Right;
-            Vector3 up = orientation.Up;
-
-            forward = Vector3.Normalize(forward);
-
-            right = right - forward * Vector3.Dot(right, forward);
-            right = Vector3.Normalize(right);
-
-            up = up - forward * Vector3.Dot(up, forward) - right * Vector3.Dot(up, right);
-            up = Vector3.Normalize(up);
-
-            if (forward.LengthSquared() < 0.9f || right.LengthSquared() < 0.9f || up.LengthSquared() < 0.9f)
-            {
-                forward = Vector3.Forward;
-                right = Vector3.Right;
-                up = Vector3.Up;
-            }
-
-            return new Matrix(
-                right.X, right.Y, right.Z, 0f,
-                up.X, up.Y, up.Z, 0f,
-                forward.X, forward.Y, forward.Z, 0f,
-                0f, 0f, 0f, 1f
-            );
+            
+            graphicsDevice.BlendState = oldBlendState;
+            graphicsDevice.DepthStencilState = oldDepthStencilState;
+            graphicsDevice.RasterizerState = oldRasterizerState;
         }
 
         public float GetThrottle() => _throttle;
@@ -586,32 +453,21 @@ namespace Roguelancer
         public void ActivateGoto(SpaceObject target)
         {
             if (target == null) return;
-            
             _gotoTarget = target; 
             _gotoActive = true; 
             EnginesKilled = false; 
-            
-            // Calculate distance to target
             float distance = Vector3.Distance(Position, target.Position);
             
-            Console.WriteLine($"?? ActivateGoto called: Target={target.Name}, Distance={distance:F0} units ({distance/1000f:F1}k)");
-            
-            // ? AUTO-ENGAGE CRUISE for distant targets (>5000 units)
             if (distance > 5000f)
             {
-                // Start cruise charge sequence for long distance travel
                 _cruiseCharging = true;
                 _cruiseChargeTimer = 0f;
                 IsAfterburnerActive = false;
-                Console.WriteLine($"?? GOTO activated: {target.Name} - Distance: {distance / 1000f:F1}k - CRUISE CHARGING!");
-                Console.WriteLine($"   ? _cruiseCharging={_cruiseCharging}, _cruiseChargeTimer={_cruiseChargeTimer}");
             }
             else
             {
-                // Close target - use normal speed
                 IsCruiseActive = false;
                 _cruiseCharging = false;
-                Console.WriteLine($"?? GOTO activated: {target.Name} - Distance: {distance:F0} units - NORMAL SPEED");
             }
         }
         
@@ -620,7 +476,6 @@ namespace Roguelancer
             if (_gotoActive) Console.WriteLine("GOTO cancelled");
             _gotoActive = false; 
             _gotoTarget = null;
-            // Don't disable cruise - let player control it
         }
         
         private void UpdateGoto(float deltaTime)
@@ -630,109 +485,62 @@ namespace Roguelancer
             Vector3 toTarget = _gotoTarget.Position - Position;
             float distance = toTarget.Length();
             
-            // ? ARRIVAL CHECK (within 300 units + object radius)
             if (distance <= 300f + _gotoTarget.Radius)
             {
-                Console.WriteLine($"? GOTO: Arrived at {_gotoTarget.Name}!");
                 CancelGoto();
-                EnginesKilled = true; // Full stop on arrival
+                EnginesKilled = true;
                 IsCruiseActive = false;
                 _cruiseCharging = false;
                 _cruiseChargeTimer = 0f;
                 return;
             }
             
-            // ?? CRUISE MANAGEMENT
-            if (IsCruiseActive || _cruiseCharging)
+            if ((IsCruiseActive || _cruiseCharging) && distance < 1500f)
             {
-                // AUTO-DISENGAGE cruise at 1.5k for smooth approach
-                if (distance < 1500f)
-                {
-                    IsCruiseActive = false;
-                    _cruiseCharging = false;
-                    _cruiseChargeTimer = 0f;
-                    Console.WriteLine($"?? GOTO: Approaching - Cruise disengaged at {distance:F0} units");
-                }
+                IsCruiseActive = false;
+                _cruiseCharging = false;
+                _cruiseChargeTimer = 0f;
             }
             
-            // ?? STEERING - Point toward target
             Vector3 desiredForward = Vector3.Normalize(toTarget);
-            Vector3 currentForward = Forward;
-            float alignment = Vector3.Dot(currentForward, desiredForward);
+            float alignment = Vector3.Dot(Forward, desiredForward);
             
-            // Rotate toward target
-            float alignSpeed = TurnSpeed * 0.8f * deltaTime;
-            Vector3 rotationAxis = Vector3.Cross(currentForward, desiredForward);
-            float axisLen = rotationAxis.Length();
-            
-            if (axisLen > 0.0001f)
+            if (alignment < 0.99f)
             {
-                rotationAxis /= axisLen;
-                float angle = (float)Math.Acos(MathHelper.Clamp(alignment, -1f, 1f));
-                float step = Math.Min(angle, alignSpeed);
-                Orientation *= Matrix.CreateFromAxisAngle(rotationAxis, step);
-                Orientation = OrthonormalizeOrientation(Orientation);
+                float alignSpeed = TurnSpeed * 0.8f * deltaTime;
+                Vector3 rotationAxis = Vector3.Cross(Forward, desiredForward);
+                if (rotationAxis.LengthSquared() > 0.0001f)
+                {
+                    rotationAxis.Normalize();
+                    float angle = (float)Math.Acos(MathHelper.Clamp(alignment, -1f, 1f));
+                    float step = Math.Min(angle, alignSpeed);
+                    Quaternion gotoRot = Quaternion.CreateFromAxisAngle(rotationAxis, step);
+                    _rotation *= gotoRot;
+                    _rotation.Normalize();
+                }
             }
             
-            // ? SPEED MANAGEMENT - Smart deceleration curve
-            if (alignment > 0.7f) // Well enough aligned (was 0.9f - more forgiving now)
+            if (alignment > 0.7f)
             {
-                if (IsCruiseActive || _cruiseCharging)
-                {
-                    // CRUISE MODE - Full speed ahead, let it charge while turning gently
-                    _throttle = 1.0f;
-                    _targetSpeed = CruiseSpeed;
-                }
-                else if (distance > 1500f)
-                {
-                    // FAR RANGE (1.5k - infinity) - Full normal speed
-                    _throttle = 1.0f;
-                    _targetSpeed = MaxSpeed;
-                }
-                else if (distance > 800f)
-                {
-                    // MID RANGE (800 - 1500) - Start slowing down (80% speed)
-                    float slowFactor = MathHelper.Lerp(0.8f, 1.0f, (distance - 800f) / 700f);
-                    _throttle = slowFactor;
-                    _targetSpeed = MaxSpeed * slowFactor;
-                }
-                else if (distance > 300f)
-                {
-                    // CLOSE RANGE (300 - 800) - Smooth deceleration curve
-                    float slowFactor = MathHelper.Lerp(0.1f, 0.8f, (distance - 300f) / 500f);
-                    _throttle = slowFactor;
-                    _targetSpeed = MaxSpeed * slowFactor;
-                }
-                else
-                {
-                    // FINAL APPROACH (<300) - Minimum speed for precision
-                    _throttle = 0.1f;
-                    _targetSpeed = MaxSpeed * 0.1f;
-                }
+                if (IsCruiseActive || _cruiseCharging) _targetSpeed = CruiseSpeed;
+                else if (distance > 1500f) _targetSpeed = MaxSpeed;
+                else if (distance > 800f) _targetSpeed = MaxSpeed * MathHelper.Lerp(0.8f, 1.0f, (distance - 800f) / 700f);
+                else if (distance > 300f) _targetSpeed = MaxSpeed * MathHelper.Lerp(0.1f, 0.8f, (distance - 300f) / 500f);
+                else _targetSpeed = MaxSpeed * 0.1f;
             }
             else
             {
-                // SHARP TURN NEEDED - Only cancel cruise if we're already at high speed
-                // Allow cruise CHARGING to continue during initial alignment
                 if (IsCruiseActive && Speed > CruiseSpeed * 0.5f)
                 {
-                    // Already at cruise speed - need to drop it for sharp turn
                     IsCruiseActive = false;
                     _cruiseCharging = false;
                     _cruiseChargeTimer = 0f;
-                    Console.WriteLine("?? GOTO: Sharp turn at high speed - Cruise cancelled");
                 }
                 else if (_cruiseCharging && alignment < 0.3f)
                 {
-                    // VERY sharp turn while charging - cancel only if extremely misaligned
                     _cruiseCharging = false;
                     _cruiseChargeTimer = 0f;
-                    Console.WriteLine("?? GOTO: Extreme misalignment - Cruise charge cancelled");
                 }
-                // Otherwise let cruise charging continue while turning gently
-                
-                // Slow down for turning
-                _throttle = 0.5f; // Increased from 0.3f to turn faster
                 _targetSpeed = MaxSpeed * 0.5f;
             }
         }
@@ -740,16 +548,8 @@ namespace Roguelancer
         public void ToggleNewtonianMode()
         {
             _newtonianMode = !_newtonianMode;
-            if (!_newtonianMode)
-            {
-                // When exiting Newtonian mode, reset to normal velocity
-                _newtonianVelocity = Forward * Speed;
-            }
-            else
-            {
-                // When entering Newtonian mode, preserve current velocity
-                _newtonianVelocity = Velocity;
-            }
+            if (!_newtonianMode) _newtonianVelocity = Forward * Speed;
+            else _newtonianVelocity = Velocity;
             Console.WriteLine($"Newtonian Mode: {(_newtonianMode ? "ENABLED" : "DISABLED")}");
         }
     }

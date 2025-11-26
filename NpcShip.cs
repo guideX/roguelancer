@@ -108,6 +108,19 @@ namespace Roguelancer
             Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
             Matrix world = modelCorrection * Orientation * Matrix.CreateTranslation(Position);
             
+            // Get graphics device from first mesh's effect to set render states
+            var graphicsDevice = Model.Meshes[0].Effects[0].GraphicsDevice;
+            
+            // ? FIX: Save current render states
+            var oldBlendState = graphicsDevice.BlendState;
+            var oldDepthStencilState = graphicsDevice.DepthStencilState;
+            var oldRasterizerState = graphicsDevice.RasterizerState;
+            
+            // ? FIX: Force opaque rendering (no transparency artifacts)
+            graphicsDevice.BlendState = BlendState.Opaque;
+            graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+            
             foreach (ModelMesh mesh in Model.Meshes)
             {
                 foreach (BasicEffect effect in mesh.Effects)
@@ -120,6 +133,9 @@ namespace Roguelancer
                     effect.PreferPerPixelLighting = true;
                     effect.SpecularPower = 16f;
                     
+                    // Force full alpha - no transparency
+                    effect.Alpha = 1.0f;
+                    
                     effect.DirectionalLight0.Direction = lightDirection;
                     effect.DirectionalLight0.DiffuseColor = new Vector3(0.9f, 0.9f, 1.0f);
                     effect.DirectionalLight0.SpecularColor = new Vector3(0.5f, 0.5f, 0.6f);
@@ -128,6 +144,11 @@ namespace Roguelancer
                 
                 mesh.Draw();
             }
+            
+            // ? FIX: Restore previous render states
+            graphicsDevice.BlendState = oldBlendState;
+            graphicsDevice.DepthStencilState = oldDepthStencilState;
+            graphicsDevice.RasterizerState = oldRasterizerState;
         }
         
         private Matrix CreateOrientationFromDirection(Vector3 direction)

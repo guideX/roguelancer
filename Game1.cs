@@ -40,6 +40,9 @@ namespace Roguelancer
         
         // Simple 1x1 pixel for HUD
         private Texture2D _pixel;
+        
+        // ✅ Window focus tracking
+        private bool _isWindowFocused = true;
 
         public Game1()
         {
@@ -49,6 +52,12 @@ namespace Roguelancer
             _graphics.PreferredBackBufferWidth = 1920;
             _graphics.PreferredBackBufferHeight = 1080;
             _graphics.IsFullScreen = false;
+            
+            // 🔧 FIX: Smooth 60 FPS with VSync
+            this.InactiveSleepTime = TimeSpan.Zero; // Keep running when unfocused
+            this.IsFixedTimeStep = true; // Lock to 60 FPS
+            _graphics.SynchronizeWithVerticalRetrace = true; // Enable VSync
+            this.TargetElapsedTime = TimeSpan.FromMilliseconds(16.666); // 60 FPS target
             
             // ✅ ENABLE CONSOLE WINDOW for debugging
             // This will show a separate console window alongside the game
@@ -75,6 +84,11 @@ namespace Roguelancer
             
             // Initialize player ship at origin
             _playerShip = new Ship(Vector3.Zero);
+            
+            // ✅ Subscribe to window focus events
+            Window.ClientSizeChanged += OnWindowFocusChanged;
+            this.Activated += OnWindowActivated;
+            this.Deactivated += OnWindowDeactivated;
             
             // Initialize sun at a distant location
             _sun = new Sun(new Vector3(5000, 2000, 3000), scale: 150f)
@@ -116,20 +130,28 @@ namespace Roguelancer
                 _npcShips.Add(npc);
             }
             
-            // Create reference grid markers
-            int gridSize = 5000;
-            int gridSpacing = 1000;
-            Color markerColor = new Color(0, 255, 255, 128); // Cyan, semi-transparent
+            // Create reference grid markers - MUCH SPARSER GRID
+            int gridSize = 20000; // Expanded range but fewer markers
+            int gridSpacing = 2000; // MUCH LARGER spacing (was 250, now 2000) - 8x less dense
+            Color markerColor = new Color(0, 255, 255, 180); // Brighter cyan, more visible
             
             for (int x = -gridSize; x <= gridSize; x += gridSpacing)
             {
                 for (int z = -gridSize; z <= gridSize; z += gridSpacing)
                 {
-                    _markers.Add(new Marker3D(GraphicsDevice, new Vector3(x, 0, z), markerColor, 200f));
+                    // Add markers at multiple heights for 3D depth perception
+                    _markers.Add(new Marker3D(GraphicsDevice, new Vector3(x, 0, z), markerColor, 400f)); // Ground level - larger size
+                    
+                    // Add some vertical markers too (every 2nd marker instead of every 4th)
+                    if ((x / gridSpacing) % 2 == 0 && (z / gridSpacing) % 2 == 0)
+                    {
+                        _markers.Add(new Marker3D(GraphicsDevice, new Vector3(x, 1000, z), Color.Yellow * 0.6f, 350f)); // Higher up
+                        _markers.Add(new Marker3D(GraphicsDevice, new Vector3(x, -1000, z), Color.Red * 0.5f, 350f)); // Lower down
+                    }
                 }
             }
             
-            Console.WriteLine($"Created {_markers.Count} reference markers in grid");
+            Console.WriteLine($"Created {_markers.Count} reference markers in sparse grid (spacing: {gridSpacing} units)");
             
             base.Initialize();
         }
@@ -247,6 +269,7 @@ namespace Roguelancer
                 Console.WriteLine($"Ship Velocity: X={_playerShip.Velocity.X:F1} Y={_playerShip.Velocity.Y:F1} Z={_playerShip.Velocity.Z:F1}");
                 Console.WriteLine($"Speed: {_playerShip.Speed:F1} | Throttle: {_playerShip.GetThrottle()*100:F0}%");
                 Console.WriteLine($"Distance Traveled/sec: {distanceTraveled:F1} units");
+                Console.WriteLine($"DeltaTime: {deltaTime:F4} | FPS: {(1.0f / deltaTime):F1}"); // NEW: Show framerate
                 Console.WriteLine($"Camera Position: X={_camera.Position.X:F1} Y={_camera.Position.Y:F1} Z={_camera.Position.Z:F1}");
                 
                 // GOTO Debug Info
@@ -306,6 +329,15 @@ namespace Roguelancer
             // Update player ship
             _playerShip.Update(gameTime, keyboardState);
             
+            // ✅ FIX: Update NPC ships
+            foreach (var npc in _npcShips)
+            {
+                npc.Update(gameTime);
+            }
+            
+            // ✅ FIX: Update motion trail
+            _motionTrail.Update(deltaTime, _playerShip.Position, _playerShip.Speed);
+            
             // Update sun
             _sun.Update(gameTime);
             
@@ -331,8 +363,8 @@ namespace Roguelancer
             // Update camera shake
             _camera.UpdateShake(deltaTime);
             
-            // Update camera to follow ship
-            _camera.Follow(_playerShip.Position, _playerShip.Forward, _playerShip.Up, 0.05f); // Reduced from 0.15f for more lag
+            // Update camera to follow ship with more responsive smoothing
+            _camera.Follow(_playerShip.Position, _playerShip.Forward, _playerShip.Up, 0.3f); // Increased from 0.1f to reduce flopping
 
             // Update engine trail with current throttle
             _engineTrail.Update(gameTime, _playerShip, _playerShip.GetThrottle());
@@ -481,6 +513,25 @@ namespace Roguelancer
         {
             return kb.IsKeyDown(key) && !_playerShip.MouseFlightEnabled && !_prevKeys.IsKeyDown(key);
         }
+        
+        // ✅ Window focus event handlers
+        private void OnWindowActivated(object sender, EventArgs e)
+        {
+            _isWindowFocused = true;
+            Console.WriteLine("🟢 Window ACTIVATED - Input enabled");
+        }
+        
+        private void OnWindowDeactivated(object sender, EventArgs e)
+        {
+            _isWindowFocused = false;
+            Console.WriteLine("🔴 Window DEACTIVATED - Input disabled");
+        }
+        
+        private void OnWindowFocusChanged(object sender, EventArgs e)
+        {
+            _isWindowFocused = IsActive;
+        }
+        
         private KeyboardState _prevKeys;
         private MouseState _prevMouseState; // ✨ NEW: Track previous mouse state
         private float _debugTimer = 0f;
@@ -544,6 +595,7 @@ namespace Roguelancer
             
             // Draw engine glows with dramatic intensity during cruise charge
             float glowIntensity = Math.Max(0.2f, _playerShip.GetThrottle()); // Minimum idle glow
+            glowIntensity = 4f; // FIXED: Always super intense glow effect for testing
             
             if (_playerShip.IsCruiseCharging)
             {
