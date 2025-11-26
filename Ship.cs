@@ -35,18 +35,17 @@ namespace Roguelancer
         private Quaternion _rotation = Quaternion.Identity;
 
         // Mouse flight mode
-        private bool _mouseFlightEnabled = false;
+        private bool _isFreeFlightMode = false; // True: ship follows mouse. False: mouse is a cursor.
         private Vector2 _lastMousePosition;
         private bool _mouseFlightInitialized = false;
         private ButtonState _prevLeftMouseState = ButtonState.Released;
-        private bool _isFreeLooking = false; // NEW: For click-and-drag free look
 
         // Special states
         public bool IsAfterburnerActive { get; private set; }
         public bool IsCruiseActive { get; private set; }
         public bool EnginesKilled { get; private set; }
         public bool AfterburnerJustActivated { get; private set; }
-        public bool MouseFlightEnabled => _mouseFlightEnabled;
+        public bool IsFreeFlightMode => _isFreeFlightMode;
         
         // Cruise charge system
         private bool _cruiseCharging = false;
@@ -142,6 +141,12 @@ namespace Roguelancer
             
             if (keyboardState.IsKeyDown(Keys.Escape) && _previousKeyboardState.IsKeyUp(Keys.Escape))
             {
+                if (_isFreeFlightMode)
+                {
+                    _isFreeFlightMode = false;
+                    _notificationManager?.ShowMessage("Mouse Mode");
+                }
+
                 if (IsCruiseActive || _cruiseCharging)
                 {
                     IsCruiseActive = false;
@@ -160,22 +165,21 @@ namespace Roguelancer
             
             if (spacebarPressed)
             {
-                if (_mouseFlightEnabled)
+                _isFreeFlightMode = !_isFreeFlightMode;
+                if (_isFreeFlightMode)
                 {
-                    _mouseFlightInitialized = false; // Reset mouse position on mode entry
-                    _notificationManager?.ShowMessage("Mouse Flight Enabled");
-                    Console.WriteLine("✈️ MOUSE FLIGHT MODE - Move mouse to steer");
+                    _notificationManager?.ShowMessage("Free Flight Mode");
+                    Console.WriteLine("✈️ FREE FLIGHT MODE - Ship follows mouse");
                 }
                 else
                 {
-                    _notificationManager?.ShowMessage("Keyboard Flight Enabled");
-                    Console.WriteLine("⌨️ FREE FLIGHT MODE - Arrow keys to steer");
+                    _notificationManager?.ShowMessage("Mouse Mode");
+                    Console.WriteLine("⌨️ MOUSE MODE - Mouse is a cursor");
                 }
             }
             
-            bool fireWeapons = (mouseState.RightButton == ButtonState.Pressed && _previousKeyboardState.IsKeyUp(Keys.Right)) ||
-                              (keyboardState.IsKeyDown(Keys.LeftControl) && _previousKeyboardState.IsKeyUp(Keys.LeftControl)) ||
-                              (keyboardState.IsKeyDown(Keys.RightControl) && _previousKeyboardState.IsKeyUp(Keys.RightControl));
+            bool fireWeapons = (mouseState.RightButton == ButtonState.Pressed && _prevLeftMouseState == ButtonState.Released) ||
+                              (keyboardState.IsKeyDown(Keys.LeftControl) && !keyboardState.IsKeyDown(Keys.T));
             
             if (fireWeapons) FireActiveWeapons();
             
@@ -236,7 +240,7 @@ namespace Roguelancer
             
             if (xPressed && !EnginesKilled)
             {
-                _throttle = -0.5f;
+                _throttle = -1.0f; // Full reverse
                 _targetSpeed = MaxReverseSpeed * _throttle;
                 _notificationManager?.ShowMessage("Reverse Thrusters");
                 Console.WriteLine("Reverse thrust engaged (stub)");
@@ -268,76 +272,65 @@ namespace Roguelancer
                     Console.WriteLine("Manual throttle input cancelled GOTO.");
                 }
 
+                // W increases throttle, S decreases
                 if (keyboardState.IsKeyDown(Keys.W) && !cruiseCombo && !IsCruiseActive)
                 {
-                    _throttle = MathHelper.Clamp(_throttle + deltaTime * 2f, -0.5f, 1f);
+                    _throttle = MathHelper.Clamp(_throttle + deltaTime * 0.5f, -1f, 1f);
                 }
                 else if (keyboardState.IsKeyDown(Keys.S) && !cruiseCombo && !IsCruiseActive)
                 {
-                    _throttle = MathHelper.Clamp(_throttle - deltaTime * 3f, 0f, 1f);
+                    _throttle = MathHelper.Clamp(_throttle - deltaTime * 0.5f, -1f, 1f);
+                }
+                else if (!keyboardState.IsKeyDown(Keys.W) && !keyboardState.IsKeyDown(Keys.S) && !IsCruiseActive && !_gotoActive)
+                {
+                    // No throttle input, gradually return to zero if not in cruise/goto
+                    // _throttle = MathHelper.Lerp(_throttle, 0f, deltaTime * 1.5f);
                 }
 
                 if (!_gotoActive)
                 {
-                     _targetSpeed = IsAfterburnerActive ? AfterburnerSpeed : (_throttle >= 0 ? MaxSpeed * _throttle : MaxReverseSpeed * _throttle);
+                     _targetSpeed = IsAfterburnerActive ? AfterburnerSpeed : (_throttle >= 0 ? MaxSpeed * _throttle : MaxReverseSpeed * -_throttle);
                 }
             }
             
             float pitchInput = 0f, yawInput = 0f, rollInput = 0f;
+            var viewport = _notificationManager.GetViewport(); // Assuming a getter exists
 
-            if (_mouseFlightEnabled)
+            // Steering logic
+            bool temporarySteering = !_isFreeFlightMode && leftMouseHeld;
+            if (_isFreeFlightMode || temporarySteering)
             {
-                // Freelancer-style "click and drag to free look"
-                if (leftMouseHeld && !_isFreeLooking)
+                // Free Flight: ship follows mouse cursor
+                Vector2 screenCenter = new Vector2(viewport.Width / 2f, viewport.Height / 2f);
+                Vector2 mousePosition = new Vector2(mouseState.X, mouseState.Y);
+                Vector2 mouseDeltaFromCenter = mousePosition - screenCenter;
+
+                float mouseSensitivity = 0.4f;
+                float deadzone = 10f;
+
+                if (Math.Abs(mouseDeltaFromCenter.X) > deadzone)
                 {
-                    _isFreeLooking = true;
+                    yawInput = -mouseDeltaFromCenter.X * mouseSensitivity / (viewport.Width / 2f);
                 }
-                else if (!leftMouseHeld)
+                if (Math.Abs(mouseDeltaFromCenter.Y) > deadzone)
                 {
-                    _isFreeLooking = false;
-                    _mouseFlightInitialized = false; // Reset mouse position when not steering
+                    pitchInput = -mouseDeltaFromCenter.Y * mouseSensitivity / (viewport.Height / 2f);
                 }
 
-                if (!_isFreeLooking)
-                {
-                    Vector2 currentMousePos = new Vector2(mouseState.X, mouseState.Y);
-                    if (!_mouseFlightInitialized)
-                    {
-                        _lastMousePosition = currentMousePos;
-                        _mouseFlightInitialized = true;
-                    }
-                    
-                    Vector2 mouseDelta = currentMousePos - _lastMousePosition;
-                    _lastMousePosition = currentMousePos;
-                    
-                    float mouseSensitivity = 0.15f;
-                    float deadzone = 1f;
-                    
-                    if (Math.Abs(mouseDelta.X) > deadzone) yawInput = -mouseDelta.X * mouseSensitivity;
-                    if (Math.Abs(mouseDelta.Y) > deadzone) pitchInput = -mouseDelta.Y * mouseSensitivity;
-                    
-                    yawInput = MathHelper.Clamp(yawInput, -1f, 1f);
-                    pitchInput = MathHelper.Clamp(pitchInput, -1f, 1f);
-                }
-                
-                if (keyboardState.IsKeyDown(Keys.Q)) rollInput = 1f;
-                if (keyboardState.IsKeyDown(Keys.E)) rollInput = -1f;
-            }
-            else
-            {
-                if (keyboardState.IsKeyDown(Keys.Up) || keyboardState.IsKeyDown(Keys.I)) pitchInput = 1f;
-                if (keyboardState.IsKeyDown(Keys.Down) || keyboardState.IsKeyDown(Keys.K)) pitchInput = -1f;
-                if (keyboardState.IsKeyDown(Keys.Left) || keyboardState.IsKeyDown(Keys.J) || (keyboardState.IsKeyDown(Keys.A) && !keyboardState.IsKeyDown(Keys.LeftShift))) yawInput = 1f;
-                if (keyboardState.IsKeyDown(Keys.Right) || keyboardState.IsKeyDown(Keys.L) || (keyboardState.IsKeyDown(Keys.D) && !keyboardState.IsKeyDown(Keys.LeftShift))) yawInput = -1f;
-                if (keyboardState.IsKeyDown(Keys.Q)) rollInput = 1f;
-                if (keyboardState.IsKeyDown(Keys.E)) rollInput = -1f;
+                yawInput = MathHelper.Clamp(yawInput, -1f, 1f);
+                pitchInput = MathHelper.Clamp(pitchInput, -1f, 1f);
             }
             
+            // Strafe and Roll inputs are always available
+            if (keyboardState.IsKeyDown(Keys.A)) rollInput = 1f; // A for roll left
+            if (keyboardState.IsKeyDown(Keys.D)) rollInput = -1f; // D for roll right
+            
             Vector3 strafeVelocity = Vector3.Zero;
-            if (keyboardState.IsKeyDown(Keys.A) && keyboardState.IsKeyDown(Keys.LeftShift)) strafeVelocity -= Right * StrafeSpeed;
-            if (keyboardState.IsKeyDown(Keys.D) && keyboardState.IsKeyDown(Keys.LeftShift)) strafeVelocity += Right * StrafeSpeed;
+            // Strafe with Shift + A/D/W/S
             if (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift))
             {
+                if (keyboardState.IsKeyDown(Keys.A)) strafeVelocity -= Right * StrafeSpeed;
+                if (keyboardState.IsKeyDown(Keys.D)) strafeVelocity += Right * StrafeSpeed;
                 if (keyboardState.IsKeyDown(Keys.W) && !cruiseCombo) strafeVelocity += Up * StrafeSpeed;
                 if (keyboardState.IsKeyDown(Keys.S)) strafeVelocity -= Up * StrafeSpeed;
             }

@@ -50,6 +50,11 @@ namespace Roguelancer
             _messageQueue.Enqueue(message);
         }
 
+        public Viewport GetViewport()
+        {
+            return _viewport;
+        }
+
         public void Update(GameTime gameTime)
         {
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;

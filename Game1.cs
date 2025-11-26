@@ -304,7 +304,21 @@ namespace Roguelancer
             if (keyboardState.IsKeyDown(Keys.H) && _prevKeys.IsKeyUp(Keys.H))
             {
                 _camera.ToggleTurretView();
-                _notificationManager.ShowMessage(_camera.IsTurretViewActive ? "Turret View" : "Cockpit View");
+                _notificationManager.ShowMessage(_camera.GetCurrentViewName());
+            }
+
+            // Set rear view with V
+            if (keyboardState.IsKeyDown(Keys.V) && _prevKeys.IsKeyUp(Keys.V) && !keyboardState.IsKeyDown(Keys.LeftControl))
+            {
+                _camera.SetRearView();
+                _notificationManager.ShowMessage(_camera.GetCurrentViewName());
+            }
+
+            // Cycle views with Ctrl+V
+            if (keyboardState.IsKeyDown(Keys.V) && _prevKeys.IsKeyUp(Keys.V) && keyboardState.IsKeyDown(Keys.LeftControl))
+            {
+                _camera.CycleView();
+                _notificationManager.ShowMessage(_camera.GetCurrentViewName());
             }
             
             // Turret view controls (mouse or arrow keys)
@@ -315,7 +329,7 @@ namespace Roguelancer
                 float pitchDelta = 0f;
                 
                 // Mouse input (if not in mouse flight mode)
-                if (!_playerShip.MouseFlightEnabled && mouseState.LeftButton == ButtonState.Pressed)
+                if (!_playerShip.IsFreeFlightMode && mouseState.LeftButton == ButtonState.Pressed)
                 {
                     // AI: This isn't working!
                     Vector2 screenCenter = new Vector2(GraphicsDevice.Viewport.Width / 2f, GraphicsDevice.Viewport.Height / 2f);
@@ -352,7 +366,7 @@ namespace Roguelancer
             _lightDirection = _sun.GetLightDirection(_playerShip.Position);
             
             // Update mouse visibility based on flight mode
-            IsMouseVisible = _playerShip.MouseFlightEnabled;
+            IsMouseVisible = !_playerShip.IsFreeFlightMode;
             
             // Trigger camera shake when afterburner is activated
             if (_playerShip.AfterburnerJustActivated)
@@ -417,8 +431,8 @@ namespace Roguelancer
         {
             MouseState mouseState = Mouse.GetState();
             
-            // ✨ LEFT CLICK: Target object under mouse cursor
-            if (mouseState.LeftButton == ButtonState.Pressed && _prevMouseState.LeftButton == ButtonState.Released)
+            // ✨ LEFT CLICK: Target object under mouse cursor (only in Mouse Mode)
+            if (!_playerShip.IsFreeFlightMode && mouseState.LeftButton == ButtonState.Pressed && _prevMouseState.LeftButton == ButtonState.Released)
             {
                 // Raycast from mouse position into 3D world
                 int clickedObjectIndex = GetObjectUnderMouse(mouseState.X, mouseState.Y);
@@ -523,7 +537,7 @@ namespace Roguelancer
         
         private bool Pressed(KeyboardState kb, Keys key)
         {
-            return kb.IsKeyDown(key) && !_playerShip.MouseFlightEnabled && !_prevKeys.IsKeyDown(key);
+            return kb.IsKeyDown(key) && !_playerShip.IsFreeFlightMode && !_prevKeys.IsKeyDown(key);
         }
         
         // ✅ Window focus event handlers

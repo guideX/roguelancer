@@ -8,132 +8,143 @@ namespace Roguelancer
     /// </summary>
     public class Camera
     {
-        public Vector3 Position { get; set; }
-        public Vector3 Target { get; set; }
-        public Vector3 Up { get; set; }
-        
         public Matrix View { get; private set; }
         public Matrix Projection { get; private set; }
+        public Vector3 Position { get; private set; }
 
-        private float _distance = 120f;  // Distance behind the ship (Freelancer-style chase camera)
-        private float _height = 30f;     // Height above ship for good viewing angle
-        private readonly float _aspectRatio;
-        private readonly float _fieldOfView;
-        private readonly float _nearPlane;
-        private readonly float _farPlane;
-        
-        // Camera shake properties
-        private float _shakeIntensity = 0f;
-        private float _shakeDecay = 0f;
-        private Vector3 _shakeOffset = Vector3.Zero;
-        private Random _random = new Random();
-        
-        // Turret view mode
-        private bool _turretViewActive = false;
+        // Camera views
+        private enum CameraView { Cockpit, Turret, Rear }
+        private CameraView _currentView = CameraView.Cockpit;
+
+        // Turret view state
         private float _turretYaw = 0f;
         private float _turretPitch = 0f;
-        public bool IsTurretViewActive => _turretViewActive;
-        
-        public Camera(float aspectRatio, float fieldOfView = MathHelper.PiOver4, 
-                      float nearPlane = 1.5f, float farPlane = 100000f)
+        private const float MaxTurretPitch = MathHelper.PiOver2 - 0.1f;
+
+        // Shake effect state
+        private float _shakeMagnitude = 0f;
+        private float _shakeFrequency = 0f;
+        private float _shakeTimer = 0f;
+
+        public bool IsTurretViewActive => _currentView == CameraView.Turret;
+
+        public Camera(float aspectRatio)
         {
-            _aspectRatio = aspectRatio;
-            _fieldOfView = fieldOfView;
-            _nearPlane = nearPlane;
-            _farPlane = farPlane;
-            
-            // Start camera behind the origin at the proper distance
-            // Ship starts at (0,0,0) facing forward (0,0,1), so camera should be at (0, _height, -_distance)
-            Position = new Vector3(0, _height, -_distance);
-            Target = Vector3.Zero;
-            Up = Vector3.Up;
-            
-            UpdateProjection();
-            UpdateView();
+            Projection = Matrix.CreatePerspectiveFieldOfView(
+                MathHelper.ToRadians(60), // 60-degree FOV
+                aspectRatio,
+                0.1f,       // Near clip plane
+                100000f);   // Far clip plane (very long for space)
         }
 
-        public void Follow(Vector3 shipPosition, Vector3 shipForward, Vector3 shipUp, float smoothing = 0.1f)
+        public void Follow(Vector3 targetPosition, Vector3 targetForward, Vector3 targetUp, float followSpeed)
         {
-            if (_turretViewActive)
+            // Base cockpit view position (behind and slightly above the ship)
+            Vector3 desiredPosition = targetPosition - targetForward * 12f + targetUp * 4f;
+
+            // Apply shake offset
+            Vector3 shakeOffset = Vector3.Zero;
+            if (_shakeMagnitude > 0)
             {
-                // Turret view: camera orbits around ship based on turret angles
-                // Create rotation from turret angles
-                Matrix turretRotation = Matrix.CreateFromYawPitchRoll(_turretYaw, _turretPitch, 0f);
-                Vector3 offset = Vector3.Transform(new Vector3(0, 0, -_distance), turretRotation);
-                Position = shipPosition + offset;
-                Target = shipPosition;
-                Up = Vector3.Transform(Vector3.Up, turretRotation);
+                shakeOffset = new Vector3(
+                    (float)(Math.Sin(_shakeTimer * _shakeFrequency) * _shakeMagnitude),
+                    (float)(Math.Cos(_shakeTimer * _shakeFrequency * 1.2) * _shakeMagnitude),
+                    (float)(Math.Sin(_shakeTimer * _shakeFrequency * 0.8) * _shakeMagnitude)
+                );
             }
-            else
+
+            Position = Vector3.Lerp(Position, desiredPosition, followSpeed) + shakeOffset;
+
+            // Determine look-at target and up direction based on view mode
+            Vector3 lookAtTarget;
+            Vector3 upDirection = targetUp;
+
+            switch (_currentView)
             {
-                // Normal chase camera
-                Vector3 desiredPosition = shipPosition - shipForward * _distance + shipUp * _height;
-                Position = Vector3.Lerp(Position, desiredPosition, smoothing);
-                Target = Vector3.Lerp(Target, shipPosition, smoothing);
-                Up = Vector3.Lerp(Up, shipUp, smoothing);
+                case CameraView.Turret:
+                    // Turret view: Look in a direction controlled by mouse/keys
+                    Matrix turretRotation = Matrix.CreateFromYawPitchRoll(_turretYaw, _turretPitch, 0);
+                    Vector3 lookDirection = Vector3.Transform(targetForward, turretRotation);
+                    lookAtTarget = Position + lookDirection;
+                    break;
+
+                case CameraView.Rear:
+                    // Rear view: Look back at the ship from in front of it
+                    Position = targetPosition + targetForward * 25f + targetUp * 6f; // Position in front of the ship
+                    lookAtTarget = targetPosition; // Look back at the ship
+                    break;
+
+                case CameraView.Cockpit:
+                default:
+                    // Standard cockpit view: Look forward from the camera position
+                    lookAtTarget = Position + targetForward;
+                    break;
             }
-            
-            UpdateView();
+
+            View = Matrix.CreateLookAt(Position, lookAtTarget, upDirection);
         }
-        
-        public void AddShake(float intensity, float decayRate = 5f)
-        {
-            // Add shake intensity (clamped to prevent extreme values)
-            _shakeIntensity = Math.Max(_shakeIntensity, intensity);
-            _shakeDecay = decayRate;
-        }
-        
+
         public void UpdateShake(float deltaTime)
         {
-            if (_shakeIntensity > 0.01f)
+            if (_shakeMagnitude > 0)
             {
-                // Generate random shake offset
-                _shakeOffset = new Vector3(
-                    ((float)_random.NextDouble() * 2f - 1f) * _shakeIntensity,
-                    ((float)_random.NextDouble() * 2f - 1f) * _shakeIntensity,
-                    ((float)_random.NextDouble() * 2f - 1f) * _shakeIntensity * 0.5f
-                );
-                
-                // Decay shake intensity over time
-                _shakeIntensity = MathHelper.Lerp(_shakeIntensity, 0f, _shakeDecay * deltaTime);
+                _shakeTimer += deltaTime;
+            }
+        }
+
+        public void AddShake(float magnitude, float frequency)
+        {
+            _shakeMagnitude = Math.Max(_shakeMagnitude, magnitude);
+            _shakeFrequency = Math.Max(_shakeFrequency, frequency);
+        }
+
+        public void ToggleTurretView()
+        {
+            if (_currentView == CameraView.Turret)
+            {
+                _currentView = CameraView.Cockpit;
             }
             else
             {
-                _shakeOffset = Vector3.Zero;
-                _shakeIntensity = 0f;
+                _currentView = CameraView.Turret;
+                _turretYaw = 0;
+                _turretPitch = 0;
             }
         }
 
-        private void UpdateView()
+        public void SetRearView()
         {
-            // Apply shake offset to both position and target
-            Vector3 shakenPosition = Position + _shakeOffset;
-            Vector3 shakenTarget = Target + _shakeOffset * 0.5f; // Target shakes less for smoother effect
-            
-            View = Matrix.CreateLookAt(shakenPosition, shakenTarget, Up);
+            _currentView = CameraView.Rear;
         }
 
-        private void UpdateProjection()
+        public void CycleView()
         {
-            Projection = Matrix.CreatePerspectiveFieldOfView(_fieldOfView, _aspectRatio, _nearPlane, _farPlane);
-        }
-        
-        public void ToggleTurretView()
-        {
-            _turretViewActive = !_turretViewActive;
-            if (_turretViewActive)
+            _currentView = (CameraView)(((int)_currentView + 1) % 3); // Cycles through Cockpit, Turret, Rear
+            if (_currentView == CameraView.Turret)
             {
-                // Reset turret angles to look forward when entering
-                _turretYaw = 0f;
-                _turretPitch = 0f;
+                _turretYaw = 0;
+                _turretPitch = 0;
             }
         }
-        
+
+        public string GetCurrentViewName()
+        {
+            switch (_currentView)
+            {
+                case CameraView.Cockpit: return "Cockpit View";
+                case CameraView.Turret: return "Turret View";
+                case CameraView.Rear: return "Rear View";
+                default: return "Unknown View";
+            }
+        }
+
         public void UpdateTurretView(float yawDelta, float pitchDelta)
         {
-            if (!_turretViewActive) return;
-            _turretYaw += yawDelta;
-            _turretPitch = MathHelper.Clamp(_turretPitch + pitchDelta, -MathHelper.PiOver2 + 0.1f, MathHelper.PiOver2 - 0.1f);
+            if (IsTurretViewActive)
+            {
+                _turretYaw += yawDelta;
+                _turretPitch = MathHelper.Clamp(_turretPitch + pitchDelta, -MaxTurretPitch, MaxTurretPitch);
+            }
         }
     }
 }
