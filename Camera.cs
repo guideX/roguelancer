@@ -14,9 +14,9 @@ namespace Roguelancer
         
         public Matrix View { get; private set; }
         public Matrix Projection { get; private set; }
-        
-        private float _distance = 150f;  // Distance behind the ship (Freelancer-style chase camera)
-        private float _height = 0f;     // Height offset (set to 0 for level view behind ship)
+
+        private float _distance = 120f;  // Distance behind the ship (Freelancer-style chase camera)
+        private float _height = 30f;     // Height above ship for good viewing angle
         private readonly float _aspectRatio;
         private readonly float _fieldOfView;
         private readonly float _nearPlane;

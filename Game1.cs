@@ -311,6 +311,7 @@ namespace Roguelancer
                 // Mouse input (if not in mouse flight mode)
                 if (!_playerShip.MouseFlightEnabled && mouseState.LeftButton == ButtonState.Pressed)
                 {
+                    // AI: This isn't working!
                     Vector2 screenCenter = new Vector2(GraphicsDevice.Viewport.Width / 2f, GraphicsDevice.Viewport.Height / 2f);
                     Vector2 mousePos = new Vector2(mouseState.X, mouseState.Y);
                     Vector2 mouseDelta = mousePos - screenCenter;

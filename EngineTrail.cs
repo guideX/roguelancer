@@ -24,9 +24,9 @@ namespace Roguelancer
         private readonly Texture2D _texture;
         
         // Emission control
-        public float EmissionRate = 200f; // particles per second per engine at full throttle
-        public float ParticleLife = 2.5f; // seconds
-        public float BaseSize = 3f;
+        public float EmissionRate = 100f; // particles per second per engine at full throttle
+        public float ParticleLife = 1.25f; // seconds
+        public float BaseSize = 1.5f;
         
         private float _emissionAccumulator;
         
@@ -134,7 +134,7 @@ namespace Roguelancer
                     p.Velocity = (baseDir + rand) * (30f + intensity * 60f);
                     p.Life = 0f;
                     p.MaxLife = ParticleLife * (ship.IsAfterburnerActive ? 0.7f : 1f);
-                    p.Size = BaseSize + intensity * 6f;
+                    p.Size = BaseSize + intensity * 3f; // Was 6f
                     _particles.Add(p);
                 }
             }

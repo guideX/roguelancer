@@ -17,14 +17,14 @@ namespace Roguelancer
         
         // Movement properties
         public float Speed { get; private set; }
-        public float MaxSpeed { get; set; } = 1000f;
-        public float MaxReverseSpeed { get; set; } = 500f;
-        public float CruiseSpeed { get; set; } = 4000f; 
-        public float AfterburnerSpeed { get; set; } = 1500f; 
-        public float Acceleration { get; set; } = 400f; 
+        public float MaxSpeed { get; set; } = 250f;
+        public float MaxReverseSpeed { get; set; } = 150f;
+        public float CruiseSpeed { get; set; } = 500f;
+        public float AfterburnerSpeed { get; set; } = 350f; 
+        public float Acceleration { get; set; } = 50f; 
         public float TurnSpeed { get; set; } = 1.5f;
         public float BankAmount { get; set; } = 1.2f;
-        public float StrafeSpeed { get; set; } = 300;
+        public float StrafeSpeed { get; set; } = 250f;
         
         // Ship state
         private float _currentBankAngle = 0f;
@@ -116,7 +116,7 @@ namespace Roguelancer
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
             MouseState mouseState = Mouse.GetState();
             
-            bool spacebarHeld = keyboardState.IsKeyDown(Keys.Space);
+            bool spacebarPressed = keyboardState.IsKeyDown(Keys.Space) && _previousKeyboardState.IsKeyUp(Keys.Space);
             bool leftMouseHeld = mouseState.LeftButton == ButtonState.Pressed;
             
             bool zPressed = keyboardState.IsKeyDown(Keys.Z) && _previousKeyboardState.IsKeyUp(Keys.Z);
@@ -143,36 +143,22 @@ namespace Roguelancer
                 if (IsAfterburnerActive) IsAfterburnerActive = false;
             }
             
-            if (spacebarHeld)
+            // ✅ FIX: Use spacebar as a TOGGLE, not a hold
+            if (spacebarPressed)
             {
-                if (!_mouseFlightEnabled)
-                {
-                    _mouseFlightEnabled = true;
-                    _mouseFlightInitialized = false;
-                    Console.WriteLine("✈️ MOUSE FLIGHT MODE - Move mouse to steer");
-                }
-            }
-            else
-            {
+                _mouseFlightEnabled = !_mouseFlightEnabled;
                 if (_mouseFlightEnabled)
                 {
-                    _mouseFlightEnabled = false;
+                    _mouseFlightInitialized = false; // Reset mouse position on mode entry
+                    Console.WriteLine("✈️ MOUSE FLIGHT MODE - Move mouse to steer");
+                }
+                else
+                {
                     Console.WriteLine("⌨️ FREE FLIGHT MODE - Arrow keys to steer");
                 }
             }
             
-            bool temporaryFreeFlightActive = spacebarHeld && leftMouseHeld;
-            if (temporaryFreeFlightActive && _prevLeftMouseState == ButtonState.Released)
-            {
-                Console.WriteLine("🎯 TEMPORARY FREE FLIGHT - LMB held (targeting/clicking)");
-            }
-            else if (_mouseFlightEnabled && !temporaryFreeFlightActive && _prevLeftMouseState == ButtonState.Pressed && !leftMouseHeld)
-            {
-                Console.WriteLine("✈️ MOUSE FLIGHT RESUMED - LMB released");
-                _mouseFlightInitialized = false;
-            }
-            
-            bool fireWeapons = (mouseState.RightButton == ButtonState.Pressed && _prevLeftMouseState == ButtonState.Released) ||
+            bool fireWeapons = (mouseState.RightButton == ButtonState.Pressed && _previousKeyboardState.IsKeyUp(Keys.Right)) ||
                               (keyboardState.IsKeyDown(Keys.LeftControl) && _previousKeyboardState.IsKeyUp(Keys.LeftControl)) ||
                               (keyboardState.IsKeyDown(Keys.RightControl) && _previousKeyboardState.IsKeyUp(Keys.RightControl));
             
@@ -274,9 +260,8 @@ namespace Roguelancer
             }
             
             float pitchInput = 0f, yawInput = 0f, rollInput = 0f;
-            bool mouseFlightActive = _mouseFlightEnabled && !temporaryFreeFlightActive;
 
-            if (mouseFlightActive)
+            if (_mouseFlightEnabled)
             {
                 Vector2 currentMousePos = new Vector2(mouseState.X, mouseState.Y);
                 if (!_mouseFlightInitialized)
