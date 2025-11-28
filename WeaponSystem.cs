@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -65,6 +65,13 @@ namespace Roguelancer
         // Weapon stats by type
         private readonly Dictionary<WeaponType, WeaponStats> _weaponStats;
 
+        // Refire tracking
+        private float _refireTimer = 0f; // Time until next shot can be fired
+        private bool _isFiring = false; // Track if weapon is actively firing
+        
+        // Energy system reference
+        private ShipEnergy _energy;
+
         private class WeaponStats
         {
             public float Speed;
@@ -72,6 +79,8 @@ namespace Roguelancer
             public float Size;
             public Color Color;
             public float MuzzleFlashSize;
+            public float RefireRate; // Time between shots in seconds
+            public float EnergyCost; // Energy required per shot
         }
         
         // Batching buffers
@@ -104,11 +113,13 @@ namespace Roguelancer
                     WeaponType.BlueDonut,
                     new WeaponStats
                     {
-                        Speed = 800f,
-                        Life = 3.0f,
-                        Size = 50f,
+                        Speed = 1200f,
+                        Life = 4.0f,
+                        Size = 25f,
                         Color = new Color(100, 200, 255),
-                        MuzzleFlashSize = 30f
+                        MuzzleFlashSize = 25f,
+                        RefireRate = 0.25f, // 4 shots per second
+                        EnergyCost = 10f // Medium energy cost
                     }
                 },
                 {
@@ -119,7 +130,9 @@ namespace Roguelancer
                         Life = 2.5f,
                         Size = 35f,
                         Color = new Color(255, 150, 50),
-                        MuzzleFlashSize = 40f
+                        MuzzleFlashSize = 40f,
+                        RefireRate = 0.5f, // 2 shots per second (slower)
+                        EnergyCost = 20f // High energy cost (powerful weapon)
                     }
                 },
                 {
@@ -130,7 +143,9 @@ namespace Roguelancer
                         Life = 1.0f,   // Short lived
                         Size = 25f,
                         Color = new Color(50, 255, 100), // Green energy
-                        MuzzleFlashSize = 20f
+                        MuzzleFlashSize = 20f,
+                        RefireRate = 0.1f, // 10 shots per second (very fast!)
+                        EnergyCost = 5f // Low energy cost (fast but weak)
                     }
                 },
                 {
@@ -141,7 +156,9 @@ namespace Roguelancer
                         Life = 1.5f, // Longer beam duration (was 0.5f)
                         Size = 120f, // Even thicker beam (was 80f)
                         Color = new Color(255, 255, 100), // Bright yellow beam (was purple)
-                        MuzzleFlashSize = 60f
+                        MuzzleFlashSize = 60f,
+                        RefireRate = 0f, // Not used for charge beam
+                        EnergyCost = 30f // High energy cost per second of firing
                     }
                 }
             };
@@ -152,7 +169,7 @@ namespace Roguelancer
             Texture2D tex = new Texture2D(device, size, size);
             Color[] data = new Color[size * size];
             Vector2 center = new Vector2(size / 2f);
-            float maxDist = size / 2f;
+            float maxDist = size / 4f;
             
             for (int y = 0; y < size; y++)
             {
@@ -161,7 +178,7 @@ namespace Roguelancer
                     float d = Vector2.Distance(new Vector2(x, y), center) / maxDist;
                     
                     // Create DONUT/RING shape
-                    float ringOuterRadius = 1.0f;
+                    float ringOuterRadius = 0.7f;
                     float ringInnerRadius = 0.4f;
                     float ringThickness = 0.3f;
                     
@@ -172,7 +189,7 @@ namespace Roguelancer
                         float distFromCenter = Math.Abs(d - (ringInnerRadius + ringOuterRadius) / 2f);
                         float normalizedDist = distFromCenter / (ringThickness / 2f);
                         a = 1f - MathHelper.Clamp(normalizedDist, 0f, 1f);
-                        a = (float)Math.Pow(a, 2);
+                        a = (float)Math.Pow(a, 4);
                     }
                     
                     data[y * size + x] = new Color(1f, 1f, 1f, MathHelper.Clamp(a, 0f, 1f));
@@ -276,10 +293,13 @@ namespace Roguelancer
             return tex;
         }
         
-        public void Fire(Vector3 origin, Vector3 direction, Vector3 shipVelocity)
+        /// <summary>
+        /// Start firing (call this when mouse button is pressed/held)
+        /// </summary>
+        public void StartFiring(Vector3 origin, Vector3 direction, Vector3 shipVelocity)
         {
-            WeaponStats stats = _weaponStats[CurrentWeapon];
-
+            _isFiring = true;
+            
             // Special handling for charge beam
             if (CurrentWeapon == WeaponType.ChargeBeam)
             {
@@ -296,10 +316,10 @@ namespace Roguelancer
                         FiringTime = 0f,
                         MaxFiringTime = float.MaxValue, // Fire indefinitely while held
                         IsFiring = false,
-                        BeamColor = stats.Color
+                        BeamColor = _weaponStats[CurrentWeapon].Color
                     };
                     _chargeBeams.Add(beam);
-                    Console.WriteLine($"? CHARGE BEAM: Started charging...");
+                    Console.WriteLine($"⚡ CHARGE BEAM: Started charging...");
                 }
                 else
                 {
@@ -309,6 +329,53 @@ namespace Roguelancer
                 }
                 return; // Don't create projectile
             }
+
+            // Regular projectile weapons: Check if refire timer allows firing AND we have energy
+            if (_refireTimer <= 0f)
+            {
+                WeaponStats stats = _weaponStats[CurrentWeapon];
+                
+                // Check if we have enough energy
+                if (_energy != null && !_energy.TryConsume(stats.EnergyCost))
+                {
+                    // Not enough energy - don't fire
+                    return;
+                }
+                
+                FireProjectile(origin, direction, shipVelocity);
+                _refireTimer = stats.RefireRate;
+            }
+        }
+
+        /// <summary>
+        /// Stop firing (call this when mouse button is released)
+        /// </summary>
+        public void StopFiring()
+        {
+            _isFiring = false;
+            
+            // Release charge beam if active
+            if (CurrentWeapon == WeaponType.ChargeBeam && _chargeBeams.Count > 0)
+            {
+                Console.WriteLine($"⚡ CHARGE BEAM: Released! Beam stopped.");
+                _chargeBeams.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Legacy Fire method - now calls StartFiring for compatibility
+        /// </summary>
+        public void Fire(Vector3 origin, Vector3 direction, Vector3 shipVelocity)
+        {
+            StartFiring(origin, direction, shipVelocity);
+        }
+
+        /// <summary>
+        /// Actually fire a projectile (internal method)
+        /// </summary>
+        private void FireProjectile(Vector3 origin, Vector3 direction, Vector3 shipVelocity)
+        {
+            WeaponStats stats = _weaponStats[CurrentWeapon];
 
             // Regular projectile weapons: Create DUAL projectiles from left and right
             // Calculate perpendicular offset vector (perpendicular to firing direction)
@@ -358,17 +425,12 @@ namespace Roguelancer
             };
             _muzzleFlashes.Add(flash);
             
-            Console.WriteLine($"?? {CurrentWeapon} DUAL FIRED! Speed: {stats.Speed:F0}, Size: {stats.Size:F0}");
+            Console.WriteLine($"🔫 {CurrentWeapon} DUAL FIRED! Speed: {stats.Speed:F0}, RefireRate: {stats.RefireRate:F2}s");
         }
 
         public void ReleaseCharge(Vector3 origin, Vector3 direction)
         {
-            if (CurrentWeapon != WeaponType.ChargeBeam || _chargeBeams.Count == 0)
-                return;
-
-            // Release means stop firing - clear the beam
-            Console.WriteLine($"? CHARGE BEAM: Released! Beam stopped.");
-            _chargeBeams.Clear();
+            StopFiring();
         }
 
         public bool IsCharging()
@@ -411,7 +473,7 @@ namespace Roguelancer
                     _projectiles.RemoveAt(i);
                     anyHit = true;
                     
-                    Console.WriteLine($"?? HIT! Weapon: {p.Type}, Damage: {damage:F1}");
+                    Console.WriteLine($"💥 HIT! Weapon: {p.Type}, Damage: {damage:F1}");
                 }
             }
             
@@ -436,6 +498,12 @@ namespace Roguelancer
         public void Update(GameTime gameTime)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            
+            // Update refire timer
+            if (_refireTimer > 0f)
+            {
+                _refireTimer -= dt;
+            }
             
             // Update projectiles
             for (int i = _projectiles.Count - 1; i >= 0; i--)
@@ -479,14 +547,25 @@ namespace Roguelancer
                     {
                         beam.IsFiring = true;
                         beam.FiringTime = 0f;
-                        Console.WriteLine($"? CHARGE BEAM: FULLY CHARGED! AUTO-FIRING!");
+                        Console.WriteLine($"⚡ CHARGE BEAM: FULLY CHARGED! AUTO-FIRING!");
                     }
                 }
                 else
                 {
-                    // Firing - continues indefinitely until released
+                    // Firing - consume energy continuously
+                    WeaponStats stats = _weaponStats[WeaponType.ChargeBeam];
+                    float energyNeeded = stats.EnergyCost * dt;
+                    
+                    if (_energy != null && !_energy.TryConsume(energyNeeded))
+                    {
+                        // Out of energy - stop firing
+                        Console.WriteLine($"⚡ CHARGE BEAM: Out of energy! Beam stopped.");
+                        _chargeBeams.RemoveAt(i);
+                        continue;
+                    }
+                    
                     beam.FiringTime += dt;
-                    // No timeout - fires until user releases mouse button
+                    // No timeout - fires until user releases mouse button or energy runs out
                 }
             }
         }
@@ -812,6 +891,14 @@ namespace Roguelancer
             _graphicsDevice.DepthStencilState = oldDepth;
             _graphicsDevice.RasterizerState = oldRaster;
             _graphicsDevice.SamplerStates[0] = oldSampler;
+        }
+        
+        /// <summary>
+        /// Set the energy system for this weapon system
+        /// </summary>
+        public void SetEnergySystem(ShipEnergy energy)
+        {
+            _energy = energy;
         }
     }
 }

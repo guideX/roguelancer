@@ -449,6 +449,17 @@ namespace Roguelancer {
             // Update lighting direction based on sun position
             _lightDirection = _sun.GetLightDirection(_playerShip.Position);
 
+            // Update starfield lifecycle
+            _starfield.Update(deltaTime);
+
+            // Cycle starfield mode with B key
+            if (keyboardState.IsKeyDown(Keys.B) && _prevKeys.IsKeyUp(Keys.B))
+            {
+                _starfield.CycleMode();
+                _notificationManager.ShowMessage($"Starfield: {_starfield.GetModeName()}");
+                Console.WriteLine($"[STARFIELD] Mode changed to: {_starfield.GetModeName()}");
+            }
+
             // Update mouse visibility based on flight mode
             IsMouseVisible = !_playerShip.IsFreeFlightMode;
 
@@ -557,57 +568,13 @@ namespace Roguelancer {
                 Vector3 centerGunOffset = new Vector3(0f, 0f, 20f);
                 Vector3 gunPosition = Vector3.Transform(centerGunOffset, shipTransform);
 
-                // Charge beam: fire continuously while held
-                if (_weaponSystem.CurrentWeapon == WeaponType.ChargeBeam)
-                {
-                    if (_prevMouseState.RightButton == ButtonState.Released)
-                    {
-                        // Just pressed - start charging
-                        _weaponSystem.Fire(gunPosition, mouseAimDirection, _playerShip.Velocity);
-                    }
-                    else
-                    {
-                        // Still holding - continue charging/firing (update position/direction)
-                        _weaponSystem.Fire(gunPosition, mouseAimDirection, _playerShip.Velocity);
-                    }
-                }
-                else
-                {
-                    // Regular weapons: fire only on initial press (WeaponSystem creates dual shots internally)
-                    if (_prevMouseState.RightButton == ButtonState.Released)
-                    {
-                        _weaponSystem.Fire(gunPosition, mouseAimDirection, _playerShip.Velocity);
-                        Console.WriteLine($"Fired {_weaponSystem.CurrentWeapon}!");
-                    }
-                }
+                // Continuously fire while holding - weapon system handles refire rate internally
+                _weaponSystem.StartFiring(gunPosition, mouseAimDirection, _playerShip.Velocity);
             }
             else if (_prevMouseState.RightButton == ButtonState.Pressed)
             {
-                // Mouse button released - stop charge beam (whether charging or firing)
-                if (_weaponSystem.CurrentWeapon == WeaponType.ChargeBeam)
-                {
-                    Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
-                    Matrix shipTransform = modelCorrection * _playerShip.Orientation * Matrix.CreateTranslation(_playerShip.Position);
-
-                    Vector3 nearPoint = GraphicsDevice.Viewport.Unproject(
-                        new Vector3(mouseState.X, mouseState.Y, 0),
-                        _camera.Projection,
-                        _camera.View,
-                        Matrix.Identity
-                    );
-
-                    Vector3 farPoint = GraphicsDevice.Viewport.Unproject(
-                        new Vector3(mouseState.X, mouseState.Y, 1),
-                        _camera.Projection,
-                        _camera.View,
-                        Matrix.Identity
-                    );
-
-                    Vector3 mouseAimDirection = Vector3.Normalize(farPoint - nearPoint);
-                    Vector3 centerGunPos = Vector3.Transform(new Vector3(0f, 0f, 20f), shipTransform);
-
-                    _weaponSystem.ReleaseCharge(centerGunPos, mouseAimDirection);
-                }
+                // Mouse button released - stop firing
+                _weaponSystem.StopFiring();
             }
 
 

@@ -78,6 +78,15 @@ namespace Roguelancer.Configuration {
         [JsonPropertyName("cargo_space")]
         public int CargoSpace { get; set; } = 50;
 
+        [JsonPropertyName("max_energy")]
+        public float MaxEnergy { get; set; } = 200f;
+
+        [JsonPropertyName("energy_regen_rate")]
+        public float EnergyRegenRate { get; set; } = 50f;
+
+        [JsonPropertyName("energy_regen_delay")]
+        public float EnergyRegenDelay { get; set; } = 2f;
+
         [JsonPropertyName("patrol_center_x")]
         public float? PatrolCenterX { get; set; }
 
