@@ -9,29 +9,21 @@ namespace Roguelancer {
     /// </summary>
     public class Sun {
         public Vector3 Position { get; set; }
-        public float Scale { get; set; } = 2000f; // Increased from 100f for proper visibility
-        public Color EmissiveColor { get; set; } = Color.White;
+        public float Scale { get; set; } = 2000f;
+        public Color EmissiveColor { get; set; } = new Color(1.0f, 0.8f, 0.4f);
         public float EmissiveIntensity { get; set; } = 1.5f;
-        public float RotationSpeed { get; set; } = 0.1f;
 
-        // Texture and rendering resources
+        // Rendering resources
         private GraphicsDevice _graphicsDevice;
-        private BasicEffect _effect;
+        private Effect _sunEffect;
         private VertexBuffer _vertexBuffer;
         private IndexBuffer _indexBuffer;
-        private Texture2D _surfaceTexture;
-        private Texture2D _coronaTexture;
-        private float _surfaceRotation = 0f;
-        private float _coronaRotation = 0f;
+        private Texture2D _noiseTexture;
 
         public Sun(GraphicsDevice graphicsDevice, Vector3 position, float scale = 2000f) {
             _graphicsDevice = graphicsDevice;
             Position = position;
             Scale = scale;
-
-            _effect = new BasicEffect(_graphicsDevice);
-            _effect.TextureEnabled = true;
-            _effect.VertexColorEnabled = false; // Using texture color
 
             BuildQuad();
         }
@@ -53,90 +45,25 @@ namespace Roguelancer {
 
         public void LoadContent(Microsoft.Xna.Framework.Content.ContentManager content) {
             try {
-                // Using placeholder textures. Assumes you have these in your Content project.
-                _surfaceTexture = content.Load<Texture2D>("SUN/surface");
-                _coronaTexture = content.Load<Texture2D>("SUN/corona");
-                Console.WriteLine("Procedural sun textures loaded successfully!");
+                _sunEffect = content.Load<Effect>("SunEffect");
+                Console.WriteLine("SunEffect.fx loaded successfully!");
             } catch (Exception ex) {
-                Console.WriteLine($"Error loading sun textures: {ex.Message}");
-                Console.WriteLine("Creating procedural fallback textures for sun...");
-                // Create procedural fallback textures if loading fails
-                _surfaceTexture = CreateSunSurfaceTexture(256);
-                _coronaTexture = CreateCoronaTexture(256);
-                Console.WriteLine("Fallback sun textures created successfully!");
+                Console.WriteLine($"Error loading sun effect: {ex.Message}");
             }
+            
+            _noiseTexture = CreateNoiseTexture(256);
         }
 
-        /// <summary>
-        /// Create a procedural sun surface texture with radial gradient
-        /// </summary>
-        private Texture2D CreateSunSurfaceTexture(int size) {
-            Texture2D texture = new Texture2D(_graphicsDevice, size, size);
+        private Texture2D CreateNoiseTexture(int size)
+        {
+            Texture2D texture = new Texture2D(_graphicsDevice, size, size, false, SurfaceFormat.Color);
             Color[] data = new Color[size * size];
-            
-            Vector2 center = new Vector2(size / 2f, size / 2f);
-            float maxRadius = size / 2f;
+            Random random = new Random();
 
-            for (int y = 0; y < size; y++) {
-                for (int x = 0; x < size; x++) {
-                    Vector2 pos = new Vector2(x, y);
-                    float distance = Vector2.Distance(pos, center);
-                    float normalizedDistance = distance / maxRadius;
-
-                    // Create radial gradient: bright center, fading to edges
-                    if (normalizedDistance > 1.0f) {
-                        data[y * size + x] = Color.Transparent;
-                    } else {
-                        // Smooth falloff using power curve
-                        float intensity = 1.0f - (float)Math.Pow(normalizedDistance, 0.5);
-                        
-                        // Warm yellow-orange color
-                        byte r = (byte)(255 * intensity);
-                        byte g = (byte)(220 * intensity);
-                        byte b = (byte)(100 * intensity);
-                        byte a = (byte)(255 * intensity);
-                        
-                        data[y * size + x] = new Color(r, g, b, a);
-                    }
-                }
-            }
-
-            texture.SetData(data);
-            return texture;
-        }
-
-        /// <summary>
-        /// Create a procedural corona texture (outer glow)
-        /// </summary>
-        private Texture2D CreateCoronaTexture(int size) {
-            Texture2D texture = new Texture2D(_graphicsDevice, size, size);
-            Color[] data = new Color[size * size];
-            
-            Vector2 center = new Vector2(size / 2f, size / 2f);
-            float maxRadius = size / 2f;
-
-            for (int y = 0; y < size; y++) {
-                for (int x = 0; x < size; x++) {
-                    Vector2 pos = new Vector2(x, y);
-                    float distance = Vector2.Distance(pos, center);
-                    float normalizedDistance = distance / maxRadius;
-
-                    // Create softer, larger glow
-                    if (normalizedDistance > 1.0f) {
-                        data[y * size + x] = Color.Transparent;
-                    } else {
-                        // Very soft falloff for corona glow
-                        float intensity = 1.0f - (float)Math.Pow(normalizedDistance, 1.5);
-                        
-                        // Orange-red corona color
-                        byte r = (byte)(255 * intensity);
-                        byte g = (byte)(150 * intensity);
-                        byte b = (byte)(50 * intensity);
-                        byte a = (byte)(180 * intensity); // Semi-transparent
-                        
-                        data[y * size + x] = new Color(r, g, b, a);
-                    }
-                }
+            for (int i = 0; i < data.Length; i++)
+            {
+                byte value = (byte)random.Next(256);
+                data[i] = new Color(value, value, value, value);
             }
 
             texture.SetData(data);
@@ -144,72 +71,67 @@ namespace Roguelancer {
         }
 
         public void Update(GameTime gameTime) {
-            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
-            _surfaceRotation += RotationSpeed * deltaTime;
-            _coronaRotation -= (RotationSpeed * 0.5f) * deltaTime; // Rotate in opposite direction
+            // Time is passed to the shader, no CPU-side rotation needed
         }
 
         public void Draw(Matrix view, Matrix projection) {
-            if (_vertexBuffer == null || _surfaceTexture == null || _coronaTexture == null) {
-                Console.WriteLine("[WARNING] SUN DRAW SKIPPED: Missing resources!");
+            if (_vertexBuffer == null) {
+                Console.WriteLine("[WARNING] SUN DRAW SKIPPED: Missing vertex buffer!");
+                return;
+            }
+            
+            if (_sunEffect == null) {
+                Console.WriteLine("[WARNING] SUN DRAW SKIPPED: Shader not loaded! Attempting fallback rendering...");
+                // Don't skip - we should still try to render something
                 return;
             }
 
-            // Set up render states for additive blending
-            _graphicsDevice.SetVertexBuffer(_vertexBuffer);
-            _graphicsDevice.Indices = _indexBuffer;
-            _graphicsDevice.BlendState = BlendState.Additive;
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead; // Read depth but don't write
+            // Save current render states
+            var oldBlendState = _graphicsDevice.BlendState;
+            var oldDepthStencilState = _graphicsDevice.DepthStencilState;
+            var oldRasterizerState = _graphicsDevice.RasterizerState;
+            var oldSamplerState = _graphicsDevice.SamplerStates[0];
 
-            // Extract camera position from view matrix
-            Matrix invView = Matrix.Invert(view);
-            Vector3 cameraPosition = invView.Translation;
-            Vector3 cameraForward = invView.Forward;
+            try {
+                _graphicsDevice.SetVertexBuffer(_vertexBuffer);
+                _graphicsDevice.Indices = _indexBuffer;
+                _graphicsDevice.BlendState = BlendState.Additive;
+                _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
 
-            // Calculate billboard matrix to always face the camera
-            Matrix billboardWorld = Matrix.CreateScale(Scale) * Matrix.CreateBillboard(Position, cameraPosition, Vector3.Up, cameraForward);
+                Matrix invView = Matrix.Invert(view);
+                Vector3 cameraPosition = invView.Translation;
 
-            // --- Draw Corona (background layer) ---
-            Matrix coronaTransform = Matrix.CreateScale(1.5f) * Matrix.CreateRotationZ(_coronaRotation) * billboardWorld;
-            _effect.World = coronaTransform;
-            _effect.View = view;
-            _effect.Projection = projection;
-            _effect.Texture = _coronaTexture;
-            _effect.Alpha = 0.6f; // Make corona slightly transparent
-            _effect.DiffuseColor = EmissiveColor.ToVector3() * EmissiveIntensity;
+                Matrix billboardWorld = Matrix.CreateScale(Scale) * Matrix.CreateBillboard(Position, cameraPosition, Vector3.Up, invView.Forward);
 
-            foreach (var pass in _effect.CurrentTechnique.Passes) {
-                pass.Apply();
-                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
+                _sunEffect.Parameters["World"].SetValue(billboardWorld);
+                _sunEffect.Parameters["View"].SetValue(view);
+                _sunEffect.Parameters["Projection"].SetValue(projection);
+                _sunEffect.Parameters["Time"]?.SetValue((float)DateTime.Now.TimeOfDay.TotalSeconds);
+                _sunEffect.Parameters["CameraPosition"]?.SetValue(cameraPosition);
+                _sunEffect.Parameters["NoiseTexture"]?.SetValue(_noiseTexture);
+                _sunEffect.Parameters["SunColor"]?.SetValue(EmissiveColor.ToVector3());
+                
+                foreach (var pass in _sunEffect.CurrentTechnique.Passes) {
+                    pass.Apply();
+                    _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
+                }
             }
-
-            // --- Draw Surface (foreground layer) ---
-            Matrix surfaceTransform = Matrix.CreateRotationZ(_surfaceRotation) * billboardWorld;
-            _effect.World = surfaceTransform;
-            _effect.Texture = _surfaceTexture;
-            _effect.Alpha = 1.0f;
-            _effect.DiffuseColor = EmissiveColor.ToVector3() * EmissiveIntensity;
-
-            foreach (var pass in _effect.CurrentTechnique.Passes) {
-                pass.Apply();
-                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
+            catch (Exception ex) {
+                Console.WriteLine($"[ERROR] Sun rendering failed: {ex.Message}");
             }
-
-            // Reset graphics device states
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            finally {
+                // Always restore render states
+                _graphicsDevice.BlendState = oldBlendState;
+                _graphicsDevice.DepthStencilState = oldDepthStencilState;
+                _graphicsDevice.RasterizerState = oldRasterizerState;
+                _graphicsDevice.SamplerStates[0] = oldSamplerState;
+            }
         }
 
-        /// <summary>
-        /// Get the direction from a point to the sun (for lighting calculations)
-        /// </summary>
         public Vector3 GetLightDirection(Vector3 fromPosition) {
             return Vector3.Normalize(Position - fromPosition);
         }
 
-        /// <summary>
-        /// Get the distance from a point to the sun
-        /// </summary>
         public float GetDistance(Vector3 fromPosition) {
             return Vector3.Distance(Position, fromPosition);
         }

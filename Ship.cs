@@ -286,9 +286,8 @@ namespace Roguelancer
             if (xPressed && !EnginesKilled)
             {
                 _throttle = -1.0f;
-                _targetSpeed = MaxReverseSpeed * _throttle;
                 _notificationManager?.ShowMessage("Reverse Thrusters");
-                Console.WriteLine("Reverse thrust engaged (stub)");
+                Console.WriteLine("Reverse thrust engaged");
             }
             
             if (f3Pressed) Dock();
@@ -323,7 +322,7 @@ namespace Roguelancer
                 }
                 else if (keyboardState.IsKeyDown(Keys.S) && !IsCruiseActive)
                 {
-                    _throttle = MathHelper.Clamp(_throttle - deltaTime * 0.5f, -1f, 1f);
+                    _throttle = MathHelper.Clamp(_throttle - deltaTime * 0.5f, 0f, 1f);
                     
                     if (IsAfterburnerActive)
                     {
@@ -334,7 +333,14 @@ namespace Roguelancer
 
                 if (!_gotoActive)
                 {
-                     _targetSpeed = IsAfterburnerActive ? AfterburnerSpeed : (_throttle >= 0 ? MaxSpeed * _throttle : MaxReverseSpeed * -_throttle);
+                    if (_throttle >= 0)
+                    {
+                        _targetSpeed = IsAfterburnerActive ? AfterburnerSpeed : MaxSpeed * _throttle;
+                    }
+                    else
+                    {
+                        _targetSpeed = MaxReverseSpeed * _throttle; // Use negative speed for reverse
+                    }
                 }
             }
             

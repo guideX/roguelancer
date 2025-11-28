@@ -21,6 +21,9 @@ namespace Roguelancer
         public float CollisionRadius { get; set; } = 10f; // For hit detection
         public bool IsDestroyed => Hull.IsDestroyed;
         
+        // Event to signal when the ship is destroyed
+        public event Action<NpcShip> OnDestroyed;
+
         private float _patrolRadius;
         private Vector3 _patrolCenter;
         private float _patrolAngle;
@@ -47,7 +50,7 @@ namespace Roguelancer
             Hull.OnDestroyed += () =>
             {
                 Console.WriteLine($"?? NPC SHIP '{Name}' DESTROYED!");
-                // TODO: Trigger explosion effect
+                OnDestroyed?.Invoke(this);
             };
             
             // Initial orientation facing toward patrol center
@@ -61,6 +64,8 @@ namespace Roguelancer
         
         public void Update(GameTime gameTime)
         {
+            if (IsDestroyed) return; // Don't update if destroyed
+
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
             
             // Update patrol angle
@@ -115,7 +120,7 @@ namespace Roguelancer
         
         public void Draw(Matrix view, Matrix projection, Vector3 lightDirection)
         {
-            if (Model == null) return;
+            if (Model == null || IsDestroyed) return;
             
             // Apply same model correction as player ship
             Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);

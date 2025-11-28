@@ -83,6 +83,14 @@ namespace Roguelancer {
         /// </summary>
         private List<NpcShip> _npcShips = new();
         /// <summary>
+        /// Wrecks
+        /// </summary>
+        private List<Wreck> _wrecks = new();
+        /// <summary>
+        /// Wreck Model
+        /// </summary>
+        private Model _wreckModel;
+        /// <summary>
         /// Markers
         /// </summary>
         private List<Marker3D> _markers = new();
@@ -158,8 +166,7 @@ namespace Roguelancer {
                     new Vector3(currentSystem.SunPositionX, currentSystem.SunPositionY, currentSystem.SunPositionZ), 
                     scale: currentSystem.SunScale) {
                     EmissiveColor = new Color(255, 220, 180), // Warm yellow-orange
-                    EmissiveIntensity = currentSystem.SunIntensity,
-                    RotationSpeed = currentSystem.SunRotationSpeed
+                    EmissiveIntensity = currentSystem.SunIntensity
                 };
                 
                 Console.WriteLine($"[SUN] INITIALIZED at position: {_sun.Position}, scale: {currentSystem.SunScale}, intensity: {currentSystem.SunIntensity}");
@@ -167,8 +174,7 @@ namespace Roguelancer {
                 // Fallback to hardcoded sun if no system config
                 _sun = new Sun(GraphicsDevice, new Vector3(5000, 2000, 3000), scale: 2000f) {
                     EmissiveColor = new Color(255, 220, 180),
-                    EmissiveIntensity = 2.0f,
-                    RotationSpeed = 0.05f
+                    EmissiveIntensity = 2.0f
                 };
                 Console.WriteLine("[SUN] Using default configuration (no system config found)");
             }
@@ -207,6 +213,7 @@ namespace Roguelancer {
                     );
                     npc.Velocity = shipConfig.InitialVelocity;
                     _npcShips.Add(npc);
+                    npc.OnDestroyed += HandleNpcDestroyed; // Subscribe to the event
                     Console.WriteLine($"[SHIP] Added patrol ship: {shipConfig.Description} (Model: {model.Name})");
                 } else {
                     // Static ship (no patrol)
@@ -219,6 +226,7 @@ namespace Roguelancer {
                     );
                     npc.Velocity = shipConfig.InitialVelocity;
                     _npcShips.Add(npc);
+                    npc.OnDestroyed += HandleNpcDestroyed; // Subscribe to the event
                     Console.WriteLine($"[SHIP] Added static ship: {shipConfig.Description} (Model: {model.Name})");
                 }
             }
@@ -253,6 +261,19 @@ namespace Roguelancer {
             try {
                 _playerShip.Model = Content.Load<Model>("SHIPS/scimitar/Scimitar2");
                 Console.WriteLine("Scimitar model loaded successfully!");
+
+                // Load wreck model
+                try
+                {
+                    _wreckModel = Content.Load<Model>("MODELS/wreck");
+                    Console.WriteLine("Wreck model loaded successfully!");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error loading wreck model: {ex.Message}");
+                    // Fallback to a simple model or null if it fails
+                    _wreckModel = null;
+                }
 
                 // Load models for NPC ships based on their configuration
                 for (int i = 0; i < _npcShips.Count; i++) {
@@ -440,6 +461,12 @@ namespace Roguelancer {
                 npc.Update(gameTime);
             }
 
+            // Update wrecks
+            foreach (var wreck in _wrecks)
+            {
+                wreck.Update(gameTime);
+            }
+
             // FIX: Update motion trail
             _motionTrail.Update(deltaTime, _playerShip.Position, _playerShip.Speed);
 
@@ -581,6 +608,17 @@ namespace Roguelancer {
             HandleTargetingInput(keyboardState);
 
             base.Update(gameTime);
+        }
+
+        private void HandleNpcDestroyed(NpcShip destroyedShip)
+        {
+            // Create a wreck where the NPC ship was destroyed
+            if (_wreckModel != null)
+            {
+                var wreck = new Wreck(destroyedShip.Position, destroyedShip.Orientation, _wreckModel);
+                _wrecks.Add(wreck);
+                Console.WriteLine($"Wreck created at {wreck.Position}");
+            }
         }
 
         private void HandleTargetingInput(KeyboardState kb) {
@@ -750,6 +788,12 @@ namespace Roguelancer {
             // Draw NPC ships
             foreach (var npc in _npcShips) {
                 npc.Draw(_camera.View, _camera.Projection, _lightDirection);
+            }
+
+            // Draw wrecks
+            foreach (var wreck in _wrecks)
+            {
+                wreck.Draw(_camera.View, _camera.Projection, _lightDirection);
             }
 
             // Draw reference markers (helps visualize movement) - FIXED in world space
