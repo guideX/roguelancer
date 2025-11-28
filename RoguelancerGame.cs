@@ -965,12 +965,177 @@ namespace Roguelancer {
                 _spriteBatch.Draw(_pixel, new Rectangle(panel.X + 10, panel.Y + 30, (int)(380 * MathHelper.Clamp(distance / 10000f, 0f, 1f)), 30), Color.Orange * 0.8f);
             }
 
-            // Draw targeting reticle on the actual target
+            // Draw targeting reticle on the actual target or off-screen indicator
             Vector3 screenPos3D = GraphicsDevice.Viewport.Project(target.Position, _camera.Projection, _camera.View, Matrix.Identity);
-            if (screenPos3D.Z >= 0 && screenPos3D.Z <= 1) // Only if in front of camera
+            
+            // Check if target is on screen
+            bool isOnScreen = screenPos3D.Z >= 0 && screenPos3D.Z <= 1 &&
+                             screenPos3D.X >= 0 && screenPos3D.X <= GraphicsDevice.Viewport.Width &&
+                             screenPos3D.Y >= 0 && screenPos3D.Y <= GraphicsDevice.Viewport.Height;
+            
+            if (isOnScreen)
             {
+                // Target is visible - draw reticle on it
                 Vector2 targetScreenPos = new Vector2(screenPos3D.X, screenPos3D.Y);
                 DrawTargetingReticle(targetScreenPos, distance);
+            }
+            else
+            {
+                // Target is off-screen - draw directional arrow at screen edge
+                DrawOffScreenTargetIndicator(target.Position, distance);
+            }
+        }
+
+        /// <summary>
+        /// Draw an arrow at the edge of the screen pointing toward an off-screen target
+        /// </summary>
+        private void DrawOffScreenTargetIndicator(Vector3 targetWorldPos, float distance)
+        {
+            // Calculate direction from camera to target in screen space
+            Vector3 targetDir = targetWorldPos - _camera.Position;
+            targetDir.Normalize();
+            
+            // Transform direction to camera space
+            Matrix viewMatrix = _camera.View;
+            Vector3 targetCameraSpace = Vector3.TransformNormal(targetDir, viewMatrix);
+            
+            // Project to 2D screen direction (ignore depth)
+            Vector2 screenDir = new Vector2(targetCameraSpace.X, -targetCameraSpace.Y);
+            
+            // Handle case where target is behind camera
+            if (targetCameraSpace.Z > 0)
+            {
+                screenDir = -screenDir;
+            }
+            
+            if (screenDir.LengthSquared() > 0.0001f)
+            {
+                screenDir.Normalize();
+            }
+            else
+            {
+                // Fallback if we can't determine direction
+                screenDir = Vector2.UnitX;
+            }
+            
+            // Calculate arrow position at screen edge
+            int screenWidth = GraphicsDevice.Viewport.Width;
+            int screenHeight = GraphicsDevice.Viewport.Height;
+            int edgeMargin = 50; // Distance from screen edge
+            
+            Vector2 screenCenter = new Vector2(screenWidth / 2f, screenHeight / 2f);
+            Vector2 arrowPos = screenCenter;
+            
+            // Find intersection with screen rectangle
+            float halfWidth = screenWidth / 2f - edgeMargin;
+            float halfHeight = screenHeight / 2f - edgeMargin;
+            
+            // Calculate which edge the arrow should be on
+            float tx = (screenDir.X != 0) ? halfWidth / Math.Abs(screenDir.X) : float.MaxValue;
+            float ty = (screenDir.Y != 0) ? halfHeight / Math.Abs(screenDir.Y) : float.MaxValue;
+            float t = Math.Min(tx, ty);
+            
+            arrowPos = screenCenter + screenDir * t;
+            
+            // Calculate arrow rotation angle
+            float arrowAngle = (float)Math.Atan2(screenDir.Y, screenDir.X);
+            
+            // Draw the arrow indicator
+            Color arrowColor = Color.Orange;
+            float pulse = (float)Math.Sin(DateTime.Now.TimeOfDay.TotalSeconds * 4.0) * 0.3f + 0.7f;
+            arrowColor = arrowColor * pulse;
+            
+            DrawDirectionalArrow(arrowPos, arrowAngle, 30f, arrowColor);
+            
+            // Draw distance text near arrow
+            if (_font != null)
+            {
+                string distText = $"{distance / 1000f:F1}km";
+                Vector2 textSize = _font.MeasureString(distText);
+                Vector2 textOffset = new Vector2(-textSize.X / 2, -35); // Above arrow
+                
+                // Adjust text position to stay on screen
+                Vector2 textPos = arrowPos + textOffset;
+                textPos.X = MathHelper.Clamp(textPos.X, 5, screenWidth - textSize.X - 5);
+                textPos.Y = MathHelper.Clamp(textPos.Y, 5, screenHeight - textSize.Y - 5);
+                
+                _spriteBatch.DrawString(_font, distText, textPos, arrowColor * 0.8f);
+            }
+        }
+
+        /// <summary>
+        /// Draw a directional arrow pointing in a specific direction
+        /// </summary>
+        private void DrawDirectionalArrow(Vector2 position, float angle, float size, Color color)
+        {
+            // Arrow is drawn pointing right (0 radians), then rotated
+            Vector2 direction = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
+            Vector2 perpendicular = new Vector2(-direction.Y, direction.X);
+            
+            // Arrow vertices (triangle pointing right + tail)
+            Vector2 tip = position + direction * size;
+            Vector2 back = position - direction * (size * 0.4f);
+            Vector2 topWing = position + perpendicular * (size * 0.5f);
+            Vector2 bottomWing = position - perpendicular * (size * 0.5f);
+            
+            // Draw arrow body (triangle)
+            int thickness = 4;
+            
+            // Arrow tip to top wing
+            DrawLine(tip, topWing, thickness, color);
+            // Arrow tip to bottom wing
+            DrawLine(tip, bottomWing, thickness, color);
+            // Top wing to back
+            DrawLine(topWing, back, thickness, color);
+            // Bottom wing to back
+            DrawLine(bottomWing, back, thickness, color);
+            
+            // Draw arrow outline for visibility
+            DrawLine(tip, topWing, thickness + 2, Color.Black * 0.5f);
+            DrawLine(tip, bottomWing, thickness + 2, Color.Black * 0.5f);
+            DrawLine(topWing, back, thickness + 2, Color.Black * 0.5f);
+            DrawLine(bottomWing, back, thickness + 2, Color.Black * 0.5f);
+            
+            // Fill the arrow
+            DrawTriangle(tip, topWing, back, color * 0.7f);
+            DrawTriangle(tip, bottomWing, back, color * 0.7f);
+        }
+
+        /// <summary>
+        /// Draw a line between two points
+        /// </summary>
+        private void DrawLine(Vector2 start, Vector2 end, int thickness, Color color)
+        {
+            Vector2 edge = end - start;
+            float angle = (float)Math.Atan2(edge.Y, edge.X);
+            float length = edge.Length();
+            
+            _spriteBatch.Draw(_pixel,
+                new Rectangle((int)start.X, (int)start.Y, (int)length, thickness),
+                null,
+                color,
+                angle,
+                new Vector2(0, 0.5f),
+                SpriteEffects.None,
+                0);
+        }
+
+        /// <summary>
+        /// Draw a filled triangle (simple approximation using rectangles)
+        /// </summary>
+        private void DrawTriangle(Vector2 p1, Vector2 p2, Vector2 p3, Color color)
+        {
+            // Simple triangle fill - draw lines from center to edges
+            Vector2 center = (p1 + p2 + p3) / 3f;
+            
+            // Draw multiple lines to create a filled effect
+            int steps = 8;
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                Vector2 edge1 = Vector2.Lerp(p1, p2, t);
+                Vector2 edge2 = Vector2.Lerp(p1, p3, t);
+                DrawLine(edge1, edge2, 2, color);
             }
         }
 
