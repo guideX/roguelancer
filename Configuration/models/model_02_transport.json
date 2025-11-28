@@ -1,0 +1,9 @@
+{
+  "name": "Pirate Transport",
+  "description": "Heavy Transport Ship",
+  "type": 1,
+  "enabled": true,
+  "path": "SHIPS/PI_TRANSPORT/PI_TRANSPORT",
+  "model_scaling": 1.0,
+  "notes": "Large transport vessel for cargo operations"
+}

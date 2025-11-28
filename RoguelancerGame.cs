@@ -3,6 +3,8 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using Roguelancer.Configuration;
+
 namespace Roguelancer {
     /// <summary>
     /// Roguelancer Game Class
@@ -57,6 +59,10 @@ namespace Roguelancer {
         /// </summary>
         private NotificationManager _notificationManager; // NEW: On-screen messages
         /// <summary>
+        /// Configuration Manager
+        /// </summary>
+        private ConfigurationManager _config;
+        /// <summary>
         /// Lighting Direction
         /// </summary>
         private Vector3 _lightDirection = Vector3.Normalize(new Vector3(1, -1, 1));
@@ -105,6 +111,10 @@ namespace Roguelancer {
             this.IsFixedTimeStep = true;
             _graphics.SynchronizeWithVerticalRetrace = true;
             this.TargetElapsedTime = TimeSpan.FromMilliseconds(16.666);
+            
+            // Initialize configuration manager
+            _config = new ConfigurationManager();
+            
             AllocConsole();
             Console.WriteLine("========================================");
             Console.WriteLine("    ROGUELANCER DEBUG CONSOLE");
@@ -131,46 +141,82 @@ namespace Roguelancer {
             this.Activated += OnWindowActivated;
             this.Deactivated += OnWindowDeactivated;
             
-            // Create sun with MUCH larger scale and higher intensity for visibility
-            _sun = new Sun(GraphicsDevice, new Vector3(5000, 2000, 3000), scale: 500f) { // Increased from 150f to 500f
-                EmissiveColor = new Color(255, 220, 180), // Warm yellow-orange
-                EmissiveIntensity = 2.0f, // Increased from 0.1f to 2.0f for much brighter glow
-                RotationSpeed = 0.05f
-            };
+            // Load configuration files
+            _config.LoadAll();
             
-            Console.WriteLine($"[SUN] INITIALIZED at position: {_sun.Position}, scale: 500f, intensity: 2.0f");
+            // Get current system (default to system 1)
+            SystemConfig currentSystem = _config.GetSystem(1);
+            if (currentSystem != null) {
+                Console.WriteLine($"[SYSTEM] Loaded: {currentSystem.Description}");
+                
+                // Create sun from system config
+                _sun = new Sun(GraphicsDevice, 
+                    new Vector3(currentSystem.SunPositionX, currentSystem.SunPositionY, currentSystem.SunPositionZ), 
+                    scale: currentSystem.SunScale) {
+                    EmissiveColor = new Color(255, 220, 180), // Warm yellow-orange
+                    EmissiveIntensity = currentSystem.SunIntensity,
+                    RotationSpeed = currentSystem.SunRotationSpeed
+                };
+                
+                Console.WriteLine($"[SUN] INITIALIZED at position: {_sun.Position}, scale: {currentSystem.SunScale}, intensity: {currentSystem.SunIntensity}");
+            } else {
+                // Fallback to hardcoded sun if no system config
+                _sun = new Sun(GraphicsDevice, new Vector3(5000, 2000, 3000), scale: 500f) {
+                    EmissiveColor = new Color(255, 220, 180),
+                    EmissiveIntensity = 2.0f,
+                    RotationSpeed = 0.05f
+                };
+                Console.WriteLine("[SUN] Using default configuration (no system config found)");
+            }
 
-            // Populate space objects (sample points)
-            // ADD THE SUN AS A TARGETABLE OBJECT FIRST!
-            _spaceObjects.Add(new SpaceObject("SUN", new Vector3(5000, 2000, 3000), 500f)); // Match sun's scale
-            _spaceObjects.Add(new SpaceObject("Nav Buoy Alpha", new Vector3(3000, 200, -1500), 150f));
-            _spaceObjects.Add(new SpaceObject("Mining Station", new Vector3(-4500, -800, 2200), 400f));
-            _spaceObjects.Add(new SpaceObject("Jump Gate", new Vector3(8000, 1200, 5000), 600f));
-            _spaceObjects.Add(new SpaceObject("Wreck", new Vector3(-2000, 500, -6000), 100f));
+            // Populate space objects from station configs
+            _spaceObjects.Add(new SpaceObject("SUN", _sun.Position, 500f));
+            
+            List<StationConfig> stations = _config.GetStationsForSystem(1);
+            foreach (StationConfig stationConfig in stations) {
+                _spaceObjects.Add(new SpaceObject(
+                    stationConfig.Description,
+                    stationConfig.StartupPosition,
+                    stationConfig.Radius
+                ));
+                Console.WriteLine($"[STATION] Added: {stationConfig.Description} at {stationConfig.StartupPosition}");
+            }
 
-            // Spawn NPC ships in patrol patterns
-            Random rand = new Random();
-            for (int i = 0; i < 5; i++) {
-                // Create patrol patterns at various distances
-                Vector3 patrolCenter = new Vector3(
-                    (float)(rand.NextDouble() * 6000 - 3000),
-                    (float)(rand.NextDouble() * 2000 - 1000),
-                    (float)(rand.NextDouble() * 6000 - 3000)
-                );
+            // Spawn NPC ships from ship configs
+            List<ShipConfig> ships = _config.GetShipsForSystem(1);
+            foreach (ShipConfig shipConfig in ships) {
+                // Get model path for this ship
+                ModelConfig model = _config.GetModel(shipConfig.ModelIndex);
+                if (model == null) {
+                    Console.WriteLine($"[SHIP] Warning: Invalid model index {shipConfig.ModelIndex} for ship {shipConfig.Description}");
+                    continue;
+                }
 
-                float patrolRadius = 500f + (float)(rand.NextDouble() * 1000f);
-                float patrolSpeed = 0.1f + (float)(rand.NextDouble() * 0.2f);
-
-                // Start position on the patrol circle
-                float startAngle = (float)(rand.NextDouble() * MathHelper.TwoPi);
-                Vector3 startPos = patrolCenter + new Vector3(
-                    (float)Math.Sin(startAngle) * patrolRadius,
-                    0f,
-                    (float)Math.Cos(startAngle) * patrolRadius
-                );
-
-                NpcShip npc = new NpcShip($"Patrol Ship {i + 1}", startPos, patrolCenter, patrolRadius, patrolSpeed);
-                _npcShips.Add(npc);
+                // Create NPC ship with patrol pattern if configured
+                if (shipConfig.PatrolCenter.HasValue && shipConfig.PatrolRadius.HasValue && shipConfig.PatrolSpeed.HasValue) {
+                    NpcShip npc = new NpcShip(
+                        shipConfig.Description,
+                        shipConfig.StartupPosition,
+                        shipConfig.PatrolCenter.Value,
+                        shipConfig.PatrolRadius.Value,
+                        shipConfig.PatrolSpeed.Value
+                    );
+                    npc.Velocity = shipConfig.InitialVelocity;
+                    _npcShips.Add(npc);
+                    Console.WriteLine($"[SHIP] Added patrol ship: {shipConfig.Description} (Model: {model.Name})");
+                } else {
+                    // Static ship (no patrol)
+                    NpcShip npc = new NpcShip(
+                        shipConfig.Description,
+                        shipConfig.StartupPosition,
+                        shipConfig.StartupPosition, // patrol center = start position
+                        0f, // no patrol radius
+                        0f  // no patrol speed
+                    );
+                    npc.Velocity = shipConfig.InitialVelocity;
+                    _npcShips.Add(npc);
+                    Console.WriteLine($"[SHIP] Added static ship: {shipConfig.Description} (Model: {model.Name})");
+                }
             }
 
             // Create reference grid markers - MUCH SPARSER GRID
@@ -204,26 +250,25 @@ namespace Roguelancer {
                 _playerShip.Model = Content.Load<Model>("SHIPS/scimitar/Scimitar2");
                 Console.WriteLine("Scimitar model loaded successfully!");
 
-                // Load DIFFERENT models for NPC ships for variety!
-                string[] npcShipModels = new[]
-                {
-                    "SHIPS/PI_TRANSPORT/PI_TRANSPORT",  // Large transport ship
-                    "SHIPS/scimitar/Scimitar2",         // Scimitar fighter
-                    "SHIPS/PI_TRANSPORT/PI_TRANSPORT",  // Large transport ship
-                    "SHIPS/scimitar/Scimitar2",         // Scimitar fighter
-                    "SHIPS/PI_TRANSPORT/PI_TRANSPORT"   // Large transport ship
-                };
-
+                // Load models for NPC ships based on their configuration
                 for (int i = 0; i < _npcShips.Count; i++) {
-                    try {
-                        // Cycle through different ship models
-                        string modelPath = npcShipModels[i % npcShipModels.Length];
-                        _npcShips[i].Model = Content.Load<Model>(modelPath);
-                        Console.WriteLine($"Loaded {modelPath} for NPC {i + 1}");
-                    } catch (Exception ex) {
-                        Console.WriteLine($"Error loading NPC ship {i}: {ex.Message}");
-                        // Fallback to scimitar
-                        _npcShips[i].Model = _playerShip.Model;
+                    // Get ship config to find model index
+                    List<ShipConfig> ships = _config.GetShipsForSystem(1);
+                    if (i < ships.Count) {
+                        ModelConfig model = _config.GetModel(ships[i].ModelIndex);
+                        if (model != null && model.Enabled) {
+                            try {
+                                _npcShips[i].Model = Content.Load<Model>(model.Path);
+                                Console.WriteLine($"[SHIP] Loaded model '{model.Name}' for {_npcShips[i].Name}");
+                            } catch (Exception ex) {
+                                Console.WriteLine($"[SHIP] Error loading model for {_npcShips[i].Name}: {ex.Message}");
+                                // Fallback to player model
+                                _npcShips[i].Model = _playerShip.Model;
+                            }
+                        } else {
+                            Console.WriteLine($"[SHIP] Model disabled or not found for {_npcShips[i].Name}, using fallback");
+                            _npcShips[i].Model = _playerShip.Model;
+                        }
                     }
                 }
                 Console.WriteLine($"Loaded models for {_npcShips.Count} NPC ships!");

@@ -1,0 +1,9 @@
+{
+  "name": "Scimitar Fighter",
+  "description": "Light Fighter",
+  "type": 1,
+  "enabled": true,
+  "path": "SHIPS/scimitar/Scimitar2",
+  "model_scaling": 1.0,
+  "notes": "Primary player and NPC fighter"
+}

@@ -1,0 +1,13 @@
+{
+  "description": "Mining Station",
+  "description_long": "Asteroid Mining Facility - Extraction Operations",
+  "model_index": 0,
+  "system_index": 1,
+  "startup_position_x": -4500.0,
+  "startup_position_y": -800.0,
+  "startup_position_z": 2200.0,
+  "startup_model_rotation_x": 0.0,
+  "startup_model_rotation_y": 0.0,
+  "startup_model_rotation_z": 0.0,
+  "radius": 400.0
+}
