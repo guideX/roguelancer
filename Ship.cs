@@ -64,6 +64,10 @@ namespace Roguelancer
         // Ship model
         public Model Model { get; set; }
         
+        // Hull integrity
+        public HullIntegrity Hull { get; private set; }
+        public float CollisionRadius { get; set; } = 10f; // For hit detection
+        
         // Direction vectors
         public Vector3 Forward => Vector3.Transform(Vector3.Forward, _rotation);
         public Vector3 Up => Vector3.Transform(Vector3.Up, _rotation);
@@ -99,6 +103,15 @@ namespace Roguelancer
             Orientation = Matrix.CreateFromQuaternion(_rotation);
             Velocity = Vector3.Zero;
             _previousKeyboardState = Keyboard.GetState();
+            
+            // Initialize hull integrity
+            Hull = new HullIntegrity(100f); // Player starts with 100 hull points
+            Hull.OnDestroyed += () =>
+            {
+                Console.WriteLine("💀 PLAYER SHIP DESTROYED!");
+                _notificationManager?.ShowMessage("SHIP DESTROYED", 5f);
+                // TODO: Trigger death sequence, respawn, etc.
+            };
         }
 
         public void SetNotificationManager(NotificationManager manager)

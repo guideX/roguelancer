@@ -16,6 +16,11 @@ namespace Roguelancer
         public Model Model { get; set; }
         public string Name { get; set; }
         
+        // Hull integrity
+        public HullIntegrity Hull { get; private set; }
+        public float CollisionRadius { get; set; } = 10f; // For hit detection
+        public bool IsDestroyed => Hull.IsDestroyed;
+        
         private float _patrolRadius;
         private Vector3 _patrolCenter;
         private float _patrolAngle;
@@ -36,6 +41,14 @@ namespace Roguelancer
             _patrolSpeed = patrolSpeed;
             _bobPhase = (float)(new Random().NextDouble() * MathHelper.TwoPi);
             _bobSpeed = 0.3f + (float)(new Random().NextDouble() * 0.4f);
+            
+            // Initialize hull integrity
+            Hull = new HullIntegrity(75f); // NPCs start with 75 hull points
+            Hull.OnDestroyed += () =>
+            {
+                Console.WriteLine($"?? NPC SHIP '{Name}' DESTROYED!");
+                // TODO: Trigger explosion effect
+            };
             
             // Initial orientation facing toward patrol center
             Vector3 toCenter = Vector3.Normalize(patrolCenter - startPosition);

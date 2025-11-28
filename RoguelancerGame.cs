@@ -43,6 +43,10 @@ namespace Roguelancer {
         /// </summary>
         private CruiseSparks _cruiseSparks;
         /// <summary>
+        /// Charge Particles
+        /// </summary>
+        private ChargeParticles _chargeParticles;
+        /// <summary>
         /// Weapon System
         /// </summary>
         private WeaponSystem _weaponSystem;
@@ -292,6 +296,9 @@ namespace Roguelancer {
             // Initialize cruise sparks (firefly effect during charge)
             _cruiseSparks = new CruiseSparks(GraphicsDevice);
 
+            // Initialize charge particles (energy buildup while charging beam weapon)
+            _chargeParticles = new ChargeParticles(GraphicsDevice);
+
             // Initialize weapon system (blasters)
             _weaponSystem = new WeaponSystem(GraphicsDevice);
 
@@ -467,8 +474,30 @@ namespace Roguelancer {
             // Update cruise sparks (firefly particles during charge)
             _cruiseSparks.Update(gameTime, _playerShip);
 
+            // Update charge particles (beam weapon charging effect)
+            _chargeParticles.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
+            
+            // Emit charge particles if beam weapon is charging
+            if (_weaponSystem.IsCharging())
+            {
+                float chargeProgress = _weaponSystem.GetChargeProgress();
+                _chargeParticles.EmitChargeParticles(_playerShip.Position, _playerShip.Orientation, chargeProgress);
+            }
+
             // Update weapon system
             _weaponSystem.Update(gameTime);
+
+            // Check projectile collisions with NPC ships
+            foreach (var npc in _npcShips)
+            {
+                if (!npc.IsDestroyed)
+                {
+                    _weaponSystem.CheckCollisions(npc.Position, npc.CollisionRadius, npc.Hull);
+                }
+            }
+
+            // TODO: Check NPC weapon fire against player (when NPCs can fire)
+            // _npcWeaponSystem.CheckCollisions(_playerShip.Position, _playerShip.CollisionRadius, _playerShip.Hull);
 
             // Update notification manager
             _notificationManager.Update(gameTime);
@@ -562,8 +591,8 @@ namespace Roguelancer {
             }
             else if (_prevMouseState.RightButton == ButtonState.Pressed)
             {
-                // Mouse button released - release charge beam if charging
-                if (_weaponSystem.CurrentWeapon == WeaponType.ChargeBeam && _weaponSystem.IsCharging())
+                // Mouse button released - stop charge beam (whether charging or firing)
+                if (_weaponSystem.CurrentWeapon == WeaponType.ChargeBeam)
                 {
                     Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
                     Matrix shipTransform = modelCorrection * _playerShip.Orientation * Matrix.CreateTranslation(_playerShip.Position);
@@ -589,6 +618,9 @@ namespace Roguelancer {
                 }
             }
 
+            HandleTargetingInput(keyboardState);
+
+            base.Update(gameTime);
         }
 
         private void HandleTargetingInput(KeyboardState kb) {
@@ -796,6 +828,9 @@ namespace Roguelancer {
             // Draw cruise sparks (firefly particles) - drawn after glow but before trail
             _cruiseSparks.Draw(_camera);
 
+            // Draw charge particles (beam weapon charging effect)
+            _chargeParticles.Draw(_camera);
+
             // Draw weapon projectiles (blaster bolts)
             _weaponSystem.Draw(_camera);
 
@@ -992,66 +1027,86 @@ namespace Roguelancer {
         }
 
         private void DrawStatusPanel() {
-            // Draw status box background
-            Rectangle panel = new Rectangle(10, 10, 280, 240); // Made taller for weapon info
+            // Draw status box background - made taller for hull bar
+            Rectangle panel = new Rectangle(10, 10, 280, 270);
             _spriteBatch.Draw(_pixel, panel, Color.Black * 0.7f);
             _spriteBatch.Draw(_pixel, new Rectangle(10, 10, 280, 2), Color.Cyan);
-            _spriteBatch.Draw(_pixel, new Rectangle(10, 10, 2, 240), Color.Cyan);
-            _spriteBatch.Draw(_pixel, new Rectangle(288, 10, 2, 240), Color.Cyan);
-            _spriteBatch.Draw(_pixel, new Rectangle(10, 248, 280, 2), Color.Cyan);
+            _spriteBatch.Draw(_pixel, new Rectangle(10, 10, 2, 270), Color.Cyan);
+            _spriteBatch.Draw(_pixel, new Rectangle(288, 10, 2, 270), Color.Cyan);
+            _spriteBatch.Draw(_pixel, new Rectangle(10, 278, 280, 2), Color.Cyan);
 
             if (_font != null) {
                 _spriteBatch.DrawString(_font, "STATUS", new Vector2(20, 20), Color.Cyan);
-                _spriteBatch.DrawString(_font, $"Speed: {Math.Abs(_playerShip.Speed):F1}", new Vector2(20, 45), Color.White);
-                _spriteBatch.DrawString(_font, $"Throttle: {_playerShip.GetThrottle() * 100:F0}%", new Vector2(20, 65), Color.White);
-                _spriteBatch.DrawString(_font, $"Mode: {_playerShip.GetFlightStatus()}", new Vector2(20, 85), Color.Yellow);
+                
+                // Hull integrity display
+                float hullPercent = _playerShip.Hull.HullPercentage;
+                Color hullColor = _playerShip.Hull.GetHullColor();
+                _spriteBatch.DrawString(_font, $"Hull: {hullPercent * 100:F0}%", new Vector2(20, 45), hullColor);
+                
+                // Hull bar
+                Rectangle hullBarBg = new Rectangle(20, 65, 250, 15);
+                Rectangle hullBarFill = new Rectangle(20, 65, (int)(250 * hullPercent), 15);
+                _spriteBatch.Draw(_pixel, hullBarBg, Color.DarkGray * 0.5f);
+                _spriteBatch.Draw(_pixel, hullBarFill, hullColor);
+                
+                // Other status info
+                _spriteBatch.DrawString(_font, $"Speed: {Math.Abs(_playerShip.Speed):F1}", new Vector2(20, 90), Color.White);
+                _spriteBatch.DrawString(_font, $"Throttle: {_playerShip.GetThrottle() * 100:F0}%", new Vector2(20, 110), Color.White);
+                _spriteBatch.DrawString(_font, $"Mode: {_playerShip.GetFlightStatus()}", new Vector2(20, 130), Color.Yellow);
                 
                 // Weapon display
-                _spriteBatch.DrawString(_font, $"Weapon: {_weaponSystem.CurrentWeapon}", new Vector2(20, 105), Color.Orange);
+                _spriteBatch.DrawString(_font, $"Weapon: {_weaponSystem.CurrentWeapon}", new Vector2(20, 150), Color.Orange);
                 
                 // Charge beam indicator
                 if (_weaponSystem.IsCharging())
                 {
                     float chargeProgress = _weaponSystem.GetChargeProgress();
-                    _spriteBatch.DrawString(_font, $"CHARGING: {chargeProgress * 100:F0}%", new Vector2(20, 125), Color.Yellow);
+                    _spriteBatch.DrawString(_font, $"CHARGING: {chargeProgress * 100:F0}%", new Vector2(20, 170), Color.Yellow);
                     
                     // Charge bar
-                    Rectangle chargeBarBg = new Rectangle(20, 145, 250, 15);
-                    Rectangle chargeBarFill = new Rectangle(20, 145, (int)(250 * chargeProgress), 15);
+                    Rectangle chargeBarBg = new Rectangle(20, 190, 250, 15);
+                    Rectangle chargeBarFill = new Rectangle(20, 190, (int)(250 * chargeProgress), 15);
                     _spriteBatch.Draw(_pixel, chargeBarBg, Color.DarkGray * 0.5f);
                     _spriteBatch.Draw(_pixel, chargeBarFill, Color.Lerp(Color.Yellow, Color.Red, chargeProgress));
                 }
                 
                 if (_playerShip.IsNewtonianMode)
-                    _spriteBatch.DrawString(_font, "NEWTONIAN", new Vector2(20, 165), Color.Lime);
+                    _spriteBatch.DrawString(_font, "NEWTONIAN", new Vector2(20, 210), Color.Lime);
                 if (_camera.IsTurretViewActive)
-                    _spriteBatch.DrawString(_font, "TURRET VIEW", new Vector2(20, 185), Color.Orange);
+                    _spriteBatch.DrawString(_font, "TURRET VIEW", new Vector2(20, 230), Color.Orange);
                 if (_playerShip.IsGotoActive && _playerShip.CurrentGotoTarget != null)
-                    _spriteBatch.DrawString(_font, $"GOTO: {_playerShip.CurrentGotoTarget.Name}", new Vector2(20, 205), Color.Orange);
+                    _spriteBatch.DrawString(_font, $"GOTO: {_playerShip.CurrentGotoTarget.Name}", new Vector2(20, 250), Color.Orange);
             } else {
                 // Fallback visual indicators when no font available
+                // Hull bar (horizontal)
+                float hullPercent = _playerShip.Hull.HullPercentage;
+                Color hullColor = _playerShip.Hull.GetHullColor();
+                int hullBarWidth = (int)(250 * hullPercent);
+                _spriteBatch.Draw(_pixel, new Rectangle(20, 30, 250, 20), Color.DarkGray * 0.5f);
+                _spriteBatch.Draw(_pixel, new Rectangle(20, 30, hullBarWidth, 20), hullColor);
+
                 // Speed bar (horizontal)
                 int speedBarWidth = (int)(250 * MathHelper.Clamp(Math.Abs(_playerShip.Speed) / _playerShip.MaxSpeed, 0f, 1f));
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 30, 250, 20), Color.DarkGray * 0.5f);
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 30, speedBarWidth, 20), Color.Cyan);
+                _spriteBatch.Draw(_pixel, new Rectangle(20, 60, 250, 20), Color.DarkGray * 0.5f);
+                _spriteBatch.Draw(_pixel, new Rectangle(20, 60, speedBarWidth, 20), Color.Cyan);
 
                 // Throttle bar (horizontal)
                 float throttle = _playerShip.GetThrottle();
                 int throttleBarWidth = (int)(250 * Math.Abs(throttle));
                 Color throttleColor = throttle >= 0 ? Color.Green : Color.Orange;
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 60, 250, 20), Color.DarkGray * 0.5f);
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 60, throttleBarWidth, 20), throttleColor);
+                _spriteBatch.Draw(_pixel, new Rectangle(20, 90, 250, 20), Color.DarkGray * 0.5f);
+                _spriteBatch.Draw(_pixel, new Rectangle(20, 90, throttleBarWidth, 20), throttleColor);
 
                 // Weapon/charge indicator
                 if (_weaponSystem.IsCharging())
                 {
                     float chargeProgress = _weaponSystem.GetChargeProgress();
-                    Rectangle chargeBar = new Rectangle(20, 90, (int)(250 * chargeProgress), 20);
+                    Rectangle chargeBar = new Rectangle(20, 120, (int)(250 * chargeProgress), 20);
                     _spriteBatch.Draw(_pixel, chargeBar, Color.Lerp(Color.Yellow, Color.Red, chargeProgress));
                 }
 
                 // Status indicators
-                int yPos = 120;
+                int yPos = 150;
                 if (_playerShip.IsAfterburnerActive) {
                     _spriteBatch.Draw(_pixel, new Rectangle(20, yPos, 250, 20), Color.Red * 0.7f);
                     yPos += 25;
@@ -1073,7 +1128,7 @@ namespace Roguelancer {
                 }
             }
         }
-
+        
         private void DrawSpaceObjectBrackets() {
             if (_spaceObjects.Count == 0) return;
             for (int i = 0; i < _spaceObjects.Count; i++) {
@@ -1087,6 +1142,67 @@ namespace Roguelancer {
                 if (_font != null) {
                     _spriteBatch.DrawString(_font, obj.Name, screenPos + new Vector2(12, -20), i == _selectedSpaceObjectIndex ? Color.Orange : Color.LightBlue);
                     _spriteBatch.DrawString(_font, $"{distance / 1000f:F2}k", screenPos + new Vector2(12, 0), Color.LightGray);
+                }
+            }
+            
+            // Draw NPC ship hull bars
+            foreach (var npc in _npcShips)
+            {
+                if (npc.IsDestroyed) continue; // Don't draw hull bar for destroyed ships
+                
+                // Project ship position to screen
+                Vector3 screenPos3D = GraphicsDevice.Viewport.Project(
+                    npc.Position + new Vector3(0, 15, 0), // Offset above ship
+                    _camera.Projection, 
+                    _camera.View, 
+                    Matrix.Identity
+                );
+                
+                if (screenPos3D.Z < 0 || screenPos3D.Z > 1) continue; // Behind camera
+                
+                Vector2 screenPos = new Vector2(screenPos3D.X, screenPos3D.Y);
+                float distance = Vector3.Distance(_playerShip.Position, npc.Position);
+                
+                // Only show hull bar for nearby ships (within 2000 units)
+                if (distance > 2000f) continue;
+                
+                // Hull bar dimensions
+                int barWidth = 60;
+                int barHeight = 6;
+                float hullPercent = npc.Hull.HullPercentage;
+                Color hullColor = npc.Hull.GetHullColor();
+                
+                // Center the bar on screen position
+                Rectangle barBg = new Rectangle(
+                    (int)(screenPos.X - barWidth / 2), 
+                    (int)screenPos.Y, 
+                    barWidth, 
+                    barHeight
+                );
+                Rectangle barFill = new Rectangle(
+                    (int)(screenPos.X - barWidth / 2), 
+                    (int)screenPos.Y, 
+                    (int)(barWidth * hullPercent), 
+                    barHeight
+                );
+                
+                // Draw background (dark)
+                _spriteBatch.Draw(_pixel, barBg, Color.Black * 0.7f);
+                // Draw fill (health color)
+                _spriteBatch.Draw(_pixel, barFill, hullColor);
+                // Draw border
+                _spriteBatch.Draw(_pixel, new Rectangle(barBg.X, barBg.Y, barBg.Width, 1), Color.White * 0.5f);
+                _spriteBatch.Draw(_pixel, new Rectangle(barBg.X, barBg.Bottom - 1, barBg.Width, 1), Color.White * 0.5f);
+                _spriteBatch.Draw(_pixel, new Rectangle(barBg.X, barBg.Y, 1, barBg.Height), Color.White * 0.5f);
+                _spriteBatch.Draw(_pixel, new Rectangle(barBg.Right - 1, barBg.Y, 1, barBg.Height), Color.White * 0.5f);
+                
+                // Optional: Draw ship name below bar if close enough
+                if (_font != null && distance < 1000f)
+                {
+                    Vector2 nameSize = _font.MeasureString(npc.Name);
+                    _spriteBatch.DrawString(_font, npc.Name, 
+                        new Vector2(screenPos.X - nameSize.X / 2, screenPos.Y + barHeight + 2), 
+                        Color.White * 0.8f);
                 }
             }
         }

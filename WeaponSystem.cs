@@ -140,7 +140,7 @@ namespace Roguelancer
                         Speed = 0f, // Beams don't move
                         Life = 1.5f, // Longer beam duration (was 0.5f)
                         Size = 120f, // Even thicker beam (was 80f)
-                        Color = new Color(255, 50, 255), // Purple/magenta beam
+                        Color = new Color(255, 255, 100), // Bright yellow beam (was purple)
                         MuzzleFlashSize = 60f
                     }
                 }
@@ -352,11 +352,61 @@ namespace Roguelancer
             return CurrentWeapon == WeaponType.ChargeBeam && _chargeBeams.Count > 0 && !_chargeBeams[0].IsFiring;
         }
 
+        public bool IsChargingOrFiring()
+        {
+            return CurrentWeapon == WeaponType.ChargeBeam && _chargeBeams.Count > 0;
+        }
+
         public float GetChargeProgress()
         {
             if (_chargeBeams.Count == 0) return 0f;
             ChargeBeam beam = _chargeBeams[0];
             return MathHelper.Clamp(beam.ChargeTime / beam.MaxChargeTime, 0f, 1f);
+        }
+
+        /// <summary>
+        /// Check collisions between projectiles and a ship, apply damage on hit
+        /// </summary>
+        /// <returns>True if any hit occurred</returns>
+        public bool CheckCollisions(Vector3 shipPosition, float shipRadius, HullIntegrity hull)
+        {
+            bool anyHit = false;
+            
+            for (int i = _projectiles.Count - 1; i >= 0; i--)
+            {
+                Projectile p = _projectiles[i];
+                float distance = Vector3.Distance(p.Position, shipPosition);
+                
+                if (distance < shipRadius)
+                {
+                    // Hit! Apply damage based on weapon type
+                    float damage = GetWeaponDamage(p.Type);
+                    hull.TakeDamage(damage);
+                    
+                    // Remove projectile
+                    _projectiles.RemoveAt(i);
+                    anyHit = true;
+                    
+                    Console.WriteLine($"?? HIT! Weapon: {p.Type}, Damage: {damage:F1}");
+                }
+            }
+            
+            return anyHit;
+        }
+
+        /// <summary>
+        /// Get damage amount for each weapon type
+        /// </summary>
+        private float GetWeaponDamage(WeaponType type)
+        {
+            return type switch
+            {
+                WeaponType.BlueDonut => 10f,      // Medium damage
+                WeaponType.Fireball => 15f,       // High damage but slower
+                WeaponType.QuickBlaster => 5f,    // Low damage but fast fire rate
+                WeaponType.ChargeBeam => 2f,      // Continuous damage per frame while firing
+                _ => 5f
+            };
         }
         
         public void Update(GameTime gameTime)
