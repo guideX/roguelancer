@@ -51,9 +51,9 @@ namespace Roguelancer
             // Define engine positions in model space (larger offset behind ship)
             List<Vector3> engineOffsets = new List<Vector3>
             {
-                new Vector3(-2.5f, 0f, 5f),  // Left engine (further behind and out)
-                new Vector3(2.5f, 0f, 5f),   // Right engine (further behind and out)
-                new Vector3(0f, 0f, 5.5f)    // Center engine glow (optional)
+                new Vector3(-2.5f, -1.0f, 8.5f),  // Left engine (moved further down with Z)
+                new Vector3(2.5f, -1.0f, 8.5f),   // Right engine (moved further down with Z)
+                new Vector3(0f, -1.0f, 9.0f)    // Center engine glow (moved further down with Z)
             };
             
             // Transform engine positions to world space

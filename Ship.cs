@@ -50,14 +50,13 @@ namespace Roguelancer
         public bool IsFreeFlightMode => _isFreeFlightMode;
         
         // Cruise charge system
-        private bool _cruiseCharging = false;
+        public bool IsCruiseCharging { get; private set; }
+        public float CruiseChargeProgress => _cruiseChargeTimer / CruiseChargeTime;
         private float _cruiseChargeTimer = 0f;
-        private const float CruiseChargeTime = 5f;
+        private const float CruiseChargeTime = 3f; // From 5f
         private const float CruiseLungeTime = 0.8f;
-        private const float CruiseChargePhase = 3.5f;
+        private const float CruiseChargePhase = 1.5f; // From 3.5f
         private const float CruiseBurstTime = 0.7f;
-        public bool IsCruiseCharging => _cruiseCharging;
-        public float CruiseChargeProgress => _cruiseCharging ? (_cruiseChargeTimer / CruiseChargeTime) : 0f;
 
         // Keyboard state tracking
         private KeyboardState _previousKeyboardState;
@@ -149,10 +148,10 @@ namespace Roguelancer
                     _notificationManager?.ShowMessage("Mouse Mode");
                 }
 
-                if (IsCruiseActive || _cruiseCharging)
+                if (IsCruiseActive || IsCruiseCharging)
                 {
                     IsCruiseActive = false;
-                    _cruiseCharging = false;
+                    IsCruiseCharging = false;
                     _cruiseChargeTimer = 0f;
                     _notificationManager?.ShowMessage("Cruise Mode Deactivated");
                     Console.WriteLine("ESC: Cruise mode cancelled");
@@ -171,12 +170,12 @@ namespace Roguelancer
                 if (_isFreeFlightMode)
                 {
                     _notificationManager?.ShowMessage("Free Flight Mode");
-                    Console.WriteLine("✈️ FREE FLIGHT MODE - Ship follows mouse");
+                    Console.WriteLine("FREE FLIGHT MODE - Ship follows mouse");
                 }
                 else
                 {
                     _notificationManager?.ShowMessage("Mouse Mode");
-                    Console.WriteLine("⌨️ MOUSE MODE - Mouse is a cursor");
+                    Console.WriteLine("MOUSE MODE - Mouse is a cursor");
                 }
             }
             
@@ -196,7 +195,7 @@ namespace Roguelancer
                 if (IsAfterburnerActive)
                 {
                     IsCruiseActive = false;
-                    _cruiseCharging = false;
+                    IsCruiseCharging = false;
                     _cruiseChargeTimer = 0f;
                     _notificationManager?.ShowMessage("Afterburner Engaged");
                 }
@@ -209,9 +208,9 @@ namespace Roguelancer
             // 2. Handle Cruise state (Shift + W)
             if (cruiseKeyPressed && (_previousKeyboardState.IsKeyUp(Keys.W) || _previousKeyboardState.IsKeyUp(Keys.LeftShift)))
             {
-                if (!IsCruiseActive && !_cruiseCharging)
+                if (!IsCruiseActive && !IsCruiseCharging)
                 {
-                    _cruiseCharging = true;
+                    IsCruiseCharging = true;
                     _cruiseChargeTimer = 0f;
                     IsAfterburnerActive = false; // Ensure afterburner is off
                     _notificationManager?.ShowMessage("Cruise Charging");
@@ -219,7 +218,7 @@ namespace Roguelancer
                 else
                 {
                     IsCruiseActive = false;
-                    _cruiseCharging = false;
+                    IsCruiseCharging = false;
                     _cruiseChargeTimer = 0f;
                     _notificationManager?.ShowMessage("Cruise Deactivated");
                 }
@@ -242,7 +241,8 @@ namespace Roguelancer
                     _throttle = 0f; 
                     _targetSpeed = 0f; 
                     IsAfterburnerActive = false; 
-                    IsCruiseActive = false; 
+                    IsCruiseActive = false;
+                    IsCruiseCharging = false;
                     _wasEnginesKilled = true;
                 }
             }
@@ -450,7 +450,7 @@ namespace Roguelancer
             
             UpdateGoto(deltaTime);
             
-            if (_cruiseCharging)
+            if (IsCruiseCharging)
             {
                 if (_cruiseChargeTimer < CruiseLungeTime) Speed = MathHelper.Lerp(Speed, MaxSpeed * 3f, deltaTime * 20f);
                 else if (_cruiseChargeTimer < CruiseChargePhase) Speed = MathHelper.Lerp(Speed, MaxSpeed * 3.5f, deltaTime * 6f);
@@ -493,7 +493,7 @@ namespace Roguelancer
             _pitchTiltAngle = MathHelper.Lerp(_pitchTiltAngle, pitchInput * PitchTiltAmount, deltaTime * 5f);
             _bankTiltAngle = MathHelper.Lerp(_bankTiltAngle, -yawInput * BankTiltAmount, deltaTime * 4f);
             
-            if (_cruiseCharging)
+            if (IsCruiseCharging)
             {
                 _cruiseChargeTimer += deltaTime;
                 if (_cruiseChargeTimer >= CruiseChargePhase && !IsCruiseActive)
@@ -503,7 +503,7 @@ namespace Roguelancer
                 }
                 if (_cruiseChargeTimer >= CruiseChargeTime)
                 {
-                    _cruiseCharging = false;
+                    IsCruiseCharging = false;
                     _cruiseChargeTimer = 0f;
                 }
             }
@@ -578,14 +578,14 @@ namespace Roguelancer
             
             if (distance > 5000f)
             {
-                _cruiseCharging = true;
+                IsCruiseCharging = true;
                 _cruiseChargeTimer = 0f;
                 IsAfterburnerActive = false;
             }
             else
             {
                 IsCruiseActive = false;
-                _cruiseCharging = false;
+                IsCruiseCharging = false;
             }
         }
         
@@ -612,15 +612,15 @@ namespace Roguelancer
                 CancelGoto();
                 EnginesKilled = true;
                 IsCruiseActive = false;
-                _cruiseCharging = false;
+                IsCruiseCharging = false;
                 _cruiseChargeTimer = 0f;
                 return;
             }
             
-            if ((IsCruiseActive || _cruiseCharging) && distance < 1500f)
+            if ((IsCruiseActive || IsCruiseCharging) && distance < 1500f)
             {
                 IsCruiseActive = false;
-                _cruiseCharging = false;
+                IsCruiseCharging = false;
                 _cruiseChargeTimer = 0f;
             }
             
@@ -644,7 +644,7 @@ namespace Roguelancer
             
             if (alignment > 0.7f)
             {
-                if (IsCruiseActive || _cruiseCharging) _targetSpeed = CruiseSpeed;
+                if (IsCruiseActive || IsCruiseCharging) _targetSpeed = CruiseSpeed;
                 else if (distance > 1500f) _targetSpeed = MaxSpeed;
                 else if (distance > 800f) _targetSpeed = MaxSpeed * MathHelper.Lerp(0.8f, 1.0f, (distance - 800f) / 700f);
                 else if (distance > 300f) _targetSpeed = MaxSpeed * MathHelper.Lerp(0.1f, 0.8f, (distance - 300f) / 500f);
@@ -655,12 +655,12 @@ namespace Roguelancer
                 if (IsCruiseActive && Speed > CruiseSpeed * 0.5f)
                 {
                     IsCruiseActive = false;
-                    _cruiseCharging = false;
+                    IsCruiseCharging = false;
                     _cruiseChargeTimer = 0f;
                 }
-                else if (_cruiseCharging && alignment < 0.3f)
+                else if (IsCruiseCharging && alignment < 0.3f)
                 {
-                    _cruiseCharging = false;
+                    IsCruiseCharging = false;
                     _cruiseChargeTimer = 0f;
                 }
                 _targetSpeed = MaxSpeed * 0.5f;
@@ -683,7 +683,7 @@ namespace Roguelancer
         {
             IsAfterburnerActive = false;
             IsCruiseActive = false;
-            _cruiseCharging = false;
+            IsCruiseCharging = false;
             _cruiseChargeTimer = 0f;
             _throttle = 0f;
             _targetSpeed = 0f;

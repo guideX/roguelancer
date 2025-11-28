@@ -124,9 +124,9 @@ namespace Roguelancer
             
             Vector3[] engineOffsets = new[]
             {
-                new Vector3(-2.5f, 0f, 6.5f),  // Left engine
-                new Vector3(2.5f, 0f, 6.5f),   // Right engine
-                new Vector3(0f, 0f, 7.0f)      // Center engine
+                new Vector3(-2.5f, -1.0f, 6.5f),  // Left engine
+                new Vector3(2.5f, -1.0f, 6.5f),   // Right engine
+                new Vector3(0f, -1.0f, 7.0f)      // Center engine
             };
             
             for (int e = 0; e < engineOffsets.Length; e++)
@@ -190,15 +190,15 @@ namespace Roguelancer
                 // Age-based fade
                 float t = s.Life / s.MaxLife;
                 float alpha = (1f - t) * s.Brightness; // Fade out over time + flicker
-                alpha = MathHelper.Clamp(alpha * 1.5f, 0f, 1f); // BOOSTED 50% brighter!
+                alpha = MathHelper.Clamp(alpha, 0f, 1f); // Removed 50% brightness boost
                 
                 // Size grows slightly as it fades
-                float size = s.Size * (1f + t * 0.6f); // Increased growth from 0.4f to 0.6f
+                float size = s.Size * (1f + t * 0.4f); // Reduced growth from 0.6f to 0.4f
                 
-                // Color: Bright cyan-white (electric/energy look) - MUCH BRIGHTER!
+                // Color: Bright cyan-white (electric/energy look)
                 // Shift from bright white to cyan-blue as it ages
-                Vector3 colorStart = new Vector3(1.5f, 1.5f, 1.5f); // Was (1,1,1) - NOW SUPER BRIGHT!
-                Vector3 colorEnd = new Vector3(0.6f, 1.2f, 1.5f);   // Was (0.3,0.7,1) - NOW MUCH BRIGHTER CYAN!
+                Vector3 colorStart = new Vector3(1.0f, 1.0f, 1.0f); // Was 1.5f
+                Vector3 colorEnd = new Vector3(0.3f, 0.7f, 1.0f);   // Was (0.6, 1.2, 1.5)
                 Vector3 colorVec = Vector3.Lerp(colorStart, colorEnd, t * 0.7f);
                 Color color = new Color(colorVec) * alpha;
                 

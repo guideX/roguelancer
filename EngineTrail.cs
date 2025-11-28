@@ -98,7 +98,7 @@ namespace Roguelancer
             }
             else if (ship.IsCruiseActive)
             {
-                intensity = 1.8f; // More intense for active cruise
+                intensity = 1.2f; // Reduced from 1.8f for less intense cruise trail
             }
             
             intensity = MathHelper.Clamp(intensity, 0.05f, 2.5f); // Allow up to 2.5x intensity

@@ -238,10 +238,10 @@ namespace Roguelancer {
             // Initialize engine trail
             _engineTrail = new EngineTrail(GraphicsDevice);
 
-            // ✨ Initialize cruise sparks (firefly effect during charge)
+            // Initialize cruise sparks (firefly effect during charge)
             _cruiseSparks = new CruiseSparks(GraphicsDevice);
 
-            // 🔫 Initialize weapon system (blasters)
+            // Initialize weapon system (blasters)
             _weaponSystem = new WeaponSystem(GraphicsDevice);
 
             // Initialize motion trail
@@ -377,12 +377,12 @@ namespace Roguelancer {
             // Update player ship
             _playerShip.Update(gameTime, keyboardState);
 
-            // ✅ FIX: Update NPC ships
+            // FIX: Update NPC ships
             foreach (var npc in _npcShips) {
                 npc.Update(gameTime);
             }
 
-            // ✅ FIX: Update motion trail
+            // FIX: Update motion trail
             _motionTrail.Update(deltaTime, _playerShip.Position, _playerShip.Speed);
 
             // Update sun
@@ -414,16 +414,16 @@ namespace Roguelancer {
             // Update engine trail with current throttle
             _engineTrail.Update(gameTime, _playerShip, _playerShip.GetThrottle());
 
-            // ✨ Update cruise sparks (firefly particles during charge)
+            // Update cruise sparks (firefly particles during charge)
             _cruiseSparks.Update(gameTime, _playerShip);
 
-            // 🔫 Update weapon system
+            // Update weapon system
             _weaponSystem.Update(gameTime);
 
             // Update notification manager
             _notificationManager.Update(gameTime);
 
-            // 🔫 RIGHT MOUSE BUTTON: Fire weapons!
+            // RIGHT MOUSE BUTTON: Fire weapons!
             if (mouseState.RightButton == ButtonState.Pressed && _prevMouseState.RightButton == ButtonState.Released) {
                 // Calculate gun positions (offset from ship center)
                 Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
@@ -440,7 +440,7 @@ namespace Roguelancer {
                     _weaponSystem.Fire(gunPosition, _playerShip.Forward, _playerShip.Velocity);
                 }
 
-                Console.WriteLine("💥 Blasters fired!");
+                Console.WriteLine("Blasters fired!");
             }
 
             HandleTargetingInput(keyboardState);
@@ -460,7 +460,7 @@ namespace Roguelancer {
                     SpaceObject target = _spaceObjects[clickedObjectIndex];
                     float distance = Vector3.Distance(_playerShip.Position, target.Position);
                     _notificationManager.ShowMessage($"Target: {target.Name}");
-                    Console.WriteLine($"🎯 Mouse targeting: {target.Name} at {distance / 1000f:F2}km");
+                    Console.WriteLine($"Mouse targeting: {target.Name} at {distance / 1000f:F2}km");
                 }
             }
 
@@ -545,7 +545,7 @@ namespace Roguelancer {
             return kb.IsKeyDown(key) && !_playerShip.IsFreeFlightMode && !_prevKeys.IsKeyDown(key);
         }
 
-        // ✅ Window focus event handlers
+        // Window focus event handlers
         private void OnWindowActivated(object sender, EventArgs e) {
             _isWindowFocused = true;
             // Reset input states to prevent stale inputs from causing issues
@@ -558,7 +558,7 @@ namespace Roguelancer {
         private void OnWindowDeactivated(object sender, EventArgs e) {
             _isWindowFocused = false;
             _playerShip.Reset(); // Reset ship state
-            Console.WriteLine("🔴 Window DEACTIVATED - Input disabled, ship state reset.");
+            Console.WriteLine("Window DEACTIVATED - Input disabled, ship state reset.");
         }
 
         private void OnWindowFocusChanged(object sender, EventArgs e) {
@@ -578,7 +578,7 @@ namespace Roguelancer {
         }
 
         protected override void Draw(GameTime gameTime) {
-            // ✅ FIX: Clear BOTH color AND depth buffers to prevent artifacts
+            // FIX: Clear BOTH color AND depth buffers to prevent artifacts
             GraphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Black, 1.0f, 0);
 
             // === 3D RENDERING PHASE ===
@@ -623,28 +623,28 @@ namespace Roguelancer {
             GraphicsDevice.DepthStencilState = oldDepth;
 
             // Draw engine glows with dramatic intensity during cruise charge
-            float glowIntensity = Math.Max(0.2f, _playerShip.GetThrottle()); // Minimum idle glow
+            float glowIntensity = Math.Max(1.0f, _playerShip.GetThrottle()); // Minimum idle glow
 
             if (_playerShip.IsCruiseCharging) {
-                // ✨ CRUISE CHARGE GLOW - Ramps from 0.5 to 3.0 over 5 seconds
+                // CRUISE CHARGE GLOW - Ramps from 0.5 to 3.0 over 5 seconds
                 float chargeProgress = _playerShip.CruiseChargeProgress;
-                glowIntensity = MathHelper.Lerp(0.5f, 3.0f, chargeProgress); // Dramatic buildup!
+                glowIntensity = MathHelper.Lerp(0.5f, 2.0f, chargeProgress); // Reduced max buildup from 3.0 to 2.0
 
                 // Pulsing effect during charge
                 float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 8.0) * 0.2f + 0.8f;
                 glowIntensity *= pulse;
             } else if (_playerShip.IsAfterburnerActive) {
-                glowIntensity = 1.8f; // Extra bright for afterburner
+                glowIntensity = 1.2f; // Reduced from 1.8f for less intensity
             } else if (_playerShip.IsCruiseActive) {
-                glowIntensity = 2.2f; // Very bright for active cruise
+                glowIntensity = 1.0f; // Reduced from 1.5f for less intensity
             }
 
             _engineGlow.DrawEngineGlows(_playerShip, _camera, glowIntensity);
 
-            // ✨ Draw cruise sparks (firefly particles) - drawn after glow but before trail
+            // Draw cruise sparks (firefly particles) - drawn after glow but before trail
             _cruiseSparks.Draw(_camera);
 
-            // 🔫 Draw weapon projectiles (blaster bolts)
+            // Draw weapon projectiles (blaster bolts)
             _weaponSystem.Draw(_camera);
 
             // Draw engine trail after glow for layering
@@ -671,7 +671,8 @@ namespace Roguelancer {
             DrawSpaceObjectBrackets();
             DrawGotoStatus();
             DrawSunDistanceIndicator(); // NEW: Show distance to sun
-            DrawCrosshair(); // ✨ NEW: Mouse crosshair
+            DrawCrosshair(); // NEW: Mouse crosshair
+            DrawCoordinates();
 
             // Draw notifications on top of everything else
             _notificationManager.Draw(_spriteBatch);
@@ -716,6 +717,35 @@ namespace Roguelancer {
             _spriteBatch.Draw(_pixel, new Rectangle((int)mousePos.X - circleRadius, (int)mousePos.Y - bracketThickness / 2, bracketLength, bracketThickness), color * 0.6f);
             // Right bracket
             _spriteBatch.Draw(_pixel, new Rectangle((int)mousePos.X + circleRadius - bracketLength, (int)mousePos.Y - bracketThickness / 2, bracketLength, bracketThickness), color * 0.6f);
+        }
+
+        private void DrawCoordinates() {
+            if (_font == null) return;
+
+            string posText = $"POS: X: {_playerShip.Position.X:F1}   Y: {_playerShip.Position.Y:F1}   Z: {_playerShip.Position.Z:F1}";
+            string velText = $"VEL: X: {_playerShip.Velocity.X:F1}   Y: {_playerShip.Velocity.Y:F1}   Z: {_playerShip.Velocity.Z:F1}";
+            
+            Vector2 posTextSize = _font.MeasureString(posText);
+            Vector2 velTextSize = _font.MeasureString(velText);
+
+            float maxWidth = Math.Max(posTextSize.X, velTextSize.X);
+            float totalHeight = posTextSize.Y + velTextSize.Y;
+
+            Vector2 position = new Vector2(
+                (GraphicsDevice.Viewport.Width - maxWidth) / 2,
+                GraphicsDevice.Viewport.Height - totalHeight - 15 // a bit more padding
+            );
+
+            Rectangle background = new Rectangle(
+                (int)position.X - 10,
+                (int)position.Y - 5,
+                (int)maxWidth + 20,
+                (int)totalHeight + 10
+            );
+            _spriteBatch.Draw(_pixel, background, Color.Black * 0.7f);
+
+            _spriteBatch.DrawString(_font, posText, position, Color.White);
+            _spriteBatch.DrawString(_font, velText, position + new Vector2(0, posTextSize.Y), Color.White);
         }
 
         private void DrawCurrentTargetDisplay() {
