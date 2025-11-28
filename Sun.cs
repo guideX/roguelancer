@@ -59,12 +59,88 @@ namespace Roguelancer {
                 Console.WriteLine("Procedural sun textures loaded successfully!");
             } catch (Exception ex) {
                 Console.WriteLine($"Error loading sun textures: {ex.Message}");
-                // Create fallback textures if loading fails
-                _surfaceTexture = new Texture2D(_graphicsDevice, 1, 1);
-                _surfaceTexture.SetData(new[] { Color.Yellow });
-                _coronaTexture = new Texture2D(_graphicsDevice, 1, 1);
-                _coronaTexture.SetData(new[] { Color.Orange });
+                Console.WriteLine("Creating procedural fallback textures for sun...");
+                // Create procedural fallback textures if loading fails
+                _surfaceTexture = CreateSunSurfaceTexture(256);
+                _coronaTexture = CreateCoronaTexture(256);
+                Console.WriteLine("Fallback sun textures created successfully!");
             }
+        }
+
+        /// <summary>
+        /// Create a procedural sun surface texture with radial gradient
+        /// </summary>
+        private Texture2D CreateSunSurfaceTexture(int size) {
+            Texture2D texture = new Texture2D(_graphicsDevice, size, size);
+            Color[] data = new Color[size * size];
+            
+            Vector2 center = new Vector2(size / 2f, size / 2f);
+            float maxRadius = size / 2f;
+
+            for (int y = 0; y < size; y++) {
+                for (int x = 0; x < size; x++) {
+                    Vector2 pos = new Vector2(x, y);
+                    float distance = Vector2.Distance(pos, center);
+                    float normalizedDistance = distance / maxRadius;
+
+                    // Create radial gradient: bright center, fading to edges
+                    if (normalizedDistance > 1.0f) {
+                        data[y * size + x] = Color.Transparent;
+                    } else {
+                        // Smooth falloff using power curve
+                        float intensity = 1.0f - (float)Math.Pow(normalizedDistance, 0.5);
+                        
+                        // Warm yellow-orange color
+                        byte r = (byte)(255 * intensity);
+                        byte g = (byte)(220 * intensity);
+                        byte b = (byte)(100 * intensity);
+                        byte a = (byte)(255 * intensity);
+                        
+                        data[y * size + x] = new Color(r, g, b, a);
+                    }
+                }
+            }
+
+            texture.SetData(data);
+            return texture;
+        }
+
+        /// <summary>
+        /// Create a procedural corona texture (outer glow)
+        /// </summary>
+        private Texture2D CreateCoronaTexture(int size) {
+            Texture2D texture = new Texture2D(_graphicsDevice, size, size);
+            Color[] data = new Color[size * size];
+            
+            Vector2 center = new Vector2(size / 2f, size / 2f);
+            float maxRadius = size / 2f;
+
+            for (int y = 0; y < size; y++) {
+                for (int x = 0; x < size; x++) {
+                    Vector2 pos = new Vector2(x, y);
+                    float distance = Vector2.Distance(pos, center);
+                    float normalizedDistance = distance / maxRadius;
+
+                    // Create softer, larger glow
+                    if (normalizedDistance > 1.0f) {
+                        data[y * size + x] = Color.Transparent;
+                    } else {
+                        // Very soft falloff for corona glow
+                        float intensity = 1.0f - (float)Math.Pow(normalizedDistance, 1.5);
+                        
+                        // Orange-red corona color
+                        byte r = (byte)(255 * intensity);
+                        byte g = (byte)(150 * intensity);
+                        byte b = (byte)(50 * intensity);
+                        byte a = (byte)(180 * intensity); // Semi-transparent
+                        
+                        data[y * size + x] = new Color(r, g, b, a);
+                    }
+                }
+            }
+
+            texture.SetData(data);
+            return texture;
         }
 
         public void Update(GameTime gameTime) {
@@ -74,7 +150,10 @@ namespace Roguelancer {
         }
 
         public void Draw(Matrix view, Matrix projection) {
-            if (_vertexBuffer == null || _surfaceTexture == null || _coronaTexture == null) return;
+            if (_vertexBuffer == null || _surfaceTexture == null || _coronaTexture == null) {
+                Console.WriteLine("[WARNING] SUN DRAW SKIPPED: Missing resources!");
+                return;
+            }
 
             // Set up render states for additive blending
             _graphicsDevice.SetVertexBuffer(_vertexBuffer);
@@ -97,6 +176,7 @@ namespace Roguelancer {
             _effect.Projection = projection;
             _effect.Texture = _coronaTexture;
             _effect.Alpha = 0.6f; // Make corona slightly transparent
+            _effect.DiffuseColor = EmissiveColor.ToVector3() * EmissiveIntensity;
 
             foreach (var pass in _effect.CurrentTechnique.Passes) {
                 pass.Apply();
@@ -108,6 +188,7 @@ namespace Roguelancer {
             _effect.World = surfaceTransform;
             _effect.Texture = _surfaceTexture;
             _effect.Alpha = 1.0f;
+            _effect.DiffuseColor = EmissiveColor.ToVector3() * EmissiveIntensity;
 
             foreach (var pass in _effect.CurrentTechnique.Passes) {
                 pass.Apply();

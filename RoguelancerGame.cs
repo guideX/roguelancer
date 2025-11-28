@@ -130,13 +130,19 @@ namespace Roguelancer {
             Window.ClientSizeChanged += OnWindowFocusChanged;
             this.Activated += OnWindowActivated;
             this.Deactivated += OnWindowDeactivated;
-            _sun = new Sun(GraphicsDevice, new Vector3(5000, 2000, 3000), scale: 150f) {
+            
+            // Create sun with MUCH larger scale and higher intensity for visibility
+            _sun = new Sun(GraphicsDevice, new Vector3(5000, 2000, 3000), scale: 500f) { // Increased from 150f to 500f
                 EmissiveColor = new Color(255, 220, 180), // Warm yellow-orange
-                EmissiveIntensity = 0.1f, // Reduced from 0.5f to 0.1f to prevent white blowout
+                EmissiveIntensity = 2.0f, // Increased from 0.1f to 2.0f for much brighter glow
                 RotationSpeed = 0.05f
             };
+            
+            Console.WriteLine($"[SUN] INITIALIZED at position: {_sun.Position}, scale: 500f, intensity: 2.0f");
 
             // Populate space objects (sample points)
+            // ADD THE SUN AS A TARGETABLE OBJECT FIRST!
+            _spaceObjects.Add(new SpaceObject("SUN", new Vector3(5000, 2000, 3000), 500f)); // Match sun's scale
             _spaceObjects.Add(new SpaceObject("Nav Buoy Alpha", new Vector3(3000, 200, -1500), 150f));
             _spaceObjects.Add(new SpaceObject("Mining Station", new Vector3(-4500, -800, 2200), 400f));
             _spaceObjects.Add(new SpaceObject("Jump Gate", new Vector3(8000, 1200, 5000), 600f));
@@ -552,13 +558,13 @@ namespace Roguelancer {
             _prevKeys = Keyboard.GetState();
             _prevMouseState = Mouse.GetState();
             _inputCooldown = InputCooldownTime; // Start input cooldown
-            Console.WriteLine("🟢 Window ACTIVATED - Input enabled, cooldown started.");
+            Console.WriteLine("[WINDOW] ACTIVATED - Input enabled, cooldown started.");
         }
 
         private void OnWindowDeactivated(object sender, EventArgs e) {
             _isWindowFocused = false;
             _playerShip.Reset(); // Reset ship state
-            Console.WriteLine("Window DEACTIVATED - Input disabled, ship state reset.");
+            Console.WriteLine("[WINDOW] DEACTIVATED - Input disabled, ship state reset.");
         }
 
         private void OnWindowFocusChanged(object sender, EventArgs e) {
@@ -599,6 +605,15 @@ namespace Roguelancer {
 
             // Draw sun (before ship so it's properly depth-tested)
             _sun.Draw(_camera.View, _camera.Projection);
+            
+            // Debug: Check if sun is in view frustum (do this only occasionally to avoid spam)
+            if (gameTime.TotalGameTime.TotalSeconds % 2 < 0.016f) { // Every ~2 seconds
+                float distanceToSun = Vector3.Distance(_camera.Position, _sun.Position);
+                Vector3 directionToSun = Vector3.Normalize(_sun.Position - _camera.Position);
+                Vector3 cameraForward = Vector3.Normalize(_camera.Position - _playerShip.Position);
+                float dotProduct = Vector3.Dot(cameraForward, directionToSun);
+                Console.WriteLine($"[SUN] DEBUG: Distance={distanceToSun:F1}, Dot={dotProduct:F2} (>0=in front), CamPos=({_camera.Position.X:F1},{_camera.Position.Y:F1},{_camera.Position.Z:F1})");
+            }
 
             // Draw ship
             _playerShip.Draw(_camera.View, _camera.Projection, _lightDirection);
