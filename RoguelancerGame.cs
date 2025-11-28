@@ -445,16 +445,15 @@ namespace Roguelancer {
             // Update mouse visibility based on flight mode
             IsMouseVisible = !_playerShip.IsFreeFlightMode;
 
-            // Trigger camera shake when afterburner is activated
-            if (_playerShip.AfterburnerJustActivated) {
-                // Strong initial shake that decays quickly
-                _camera.AddShake(0.2f, 4f); // Reduced from 0.5f to 0.2f
-            }
+            // Trigger camera shake when afterburner is activated - REMOVED to eliminate wiggle
+            // if (_playerShip.AfterburnerJustActivated) {
+            //     _camera.AddShake(0.2f, 4f);
+            // }
 
-            // Continuous mild shake while afterburner is active
-            if (_playerShip.IsAfterburnerActive) {
-                _camera.AddShake(0.03f, 8f); // Reduced from 0.1f to 0.03f for much less wiggle
-            }
+            // Continuous mild shake while afterburner is active - REMOVED to eliminate wiggle
+            // if (_playerShip.IsAfterburnerActive) {
+            //     _camera.AddShake(0.03f, 8f);
+            // }
 
             // Update camera shake
             _camera.UpdateShake(deltaTime);
@@ -474,29 +473,122 @@ namespace Roguelancer {
             // Update notification manager
             _notificationManager.Update(gameTime);
 
-            // RIGHT MOUSE BUTTON: Fire weapons!
-            if (mouseState.RightButton == ButtonState.Pressed && _prevMouseState.RightButton == ButtonState.Released) {
+            // WEAPON SWITCHING with number keys
+            if (keyboardState.IsKeyDown(Keys.D1) && _prevKeys.IsKeyUp(Keys.D1))
+            {
+                _weaponSystem.CurrentWeapon = WeaponType.BlueDonut;
+                _notificationManager.ShowMessage("Weapon: Blue Donut");
+                Console.WriteLine("Switched to Blue Donut");
+            }
+            else if (keyboardState.IsKeyDown(Keys.D2) && _prevKeys.IsKeyUp(Keys.D2))
+            {
+                _weaponSystem.CurrentWeapon = WeaponType.Fireball;
+                _notificationManager.ShowMessage("Weapon: Fireball");
+                Console.WriteLine("Switched to Fireball");
+            }
+            else if (keyboardState.IsKeyDown(Keys.D3) && _prevKeys.IsKeyUp(Keys.D3))
+            {
+                _weaponSystem.CurrentWeapon = WeaponType.QuickBlaster;
+                _notificationManager.ShowMessage("Weapon: Quick Blaster");
+                Console.WriteLine("Switched to Quick Blaster");
+            }
+            else if (keyboardState.IsKeyDown(Keys.D4) && _prevKeys.IsKeyUp(Keys.D4))
+            {
+                _weaponSystem.CurrentWeapon = WeaponType.ChargeBeam;
+                _notificationManager.ShowMessage("Weapon: Charge Beam");
+                Console.WriteLine("Switched to Charge Beam");
+            }
+
+            // RIGHT MOUSE BUTTON: Fire weapons or charge beam!
+            if (mouseState.RightButton == ButtonState.Pressed)
+            {
                 // Calculate gun positions (offset from ship center)
                 Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
                 Matrix shipTransform = modelCorrection * _playerShip.Orientation * Matrix.CreateTranslation(_playerShip.Position);
 
-                // Two gun positions (left and right)
+                // Get mouse cursor position in 3D world space
+                Vector3 nearPoint = GraphicsDevice.Viewport.Unproject(
+                    new Vector3(mouseState.X, mouseState.Y, 0),
+                    _camera.Projection,
+                    _camera.View,
+                    Matrix.Identity
+                );
+
+                Vector3 farPoint = GraphicsDevice.Viewport.Unproject(
+                    new Vector3(mouseState.X, mouseState.Y, 1),
+                    _camera.Projection,
+                    _camera.View,
+                    Matrix.Identity
+                );
+
+                // Direction from near to far point (where mouse is aiming)
+                Vector3 mouseAimDirection = Vector3.Normalize(farPoint - nearPoint);
+
+                // Two gun positions (left and right) - spawn in front of ship
                 Vector3[] gunOffsets = new[] {
-                    new Vector3(-3f, 0f, -5f),  // Left gun
-                    new Vector3(3f, 0f, -5f)    // Right gun
+                    new Vector3(-3f, 0f, 20f),  // Left gun
+                    new Vector3(3f, 0f, 20f)    // Right gun
                 };
 
-                foreach (var offset in gunOffsets) {
-                    Vector3 gunPosition = Vector3.Transform(offset, shipTransform);
-                    _weaponSystem.Fire(gunPosition, _playerShip.Forward, _playerShip.Velocity);
+                // Charge beam: only fire from center when button first pressed or held
+                if (_weaponSystem.CurrentWeapon == WeaponType.ChargeBeam)
+                {
+                    if (_prevMouseState.RightButton == ButtonState.Released)
+                    {
+                        // Just pressed - start charging
+                        Vector3 centerGunPos = Vector3.Transform(new Vector3(0f, 0f, 20f), shipTransform);
+                        _weaponSystem.Fire(centerGunPos, mouseAimDirection, _playerShip.Velocity);
+                    }
+                    else
+                    {
+                        // Still holding - continue charging (update position/direction)
+                        Vector3 centerGunPos = Vector3.Transform(new Vector3(0f, 0f, 20f), shipTransform);
+                        _weaponSystem.Fire(centerGunPos, mouseAimDirection, _playerShip.Velocity);
+                    }
                 }
+                else
+                {
+                    // Regular weapons: fire only on initial press
+                    if (_prevMouseState.RightButton == ButtonState.Released)
+                    {
+                        foreach (var offset in gunOffsets)
+                        {
+                            Vector3 gunPosition = Vector3.Transform(offset, shipTransform);
+                            _weaponSystem.Fire(gunPosition, mouseAimDirection, _playerShip.Velocity);
+                        }
+                        Console.WriteLine($"Fired {_weaponSystem.CurrentWeapon}!");
+                    }
+                }
+            }
+            else if (_prevMouseState.RightButton == ButtonState.Pressed)
+            {
+                // Mouse button released - release charge beam if charging
+                if (_weaponSystem.CurrentWeapon == WeaponType.ChargeBeam && _weaponSystem.IsCharging())
+                {
+                    Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
+                    Matrix shipTransform = modelCorrection * _playerShip.Orientation * Matrix.CreateTranslation(_playerShip.Position);
 
-                Console.WriteLine("Blasters fired!");
+                    Vector3 nearPoint = GraphicsDevice.Viewport.Unproject(
+                        new Vector3(mouseState.X, mouseState.Y, 0),
+                        _camera.Projection,
+                        _camera.View,
+                        Matrix.Identity
+                    );
+
+                    Vector3 farPoint = GraphicsDevice.Viewport.Unproject(
+                        new Vector3(mouseState.X, mouseState.Y, 1),
+                        _camera.Projection,
+                        _camera.View,
+                        Matrix.Identity
+                    );
+
+                    Vector3 mouseAimDirection = Vector3.Normalize(farPoint - nearPoint);
+                    Vector3 centerGunPos = Vector3.Transform(new Vector3(0f, 0f, 20f), shipTransform);
+
+                    _weaponSystem.ReleaseCharge(centerGunPos, mouseAimDirection);
+                }
             }
 
-            HandleTargetingInput(keyboardState);
-
-            base.Update(gameTime);
         }
 
         private void HandleTargetingInput(KeyboardState kb) {
@@ -901,24 +993,41 @@ namespace Roguelancer {
 
         private void DrawStatusPanel() {
             // Draw status box background
-            Rectangle panel = new Rectangle(10, 10, 280, 200);
+            Rectangle panel = new Rectangle(10, 10, 280, 240); // Made taller for weapon info
             _spriteBatch.Draw(_pixel, panel, Color.Black * 0.7f);
             _spriteBatch.Draw(_pixel, new Rectangle(10, 10, 280, 2), Color.Cyan);
-            _spriteBatch.Draw(_pixel, new Rectangle(10, 10, 2, 200), Color.Cyan);
-            _spriteBatch.Draw(_pixel, new Rectangle(288, 10, 2, 200), Color.Cyan);
-            _spriteBatch.Draw(_pixel, new Rectangle(10, 208, 280, 2), Color.Cyan);
+            _spriteBatch.Draw(_pixel, new Rectangle(10, 10, 2, 240), Color.Cyan);
+            _spriteBatch.Draw(_pixel, new Rectangle(288, 10, 2, 240), Color.Cyan);
+            _spriteBatch.Draw(_pixel, new Rectangle(10, 248, 280, 2), Color.Cyan);
 
             if (_font != null) {
                 _spriteBatch.DrawString(_font, "STATUS", new Vector2(20, 20), Color.Cyan);
                 _spriteBatch.DrawString(_font, $"Speed: {Math.Abs(_playerShip.Speed):F1}", new Vector2(20, 45), Color.White);
                 _spriteBatch.DrawString(_font, $"Throttle: {_playerShip.GetThrottle() * 100:F0}%", new Vector2(20, 65), Color.White);
                 _spriteBatch.DrawString(_font, $"Mode: {_playerShip.GetFlightStatus()}", new Vector2(20, 85), Color.Yellow);
+                
+                // Weapon display
+                _spriteBatch.DrawString(_font, $"Weapon: {_weaponSystem.CurrentWeapon}", new Vector2(20, 105), Color.Orange);
+                
+                // Charge beam indicator
+                if (_weaponSystem.IsCharging())
+                {
+                    float chargeProgress = _weaponSystem.GetChargeProgress();
+                    _spriteBatch.DrawString(_font, $"CHARGING: {chargeProgress * 100:F0}%", new Vector2(20, 125), Color.Yellow);
+                    
+                    // Charge bar
+                    Rectangle chargeBarBg = new Rectangle(20, 145, 250, 15);
+                    Rectangle chargeBarFill = new Rectangle(20, 145, (int)(250 * chargeProgress), 15);
+                    _spriteBatch.Draw(_pixel, chargeBarBg, Color.DarkGray * 0.5f);
+                    _spriteBatch.Draw(_pixel, chargeBarFill, Color.Lerp(Color.Yellow, Color.Red, chargeProgress));
+                }
+                
                 if (_playerShip.IsNewtonianMode)
-                    _spriteBatch.DrawString(_font, "NEWTONIAN", new Vector2(20, 105), Color.Lime);
+                    _spriteBatch.DrawString(_font, "NEWTONIAN", new Vector2(20, 165), Color.Lime);
                 if (_camera.IsTurretViewActive)
-                    _spriteBatch.DrawString(_font, "TURRET VIEW", new Vector2(20, 125), Color.Orange);
+                    _spriteBatch.DrawString(_font, "TURRET VIEW", new Vector2(20, 185), Color.Orange);
                 if (_playerShip.IsGotoActive && _playerShip.CurrentGotoTarget != null)
-                    _spriteBatch.DrawString(_font, $"GOTO: {_playerShip.CurrentGotoTarget.Name}", new Vector2(20, 145), Color.Orange);
+                    _spriteBatch.DrawString(_font, $"GOTO: {_playerShip.CurrentGotoTarget.Name}", new Vector2(20, 205), Color.Orange);
             } else {
                 // Fallback visual indicators when no font available
                 // Speed bar (horizontal)
@@ -933,8 +1042,16 @@ namespace Roguelancer {
                 _spriteBatch.Draw(_pixel, new Rectangle(20, 60, 250, 20), Color.DarkGray * 0.5f);
                 _spriteBatch.Draw(_pixel, new Rectangle(20, 60, throttleBarWidth, 20), throttleColor);
 
+                // Weapon/charge indicator
+                if (_weaponSystem.IsCharging())
+                {
+                    float chargeProgress = _weaponSystem.GetChargeProgress();
+                    Rectangle chargeBar = new Rectangle(20, 90, (int)(250 * chargeProgress), 20);
+                    _spriteBatch.Draw(_pixel, chargeBar, Color.Lerp(Color.Yellow, Color.Red, chargeProgress));
+                }
+
                 // Status indicators
-                int yPos = 90;
+                int yPos = 120;
                 if (_playerShip.IsAfterburnerActive) {
                     _spriteBatch.Draw(_pixel, new Rectangle(20, yPos, 250, 20), Color.Red * 0.7f);
                     yPos += 25;
@@ -1009,7 +1126,7 @@ namespace Roguelancer {
             float sunDistanceKm = sunDistance / 1000f;
 
             // Draw sun distance panel (top-right) - MADE BIGGER
-            Rectangle panel = new Rectangle(GraphicsDevice.Viewport.Width - 320, 10, 310, 150);
+            Rectangle panel = new Rectangle(GraphicsDevice.Viewport.Width - 320, 10, 310, 180);
             _spriteBatch.Draw(_pixel, panel, Color.Black * 0.8f);
             _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 3), Color.Orange);
             _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, 3, panel.Height), Color.Orange);
@@ -1017,7 +1134,7 @@ namespace Roguelancer {
             _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y + panel.Height - 3, panel.Width, 3), Color.Orange);
 
             // Draw title bar with "SUN" label using bars
-            _spriteBatch.Draw(_pixel, new Rectangle(panel.X + 5, panel.Y + 5, panel.Width - 10, 30), Color.Orange * 0.4f);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X + 5, panel.Y + 5, panel.Width - 10, 40), Color.Orange * 0.4f);
 
             // Distance bar visualization (8km = full bar, 0km = empty) - MADE TALLER
             float maxDistance = 8000f; // Max distance to show (8km)
@@ -1032,12 +1149,12 @@ namespace Roguelancer {
             else distanceColor = Color.Red; // Very close!
 
             // Background bar - MUCH TALLER
-            _spriteBatch.Draw(_pixel, new Rectangle(panel.X + 10, panel.Y + 45, panel.Width - 20, 50), Color.DarkGray * 0.5f);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X + 10, panel.Y + 50, panel.Width - 20, 60), Color.DarkGray * 0.5f);
             // Distance bar (fills as you get closer)
-            _spriteBatch.Draw(_pixel, new Rectangle(panel.X + 10, panel.Y + 45, barWidth, 50), distanceColor * 0.9f);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X + 10, panel.Y + 50, barWidth, 60), distanceColor * 0.9f);
 
             // Numeric display using stacked bars (like 7-segment display)
-            DrawNumericDistance(panel.X + 15, panel.Y + 105, sunDistanceKm);
+            DrawNumericDistance(panel.X + 15, panel.Y + 115, sunDistanceKm);
         }
 
         private void DrawNumericDistance(int x, int y, float distanceKm) {
