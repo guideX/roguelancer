@@ -1,2 +1,2 @@
-﻿using var game = new Roguelancer.Game1();
+﻿using var game = new Roguelancer.RoguelancerGame();
 game.Run();

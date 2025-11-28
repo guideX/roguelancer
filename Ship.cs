@@ -20,8 +20,8 @@ namespace Roguelancer
         public float MaxSpeed { get; set; } = 250f;
         public float MaxReverseSpeed { get; set; } = 150f;
         public float CruiseSpeed { get; set; } = 500f;
-        public float AfterburnerSpeed { get; set; } = 350f; 
-        public float Acceleration { get; set; } = 50f; 
+        public float AfterburnerSpeed { get; set; } = 800f; // Increased for more dramatic effect
+        public float Acceleration { get; set; } = 150f; // Increased for faster response
         public float TurnSpeed { get; set; } = 1.5f;
         public float BankAmount { get; set; } = 1.2f;
         public float StrafeSpeed { get; set; } = 250f;
@@ -39,6 +39,8 @@ namespace Roguelancer
         private Vector2 _lastMousePosition;
         private bool _mouseFlightInitialized = false;
         private ButtonState _prevLeftMouseState = ButtonState.Released;
+        private bool _shouldAutoLevel = false;
+        private float _autoLevelSpeed = 1.5f; // Reduced from 3.0f - slower, more gentle leveling
 
         // Special states
         public bool IsAfterburnerActive { get; private set; }
@@ -183,42 +185,51 @@ namespace Roguelancer
             
             if (fireWeapons) FireActiveWeapons();
             
+            // --- State Management (Afterburner, Cruise) ---
             bool wasAfterburnerActive = IsAfterburnerActive;
-            IsAfterburnerActive = keyboardState.IsKeyDown(Keys.Tab);
-            
-            if (IsAfterburnerActive)
+            bool cruiseKeyPressed = keyboardState.IsKeyDown(Keys.LeftShift) && keyboardState.IsKeyDown(Keys.W);
+
+            // 1. Handle Afterburner state (TAB key)
+            if (keyboardState.IsKeyDown(Keys.Tab) && _previousKeyboardState.IsKeyUp(Keys.Tab))
             {
-                IsCruiseActive = false;
-                _cruiseCharging = false;
-                _cruiseChargeTimer = 0f;
+                IsAfterburnerActive = !IsAfterburnerActive;
+                if (IsAfterburnerActive)
+                {
+                    IsCruiseActive = false;
+                    _cruiseCharging = false;
+                    _cruiseChargeTimer = 0f;
+                    _notificationManager?.ShowMessage("Afterburner Engaged");
+                }
+                else
+                {
+                    _notificationManager?.ShowMessage("Afterburner Disengaged");
+                }
             }
-            
-            if (IsAfterburnerActive && !wasAfterburnerActive)
-            {
-                _notificationManager?.ShowMessage("Afterburner Engaged");
-            }
-            
-            AfterburnerJustActivated = !wasAfterburnerActive && IsAfterburnerActive;
-            
-            bool cruiseCombo = keyboardState.IsKeyDown(Keys.W) && (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift));
-            if (cruiseCombo && (_previousKeyboardState.IsKeyUp(Keys.W) || _previousKeyboardState.IsKeyUp(Keys.LeftShift)))
+
+            // 2. Handle Cruise state (Shift + W)
+            if (cruiseKeyPressed && (_previousKeyboardState.IsKeyUp(Keys.W) || _previousKeyboardState.IsKeyUp(Keys.LeftShift)))
             {
                 if (!IsCruiseActive && !_cruiseCharging)
                 {
                     _cruiseCharging = true;
                     _cruiseChargeTimer = 0f;
-                    IsAfterburnerActive = false;
+                    IsAfterburnerActive = false; // Ensure afterburner is off
                     _notificationManager?.ShowMessage("Cruise Charging");
-                    Console.WriteLine("Cruise engines charging... (5 second buildup)");
                 }
-                else if (IsCruiseActive || _cruiseCharging)
+                else
                 {
                     IsCruiseActive = false;
                     _cruiseCharging = false;
                     _cruiseChargeTimer = 0f;
                     _notificationManager?.ShowMessage("Cruise Deactivated");
-                    Console.WriteLine("Cruise engine toggle: OFF");
                 }
+            }
+
+            // 3. Update activation flag for effects
+            AfterburnerJustActivated = IsAfterburnerActive && !wasAfterburnerActive;
+            if (AfterburnerJustActivated)
+            {
+                _notificationManager?.ShowMessage("Afterburner Engaged");
             }
             
             if (zPressed)
@@ -273,11 +284,11 @@ namespace Roguelancer
                 }
 
                 // W increases throttle, S decreases
-                if (keyboardState.IsKeyDown(Keys.W) && !cruiseCombo && !IsCruiseActive)
+                if (keyboardState.IsKeyDown(Keys.W) && !cruiseKeyPressed && !IsCruiseActive)
                 {
                     _throttle = MathHelper.Clamp(_throttle + deltaTime * 0.5f, -1f, 1f);
                 }
-                else if (keyboardState.IsKeyDown(Keys.S) && !cruiseCombo && !IsCruiseActive)
+                else if (keyboardState.IsKeyDown(Keys.S) && !IsCruiseActive)
                 {
                     _throttle = MathHelper.Clamp(_throttle - deltaTime * 0.5f, -1f, 1f);
                 }
@@ -298,6 +309,19 @@ namespace Roguelancer
 
             // Steering logic
             bool temporarySteering = !_isFreeFlightMode && leftMouseHeld;
+            
+            // Check if we just released the left mouse button in mouse mode (not free flight)
+            if (!_isFreeFlightMode && !leftMouseHeld && _prevLeftMouseState == ButtonState.Pressed)
+            {
+                _shouldAutoLevel = true;
+            }
+            
+            // Disable auto-level if we start steering again
+            if (temporarySteering || _isFreeFlightMode)
+            {
+                _shouldAutoLevel = false;
+            }
+            
             if (_isFreeFlightMode || temporarySteering)
             {
                 // Free Flight: ship follows mouse cursor
@@ -314,37 +338,107 @@ namespace Roguelancer
                 }
                 if (Math.Abs(mouseDeltaFromCenter.Y) > deadzone)
                 {
-                    pitchInput = -mouseDeltaFromCenter.Y * mouseSensitivity / (viewport.Height / 2f);
+                    pitchInput = mouseDeltaFromCenter.Y * mouseSensitivity / (viewport.Height / 2f);
                 }
 
                 yawInput = MathHelper.Clamp(yawInput, -1f, 1f);
                 pitchInput = MathHelper.Clamp(pitchInput, -1f, 1f);
             }
             
-            // Strafe and Roll inputs are always available
-            if (keyboardState.IsKeyDown(Keys.A)) rollInput = 1f; // A for roll left
-            if (keyboardState.IsKeyDown(Keys.D)) rollInput = -1f; // D for roll right
+            // --- Rotational and Translational Inputs ---
             
+            // Roll: A/D when NOT strafing
+            bool isStrafing = keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift);
+            if (!isStrafing)
+            {
+                if (keyboardState.IsKeyDown(Keys.A)) rollInput = 1f;
+                if (keyboardState.IsKeyDown(Keys.D)) rollInput = -1f;
+            }
+
             Vector3 strafeVelocity = Vector3.Zero;
-            // Strafe with Shift + A/D/W/S
-            if (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift))
+            // Strafe: Shift + A/D for horizontal, Shift + W/S for vertical
+            if (isStrafing)
             {
                 if (keyboardState.IsKeyDown(Keys.A)) strafeVelocity -= Right * StrafeSpeed;
                 if (keyboardState.IsKeyDown(Keys.D)) strafeVelocity += Right * StrafeSpeed;
-                if (keyboardState.IsKeyDown(Keys.W) && !cruiseCombo) strafeVelocity += Up * StrafeSpeed;
+                if (keyboardState.IsKeyDown(Keys.W) && !cruiseKeyPressed) strafeVelocity += Up * StrafeSpeed;
                 if (keyboardState.IsKeyDown(Keys.S)) strafeVelocity -= Up * StrafeSpeed;
             }
             
             float turnRate = TurnSpeed * deltaTime;
             if (IsAfterburnerActive) turnRate *= 0.6f;
             
-            Quaternion rotationDelta = Quaternion.Identity;
-            if (Math.Abs(pitchInput) > 0.01f) rotationDelta *= Quaternion.CreateFromAxisAngle(Right, pitchInput * turnRate);
-            if (Math.Abs(yawInput) > 0.01f) rotationDelta *= Quaternion.CreateFromAxisAngle(Up, yawInput * turnRate);
-            if (Math.Abs(rollInput) > 0.01f) rotationDelta *= Quaternion.CreateFromAxisAngle(Forward, rollInput * turnRate * 1.5f);
-            
-            _rotation *= rotationDelta;
+            // Apply rotations in local space to prevent gimbal lock
+            // Pitch around the local Right axis
+            Quaternion pitchDelta = Quaternion.Identity;
+            if (Math.Abs(pitchInput) > 0.01f) 
+                pitchDelta = Quaternion.CreateFromAxisAngle(Vector3.Right, -pitchInput * turnRate);
+
+            // Yaw around the local Up axis
+            Quaternion yawDelta = Quaternion.Identity;
+            if (Math.Abs(yawInput) > 0.01f) 
+                yawDelta = Quaternion.CreateFromAxisAngle(Vector3.Up, yawInput * turnRate);
+
+            // Roll around the local Forward axis
+            Quaternion rollDelta = Quaternion.Identity;
+            if (Math.Abs(rollInput) > 0.01f) 
+                rollDelta = Quaternion.CreateFromAxisAngle(Vector3.Forward, rollInput * turnRate * 1.5f);
+
+            // Apply rotations: first apply to current rotation, then multiply
+            _rotation = _rotation * pitchDelta * yawDelta * rollDelta;
             _rotation.Normalize();
+            
+            // Auto-level the ship when enabled (after releasing mouse in mouse mode)
+            if (_shouldAutoLevel)
+            {
+                // Get current ship vectors
+                Vector3 currentForward = Vector3.Transform(Vector3.Forward, _rotation);
+                Vector3 currentRight = Vector3.Transform(Vector3.Right, _rotation);
+                
+                // Project the ship's right vector onto the horizontal plane (perpendicular to world up)
+                Vector3 worldUp = Vector3.Up;
+                Vector3 horizontalRight = currentRight - worldUp * Vector3.Dot(currentRight, worldUp);
+                
+                // Check if we have a valid horizontal projection
+                if (horizontalRight.LengthSquared() > 0.0001f)
+                {
+                    horizontalRight.Normalize();
+                    
+                    // Calculate how much the ship is rolled by measuring angle between current right and horizontal right
+                    float rollAlignment = Vector3.Dot(currentRight, horizontalRight);
+                    
+                    // Only level if we're noticeably rolled (less than 99.5% aligned)
+                    if (rollAlignment < 0.995f)
+                    {
+                        // Calculate the roll angle to correct
+                        Vector3 axis = Vector3.Cross(currentRight, horizontalRight);
+                        float rollAngle = (float)Math.Acos(MathHelper.Clamp(rollAlignment, -1f, 1f));
+                        
+                        // Make sure we rotate in the correct direction around the forward axis
+                        if (Vector3.Dot(axis, currentForward) < 0)
+                            rollAngle = -rollAngle;
+                        
+                        // Apply a small rotation around the forward axis to level the wings
+                        float correctionAngle = rollAngle * deltaTime * _autoLevelSpeed;
+                        Quaternion levelCorrection = Quaternion.CreateFromAxisAngle(currentForward, correctionAngle);
+                        
+                        // Apply the correction
+                        _rotation = levelCorrection * _rotation;
+                        _rotation.Normalize();
+                    }
+                    else
+                    {
+                        // We're level enough, stop auto-leveling
+                        _shouldAutoLevel = false;
+                    }
+                }
+                else
+                {
+                    // Can't determine horizontal right, stop leveling
+                    _shouldAutoLevel = false;
+                }
+            }
+            
             Orientation = Matrix.CreateFromQuaternion(_rotation);
             
             UpdateGoto(deltaTime);
@@ -573,6 +667,21 @@ namespace Roguelancer
             else _newtonianVelocity = Velocity;
             _notificationManager?.ShowMessage(_newtonianMode ? "Newtonian Flight" : "Standard Flight");
             Console.WriteLine($"Newtonian Mode: {(_newtonianMode ? "ENABLED" : "DISABLED")}");
+        }
+
+        /// <summary>
+        /// Resets the ship's state to neutral. Called when window focus is lost.
+        /// </summary>
+        public void Reset()
+        {
+            IsAfterburnerActive = false;
+            IsCruiseActive = false;
+            _cruiseCharging = false;
+            _cruiseChargeTimer = 0f;
+            _throttle = 0f;
+            _targetSpeed = 0f;
+            // Optionally, reset other states if needed
+            // EnginesKilled = false; 
         }
     }
 }

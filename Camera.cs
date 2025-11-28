@@ -15,6 +15,7 @@ namespace Roguelancer
         // Camera views
         private enum CameraView { Cockpit, Turret, Rear }
         private CameraView _currentView = CameraView.Cockpit;
+        private CameraView _previousView = CameraView.Cockpit;
 
         // Turret view state
         private float _turretYaw = 0f;
@@ -27,6 +28,7 @@ namespace Roguelancer
         private float _shakeTimer = 0f;
 
         public bool IsTurretViewActive => _currentView == CameraView.Turret;
+        public bool IsRearViewActive => _currentView == CameraView.Rear;
 
         public Camera(float aspectRatio)
         {
@@ -112,9 +114,24 @@ namespace Roguelancer
             }
         }
 
-        public void SetRearView()
+        public void SetRearView(bool active)
         {
-            _currentView = CameraView.Rear;
+            if (active)
+            {
+                if (_currentView != CameraView.Rear)
+                {
+                    _previousView = _currentView;
+                    _currentView = CameraView.Rear;
+
+                }
+            }
+            else
+            {
+                if (_currentView == CameraView.Rear)
+                {
+                    _currentView = _previousView;
+                }
+            }
         }
 
         public void CycleView()

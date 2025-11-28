@@ -143,7 +143,7 @@ namespace Roguelancer
             // Update view and projection matrices
             _effect.View = view;
             _effect.Projection = projection;
-            _effect.World = Matrix.Identity;
+            _effect.World = Matrix.CreateTranslation(cameraPosition);
             
             // Draw stars with motion streaks that scale with speed
             // Streaks start appearing at speed > 0.1 and gradually increase
@@ -226,8 +226,6 @@ namespace Roguelancer
                 fadeColor.A = (byte)(fadeColor.A * (0.2f + speedFactor * 0.8f)); // Fade more at lower speeds
                 lineVertices[i * 2 + 1] = new VertexPositionColor(starPos - streak, fadeColor);
             }
-            
-            _effect.World = Matrix.Identity;
             
             foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
             {
