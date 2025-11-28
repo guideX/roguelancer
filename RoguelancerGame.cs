@@ -165,7 +165,7 @@ namespace Roguelancer {
                 Console.WriteLine($"[SUN] INITIALIZED at position: {_sun.Position}, scale: {currentSystem.SunScale}, intensity: {currentSystem.SunIntensity}");
             } else {
                 // Fallback to hardcoded sun if no system config
-                _sun = new Sun(GraphicsDevice, new Vector3(5000, 2000, 3000), scale: 500f) {
+                _sun = new Sun(GraphicsDevice, new Vector3(5000, 2000, 3000), scale: 2000f) {
                     EmissiveColor = new Color(255, 220, 180),
                     EmissiveIntensity = 2.0f,
                     RotationSpeed = 0.05f
@@ -531,7 +531,7 @@ namespace Roguelancer {
             // RIGHT MOUSE BUTTON: Fire weapons or charge beam!
             if (mouseState.RightButton == ButtonState.Pressed)
             {
-                // Calculate gun positions (offset from ship center)
+                // Calculate ship transform
                 Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
                 Matrix shipTransform = modelCorrection * _playerShip.Orientation * Matrix.CreateTranslation(_playerShip.Position);
 
@@ -553,38 +553,30 @@ namespace Roguelancer {
                 // Direction from near to far point (where mouse is aiming)
                 Vector3 mouseAimDirection = Vector3.Normalize(farPoint - nearPoint);
 
-                // Two gun positions (left and right) - spawn in front of ship
-                Vector3[] gunOffsets = new[] {
-                    new Vector3(-3f, 0f, 20f),  // Left gun
-                    new Vector3(3f, 0f, 20f)    // Right gun
-                };
+                // Gun position at center front of ship
+                Vector3 centerGunOffset = new Vector3(0f, 0f, 20f);
+                Vector3 gunPosition = Vector3.Transform(centerGunOffset, shipTransform);
 
-                // Charge beam: only fire from center when button first pressed or held
+                // Charge beam: fire continuously while held
                 if (_weaponSystem.CurrentWeapon == WeaponType.ChargeBeam)
                 {
                     if (_prevMouseState.RightButton == ButtonState.Released)
                     {
                         // Just pressed - start charging
-                        Vector3 centerGunPos = Vector3.Transform(new Vector3(0f, 0f, 20f), shipTransform);
-                        _weaponSystem.Fire(centerGunPos, mouseAimDirection, _playerShip.Velocity);
+                        _weaponSystem.Fire(gunPosition, mouseAimDirection, _playerShip.Velocity);
                     }
                     else
                     {
-                        // Still holding - continue charging (update position/direction)
-                        Vector3 centerGunPos = Vector3.Transform(new Vector3(0f, 0f, 20f), shipTransform);
-                        _weaponSystem.Fire(centerGunPos, mouseAimDirection, _playerShip.Velocity);
+                        // Still holding - continue charging/firing (update position/direction)
+                        _weaponSystem.Fire(gunPosition, mouseAimDirection, _playerShip.Velocity);
                     }
                 }
                 else
                 {
-                    // Regular weapons: fire only on initial press
+                    // Regular weapons: fire only on initial press (WeaponSystem creates dual shots internally)
                     if (_prevMouseState.RightButton == ButtonState.Released)
                     {
-                        foreach (var offset in gunOffsets)
-                        {
-                            Vector3 gunPosition = Vector3.Transform(offset, shipTransform);
-                            _weaponSystem.Fire(gunPosition, mouseAimDirection, _playerShip.Velocity);
-                        }
+                        _weaponSystem.Fire(gunPosition, mouseAimDirection, _playerShip.Velocity);
                         Console.WriteLine($"Fired {_weaponSystem.CurrentWeapon}!");
                     }
                 }
@@ -617,6 +609,7 @@ namespace Roguelancer {
                     _weaponSystem.ReleaseCharge(centerGunPos, mouseAimDirection);
                 }
             }
+
 
             HandleTargetingInput(keyboardState);
 

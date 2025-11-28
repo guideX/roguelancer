@@ -9,7 +9,7 @@ namespace Roguelancer {
     /// </summary>
     public class Sun {
         public Vector3 Position { get; set; }
-        public float Scale { get; set; } = 100f;
+        public float Scale { get; set; } = 2000f; // Increased from 100f for proper visibility
         public Color EmissiveColor { get; set; } = Color.White;
         public float EmissiveIntensity { get; set; } = 1.5f;
         public float RotationSpeed { get; set; } = 0.1f;
@@ -24,7 +24,7 @@ namespace Roguelancer {
         private float _surfaceRotation = 0f;
         private float _coronaRotation = 0f;
 
-        public Sun(GraphicsDevice graphicsDevice, Vector3 position, float scale = 100f) {
+        public Sun(GraphicsDevice graphicsDevice, Vector3 position, float scale = 2000f) {
             _graphicsDevice = graphicsDevice;
             Position = position;
             Scale = scale;

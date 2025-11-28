@@ -310,21 +310,45 @@ namespace Roguelancer
                 return; // Don't create projectile
             }
 
-            // Regular projectile weapons
-            Projectile projectile = new Projectile
+            // Regular projectile weapons: Create DUAL projectiles from left and right
+            // Calculate perpendicular offset vector (perpendicular to firing direction)
+            Vector3 up = Vector3.Up;
+            Vector3 right = Vector3.Cross(direction, up);
+            
+            // If direction is parallel to up, use a different reference
+            if (right.LengthSquared() < 0.0001f)
             {
-                Position = origin,
-                Velocity = direction * stats.Speed + shipVelocity,
-                Life = 0f,
-                MaxLife = stats.Life,
-                Color = stats.Color,
-                Size = stats.Size,
-                Type = CurrentWeapon
+                right = Vector3.Cross(direction, Vector3.Forward);
+            }
+            right.Normalize();
+            
+            // Offset distance between the two shots (adjustable for visual effect)
+            float spreadDistance = 6f; // Distance between left and right projectiles
+            
+            // Create two projectiles - one offset left, one offset right
+            Vector3[] offsets = new[]
+            {
+                -right * spreadDistance, // Left projectile
+                right * spreadDistance   // Right projectile
             };
             
-            _projectiles.Add(projectile);
+            foreach (var offset in offsets)
+            {
+                Projectile projectile = new Projectile
+                {
+                    Position = origin + offset,
+                    Velocity = direction * stats.Speed + shipVelocity,
+                    Life = 0f,
+                    MaxLife = stats.Life,
+                    Color = stats.Color,
+                    Size = stats.Size,
+                    Type = CurrentWeapon
+                };
+                
+                _projectiles.Add(projectile);
+            }
             
-            // Add muzzle flash
+            // Add muzzle flash at center position
             MuzzleFlash flash = new MuzzleFlash
             {
                 Position = origin,
@@ -334,7 +358,7 @@ namespace Roguelancer
             };
             _muzzleFlashes.Add(flash);
             
-            Console.WriteLine($"?? {CurrentWeapon} FIRED! Speed: {stats.Speed:F0}, Size: {stats.Size:F0}");
+            Console.WriteLine($"?? {CurrentWeapon} DUAL FIRED! Speed: {stats.Speed:F0}, Size: {stats.Size:F0}");
         }
 
         public void ReleaseCharge(Vector3 origin, Vector3 direction)
