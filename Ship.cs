@@ -19,8 +19,8 @@ namespace Roguelancer
         public float Speed { get; private set; }
         public float MaxSpeed { get; set; } = 250f;
         public float MaxReverseSpeed { get; set; } = 150f;
-        public float CruiseSpeed { get; set; } = 500f;
-        public float AfterburnerSpeed { get; set; } = 800f; // Increased for more dramatic effect
+        public float CruiseSpeed { get; set; } = 600f;
+        public float AfterburnerSpeed { get; set; } = 500f; // Increased for more dramatic effect
         public float Acceleration { get; set; } = 150f; // Increased for faster response
         public float TurnSpeed { get; set; } = 1.5f;
         public float BankAmount { get; set; } = 1.2f;
@@ -291,6 +291,13 @@ namespace Roguelancer
                 else if (keyboardState.IsKeyDown(Keys.S) && !IsCruiseActive)
                 {
                     _throttle = MathHelper.Clamp(_throttle - deltaTime * 0.5f, -1f, 1f);
+                    
+                    // Also disable afterburner when slowing down
+                    if (IsAfterburnerActive)
+                    {
+                        IsAfterburnerActive = false;
+                        _notificationManager?.ShowMessage("Afterburner Disengaged");
+                    }
                 }
                 else if (!keyboardState.IsKeyDown(Keys.W) && !keyboardState.IsKeyDown(Keys.S) && !IsCruiseActive && !_gotoActive)
                 {
