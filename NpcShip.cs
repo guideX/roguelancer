@@ -117,12 +117,12 @@ namespace Roguelancer
                     _rotation.Normalize();
                 }
                 
-                // Move toward target - MASSIVELY INCREASED SPEED (100x)
-                Speed = MathHelper.Lerp(Speed, Math.Min(distanceToTarget * 20f, 20000f), deltaTime * 2f);
+                // Move toward target - Normal patrol speed
+                Speed = MathHelper.Lerp(Speed, Math.Min(distanceToTarget * 20f, 200f), deltaTime * 2f);
             }
             else
             {
-                Speed = MathHelper.Lerp(Speed, 10000f, deltaTime * 2f); // Increased from 100f to 10000f
+                Speed = MathHelper.Lerp(Speed, 100f, deltaTime * 2f);
             }
             
             Velocity = Forward * Speed;

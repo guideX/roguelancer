@@ -72,8 +72,9 @@ namespace Roguelancer
         // Energy system reference
         private ShipEnergy _energy;
 
-        private class WeaponStats
+        public class WeaponStats
         {
+            public float WeaponDamage;
             public float Speed;
             public float Life;
             public float Size;
@@ -113,6 +114,7 @@ namespace Roguelancer
                     WeaponType.BlueDonut,
                     new WeaponStats
                     {
+                        WeaponDamage = 20f,
                         Speed = 1200f,
                         Life = 4.0f,
                         Size = 25f,
@@ -126,6 +128,7 @@ namespace Roguelancer
                     WeaponType.Fireball,
                     new WeaponStats
                     {
+                        WeaponDamage = 30f,
                         Speed = 600f,
                         Life = 2.5f,
                         Size = 35f,
@@ -139,6 +142,7 @@ namespace Roguelancer
                     WeaponType.QuickBlaster,
                     new WeaponStats
                     {
+                        WeaponDamage = 7f,
                         Speed = 1500f, // Much faster
                         Life = 1.0f,   // Short lived
                         Size = 25f,
@@ -152,6 +156,7 @@ namespace Roguelancer
                     WeaponType.ChargeBeam,
                     new WeaponStats
                     {
+                        WeaponDamage = 2f, // Damage per frame while firing
                         Speed = 0f, // Beams don't move
                         Life = 1.5f, // Longer beam duration (was 0.5f)
                         Size = 120f, // Even thicker beam (was 80f)
@@ -466,7 +471,7 @@ namespace Roguelancer
                 if (distance < shipRadius)
                 {
                     // Hit! Apply damage based on weapon type
-                    float damage = GetWeaponDamage(p.Type);
+                    float damage = _weaponStats[p.Type].WeaponDamage;
                     float hullBefore = hull.CurrentHull;
                     hull.TakeDamage(damage);
                     float hullAfter = hull.CurrentHull;
@@ -480,21 +485,6 @@ namespace Roguelancer
             }
             
             return anyHit;
-        }
-
-        /// <summary>
-        /// Get damage amount for each weapon type
-        /// </summary>
-        private float GetWeaponDamage(WeaponType type)
-        {
-            return type switch
-            {
-                WeaponType.BlueDonut => 10f,      // Medium damage - balanced weapon
-                WeaponType.Fireball => 20f,       // HIGH damage but slower fire rate (was 15f)
-                WeaponType.QuickBlaster => 5f,    // Low damage but very fast fire rate
-                WeaponType.ChargeBeam => 2f,      // Continuous damage per frame while firing
-                _ => 5f
-            };
         }
         
         public void Update(GameTime gameTime)

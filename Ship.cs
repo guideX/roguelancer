@@ -100,6 +100,9 @@ namespace Roguelancer
         // Notification System
         private NotificationManager _notificationManager;
         
+        // Explosion System
+        private ExplosionParticles _explosionParticles;
+        
         public Ship(Vector3 startPosition)
         {
             Position = startPosition;
@@ -112,12 +115,22 @@ namespace Roguelancer
             {
                 Console.WriteLine("💀 PLAYER SHIP DESTROYED!");
                 _notificationManager?.ShowMessage("SHIP DESTROYED", 5f);
+                // Trigger player ship explosion
+                _explosionParticles?.TriggerExplosion(Position, Velocity, intensity: 1.5f);
             };
         }
 
         public void SetNotificationManager(NotificationManager manager)
         {
             _notificationManager = manager;
+        }
+        
+        /// <summary>
+        /// Set the explosion particles system for this ship
+        /// </summary>
+        public void SetExplosionSystem(ExplosionParticles explosionParticles)
+        {
+            _explosionParticles = explosionParticles;
         }
 
         /// <summary>

@@ -47,6 +47,10 @@ namespace Roguelancer {
         /// </summary>
         private ChargeParticles _chargeParticles;
         /// <summary>
+        /// Explosion Particles
+        /// </summary>
+        private ExplosionParticles _explosionParticles;
+        /// <summary>
         /// Weapon System
         /// </summary>
         private WeaponSystem _weaponSystem;
@@ -354,6 +358,9 @@ namespace Roguelancer {
             // Initialize charge particles (energy buildup while charging beam weapon)
             _chargeParticles = new ChargeParticles(GraphicsDevice);
 
+            // Initialize explosion particles (ship destruction effects)
+            _explosionParticles = new ExplosionParticles(GraphicsDevice);
+
             // Initialize weapon system (blasters)
             _weaponSystem = new WeaponSystem(GraphicsDevice);
 
@@ -363,6 +370,7 @@ namespace Roguelancer {
             // Initialize notification manager
             _notificationManager = new NotificationManager(_font, GraphicsDevice.Viewport);
             _playerShip.SetNotificationManager(_notificationManager);
+            _playerShip.SetExplosionSystem(_explosionParticles);
 
             _pixel = new Texture2D(GraphicsDevice, 1, 1);
             _pixel.SetData(new[] { Color.White });
@@ -573,6 +581,9 @@ namespace Roguelancer {
                 _chargeParticles.EmitChargeParticles(_playerShip.Position, _playerShip.Orientation, chargeProgress);
             }
 
+            // Update explosion particles
+            _explosionParticles.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
+
             // Update weapon system
             _weaponSystem.Update(gameTime);
 
@@ -663,6 +674,9 @@ namespace Roguelancer {
 
         private void HandleNpcDestroyed(NpcShip destroyedShip)
         {
+            // Trigger explosion effect
+            _explosionParticles.TriggerExplosion(destroyedShip.Position, destroyedShip.Velocity, intensity: 1.0f);
+            
             // Create a wreck where the NPC ship was destroyed
             if (_wreckModel != null)
             {
@@ -914,6 +928,9 @@ namespace Roguelancer {
 
             // Draw charge particles (beam weapon charging effect)
             _chargeParticles.Draw(_camera);
+
+            // Draw explosion particles (ship destruction effects)
+            _explosionParticles.Draw(_camera);
 
             // Draw weapon projectiles (blaster bolts)
             _weaponSystem.Draw(_camera);
@@ -1528,7 +1545,7 @@ namespace Roguelancer {
             int distance = (int)distanceKm;
             int thousands = (distance / 1000) % 10;
             int hundreds = (distance / 100) % 10;
-            int tens = (distance / 10) % 10;
+            int tens = (distance /  10) % 10;
             int ones = distance % 10;
 
             // Draw simplified digit bars
