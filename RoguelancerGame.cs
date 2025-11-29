@@ -51,6 +51,10 @@ namespace Roguelancer {
         /// </summary>
         private ExplosionParticles _explosionParticles;
         /// <summary>
+        /// Hit Impact Particles
+        /// </summary>
+        private HitImpactParticles _hitImpactParticles;
+        /// <summary>
         /// Weapon System
         /// </summary>
         private WeaponSystem _weaponSystem;
@@ -361,6 +365,9 @@ namespace Roguelancer {
             // Initialize explosion particles (ship destruction effects)
             _explosionParticles = new ExplosionParticles(GraphicsDevice);
 
+            // Initialize hit impact particles (weapon hit effects)
+            _hitImpactParticles = new HitImpactParticles(GraphicsDevice);
+
             // Initialize weapon system (blasters)
             _weaponSystem = new WeaponSystem(GraphicsDevice);
 
@@ -584,6 +591,9 @@ namespace Roguelancer {
             // Update explosion particles
             _explosionParticles.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
 
+            // Update hit impact particles
+            _hitImpactParticles.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
+
             // Update weapon system
             _weaponSystem.Update(gameTime);
 
@@ -592,7 +602,13 @@ namespace Roguelancer {
             {
                 if (!npc.IsDestroyed)
                 {
-                    _weaponSystem.CheckCollisions(npc.Position, npc.Radius, npc.Hull);
+                    List<HitInfo> hits = _weaponSystem.CheckCollisions(npc.Position, npc.Radius, npc.Hull);
+                    
+                    // Trigger impact effects for each hit
+                    foreach (var hit in hits)
+                    {
+                        _hitImpactParticles.TriggerImpact(hit.Position, hit.Direction, hit.WeaponColor);
+                    }
                 }
             }
 
@@ -931,6 +947,9 @@ namespace Roguelancer {
 
             // Draw explosion particles (ship destruction effects)
             _explosionParticles.Draw(_camera);
+
+            // Draw hit impact particles (weapon hit effects)
+            _hitImpactParticles.Draw(_camera);
 
             // Draw weapon projectiles (blaster bolts)
             _weaponSystem.Draw(_camera);
@@ -1411,7 +1430,7 @@ namespace Roguelancer {
                 }
             }
             
-            // Draw NPC ship hull bars
+            // Draw NPC ship hull bars and targeting crosshairs
             foreach (var npc in _npcShips)
             {
                 if (npc.IsDestroyed) continue; // Don't draw hull bar for destroyed ships
@@ -1470,6 +1489,9 @@ namespace Roguelancer {
                         new Vector2(screenPos.X - nameSize.X / 2, screenPos.Y + barHeight + 2), 
                         Color.White * 0.8f);
                 }
+                
+                // ✨ NEW: Draw targeting lead crosshair
+                DrawLeadingCrosshair(npc);
             }
         }
 
@@ -1581,6 +1603,90 @@ namespace Roguelancer {
             _spriteBatch.Draw(_pixel, new Rectangle(x, y + 45, 40, 2), digitColor * 0.5f);
             _spriteBatch.Draw(_pixel, new Rectangle(x, y, 2, 45), digitColor * 0.5f);
             _spriteBatch.Draw(_pixel, new Rectangle(x + 38, y, 2, 45), digitColor * 0.5f);
+        }
+
+        /// <summary>
+        /// Draw a leading crosshair showing where to shoot to hit a moving target
+        /// </summary>
+        private void DrawLeadingCrosshair(NpcShip target)
+        {
+            // Calculate where the target will be when our bullet arrives
+            float distance = Vector3.Distance(_playerShip.Position, target.Position);
+            
+            // Get weapon speed (use current weapon's speed)
+            float projectileSpeed = 1200f; // Default speed
+            var stats = _weaponSystem.GetType().GetField("_weaponStats", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (stats != null)
+            {
+                var weaponStats = stats.GetValue(_weaponSystem) as System.Collections.Generic.Dictionary<WeaponType, WeaponSystem.WeaponStats>;
+                if (weaponStats != null && weaponStats.ContainsKey(_weaponSystem.CurrentWeapon))
+                {
+                    projectileSpeed = weaponStats[_weaponSystem.CurrentWeapon].Speed;
+                }
+            }
+            
+            // Time for bullet to reach target
+            float timeToHit = distance / projectileSpeed;
+            
+            // Predict target position
+            Vector3 predictedPosition = target.Position + target.Velocity * timeToHit;
+            
+            // Project predicted position to screen
+            Vector3 leadScreenPos3D = GraphicsDevice.Viewport.Project(
+                predictedPosition,
+                _camera.Projection,
+                _camera.View,
+                Matrix.Identity
+            );
+            
+            if (leadScreenPos3D.Z < 0 || leadScreenPos3D.Z > 1) return; // Behind camera
+            
+            Vector2 leadScreenPos = new Vector2(leadScreenPos3D.X, leadScreenPos3D.Y);
+            
+            // Check if on screen
+            if (leadScreenPos.X < 0 || leadScreenPos.X > GraphicsDevice.Viewport.Width ||
+                leadScreenPos.Y < 0 || leadScreenPos.Y > GraphicsDevice.Viewport.Height)
+                return;
+            
+            // Draw leading crosshair
+            Color leadColor = Color.Red * 0.8f; // Red crosshair for aiming
+            int size = 15;
+            int thickness = 2;
+            int gap = 5;
+            
+            // Horizontal lines
+            _spriteBatch.Draw(_pixel, 
+                new Rectangle((int)leadScreenPos.X - size, (int)leadScreenPos.Y - thickness / 2, size - gap, thickness), 
+                leadColor);
+            _spriteBatch.Draw(_pixel, 
+                new Rectangle((int)leadScreenPos.X + gap, (int)leadScreenPos.Y - thickness / 2, size - gap, thickness), 
+                leadColor);
+            
+            // Vertical lines
+            _spriteBatch.Draw(_pixel, 
+                new Rectangle((int)leadScreenPos.X - thickness / 2, (int)leadScreenPos.Y - size, thickness, size - gap), 
+                leadColor);
+            _spriteBatch.Draw(_pixel, 
+                new Rectangle((int)leadScreenPos.X - thickness / 2, (int)leadScreenPos.Y + gap, thickness, size - gap), 
+                leadColor);
+
+            // Center dot
+            _spriteBatch.Draw(_pixel, 
+                new Rectangle((int)leadScreenPos.X - 2, (int)leadScreenPos.Y - 2, 4, 4), 
+                leadColor);
+            
+            // Optional: Draw a line from current position to lead position
+            float lineDistance = Vector2.Distance(new Vector2(leadScreenPos3D.X, leadScreenPos3D.Y), 
+                new Vector2(GraphicsDevice.Viewport.Project(target.Position, _camera.Projection, _camera.View, Matrix.Identity).X,
+                           GraphicsDevice.Viewport.Project(target.Position, _camera.Projection, _camera.View, Matrix.Identity).Y));
+            
+            if (lineDistance > 5f) // Only draw line if lead is far enough from actual position
+            {
+                Vector3 actualScreenPos3D = GraphicsDevice.Viewport.Project(target.Position, _camera.Projection, _camera.View, Matrix.Identity);
+                Vector2 actualScreenPos = new Vector2(actualScreenPos3D.X, actualScreenPos3D.Y);
+                DrawLine(actualScreenPos, leadScreenPos, 1, leadColor * 0.4f);
+            }
         }
     }
 }

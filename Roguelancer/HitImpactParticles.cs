@@ -6,10 +6,10 @@ using System.Collections.Generic;
 namespace Roguelancer
 {
     /// <summary>
-    /// Particle system for ship explosion effects
-    /// Creates expanding debris, fire, and smoke particles when ships are destroyed
+    /// Particle system for weapon hit impact effects
+    /// Creates small burst of particles when a weapon hits a target
     /// </summary>
-    public class ExplosionParticles
+    public class HitImpactParticles
     {
         private class Particle
         {
@@ -18,13 +18,12 @@ namespace Roguelancer
             public float Life;
             public float MaxLife;
             public float Size;
-            public float InitialSize;
             public Color Color;
-            public float RotationSpeed;
             public float Rotation;
+            public float RotationSpeed;
         }
 
-        private readonly List<Particle> _particles = new List<Particle>(500);
+        private readonly List<Particle> _particles = new List<Particle>(200);
         private readonly GraphicsDevice _graphicsDevice;
         private readonly BasicEffect _effect;
         private readonly Texture2D _texture;
@@ -32,10 +31,10 @@ namespace Roguelancer
         private short[] _indexBuffer = new short[0];
         private Random _random = new Random();
 
-        public ExplosionParticles(GraphicsDevice graphicsDevice)
+        public HitImpactParticles(GraphicsDevice graphicsDevice)
         {
             _graphicsDevice = graphicsDevice;
-            _texture = CreateParticleTexture(graphicsDevice, 32);
+            _texture = CreateParticleTexture(graphicsDevice, 16);
 
             _effect = new BasicEffect(graphicsDevice)
             {
@@ -59,9 +58,8 @@ namespace Roguelancer
                 for (int x = 0; x < size; x++)
                 {
                     float d = Vector2.Distance(new Vector2(x, y), center) / maxDist;
-                    // Softer falloff for explosion particles
                     float a = 1f - d;
-                    a = (float)Math.Pow(a, 1.5); // Gentle falloff
+                    a = (float)Math.Pow(a, 2); // Sharp falloff
                     data[y * size + x] = new Color(1f, 1f, 1f, MathHelper.Clamp(a, 0f, 1f));
                 }
             }
@@ -70,115 +68,40 @@ namespace Roguelancer
         }
 
         /// <summary>
-        /// Trigger an explosion at the specified position
+        /// Trigger a hit impact effect at the specified position
         /// </summary>
-        /// <param name="position">World position of explosion</param>
-        /// <param name="velocity">Velocity of destroyed ship (for momentum)</param>
-        /// <param name="intensity">Scale of explosion (1.0 = normal ship, larger for bigger ships)</param>
-        public void TriggerExplosion(Vector3 position, Vector3 velocity, float intensity = 1.0f)
+        /// <param name="position">World position of impact</param>
+        /// <param name="impactDirection">Direction of the hit (for particle spread)</param>
+        /// <param name="color">Color of the impact (based on weapon type)</param>
+        public void TriggerImpact(Vector3 position, Vector3 impactDirection, Color color)
         {
-            int particleCount = (int)(250 * intensity); // More particles for bigger explosions
-            
-            Console.WriteLine($"?? EXPLOSION at {position}, {particleCount} particles, intensity {intensity}");
+            int particleCount = 20; // Small burst of particles
 
-            // Create initial flash particles (bright, fast expansion)
-            for (int i = 0; i < particleCount / 3; i++)
+            for (int i = 0; i < particleCount; i++)
             {
                 Particle p = new Particle();
                 p.Position = position;
-                
-                // Random direction for debris
+
+                // Spread particles in a cone away from impact direction
                 Vector3 randomDir = new Vector3(
                     (float)(_random.NextDouble() * 2 - 1),
                     (float)(_random.NextDouble() * 2 - 1),
                     (float)(_random.NextDouble() * 2 - 1)
                 );
                 randomDir.Normalize();
-                
-                // Fast initial velocity with ship momentum
-                float speed = (float)(_random.NextDouble() * 400 + 200) * intensity;
-                p.Velocity = velocity * 0.8f + randomDir * speed;
-                
+
+                // Bias toward impact direction
+                Vector3 spreadDir = Vector3.Normalize(impactDirection + randomDir * 0.5f);
+                float speed = (float)(_random.NextDouble() * 80 + 40);
+                p.Velocity = spreadDir * speed;
+
                 p.Life = 0f;
-                p.MaxLife = (float)(_random.NextDouble() * 0.7 + 0.4); // Short-lived flash
-                p.InitialSize = (float)(_random.NextDouble() * 6 + 5) * intensity;
-                p.Size = p.InitialSize;
-                p.Color = new Color(255, 255, 220); // Bright white-yellow
+                p.MaxLife = (float)(_random.NextDouble() * 0.3 + 0.2); // Quick burst
+                p.Size = (float)(_random.NextDouble() * 2 + 1);
+                p.Color = color;
+                p.Rotation = (float)(_random.NextDouble() * MathHelper.TwoPi);
                 p.RotationSpeed = (float)(_random.NextDouble() * 4 - 2);
-                p.Rotation = (float)(_random.NextDouble() * MathHelper.TwoPi);
-                
-                _particles.Add(p);
-            }
 
-            // Create fire particles (orange/red, medium duration)
-            for (int i = 0; i < particleCount / 3; i++)
-            {
-                Particle p = new Particle();
-                p.Position = position + new Vector3(
-                    (float)(_random.NextDouble() * 8 - 4),
-                    (float)(_random.NextDouble() * 8 - 4),
-                    (float)(_random.NextDouble() * 8 - 4)
-                );
-                
-                Vector3 randomDir = new Vector3(
-                    (float)(_random.NextDouble() * 2 - 1),
-                    (float)(_random.NextDouble() * 2 - 1),
-                    (float)(_random.NextDouble() * 2 - 1)
-                );
-                randomDir.Normalize();
-                
-                float speed = (float)(_random.NextDouble() * 150 + 80) * intensity;
-                p.Velocity = velocity * 0.6f + randomDir * speed;
-                
-                p.Life = 0f;
-                p.MaxLife = (float)(_random.NextDouble() * 1.5 + 1.0);
-                p.InitialSize = (float)(_random.NextDouble() * 10 + 8) * intensity;
-                p.Size = p.InitialSize;
-                
-                // Random fire colors
-                if (_random.NextDouble() > 0.5)
-                    p.Color = new Color(255, 160, 0); // Orange
-                else
-                    p.Color = new Color(255, 80, 0); // Red-orange
-                
-                p.RotationSpeed = (float)(_random.NextDouble() * 3 - 1.5);
-                p.Rotation = (float)(_random.NextDouble() * MathHelper.TwoPi);
-                
-                _particles.Add(p);
-            }
-
-            // Create smoke/debris particles (dark, long-lasting)
-            for (int i = 0; i < particleCount / 3; i++)
-            {
-                Particle p = new Particle();
-                p.Position = position + new Vector3(
-                    (float)(_random.NextDouble() * 12 - 6),
-                    (float)(_random.NextDouble() * 12 - 6),
-                    (float)(_random.NextDouble() * 12 - 6)
-                );
-                
-                Vector3 randomDir = new Vector3(
-                    (float)(_random.NextDouble() * 2 - 1),
-                    (float)(_random.NextDouble() * 2 - 1),
-                    (float)(_random.NextDouble() * 2 - 1)
-                );
-                randomDir.Normalize();
-                
-                float speed = (float)(_random.NextDouble() * 80 + 40) * intensity;
-                p.Velocity = velocity * 0.4f + randomDir * speed;
-                
-                p.Life = 0f;
-                p.MaxLife = (float)(_random.NextDouble() * 4.0 + 3.5); // Lingers longest
-                p.InitialSize = (float)(_random.NextDouble() * 12 + 10) * intensity;
-                p.Size = p.InitialSize;
-                
-                // Dark smoke/debris colors
-                int gray = _random.Next(30, 70);
-                p.Color = new Color(gray, gray, gray);
-                
-                p.RotationSpeed = (float)(_random.NextDouble() * 2 - 1);
-                p.Rotation = (float)(_random.NextDouble() * MathHelper.TwoPi);
-                
                 _particles.Add(p);
             }
         }
@@ -198,26 +121,21 @@ namespace Roguelancer
 
                 // Update position
                 p.Position += p.Velocity * deltaTime;
-                
-                // Apply drag/deceleration
-                p.Velocity *= 0.97f;
-                
+
+                // Apply drag
+                p.Velocity *= 0.9f;
+
                 // Update rotation
                 p.Rotation += p.RotationSpeed * deltaTime;
 
-                // Fade out over lifetime
+                // Fade out
                 float lifeRatio = p.Life / p.MaxLife;
-                float alpha = 1f - (lifeRatio * lifeRatio); // Fade faster at the end
-                
-                // Expand smoke particles over time
-                p.Size = p.InitialSize * (1f + lifeRatio * 0.8f);
-                
-                // Fade color
+                float alpha = 1f - lifeRatio;
                 p.Color = new Color(
-                    p.Color.R,
-                    p.Color.G,
-                    p.Color.B,
-                    (byte)(p.Color.A * alpha)
+                    (byte)(p.Color.R * alpha),
+                    (byte)(p.Color.G * alpha),
+                    (byte)(p.Color.B * alpha),
+                    (byte)(255 * alpha)
                 );
             }
         }
@@ -273,8 +191,8 @@ namespace Roguelancer
             var oldRasterizer = _graphicsDevice.RasterizerState;
 
             // Set up for particle rendering
-            _graphicsDevice.BlendState = BlendState.Additive; // Additive blending for fire/explosion
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead; // Read depth but don't write
+            _graphicsDevice.BlendState = BlendState.Additive;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
             _effect.View = camera.View;

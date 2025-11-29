@@ -17,6 +17,18 @@ namespace Roguelancer
     }
 
     /// <summary>
+    /// Information about a weapon hit
+    /// </summary>
+    public struct HitInfo
+    {
+        public Vector3 Position;
+        public Vector3 Direction;
+        public Color WeaponColor;
+        public WeaponType WeaponType;
+        public float Damage;
+    }
+
+    /// <summary>
     /// Manages weapon projectiles (blaster bolts) and rendering
     /// </summary>
     public class WeaponSystem
@@ -458,10 +470,10 @@ namespace Roguelancer
         /// <summary>
         /// Check collisions between projectiles and a ship, apply damage on hit
         /// </summary>
-        /// <returns>True if any hit occurred</returns>
-        public bool CheckCollisions(Vector3 shipPosition, float shipRadius, HullIntegrity hull)
+        /// <returns>List of hits that occurred</returns>
+        public List<HitInfo> CheckCollisions(Vector3 shipPosition, float shipRadius, HullIntegrity hull)
         {
-            bool anyHit = false;
+            List<HitInfo> hits = new List<HitInfo>();
             
             for (int i = _projectiles.Count - 1; i >= 0; i--)
             {
@@ -476,15 +488,25 @@ namespace Roguelancer
                     hull.TakeDamage(damage);
                     float hullAfter = hull.CurrentHull;
                     
+                    // Record hit info
+                    HitInfo hitInfo = new HitInfo
+                    {
+                        Position = p.Position,
+                        Direction = Vector3.Normalize(p.Velocity),
+                        WeaponColor = p.Color,
+                        WeaponType = p.Type,
+                        Damage = damage
+                    };
+                    hits.Add(hitInfo);
+                    
                     // Remove projectile
                     _projectiles.RemoveAt(i);
-                    anyHit = true;
                     
                     Console.WriteLine($"💥 HIT! Weapon: {p.Type}, Damage: {damage:F1}, Hull: {hullBefore:F1} → {hullAfter:F1} ({hull.HullPercentage * 100:F0}%)");
                 }
             }
             
-            return anyHit;
+            return hits;
         }
         
         public void Update(GameTime gameTime)
