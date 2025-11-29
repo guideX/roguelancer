@@ -13,7 +13,8 @@ namespace Roguelancer
         BlueDonut,      // Original ring-shaped projectile
         Fireball,       // Small explosive fireball
         QuickBlaster,   // Fast short-lived energy bolt
-        ChargeBeam      // Continuous beam that charges up
+        ChargeBeam,     // Continuous beam that charges up
+        LaserBolt       // Star Wars-style laser bolt
     }
 
     /// <summary>
@@ -116,7 +117,8 @@ namespace Roguelancer
                 { WeaponType.BlueDonut, CreateDonutTexture(graphicsDevice, 16) },
                 { WeaponType.Fireball, CreateFireballTexture(graphicsDevice, 16) },
                 { WeaponType.QuickBlaster, CreateBlasterTexture(graphicsDevice, 16) },
-                { WeaponType.ChargeBeam, CreateBeamTexture(graphicsDevice, 16) }
+                { WeaponType.ChargeBeam, CreateBeamTexture(graphicsDevice, 16) },
+                { WeaponType.LaserBolt, CreateLaserBoltTexture(graphicsDevice, 32) }
             };
 
             // Define stats for each weapon type
@@ -133,7 +135,7 @@ namespace Roguelancer
                         Color = new Color(100, 200, 255),
                         MuzzleFlashSize = 25f,
                         RefireRate = 0.25f, // 4 shots per second
-                        EnergyCost = 10f // Medium energy cost
+                        EnergyCost = 33f // Medium energy cost
                     }
                 },
                 {
@@ -147,7 +149,7 @@ namespace Roguelancer
                         Color = new Color(255, 150, 50),
                         MuzzleFlashSize = 40f,
                         RefireRate = 0.5f, // 2 shots per second (slower)
-                        EnergyCost = 20f // High energy cost (powerful weapon)
+                        EnergyCost = 50f // High energy cost (powerful weapon)
                     }
                 },
                 {
@@ -161,26 +163,49 @@ namespace Roguelancer
                         Color = new Color(50, 255, 100), // Green energy
                         MuzzleFlashSize = 20f,
                         RefireRate = 0.1f, // 10 shots per second (very fast!)
-                        EnergyCost = 5f // Low energy cost (fast but weak)
+                        EnergyCost = 15f // Low energy cost (fast but weak)
                     }
                 },
                 {
                     WeaponType.ChargeBeam,
                     new WeaponStats
                     {
-                        WeaponDamage = 2f, // Damage per frame while firing
+                        WeaponDamage = 10f, // Damage per frame while firing
                         Speed = 0f, // Beams don't move
                         Life = 1.5f, // Longer beam duration (was 0.5f)
                         Size = 120f, // Even thicker beam (was 80f)
                         Color = new Color(255, 255, 100), // Bright yellow beam (was purple)
                         MuzzleFlashSize = 60f,
                         RefireRate = 0f, // Not used for charge beam
-                        EnergyCost = 30f // High energy cost per second of firing
+                        EnergyCost = 60f // High energy cost per second of firing
+                    }
+                },
+                {
+                    WeaponType.LaserBolt,
+                    new WeaponStats
+                    {
+                        WeaponDamage = 40f,
+                        Speed = 2000f, // Very fast
+                        Life = 1.2f,   // Medium range
+                        Size = 40f,    // This will be stretched
+                        Color = new Color(255, 255, 220), // Yellowish-white
+                        MuzzleFlashSize = 25f,
+                        RefireRate = 0.15f, // Fast refire
+                        EnergyCost = 10f
                     }
                 }
             };
         }
         
+        public WeaponStats GetCurrentWeaponStats()
+        {
+            if (_weaponStats.TryGetValue(CurrentWeapon, out var stats))
+            {
+                return stats;
+            }
+            return null;
+        }
+
         private Texture2D CreateDonutTexture(GraphicsDevice device, int size)
         {
             Texture2D tex = new Texture2D(device, size, size);
@@ -209,6 +234,46 @@ namespace Roguelancer
                         a = (float)Math.Pow(a, 4);
                     }
                     
+                    data[y * size + x] = new Color(1f, 1f, 1f, MathHelper.Clamp(a, 0f, 1f));
+                }
+            }
+            tex.SetData(data);
+            return tex;
+        }
+
+        private Texture2D CreateLaserBoltTexture(GraphicsDevice device, int size)
+        {
+            Texture2D tex = new Texture2D(device, size, size);
+            Color[] data = new Color[size * size];
+            Vector2 center = new Vector2(size / 2f);
+            float coreThickness = size / 8f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float distY = Math.Abs(y - center.Y);
+                    float a = 0f;
+
+                    if (distY < coreThickness)
+                    {
+                        a = 1.0f; // Solid core
+                    }
+                    else
+                    {
+                        float falloff = (distY - coreThickness) / (size / 2f - coreThickness);
+                        a = 1.0f - falloff;
+                        a = (float)Math.Pow(a, 2);
+                    }
+
+                    // Fade out at the horizontal ends to prevent sharp cuts
+                    float edgeFade = 1.0f;
+                    float fadeZone = size * 0.1f;
+                    if (x < fadeZone) edgeFade = x / fadeZone;
+                    else if (x > size - fadeZone) edgeFade = (size - x) / fadeZone;
+
+                    a *= edgeFade;
+
                     data[y * size + x] = new Color(1f, 1f, 1f, MathHelper.Clamp(a, 0f, 1f));
                 }
             }
@@ -636,11 +701,29 @@ namespace Roguelancer
                 // Build quad
                 int vBase = i * 4;
                 int iBase = i * 6;
-                
-                _vertexBuffer[vBase + 0] = new VertexPositionColorTexture(p.Position + (-right * size - up * size), color, new Vector2(0, 1));
-                _vertexBuffer[vBase + 1] = new VertexPositionColorTexture(p.Position + (right * size - up * size), color, new Vector2(1, 1));
-                _vertexBuffer[vBase + 2] = new VertexPositionColorTexture(p.Position + (-right * size + up * size), color, new Vector2(0, 0));
-                _vertexBuffer[vBase + 3] = new VertexPositionColorTexture(p.Position + (right * size + up * size), color, new Vector2(1, 0));
+
+                if (p.Type == WeaponType.LaserBolt)
+                {
+                    // Laser bolt specific: stretch effect
+                    float stretchFactor = 8f; // Make it long and thin
+                    float pSize = size * 0.5f; // Make it thinner
+                    Vector3 pRight = Vector3.Normalize(p.Velocity);
+                    Vector3 pUp = Vector3.Cross(pRight, forward);
+                    pRight *= size * stretchFactor;
+
+                    _vertexBuffer[vBase + 0] = new VertexPositionColorTexture(p.Position - pRight - pUp * pSize, color, new Vector2(0, 1));
+                    _vertexBuffer[vBase + 1] = new VertexPositionColorTexture(p.Position + pRight - pUp * pSize, color, new Vector2(1, 1));
+                    _vertexBuffer[vBase + 2] = new VertexPositionColorTexture(p.Position - pRight + pUp * pSize, color, new Vector2(0, 0));
+                    _vertexBuffer[vBase + 3] = new VertexPositionColorTexture(p.Position + pRight + pUp * pSize, color, new Vector2(1, 0));
+                }
+                else
+                {
+                    // Default billboard for other projectiles
+                    _vertexBuffer[vBase + 0] = new VertexPositionColorTexture(p.Position - right * size - up * size, color, new Vector2(0, 1));
+                    _vertexBuffer[vBase + 1] = new VertexPositionColorTexture(p.Position + right * size - up * size, color, new Vector2(1, 1));
+                    _vertexBuffer[vBase + 2] = new VertexPositionColorTexture(p.Position - right * size + up * size, color, new Vector2(0, 0));
+                    _vertexBuffer[vBase + 3] = new VertexPositionColorTexture(p.Position + right * size + up * size, color, new Vector2(1, 0));
+                }
                 
                 _indexBuffer[iBase + 0] = (short)(vBase + 0);
                 _indexBuffer[iBase + 1] = (short)(vBase + 1);

@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 
@@ -12,7 +12,8 @@ namespace Roguelancer
         public Matrix Orientation => Matrix.CreateFromQuaternion(_rotation);
         public Vector3 Velocity { get; set; }
         public float Speed { get; private set; }
-        
+        public Matrix ModelRotationCorrection { get; set; } = Matrix.Identity;
+
         // Hull integrity
         public HullIntegrity Hull { get; private set; }
         public bool IsDestroyed => Hull.IsDestroyed;
@@ -45,7 +46,7 @@ namespace Roguelancer
             Hull = new HullIntegrity(75f); // NPCs start with 75 hull points
             Hull.OnDestroyed += () =>
             {
-                Console.WriteLine($"?? NPC SHIP '{Name}' DESTROYED!");
+                Console.WriteLine($"NPC SHIP '{Name}' DESTROYED!");
                 OnDestroyed?.Invoke(this);
             };
             
@@ -71,11 +72,17 @@ namespace Roguelancer
             _patrolAngle = (float)Math.Atan2(offset.X, offset.Z);
         }
         
-        public void Update(GameTime gameTime)
+        public void Update(GameTime gameTime, DamageSmokeParticles damageSmoke)
         {
             if (IsDestroyed) return; // Don't update if destroyed
 
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            // Emit damage smoke if hull is low
+            if (Hull.HullPercentage > 0 && Hull.HullPercentage <= 0.50f)
+            {
+                damageSmoke?.Emit(Position - Forward * 15, Velocity);
+            }
             
             // Update patrol angle
             _patrolAngle += _patrolSpeed * deltaTime;
@@ -135,7 +142,7 @@ namespace Roguelancer
             
             // Apply same model correction as player ship
             Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
-            Matrix world = modelCorrection * Orientation * Matrix.CreateTranslation(Position);
+            Matrix world = modelCorrection * ModelRotationCorrection * Orientation * Matrix.CreateTranslation(Position);
             
             // Get graphics device from first mesh's effect to set render states
             var graphicsDevice = Model.Meshes[0].Effects[0].GraphicsDevice;

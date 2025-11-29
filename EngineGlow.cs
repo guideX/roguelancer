@@ -29,7 +29,7 @@ namespace Roguelancer
             };
         }
 
-        public void DrawEngineGlows(Ship ship, Camera camera, float throttle)
+        public void DrawEngineGlows(GraphicsDevice graphicsDevice, Ship ship, Camera camera, float throttle)
         {
             if (ship.Model == null) return;
             

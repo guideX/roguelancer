@@ -55,6 +55,10 @@ namespace Roguelancer {
         /// </summary>
         private HitImpactParticles _hitImpactParticles;
         /// <summary>
+        /// Damage Smoke Particles
+        /// </summary>
+        private DamageSmokeParticles _damageSmokeParticles;
+        /// <summary>
         /// Weapon System
         /// </summary>
         private WeaponSystem _weaponSystem;
@@ -322,6 +326,13 @@ namespace Roguelancer {
                         {
                             _npcShips[i].Model = Content.Load<Model>(model.Path);
                             Console.WriteLine($"[MODEL LOAD] ✓ SUCCESS - Loaded model '{model.Name}' ({model.Path}) for {_npcShips[i].Name}");
+
+                            // FIX: Apply model-specific rotation corrections
+                            if (model.Path == "SHIPS/PI_TRANSPORT/PI_TRANSPORT")
+                            {
+                                _npcShips[i].ModelRotationCorrection = Matrix.CreateRotationX(MathHelper.PiOver2);
+                                Console.WriteLine($"[MODEL LOAD]   Applied 90-degree X-rotation correction for {model.Name}");
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -365,11 +376,15 @@ namespace Roguelancer {
             // Initialize explosion particles (ship destruction effects)
             _explosionParticles = new ExplosionParticles(GraphicsDevice);
 
+            // Initialize damage smoke particles
+            _damageSmokeParticles = new DamageSmokeParticles(GraphicsDevice);
+
             // Initialize hit impact particles (weapon hit effects)
             _hitImpactParticles = new HitImpactParticles(GraphicsDevice);
 
             // Initialize weapon system (blasters)
             _weaponSystem = new WeaponSystem(GraphicsDevice);
+            _weaponSystem.SetEnergySystem(_playerShip.Energy);
 
             // Initialize motion trail
             _motionTrail = new MotionTrail(GraphicsDevice);
@@ -378,6 +393,7 @@ namespace Roguelancer {
             _notificationManager = new NotificationManager(_font, GraphicsDevice.Viewport);
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
+            _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
 
             _pixel = new Texture2D(GraphicsDevice, 1, 1);
             _pixel.SetData(new[] { Color.White });
@@ -524,7 +540,7 @@ namespace Roguelancer {
 
             // FIX: Update NPC ships
             foreach (var npc in _npcShips) {
-                npc.Update(gameTime);
+                npc.Update(gameTime, _damageSmokeParticles);
             }
 
             // Update wrecks
@@ -591,6 +607,9 @@ namespace Roguelancer {
             // Update explosion particles
             _explosionParticles.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
 
+            // Update damage smoke
+            _damageSmokeParticles.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
+
             // Update hit impact particles
             _hitImpactParticles.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
 
@@ -642,6 +661,11 @@ namespace Roguelancer {
                 _weaponSystem.CurrentWeapon = WeaponType.ChargeBeam;
                 _notificationManager.ShowMessage("Weapon: Charge Beam");
                 Console.WriteLine("Switched to Charge Beam");
+            } 
+            else if (keyboardState.IsKeyDown(Keys.D5) && _prevKeys.IsKeyUp(Keys.D5)) {
+                _weaponSystem.CurrentWeapon = WeaponType.LaserBolt;
+                _notificationManager.ShowMessage("Weapon: Laser Bolt");
+                Console.WriteLine("Switched to Laser Bolt");
             }
 
             // RIGHT MOUSE BUTTON: Fire weapons or charge beam!
@@ -708,7 +732,7 @@ namespace Roguelancer {
         private void HandleTargetingInput(KeyboardState kb) {
             MouseState mouseState = Mouse.GetState();
 
-            // ✨ LEFT CLICK: Target object under mouse cursor (only in Mouse Mode)
+            // LEFT CLICK: Target object under mouse cursor (only in Mouse Mode)
             if (!_playerShip.IsFreeFlightMode && mouseState.LeftButton == ButtonState.Pressed && _prevMouseState.LeftButton == ButtonState.Released) {
                 // Raycast from mouse position into 3D world
                 int clickedObjectIndex = GetObjectUnderMouse(mouseState.X, mouseState.Y);
@@ -746,7 +770,7 @@ namespace Roguelancer {
             }
         }
 
-        // ✨ NEW: Raycast from mouse to find clicked object
+        // NEW: Raycast from mouse to find clicked object
         private int GetObjectUnderMouse(int mouseX, int mouseY) {
             // Create ray from mouse cursor into 3D world
             Vector3 nearPoint = GraphicsDevice.Viewport.Unproject(
@@ -937,13 +961,16 @@ namespace Roguelancer {
                 glowIntensity = 1.0f; // Reduced from 1.5f for less intensity
             }
 
-            _engineGlow.DrawEngineGlows(_playerShip, _camera, glowIntensity);
+            _engineGlow.DrawEngineGlows(GraphicsDevice, _playerShip, _camera, glowIntensity);
 
             // Draw cruise sparks (firefly particles) - drawn after glow but before trail
             _cruiseSparks.Draw(_camera);
 
             // Draw charge particles (beam weapon charging effect)
             _chargeParticles.Draw(_camera);
+
+            // Draw damage smoke
+            _damageSmokeParticles.Draw(_camera);
 
             // Draw explosion particles (ship destruction effects)
             _explosionParticles.Draw(_camera);
@@ -1313,12 +1340,12 @@ namespace Roguelancer {
 
         private void DrawStatusPanel() {
             // Draw status box background - made taller for hull bar
-            Rectangle panel = new Rectangle(10, 10, 280, 270);
+            Rectangle panel = new Rectangle(10, 10, 280, 310);
             _spriteBatch.Draw(_pixel, panel, Color.Black * 0.7f);
             _spriteBatch.Draw(_pixel, new Rectangle(10, 10, 280, 2), Color.Cyan);
-            _spriteBatch.Draw(_pixel, new Rectangle(10, 10, 2, 270), Color.Cyan);
-            _spriteBatch.Draw(_pixel, new Rectangle(288, 10, 2, 270), Color.Cyan);
-            _spriteBatch.Draw(_pixel, new Rectangle(10, 278, 280, 2), Color.Cyan);
+            _spriteBatch.Draw(_pixel, new Rectangle(10, 10, 2, 310), Color.Cyan);
+            _spriteBatch.Draw(_pixel, new Rectangle(288, 10, 2, 310), Color.Cyan);
+            _spriteBatch.Draw(_pixel, new Rectangle(10, 318, 280, 2), Color.Cyan);
 
             if (_font != null) {
                 _spriteBatch.DrawString(_font, "STATUS", new Vector2(20, 20), Color.Cyan);
@@ -1333,34 +1360,45 @@ namespace Roguelancer {
                 Rectangle hullBarFill = new Rectangle(20, 65, (int)(250 * hullPercent), 15);
                 _spriteBatch.Draw(_pixel, hullBarBg, Color.DarkGray * 0.5f);
                 _spriteBatch.Draw(_pixel, hullBarFill, hullColor);
-                
+
+                // Energy display
+                float energyPercent = _playerShip.Energy.EnergyPercentage;
+                Color energyColor = _playerShip.Energy.GetEnergyColor();
+                _spriteBatch.DrawString(_font, $"Energy: {energyPercent * 100:F0}%", new Vector2(20, 90), energyColor);
+
+                // Energy bar
+                Rectangle energyBarBg = new Rectangle(20, 110, 250, 15);
+                Rectangle energyBarFill = new Rectangle(20, 110, (int)(250 * energyPercent), 15);
+                _spriteBatch.Draw(_pixel, energyBarBg, Color.DarkGray * 0.5f);
+                _spriteBatch.Draw(_pixel, energyBarFill, energyColor);
+
                 // Other status info
-                _spriteBatch.DrawString(_font, $"Speed: {Math.Abs(_playerShip.Speed):F1}", new Vector2(20, 90), Color.White);
-                _spriteBatch.DrawString(_font, $"Throttle: {_playerShip.GetThrottle() * 100:F0}%", new Vector2(20, 110), Color.White);
-                _spriteBatch.DrawString(_font, $"Mode: {_playerShip.GetFlightStatus()}", new Vector2(20, 130), Color.Yellow);
+                _spriteBatch.DrawString(_font, $"Speed: {Math.Abs(_playerShip.Speed):F1}", new Vector2(20, 135), Color.White);
+                _spriteBatch.DrawString(_font, $"Throttle: {_playerShip.GetThrottle() * 100:F0}%", new Vector2(20, 155), Color.White);
+                _spriteBatch.DrawString(_font, $"Mode: {_playerShip.GetFlightStatus()}", new Vector2(20, 175), Color.Yellow);
                 
                 // Weapon display
-                _spriteBatch.DrawString(_font, $"Weapon: {_weaponSystem.CurrentWeapon}", new Vector2(20, 150), Color.Orange);
+                _spriteBatch.DrawString(_font, $"Weapon: {_weaponSystem.CurrentWeapon}", new Vector2(20, 195), Color.Orange);
                 
                 // Charge beam indicator
                 if (_weaponSystem.IsCharging())
                 {
                     float chargeProgress = _weaponSystem.GetChargeProgress();
-                    _spriteBatch.DrawString(_font, $"CHARGING: {chargeProgress * 100:F0}%", new Vector2(20, 170), Color.Yellow);
+                    _spriteBatch.DrawString(_font, $"CHARGING: {chargeProgress * 100:F0}%", new Vector2(20, 215), Color.Yellow);
                     
                     // Charge bar
-                    Rectangle chargeBarBg = new Rectangle(20, 190, 250, 15);
-                    Rectangle chargeBarFill = new Rectangle(20, 190, (int)(250 * chargeProgress), 15);
+                    Rectangle chargeBarBg = new Rectangle(20, 235, 250, 15);
+                    Rectangle chargeBarFill = new Rectangle(20, 235, (int)(250 * chargeProgress), 15);
                     _spriteBatch.Draw(_pixel, chargeBarBg, Color.DarkGray * 0.5f);
                     _spriteBatch.Draw(_pixel, chargeBarFill, Color.Lerp(Color.Yellow, Color.Red, chargeProgress));
                 }
                 
                 if (_playerShip.IsNewtonianMode)
-                    _spriteBatch.DrawString(_font, "NEWTONIAN", new Vector2(20, 210), Color.Lime);
+                    _spriteBatch.DrawString(_font, "NEWTONIAN", new Vector2(20, 255), Color.Lime);
                 if (_camera.IsTurretViewActive)
-                    _spriteBatch.DrawString(_font, "TURRET VIEW", new Vector2(20, 230), Color.Orange);
+                    _spriteBatch.DrawString(_font, "TURRET VIEW", new Vector2(20, 275), Color.Orange);
                 if (_playerShip.IsGotoActive && _playerShip.CurrentGotoTarget != null)
-                    _spriteBatch.DrawString(_font, $"GOTO: {_playerShip.CurrentGotoTarget.Name}", new Vector2(20, 250), Color.Orange);
+                    _spriteBatch.DrawString(_font, $"GOTO: {_playerShip.CurrentGotoTarget.Name}", new Vector2(20, 295), Color.Orange);
             } else {
                 // Fallback visual indicators when no font available
                 // Hull bar (horizontal)
@@ -1370,28 +1408,35 @@ namespace Roguelancer {
                 _spriteBatch.Draw(_pixel, new Rectangle(20, 30, 250, 20), Color.DarkGray * 0.5f);
                 _spriteBatch.Draw(_pixel, new Rectangle(20, 30, hullBarWidth, 20), hullColor);
 
+                // Energy bar (horizontal)
+                float energyPercent = _playerShip.Energy.EnergyPercentage;
+                Color energyColor = _playerShip.Energy.GetEnergyColor();
+                int energyBarWidth = (int)(250 * energyPercent);
+                _spriteBatch.Draw(_pixel, new Rectangle(20, 60, 250, 20), Color.DarkGray * 0.5f);
+                _spriteBatch.Draw(_pixel, new Rectangle(20, 60, energyBarWidth, 20), energyColor);
+
                 // Speed bar (horizontal)
                 int speedBarWidth = (int)(250 * MathHelper.Clamp(Math.Abs(_playerShip.Speed) / _playerShip.MaxSpeed, 0f, 1f));
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 60, 250, 20), Color.DarkGray * 0.5f);
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 60, speedBarWidth, 20), Color.Cyan);
+                _spriteBatch.Draw(_pixel, new Rectangle(20, 90, 250, 20), Color.DarkGray * 0.5f);
+                _spriteBatch.Draw(_pixel, new Rectangle(20, 90, speedBarWidth, 20), Color.Cyan);
 
                 // Throttle bar (horizontal)
                 float throttle = _playerShip.GetThrottle();
                 int throttleBarWidth = (int)(250 * Math.Abs(throttle));
                 Color throttleColor = throttle >= 0 ? Color.Green : Color.Orange;
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 90, 250, 20), Color.DarkGray * 0.5f);
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 90, throttleBarWidth, 20), throttleColor);
+                _spriteBatch.Draw(_pixel, new Rectangle(20, 120, 250, 20), Color.DarkGray * 0.5f);
+                _spriteBatch.Draw(_pixel, new Rectangle(20, 120, throttleBarWidth, 20), throttleColor);
 
                 // Weapon/charge indicator
                 if (_weaponSystem.IsCharging())
                 {
                     float chargeProgress = _weaponSystem.GetChargeProgress();
-                    Rectangle chargeBar = new Rectangle(20, 120, (int)(250 * chargeProgress), 20);
+                    Rectangle chargeBar = new Rectangle(20, 150, (int)(250 * chargeProgress), 20);
                     _spriteBatch.Draw(_pixel, chargeBar, Color.Lerp(Color.Yellow, Color.Red, chargeProgress));
                 }
 
                 // Status indicators
-                int yPos = 150;
+                int yPos = 180;
                 if (_playerShip.IsAfterburnerActive) {
                     _spriteBatch.Draw(_pixel, new Rectangle(20, yPos, 250, 20), Color.Red * 0.7f);
                     yPos += 25;
@@ -1612,20 +1657,21 @@ namespace Roguelancer {
         {
             // Calculate where the target will be when our bullet arrives
             float distance = Vector3.Distance(_playerShip.Position, target.Position);
-            
+
             // Get weapon speed (use current weapon's speed)
             float projectileSpeed = 1200f; // Default speed
-            var stats = _weaponSystem.GetType().GetField("_weaponStats", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            if (stats != null)
+            var weaponStats = _weaponSystem.GetCurrentWeaponStats();
+            if (weaponStats != null)
             {
-                var weaponStats = stats.GetValue(_weaponSystem) as System.Collections.Generic.Dictionary<WeaponType, WeaponSystem.WeaponStats>;
-                if (weaponStats != null && weaponStats.ContainsKey(_weaponSystem.CurrentWeapon))
-                {
-                    projectileSpeed = weaponStats[_weaponSystem.CurrentWeapon].Speed;
-                }
+                projectileSpeed = weaponStats.Speed;
             }
-            
+
+            // Don't draw lead indicator for beams or instant-hit weapons
+            if (projectileSpeed <= 0f)
+            {
+                return;
+            }
+
             // Time for bullet to reach target
             float timeToHit = distance / projectileSpeed;
             
@@ -1662,13 +1708,13 @@ namespace Roguelancer {
             _spriteBatch.Draw(_pixel, 
                 new Rectangle((int)leadScreenPos.X + gap, (int)leadScreenPos.Y - thickness / 2, size - gap, thickness), 
                 leadColor);
-            
+
             // Vertical lines
             _spriteBatch.Draw(_pixel, 
-                new Rectangle((int)leadScreenPos.X - thickness / 2, (int)leadScreenPos.Y - size, thickness, size - gap), 
+                new Rectangle((int)leadScreenPos.X - thickness / 2, (int)leadScreenPos.Y - size, thickness, size - 10), 
                 leadColor);
             _spriteBatch.Draw(_pixel, 
-                new Rectangle((int)leadScreenPos.X - thickness / 2, (int)leadScreenPos.Y + gap, thickness, size - gap), 
+                new Rectangle((int)leadScreenPos.X - thickness / 2, (int)leadScreenPos.Y + 10, thickness, size - 10), 
                 leadColor);
 
             // Center dot

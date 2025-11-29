@@ -66,7 +66,8 @@ namespace Roguelancer
         
         // Ship model
         public Model Model { get; set; }
-        
+        public Matrix ModelRotationCorrection { get; set; } = Matrix.Identity;
+
         // Hull integrity
         public HullIntegrity Hull { get; private set; }
         public float CollisionRadius { get; set; } = 10f;
@@ -103,6 +104,9 @@ namespace Roguelancer
         // Explosion System
         private ExplosionParticles _explosionParticles;
         
+        // Damage Smoke System
+        private DamageSmokeParticles _damageSmokeParticles;
+
         public Ship(Vector3 startPosition)
         {
             Position = startPosition;
@@ -118,6 +122,8 @@ namespace Roguelancer
                 // Trigger player ship explosion
                 _explosionParticles?.TriggerExplosion(Position, Velocity, intensity: 1.5f);
             };
+
+            InitializeEnergy();
         }
 
         public void SetNotificationManager(NotificationManager manager)
@@ -131,6 +137,14 @@ namespace Roguelancer
         public void SetExplosionSystem(ExplosionParticles explosionParticles)
         {
             _explosionParticles = explosionParticles;
+        }
+
+        /// <summary>
+        /// Set the damage smoke particles system for this ship
+        /// </summary>
+        public void SetDamageSmokeSystem(DamageSmokeParticles damageSmokeParticles)
+        {
+            _damageSmokeParticles = damageSmokeParticles;
         }
 
         /// <summary>
@@ -170,6 +184,12 @@ namespace Roguelancer
             
             // Update energy system
             UpdateEnergy(gameTime);
+
+            // Emit damage smoke if hull is low
+            if (Hull.HullPercentage > 0 && Hull.HullPercentage <= 0.25f) // From 25% hull
+            {
+                _damageSmokeParticles?.Emit(Position - Forward * 15, Velocity);
+            }
             
             bool spacebarPressed = keyboardState.IsKeyDown(Keys.Space) && _previousKeyboardState.IsKeyUp(Keys.Space);
             bool leftMouseHeld = mouseState.LeftButton == ButtonState.Pressed;
@@ -542,7 +562,7 @@ namespace Roguelancer
             
             Matrix pitchTilt = Matrix.CreateFromAxisAngle(Orientation.Right, _pitchTiltAngle);
             Matrix bankTilt = Matrix.CreateFromAxisAngle(Orientation.Forward, _bankTiltAngle);
-            Matrix world = modelScale * modelCorrection * Orientation * pitchTilt * bankTilt * Matrix.CreateTranslation(Position);
+            Matrix world = modelScale * modelCorrection * ModelRotationCorrection * Orientation * pitchTilt * bankTilt * Matrix.CreateTranslation(Position);
             
             var graphicsDevice = Model.Meshes[0].Effects[0].GraphicsDevice;
             var oldBlendState = graphicsDevice.BlendState;
