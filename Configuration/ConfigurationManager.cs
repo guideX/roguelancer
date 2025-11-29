@@ -8,7 +8,7 @@ namespace Roguelancer.Configuration {
     /// Manages loading and accessing game configuration from JSON files
     /// </summary>
     public class ConfigurationManager {
-        private const string ConfigurationPath = "configuration";
+        private const string ConfigurationPath = "Configuration";
         private const string ModelsPath = "models";
         private const string ShipsPath = "ships";
         private const string SystemsPath = "systems";
@@ -31,6 +31,8 @@ namespace Roguelancer.Configuration {
         /// </summary>
         public void LoadAll() {
             Console.WriteLine("[CONFIG] Loading configuration files...");
+            Console.WriteLine($"[CONFIG] Current Directory: {Directory.GetCurrentDirectory()}");
+            Console.WriteLine($"[CONFIG] Looking for config path: {Path.GetFullPath(ConfigurationPath)}");
 
             LoadModels();
             LoadSystems();

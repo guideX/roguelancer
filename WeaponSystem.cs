@@ -467,13 +467,15 @@ namespace Roguelancer
                 {
                     // Hit! Apply damage based on weapon type
                     float damage = GetWeaponDamage(p.Type);
+                    float hullBefore = hull.CurrentHull;
                     hull.TakeDamage(damage);
+                    float hullAfter = hull.CurrentHull;
                     
                     // Remove projectile
                     _projectiles.RemoveAt(i);
                     anyHit = true;
                     
-                    Console.WriteLine($"💥 HIT! Weapon: {p.Type}, Damage: {damage:F1}");
+                    Console.WriteLine($"💥 HIT! Weapon: {p.Type}, Damage: {damage:F1}, Hull: {hullBefore:F1} → {hullAfter:F1} ({hull.HullPercentage * 100:F0}%)");
                 }
             }
             
@@ -487,9 +489,9 @@ namespace Roguelancer
         {
             return type switch
             {
-                WeaponType.BlueDonut => 10f,      // Medium damage
-                WeaponType.Fireball => 15f,       // High damage but slower
-                WeaponType.QuickBlaster => 5f,    // Low damage but fast fire rate
+                WeaponType.BlueDonut => 10f,      // Medium damage - balanced weapon
+                WeaponType.Fireball => 20f,       // HIGH damage but slower fire rate (was 15f)
+                WeaponType.QuickBlaster => 5f,    // Low damage but very fast fire rate
                 WeaponType.ChargeBeam => 2f,      // Continuous damage per frame while firing
                 _ => 5f
             };

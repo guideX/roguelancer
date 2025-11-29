@@ -194,42 +194,63 @@ namespace Roguelancer {
 
             // Spawn NPC ships from ship configs
             List<ShipConfig> ships = _config.GetShipsForSystem(1);
-            foreach (ShipConfig shipConfig in ships) {
-                // Get model path for this ship
-                ModelConfig model = _config.GetModel(shipConfig.ModelIndex);
-                if (model == null) {
-                    Console.WriteLine($"[SHIP] Warning: Invalid model index {shipConfig.ModelIndex} for ship {shipConfig.Description}");
-                    continue;
-                }
+            int npcCount = 0;
+            var random = new Random(); // Create a single Random instance outside the loop
+            
+            Console.WriteLine($"[NPC SPAWN] Starting NPC creation. Ship configs available: {ships.Count}");
+            
+            for (int i = 0; i < 20; i++) // Create 20 NPC ships
+            {
+                foreach (ShipConfig shipConfig in ships)
+                {
+                    // Get model path for this ship
+                    ModelConfig model = _config.GetModel(shipConfig.ModelIndex);
+                    if (model == null)
+                    {
+                        Console.WriteLine($"[SHIP] Warning: Invalid model index {shipConfig.ModelIndex} for ship {shipConfig.Description}");
+                        continue;
+                    }
 
-                // Create NPC ship with patrol pattern if configured
-                if (shipConfig.PatrolCenter.HasValue && shipConfig.PatrolRadius.HasValue && shipConfig.PatrolSpeed.HasValue) {
-                    NpcShip npc = new NpcShip(
-                        shipConfig.Description,
-                        shipConfig.StartupPosition,
-                        shipConfig.PatrolCenter.Value,
-                        shipConfig.PatrolRadius.Value,
-                        shipConfig.PatrolSpeed.Value
-                    );
-                    npc.Velocity = shipConfig.InitialVelocity;
-                    _npcShips.Add(npc);
-                    npc.OnDestroyed += HandleNpcDestroyed; // Subscribe to the event
-                    Console.WriteLine($"[SHIP] Added patrol ship: {shipConfig.Description} (Model: {model.Name})");
-                } else {
-                    // Static ship (no patrol)
-                    NpcShip npc = new NpcShip(
-                        shipConfig.Description,
-                        shipConfig.StartupPosition,
-                        shipConfig.StartupPosition, // patrol center = start position
-                        0f, // no patrol radius
-                        0f  // no patrol speed
-                    );
-                    npc.Velocity = shipConfig.InitialVelocity;
-                    _npcShips.Add(npc);
-                    npc.OnDestroyed += HandleNpcDestroyed; // Subscribe to the event
-                    Console.WriteLine($"[SHIP] Added static ship: {shipConfig.Description} (Model: {model.Name})");
+                    // Create a random offset for each ship to avoid spawning at the same spot
+                    var randomOffset = new Vector3(random.Next(-5000, 5000), random.Next(-1000, 1000), random.Next(-5000, 5000));
+
+                    // Create NPC ship with patrol pattern if configured
+                    if (shipConfig.PatrolCenter.HasValue && shipConfig.PatrolRadius.HasValue && shipConfig.PatrolSpeed.HasValue)
+                    {
+                        NpcShip npc = new NpcShip(
+                            $"{shipConfig.Description} {++npcCount}",
+                            shipConfig.StartupPosition + randomOffset,
+                            shipConfig.PatrolCenter.Value + randomOffset,
+                            shipConfig.PatrolRadius.Value,
+                            shipConfig.PatrolSpeed.Value
+                        );
+                        npc.Velocity = shipConfig.InitialVelocity;
+                        _npcShips.Add(npc);
+                        _spaceObjects.Add(npc); // Add to targetable objects
+                        npc.OnDestroyed += HandleNpcDestroyed; // Subscribe to the event
+                        Console.WriteLine($"[SHIP] Created patrol ship: {npc.Name} at position ({npc.Position.X:F1}, {npc.Position.Y:F1}, {npc.Position.Z:F1}) | IsDestroyed: {npc.IsDestroyed} | Model: {model.Name}");
+                    }
+                    else
+                    {
+                        // Static ship (no patrol)
+                        NpcShip npc = new NpcShip(
+                            $"{shipConfig.Description} {++npcCount}",
+                            shipConfig.StartupPosition + randomOffset,
+                            shipConfig.StartupPosition + randomOffset, // patrol center = start position
+                            0f, // no patrol radius
+                            0f  // no patrol speed
+                        );
+                        npc.Velocity = shipConfig.InitialVelocity;
+                        _npcShips.Add(npc);
+                        _spaceObjects.Add(npc); // Add to targetable objects
+                        npc.OnDestroyed += HandleNpcDestroyed; // Subscribe to the event
+                        Console.WriteLine($"[SHIP] Created static ship: {npc.Name} at position ({npc.Position.X:F1}, {npc.Position.Y:F1}, {npc.Position.Z:F1}) | IsDestroyed: {npc.IsDestroyed} | Model: {model.Name}");
+                    }
                 }
             }
+            
+            Console.WriteLine($"[NPC SPAWN] COMPLETE: Created {_npcShips.Count} NPC ships total");
+            Console.WriteLine($"[NPC SPAWN] Space objects count: {_spaceObjects.Count}");
 
             // Create reference grid markers - MUCH SPARSER GRID
             int gridSize = 20000; // Expanded range but fewer markers
@@ -276,27 +297,40 @@ namespace Roguelancer {
                 }
 
                 // Load models for NPC ships based on their configuration
-                for (int i = 0; i < _npcShips.Count; i++) {
-                    // Get ship config to find model index
-                    List<ShipConfig> ships = _config.GetShipsForSystem(1);
-                    if (i < ships.Count) {
-                        ModelConfig model = _config.GetModel(ships[i].ModelIndex);
-                        if (model != null && model.Enabled) {
-                            try {
-                                _npcShips[i].Model = Content.Load<Model>(model.Path);
-                                Console.WriteLine($"[SHIP] Loaded model '{model.Name}' for {_npcShips[i].Name}");
-                            } catch (Exception ex) {
-                                Console.WriteLine($"[SHIP] Error loading model for {_npcShips[i].Name}: {ex.Message}");
-                                // Fallback to player model
-                                _npcShips[i].Model = _playerShip.Model;
-                            }
-                        } else {
-                            Console.WriteLine($"[SHIP] Model disabled or not found for {_npcShips[i].Name}, using fallback");
+                var shipConfigs = _config.GetShipsForSystem(1);
+                Console.WriteLine($"[MODEL LOAD] Starting to load models for {_npcShips.Count} NPC ships");
+                Console.WriteLine($"[MODEL LOAD] Ship configs available: {shipConfigs.Count}");
+                
+                for (int i = 0; i < _npcShips.Count; i++)
+                {
+                    // Determine which ship configuration to use for this NPC
+                    // The number of NPCs can be greater than the number of ship configs, so we loop
+                    ShipConfig shipConfig = shipConfigs[i % shipConfigs.Count];
+                    ModelConfig model = _config.GetModel(shipConfig.ModelIndex);
+
+                    if (model != null && model.Enabled)
+                    {
+                        try
+                        {
+                            _npcShips[i].Model = Content.Load<Model>(model.Path);
+                            Console.WriteLine($"[MODEL LOAD] ✓ SUCCESS - Loaded model '{model.Name}' ({model.Path}) for {_npcShips[i].Name}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[MODEL LOAD] ✗ ERROR - Failed to load model for {_npcShips[i].Name}: {ex.Message}");
+                            Console.WriteLine($"[MODEL LOAD]   Attempted path: {model.Path}");
+                            // Fallback to player model
                             _npcShips[i].Model = _playerShip.Model;
+                            Console.WriteLine($"[MODEL LOAD]   Using fallback (player model)");
                         }
                     }
+                    else
+                    {
+                        Console.WriteLine($"[MODEL LOAD] ✗ DISABLED - Model disabled or not found for {_npcShips[i].Name}, using fallback");
+                        _npcShips[i].Model = _playerShip.Model;
+                    }
                 }
-                Console.WriteLine($"Loaded models for {_npcShips.Count} NPC ships!");
+                Console.WriteLine($"[MODEL LOAD] COMPLETE - Loaded models for {_npcShips.Count} NPC ships!");
             } catch (Exception ex) {
                 Console.WriteLine($"Error loading model: {ex.Message}");
                 Console.WriteLine("Make sure the FBX file is added to the Content Pipeline.");
@@ -385,10 +419,27 @@ namespace Roguelancer {
 
                 }
 
-                // Show NPC positions too
+                // NPC Debug Info
+                Console.WriteLine($"--- NPC SHIPS: {_npcShips.Count} total ---");
+                int aliveCount = 0;
+                int destroyedCount = 0;
+                foreach (var npc in _npcShips)
+                {
+                    if (npc.IsDestroyed)
+                        destroyedCount++;
+                    else
+                        aliveCount++;
+                }
+                Console.WriteLine($"    Alive: {aliveCount}, Destroyed: {destroyedCount}");
+                
+                // Show first 3 NPC positions
                 if (_npcShips.Count > 0) {
-                    Console.WriteLine($"NPC1 Position: X={_npcShips[0].Position.X:F1} Y={_npcShips[0].Position.Y:F1} Z={_npcShips[0].Position.Z:F1}");
-                    Console.WriteLine($"NPC1 Speed: {_npcShips[0].Speed:F1}");
+                    for (int i = 0; i < Math.Min(3, _npcShips.Count); i++)
+                    {
+                        var npc = _npcShips[i];
+                        float distToPlayer = Vector3.Distance(_playerShip.Position, npc.Position);
+                        Console.WriteLine($"    NPC{i+1} '{npc.Name}': Pos=({npc.Position.X:F0},{npc.Position.Y:F0},{npc.Position.Z:F0}) Speed={npc.Speed:F1} Dist={distToPlayer:F0} IsDestroyed={npc.IsDestroyed} HasModel={npc.Model != null}");
+                    }
                 }
                 Console.WriteLine($"======================================");
 
@@ -530,7 +581,7 @@ namespace Roguelancer {
             {
                 if (!npc.IsDestroyed)
                 {
-                    _weaponSystem.CheckCollisions(npc.Position, npc.CollisionRadius, npc.Hull);
+                    _weaponSystem.CheckCollisions(npc.Position, npc.Radius, npc.Hull);
                 }
             }
 
@@ -619,6 +670,9 @@ namespace Roguelancer {
                 _wrecks.Add(wreck);
                 Console.WriteLine($"Wreck created at {wreck.Position}");
             }
+
+            // Remove the destroyed ship from the list of targetable space objects
+            _spaceObjects.Remove(destroyedShip);
         }
 
         private void HandleTargetingInput(KeyboardState kb) {
@@ -786,8 +840,34 @@ namespace Roguelancer {
             _playerShip.Draw(_camera.View, _camera.Projection, _lightDirection);
 
             // Draw NPC ships
+            int drawnNpcCount = 0;
+            int skippedNpcCount = 0;
             foreach (var npc in _npcShips) {
+                if (npc.IsDestroyed)
+                {
+                    skippedNpcCount++;
+                    continue;
+                }
+                if (npc.Model == null)
+                {
+                    Console.WriteLine($"[DRAW] NPC {npc.Name} has no model!");
+                    skippedNpcCount++;
+                    continue;
+                }
+                
+                // FIX: Reset render states before each NPC draw to prevent ghost images
+                GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+                GraphicsDevice.BlendState = BlendState.Opaque;
+                GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+                
                 npc.Draw(_camera.View, _camera.Projection, _lightDirection);
+                drawnNpcCount++;
+            }
+            
+            // Log draw statistics every 2 seconds
+            if (gameTime.TotalGameTime.TotalSeconds % 2 < 0.016f)
+            {
+                Console.WriteLine($"[DRAW] NPC Stats - Total: {_npcShips.Count}, Drawn: {drawnNpcCount}, Skipped: {skippedNpcCount}, Destroyed: {_npcShips.Count - drawnNpcCount}");
             }
 
             // Draw wrecks

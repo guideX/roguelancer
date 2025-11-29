@@ -1,0 +1,23 @@
+{
+  "Index": 3,
+  "SystemIndex": 1,
+  "ModelIndex": 3,
+  "Description": "Warthog Heavy Fighter",
+  "StartupPosition": {
+    "X": 1000,
+    "Y": 100,
+    "Z": -2000
+  },
+  "InitialVelocity": {
+    "X": 0,
+    "Y": 0,
+    "Z": 0
+  },
+  "PatrolCenter": {
+    "X": 1000,
+    "Y": 100,
+    "Z": -2000
+  },
+  "PatrolRadius": 500,
+  "PatrolSpeed": 0.1
+}
