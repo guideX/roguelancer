@@ -1,0 +1,7 @@
+{
+  "EnableOnlineMode": false,
+  "PlayerName": "Pilot",
+  "ServerUrl": "http://localhost:5000/gamehub",
+  "AutoConnect": false,
+  "NetworkUpdateRate": 20
+}

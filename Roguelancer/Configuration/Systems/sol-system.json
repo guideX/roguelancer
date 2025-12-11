@@ -1,0 +1,29 @@
+{
+  "SystemName": "Sol",
+  "Planets": [
+    {
+      "Name": "Mercury",
+      "Radius": 1000,
+      "OrbitRadius": 15000,
+      "OrbitSpeed": 0.01,
+      "SurfaceModelAsset": "Models/planet",
+      "SurfaceTextureAsset": "Textures/mercury",
+      "CloudsModelAsset": "Models/planet_clouds",
+      "CloudsTextureAsset": "Textures/cloud1",
+      "AtmosphereModelAsset": "Models/planet_atmosphere",
+      "AtmosphereTextureAsset": "Textures/atmosphere"
+    },
+    {
+      "Name": "Earth",
+      "Radius": 2500,
+      "OrbitRadius": 30000,
+      "OrbitSpeed": 0.005,
+      "SurfaceModelAsset": "Models/planet",
+      "SurfaceTextureAsset": "Textures/earth",
+      "CloudsModelAsset": "Models/planet_clouds",
+      "CloudsTextureAsset": "Textures/cloud2",
+      "AtmosphereModelAsset": "Models/planet_atmosphere",
+      "AtmosphereTextureAsset": "Textures/atmosphere"
+    }
+  ]
+}
