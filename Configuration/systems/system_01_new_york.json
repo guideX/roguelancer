@@ -6,5 +6,78 @@
   "sun_position_z": 3000.0,
   "sun_scale": 2000.0,
   "sun_intensity": 2.0,
-  "sun_rotation_speed": 0.05
+  "sun_rotation_speed": 0.05,
+  "npc_patrols": [
+    {
+      "name": "System Defense Flight",
+      "ship_description": "Patrol Fighter 1",
+      "count": 8,
+      "patrol_center_x": 1000.0,
+      "patrol_center_y": 500.0,
+      "patrol_center_z": 1000.0,
+      "patrol_radius": 15000.0,
+      "patrol_speed": 200.0,
+      "spawn_radius": 7000.0
+    },
+    {
+      "name": "Trade Convoy",
+      "ship_description": "Starliner Transport",
+      "count": 4,
+      "patrol_center_x": -5000.0,
+      "patrol_center_y": -1000.0,
+      "patrol_center_z": -8000.0,
+      "patrol_radius": 10000.0,
+      "patrol_speed": 100.0,
+      "spawn_radius": 5000.0
+    },
+    {
+      "name": "Warthog Squadron",
+      "ship_description": "Warthog Fighter",
+      "count": 6,
+      "patrol_center_x": 8000.0,
+      "patrol_center_y": 0.0,
+      "patrol_center_z": -2000.0,
+      "patrol_radius": 12000.0,
+      "patrol_speed": 250.0,
+      "spawn_radius": 6000.0
+    }
+  ],
+  "planets": [
+    {
+      "name": "Manhattan",
+      "radius": 100.0,
+      "orbit_radius": 3000.0,
+      "orbit_speed": 0.1,
+      "surface_model_asset": "Models/planet_surface",
+      "clouds_model_asset": "Models/planet_clouds",
+      "atmosphere_model_asset": "Models/planet_atmosphere",
+      "surface_texture_asset": "Textures/planets/planet_01_diffuse",
+      "clouds_texture_asset": "Textures/planets/planet_01_clouds",
+      "atmosphere_texture_asset": "Textures/planets/planet_01_atmosphere"
+    },
+    {
+      "name": "Brooklyn",
+      "radius": 150.0,
+      "orbit_radius": 5000.0,
+      "orbit_speed": 0.05,
+      "surface_model_asset": "Models/planet_surface",
+      "clouds_model_asset": "Models/planet_clouds",
+      "atmosphere_model_asset": "Models/planet_atmosphere",
+      "surface_texture_asset": "Textures/planets/planet_02_diffuse",
+      "clouds_texture_asset": "Textures/planets/planet_02_clouds",
+      "atmosphere_texture_asset": "Textures/planets/planet_02_atmosphere"
+    },
+    {
+      "name": "Queens",
+      "radius": 120.0,
+      "orbit_radius": 7000.0,
+      "orbit_speed": 0.03,
+      "surface_model_asset": "Models/planet_surface",
+      "clouds_model_asset": "Models/planet_clouds",
+      "atmosphere_model_asset": "Models/planet_atmosphere",
+      "surface_texture_asset": "Textures/planets/planet_03_diffuse",
+      "clouds_texture_asset": "Textures/planets/planet_03_clouds",
+      "atmosphere_texture_asset": "Textures/planets/planet_03_atmosphere"
+    }
+  ]
 }

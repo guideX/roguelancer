@@ -27,5 +27,8 @@
   "patrol_center_y": 200.0,
   "patrol_center_z": -2500.0,
   "patrol_radius": 600.0,
-  "patrol_speed": 0.08
+  "patrol_speed": 0.08,
+  "model_correction_rotation_x": -1.5708,
+  "model_correction_rotation_y": 3.1416,
+  "model_correction_rotation_z": 0.0
 }

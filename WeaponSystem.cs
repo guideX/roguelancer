@@ -14,7 +14,8 @@ namespace Roguelancer
         Fireball,       // Small explosive fireball
         QuickBlaster,   // Fast short-lived energy bolt
         ChargeBeam,     // Continuous beam that charges up
-        LaserBolt       // Star Wars-style laser bolt
+        LaserBolt,      // Star Wars-style laser bolt
+        Wunderwafffle   // Chain lightning beam that drains energy and hull
     }
 
     /// <summary>
@@ -65,9 +66,30 @@ namespace Roguelancer
             public Color BeamColor;
         }
         
+        private class LightningBeam
+        {
+            public Vector3 StartPosition;
+            public List<Vector3> HitTargets;
+            public float Life;
+            public float MaxLife;
+            public Color BeamColor;
+            public List<Vector3> ChainPositions; // For visual chain lightning effect
+            public float AnimationTime; // For crackling animation
+            
+            public LightningBeam()
+            {
+                HitTargets = new List<Vector3>();
+                ChainPositions = new List<Vector3>();
+            }
+        }
+        
         private readonly List<Projectile> _projectiles = new List<Projectile>(256);
         private readonly List<MuzzleFlash> _muzzleFlashes = new List<MuzzleFlash>(8);
         private readonly List<ChargeBeam> _chargeBeams = new List<ChargeBeam>(2);
+        private readonly List<LightningBeam> _lightningBeams = new List<LightningBeam>(4);
+        
+        // Reference to all ships for chain lightning targeting
+        private List<object> _allShips = new List<object>();
         private readonly GraphicsDevice _graphicsDevice;
         private readonly BasicEffect _effect;
         private readonly Dictionary<WeaponType, Texture2D> _textures;
@@ -118,7 +140,8 @@ namespace Roguelancer
                 { WeaponType.Fireball, CreateFireballTexture(graphicsDevice, 16) },
                 { WeaponType.QuickBlaster, CreateBlasterTexture(graphicsDevice, 16) },
                 { WeaponType.ChargeBeam, CreateBeamTexture(graphicsDevice, 16) },
-                { WeaponType.LaserBolt, CreateLaserBoltTexture(graphicsDevice, 32) }
+                { WeaponType.LaserBolt, CreateLaserBoltTexture(graphicsDevice, 32) },
+                { WeaponType.Wunderwafffle, CreateLightningTexture(graphicsDevice, 16) }
             };
 
             // Define stats for each weapon type
@@ -192,6 +215,20 @@ namespace Roguelancer
                         MuzzleFlashSize = 25f,
                         RefireRate = 0.15f, // Fast refire
                         EnergyCost = 10f
+                    }
+                },
+                {
+                    WeaponType.Wunderwafffle,
+                    new WeaponStats
+                    {
+                        WeaponDamage = 5f, // Damage per frame to hull
+                        Speed = 0f, // Instant beam
+                        Life = 8.0f, // Electrocution duration
+                        Size = 8f, // Thin crackling beam
+                        Color = new Color(100, 150, 255), // Electric blue
+                        MuzzleFlashSize = 40f,
+                        RefireRate = 10f, // Long cooldown (10 seconds)
+                        EnergyCost = 100f // High initial energy cost
                     }
                 }
             };
@@ -375,12 +412,81 @@ namespace Roguelancer
             return tex;
         }
         
+        private Texture2D CreateLightningTexture(GraphicsDevice device, int size)
+        {
+            Texture2D tex = new Texture2D(device, size, size);
+            Color[] data = new Color[size * size];
+            Vector2 center = new Vector2(size / 2f);
+            float maxDist = size / 2f;
+            Random rand = new Random(123);
+            
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x, y), center) / maxDist;
+                    
+                    // Create jagged lightning bolt texture
+                    float noise = (float)rand.NextDouble() * 0.5f;
+                    float a = 0f;
+                    
+                    if (d < 0.2f + noise * 0.1f)
+                    {
+                        // Very bright crackling core
+                        a = 1.0f;
+                    }
+                    else if (d < 0.5f)
+                    {
+                        // Electric glow
+                        a = (0.5f - d) / 0.3f;
+                        a = (float)Math.Pow(a, 1.5);
+                    }
+                    
+                    data[y * size + x] = new Color(1f, 1f, 1f, MathHelper.Clamp(a, 0f, 1f));
+                }
+            }
+            tex.SetData(data);
+            return tex;
+        }
+        
         /// <summary>
         /// Start firing (call this when mouse button is pressed/held)
         /// </summary>
         public void StartFiring(Vector3 origin, Vector3 direction, Vector3 shipVelocity)
         {
             _isFiring = true;
+            
+            // Special handling for Wunderwafffle (chain lightning)
+            if (CurrentWeapon == WeaponType.Wunderwafffle)
+            {
+                // Only fire if refire timer allows it
+                if (_refireTimer <= 0f)
+                {
+                    WeaponStats stats = _weaponStats[CurrentWeapon];
+                    
+                    // Check if we have enough energy
+                    if (_energy != null && !_energy.TryConsume(stats.EnergyCost))
+                    {
+                        return; // Not enough energy
+                    }
+                    
+                    // Create new lightning beam
+                    LightningBeam lightning = new LightningBeam
+                    {
+                        StartPosition = origin,
+                        Life = 0f,
+                        MaxLife = stats.Life,
+                        BeamColor = stats.Color,
+                        AnimationTime = 0f
+                    };
+                    
+                    _lightningBeams.Add(lightning);
+                    _refireTimer = stats.RefireRate;
+                    
+                    Console.WriteLine($"⚡ WUNDERWAFFFLE FIRED! Chain lightning activated!");
+                }
+                return;
+            }
             
             // Special handling for charge beam
             if (CurrentWeapon == WeaponType.ChargeBeam)
@@ -574,6 +680,133 @@ namespace Roguelancer
             return hits;
         }
         
+        /// <summary>
+        /// Check lightning beam collisions and apply energy/hull drain with chain lightning
+        /// </summary>
+        public void CheckLightningCollisions(float deltaTime)
+        {
+            if (_lightningBeams.Count == 0 || _allShips.Count == 0) return;
+            
+            WeaponStats stats = _weaponStats[WeaponType.Wunderwafffle];
+            float chainRange = 500f; // Range to chain to nearby ships
+            int maxChainTargets = 3; // Maximum number of chain targets
+            
+            foreach (LightningBeam lightning in _lightningBeams)
+            {
+                // Clear previous chain positions
+                lightning.ChainPositions.Clear();
+                lightning.HitTargets.Clear();
+                
+                // Find all ships within range and build chain
+                List<object> potentialTargets = new List<object>();
+                
+                foreach (var ship in _allShips)
+                {
+                    // Check if it's an NPC ship (we'll need to access Position and other properties)
+                    System.Reflection.PropertyInfo positionProp = ship.GetType().GetProperty("Position");
+                    System.Reflection.PropertyInfo isDestroyedProp = ship.GetType().GetProperty("IsDestroyed");
+                    
+                    if (positionProp != null && isDestroyedProp != null)
+                    {
+                        Vector3 shipPos = (Vector3)positionProp.GetValue(ship);
+                        bool isDestroyed = (bool)isDestroyedProp.GetValue(ship);
+                        
+                        if (!isDestroyed)
+                        {
+                            float distance = Vector3.Distance(lightning.StartPosition, shipPos);
+                            if (distance < 2000f) // Initial targeting range
+                            {
+                                potentialTargets.Add(ship);
+                            }
+                        }
+                    }
+                }
+                
+                if (potentialTargets.Count == 0) continue;
+                
+                // Sort by distance from weapon origin
+                potentialTargets.Sort((a, b) =>
+                {
+                    Vector3 posA = (Vector3)a.GetType().GetProperty("Position").GetValue(a);
+                    Vector3 posB = (Vector3)b.GetType().GetProperty("Position").GetValue(b);
+                    float distA = Vector3.Distance(lightning.StartPosition, posA);
+                    float distB = Vector3.Distance(lightning.StartPosition, posB);
+                    return distA.CompareTo(distB);
+                });
+                
+                // Primary target
+                var primaryTarget = potentialTargets[0];
+                Vector3 primaryPos = (Vector3)primaryTarget.GetType().GetProperty("Position").GetValue(primaryTarget);
+                lightning.HitTargets.Add(primaryPos);
+                lightning.ChainPositions.Add(primaryPos);
+                
+                // Apply damage and energy drain to primary
+                ApplyLightningDamage(primaryTarget, stats.WeaponDamage * deltaTime, deltaTime);
+                
+                // Chain to nearby ships
+                int chainsApplied = 0;
+                Vector3 lastChainPos = primaryPos;
+                
+                for (int i = 1; i < potentialTargets.Count && chainsApplied < maxChainTargets; i++)
+                {
+                    var chainTarget = potentialTargets[i];
+                    Vector3 chainPos = (Vector3)chainTarget.GetType().GetProperty("Position").GetValue(chainTarget);
+                    
+                    float chainDist = Vector3.Distance(lastChainPos, chainPos);
+                    if (chainDist < chainRange)
+                    {
+                        lightning.HitTargets.Add(chainPos);
+                        lightning.ChainPositions.Add(chainPos);
+                        
+                        // Reduced damage for chain targets (50% of primary)
+                        ApplyLightningDamage(chainTarget, stats.WeaponDamage * 0.5f * deltaTime, deltaTime * 0.5f);
+                        
+                        lastChainPos = chainPos;
+                        chainsApplied++;
+                        
+                        Console.WriteLine($"⚡ CHAIN LIGHTNING! Target {i + 1} hit!");
+                    }
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Apply lightning damage (hull and energy drain) to a target
+        /// </summary>
+        private void ApplyLightningDamage(object target, float hullDamage, float energyDrainAmount)
+        {
+            // Get hull and energy properties via reflection
+            System.Reflection.PropertyInfo hullProp = target.GetType().GetProperty("Hull");
+            System.Reflection.PropertyInfo energyProp = target.GetType().GetProperty("Energy");
+            
+            if (hullProp != null)
+            {
+                var hull = hullProp.GetValue(target);
+                if (hull != null)
+                {
+                    var takeDamageMethod = hull.GetType().GetMethod("TakeDamage");
+                    if (takeDamageMethod != null)
+                    {
+                        takeDamageMethod.Invoke(hull, new object[] { hullDamage });
+                    }
+                }
+            }
+            
+            if (energyProp != null)
+            {
+                var energy = energyProp.GetValue(target);
+                if (energy != null)
+                {
+                    // Drain energy (try to consume but don't check return value)
+                    var tryConsumeMethod = energy.GetType().GetMethod("TryConsume");
+                    if (tryConsumeMethod != null)
+                    {
+                        tryConsumeMethod.Invoke(energy, new object[] { energyDrainAmount * 20f }); // Drain 20x the rate
+                    }
+                }
+            }
+        }
+        
         public void Update(GameTime gameTime)
         {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -647,6 +880,21 @@ namespace Roguelancer
                     // No timeout - fires until user releases mouse button or energy runs out
                 }
             }
+            
+            // Update lightning beams (Wunderwafffle)
+            for (int i = _lightningBeams.Count - 1; i >= 0; i--)
+            {
+                LightningBeam lightning = _lightningBeams[i];
+                lightning.Life += dt;
+                lightning.AnimationTime += dt;
+                
+                if (lightning.Life >= lightning.MaxLife)
+                {
+                    _lightningBeams.RemoveAt(i);
+                    Console.WriteLine($"⚡ WUNDERWAFFFLE: Lightning dissipated");
+                    continue;
+                }
+            }
         }
         
         public void Draw(Camera camera)
@@ -654,6 +902,7 @@ namespace Roguelancer
             DrawProjectiles(camera);
             DrawMuzzleFlashes(camera);
             DrawChargeBeams(camera);
+            DrawLightningBeams(camera);
         }
         
         private void DrawProjectiles(Camera camera)
@@ -911,6 +1160,129 @@ namespace Roguelancer
             _graphicsDevice.SamplerStates[0] = oldSampler;
         }
         
+        private void DrawLightningBeams(Camera camera)
+        {
+            if (_lightningBeams.Count == 0) return;
+            
+            foreach (LightningBeam lightning in _lightningBeams)
+            {
+                // Calculate crackling animation offset
+                float crackleOffset = (float)Math.Sin(lightning.AnimationTime * 30f) * 2f;
+                
+                // Pulsing effect
+                float pulse = (float)Math.Sin(lightning.AnimationTime * 20f) * 0.3f + 0.7f;
+                Color lightningColor = lightning.BeamColor * pulse;
+                
+                // Draw primary beam from start to first target
+                if (lightning.ChainPositions.Count > 0)
+                {
+                    DrawLightningBolt(camera, lightning.StartPosition, lightning.ChainPositions[0], 
+                                     8f, lightningColor, crackleOffset);
+                }
+                
+                // Draw chain lightning between targets
+                for (int i = 0; i < lightning.ChainPositions.Count - 1; i++)
+                {
+                    DrawLightningBolt(camera, lightning.ChainPositions[i], lightning.ChainPositions[i + 1],
+                                     6f, lightningColor * 0.8f, crackleOffset);
+                }
+            }
+        }
+        
+        private void DrawLightningBolt(Camera camera, Vector3 start, Vector3 end, float thickness, Color color, float crackleOffset)
+        {
+            Vector3 direction = end - start;
+            float length = direction.Length();
+            if (length < 0.1f) return;
+            
+            direction.Normalize();
+            
+            // Draw jagged lightning segments
+            int segments = Math.Max(3, (int)(length / 100f)); // More segments for longer beams
+            Vector3 currentPos = start;
+            
+            Random rand = new Random((int)(crackleOffset * 1000));
+            
+            for (int i = 0; i < segments; i++)
+            {
+                float t = (float)(i + 1) / segments;
+                Vector3 targetPos = Vector3.Lerp(start, end, t);
+                
+                // Add random offset for jagged effect
+                Vector3 perpendicular = Vector3.Cross(direction, Vector3.Up);
+                if (perpendicular.LengthSquared() < 0.0001f)
+                    perpendicular = Vector3.Cross(direction, Vector3.Forward);
+                perpendicular.Normalize();
+                
+                float randomOffset = ((float)rand.NextDouble() - 0.5f) * 20f;
+                targetPos += perpendicular * randomOffset;
+                
+                // Draw segment with varying thickness
+                float segmentThickness = thickness * (0.7f + (float)rand.NextDouble() * 0.6f);
+                DrawBeamSegment(camera, currentPos, targetPos, segmentThickness, color);
+                
+                currentPos = targetPos;
+            }
+            
+            // Draw glow layers
+            DrawBeamSegment(camera, start, end, thickness * 2f, color * 0.3f);
+        }
+        
+        private void DrawBeamSegment(Camera camera, Vector3 start, Vector3 end, float thickness, Color color)
+        {
+            Vector3 direction = end - start;
+            float length = direction.Length();
+            if (length < 0.1f) return;
+            
+            direction.Normalize();
+            Vector3 camPos = camera.Position;
+            
+            // Billboard perpendicular to beam
+            Vector3 toCam = camPos - start;
+            Vector3 right = Vector3.Cross(direction, toCam);
+            if (right.LengthSquared() < 0.0001f) right = Vector3.Right;
+            else right.Normalize();
+            
+            // Create quad
+            Vector3 mid = (start + end) * 0.5f;
+            float halfLength = length * 0.5f;
+            
+            VertexPositionColorTexture[] vertices = new VertexPositionColorTexture[4];
+            vertices[0] = new VertexPositionColorTexture(mid - direction * halfLength - right * thickness, color, new Vector2(0, 0));
+            vertices[1] = new VertexPositionColorTexture(mid + direction * halfLength - right * thickness, color, new Vector2(1, 0));
+            vertices[2] = new VertexPositionColorTexture(mid - direction * halfLength + right * thickness, color, new Vector2(0, 1));
+            vertices[3] = new VertexPositionColorTexture(mid + direction * halfLength + right * thickness, color, new Vector2(1, 1));
+            
+            short[] indices = new short[] { 0, 1, 2, 2, 1, 3 };
+            
+            var oldBlend = _graphicsDevice.BlendState;
+            var oldDepth = _graphicsDevice.DepthStencilState;
+            var oldRaster = _graphicsDevice.RasterizerState;
+            
+            _graphicsDevice.BlendState = BlendState.Additive;
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            
+            _effect.Texture = _textures[WeaponType.Wunderwafffle];
+            _effect.View = camera.View;
+            _effect.Projection = camera.Projection;
+            _effect.World = Matrix.Identity;
+            
+            foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
+            {
+                pass.Apply();
+                _graphicsDevice.DrawUserIndexedPrimitives(
+                    PrimitiveType.TriangleList,
+                    vertices, 0, 4,
+                    indices, 0, 2
+                );
+            }
+            
+            _graphicsDevice.BlendState = oldBlend;
+            _graphicsDevice.DepthStencilState = oldDepth;
+            _graphicsDevice.RasterizerState = oldRaster;
+        }
+        
         private void DrawMuzzleFlashes(Camera camera)
         {
             int count = _muzzleFlashes.Count;
@@ -996,6 +1368,15 @@ namespace Roguelancer
         public void SetEnergySystem(ShipEnergy energy)
         {
             _energy = energy;
+        }
+        
+        /// <summary>
+        /// Set ship references for chain lightning targeting
+        /// This should be called from the game's Update method
+        /// </summary>
+        public void SetShipReferences(List<object> ships)
+        {
+            _allShips = ships;
         }
     }
 }

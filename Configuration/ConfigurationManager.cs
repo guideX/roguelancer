@@ -173,5 +173,14 @@ namespace Roguelancer.Configuration {
         public List<StationConfig> GetStationsForSystem(int systemIndex) {
             return Stations.FindAll(s => s.SystemIndex == systemIndex);
         }
+
+        /// <summary>
+        /// Get all loaded ship configurations.
+        /// </summary>
+        /// <returns>A list of all ship configurations.</returns>
+        public List<ShipConfig> GetAllShipConfigs()
+        {
+            return Ships;
+        }
     }
 }

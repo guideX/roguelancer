@@ -102,6 +102,16 @@ namespace Roguelancer.Configuration {
         [JsonPropertyName("patrol_speed")]
         public float? PatrolSpeed { get; set; }
 
+        // Model correction - applied to fix model orientation issues
+        [JsonPropertyName("model_correction_rotation_x")]
+        public float ModelCorrectionRotationX { get; set; } = 0f;
+
+        [JsonPropertyName("model_correction_rotation_y")]
+        public float ModelCorrectionRotationY { get; set; } = 0f;
+
+        [JsonPropertyName("model_correction_rotation_z")]
+        public float ModelCorrectionRotationZ { get; set; } = 0f;
+
         /// <summary>
         /// Helper to get startup position as Vector3
         /// </summary>
@@ -127,5 +137,18 @@ namespace Roguelancer.Configuration {
         public Vector3? PatrolCenter => PatrolCenterX.HasValue && PatrolCenterY.HasValue && PatrolCenterZ.HasValue 
             ? new Vector3(PatrolCenterX.Value, PatrolCenterY.Value, PatrolCenterZ.Value) 
             : null;
+
+        /// <summary>
+        /// Helper to get model correction rotation as Matrix
+        /// </summary>
+        [JsonIgnore]
+        public Matrix ModelCorrectionRotation {
+            get {
+                Matrix rotX = Matrix.CreateRotationX(ModelCorrectionRotationX);
+                Matrix rotY = Matrix.CreateRotationY(ModelCorrectionRotationY);
+                Matrix rotZ = Matrix.CreateRotationZ(ModelCorrectionRotationZ);
+                return rotX * rotY * rotZ;
+            }
+        }
     }
 }

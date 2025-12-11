@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
@@ -6,12 +6,14 @@
     <PublishReadyToRun>false</PublishReadyToRun>
     <TieredCompilation>false</TieredCompilation>
     <UseWindowsForms>true</UseWindowsForms>
+    <DefaultItemExcludes>$(DefaultItemExcludes);RoguelancerServer/**</DefaultItemExcludes>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
     <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.*" />
     <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.1.303" />
   </ItemGroup>
@@ -23,5 +25,21 @@
     <None Include="Configuration\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Content\Textures\cloud1.png" />
+    <None Remove="Content\Textures\cloud2.png" />
+    <None Remove="Content\Textures\cloud3.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Content\Textures\cloud4.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Exclude RoguelancerServer from this project -->
+    <Compile Remove="RoguelancerServer\**" />
+    <EmbeddedResource Remove="RoguelancerServer\**" />
+    <None Remove="RoguelancerServer\**" />
   </ItemGroup>
 </Project>

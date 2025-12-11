@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Roguelancer
 {
@@ -33,11 +34,88 @@ namespace Roguelancer
             public float TwinkleSpeed; // How fast it twinkles
         }
 
-        private Star[] _stars;
-        private VertexPositionColor[] _vertices;
+        private class StarLayer
+        {
+            public Star[] Stars;
+            public VertexPositionColor[] Vertices;
+            public float Depth; // Represents how far this layer is. 1.0 is closest, 0.0 is furthest.
+            public float SpeedMultiplier;
+
+            public StarLayer(int starCount, float depth, Random random)
+            {
+                Depth = depth;
+                SpeedMultiplier = 1.0f - depth; // Farther layers move slower
+                Stars = new Star[starCount];
+                Vertices = new VertexPositionColor[starCount];
+
+                for (int i = 0; i < starCount; i++)
+                {
+                    Stars[i] = CreateNewStar(random, depth);
+                    Stars[i].Life = (float)random.NextDouble(); // Randomize initial life
+                    Vertices[i] = new VertexPositionColor(Stars[i].Position, Stars[i].Color);
+                }
+            }
+
+            public Star CreateNewStar(Random random, float depth)
+            {
+                float theta = (float)(random.NextDouble() * Math.PI * 2);
+                float phi = (float)Math.Acos(2 * random.NextDouble() - 1);
+
+                float radius = 500f + (1.0f - depth) * 8000f; // Farther layers have stars further away
+
+                Vector3 position = new Vector3(
+                    radius * (float)(Math.Sin(phi) * Math.Cos(theta)),
+                    radius * (float)(Math.Sin(phi) * Math.Sin(theta)),
+                    radius * (float)Math.Cos(phi)
+                );
+
+                float starType = (float)random.NextDouble();
+                float brightness = 0.3f + (float)(random.NextDouble() * 0.7f);
+                Color color;
+
+                if (starType < 0.1f) color = new Color(0.7f * brightness, 0.8f * brightness, 1.0f * brightness);
+                else if (starType < 0.3f) color = new Color(0.85f * brightness, 0.9f * brightness, 1.0f * brightness);
+                else if (starType < 0.6f) color = new Color(brightness, brightness * 0.98f, brightness * 0.95f);
+                else if (starType < 0.85f) color = new Color(1.0f * brightness, 0.95f * brightness, 0.8f * brightness);
+                else color = new Color(1.0f * brightness, 0.7f * brightness, 0.5f * brightness);
+
+                float size = 1f + (float)(random.NextDouble() * 3f) * (1.0f - depth); // Farther stars are smaller
+                if (brightness > 0.8f) size *= 1.5f;
+
+                float maxLife = 5f + (float)(random.NextDouble() * 10f);
+
+                return new Star
+                {
+                    Position = position,
+                    Size = size,
+                    Color = color,
+                    Brightness = brightness,
+                    Depth = depth,
+                    Life = 0f,
+                    MaxLife = maxLife,
+                    TwinklePhase = (float)(random.NextDouble() * Math.PI * 2),
+                    TwinkleSpeed = 0.5f + (float)(random.NextDouble() * 2f)
+                };
+            }
+
+            public void Update(float deltaTime, float lifecycleSpeed, Random random)
+            {
+                for (int i = 0; i < Stars.Length; i++)
+                {
+                    Stars[i].Life += deltaTime * lifecycleSpeed;
+                    Stars[i].TwinklePhase += deltaTime * Stars[i].TwinkleSpeed;
+
+                    if (Stars[i].Life >= Stars[i].MaxLife)
+                    {
+                        Stars[i] = CreateNewStar(random, Depth);
+                    }
+                }
+            }
+        }
+
+        private List<StarLayer> _layers;
         private BasicEffect _effect;
         private GraphicsDevice _graphicsDevice;
-        private Texture2D _starTexture;
         private Vector3 _lastCameraPosition;
         private Random _random;
 
@@ -46,31 +124,22 @@ namespace Roguelancer
         public bool EnableLifecycle { get; set; } = true; // Stars fade in/out over time
         public float LifecycleSpeed { get; set; } = 0.05f; // How fast stars age
         public float TwinkleIntensity { get; set; } = 0.3f; // How much stars twinkle (0-1)
-        public float ParallaxStrength { get; set; } = 0.7f; // Strength of parallax effect (0-1)
+        public float ParallaxStrength { get; set; } = 1.0f; // Strength of parallax effect (0-1)
         public float StreakMultiplier { get; set; } = 0.3f; // Length of motion streaks
         
-        private int _starCount;
-
-        public Starfield(GraphicsDevice graphicsDevice, int starCount = 5000)
+        public Starfield(GraphicsDevice graphicsDevice, int[] layerCounts)
         {
             _graphicsDevice = graphicsDevice;
-            _starCount = starCount;
-            _stars = new Star[starCount];
-            _vertices = new VertexPositionColor[starCount];
-            _lastCameraPosition = Vector3.Zero;
             _random = new Random();
-            
-            // Generate initial stars
-            for (int i = 0; i < starCount; i++)
+            _layers = new List<StarLayer>();
+            _lastCameraPosition = Vector3.Zero;
+
+            for (int i = 0; i < layerCounts.Length; i++)
             {
-                _stars[i] = CreateNewStar(_random);
-                // Randomize initial life so they don't all fade at once
-                _stars[i].Life = (float)_random.NextDouble();
-                _vertices[i] = new VertexPositionColor(_stars[i].Position, _stars[i].Color);
+                // Depth goes from 0 (far) to almost 1 (near)
+                float depth = i / (float)layerCounts.Length;
+                _layers.Add(new StarLayer(layerCounts[i], depth, _random));
             }
-            
-            // Create a simple star texture for point sprites
-            _starTexture = CreateStarTexture(graphicsDevice, 8);
             
             _effect = new BasicEffect(graphicsDevice)
             {
@@ -80,121 +149,21 @@ namespace Roguelancer
         }
 
         /// <summary>
-        /// Create a new star with random properties
-        /// </summary>
-        private Star CreateNewStar(Random random)
-        {
-            // Random point on sphere
-            float theta = (float)(random.NextDouble() * Math.PI * 2);
-            float phi = (float)(Math.Acos(2 * random.NextDouble() - 1));
-            
-            // Varied depth for parallax effect
-            float depth = (float)random.NextDouble();
-            float radius = 500f + depth * 4000f;
-            
-            Vector3 position = new Vector3(
-                radius * (float)(Math.Sin(phi) * Math.Cos(theta)),
-                radius * (float)(Math.Sin(phi) * Math.Sin(theta)),
-                radius * (float)Math.Cos(phi)
-            );
-            
-            // More realistic star colors and brightness
-            float starType = (float)random.NextDouble();
-            float brightness = 0.3f + (float)(random.NextDouble() * 0.7f);
-            Color color;
-            
-            if (starType < 0.1f) // Blue giants (rare)
-            {
-                color = new Color(0.7f * brightness, 0.8f * brightness, 1.0f * brightness);
-            }
-            else if (starType < 0.3f) // Blue-white stars
-            {
-                color = new Color(0.85f * brightness, 0.9f * brightness, 1.0f * brightness);
-            }
-            else if (starType < 0.6f) // White stars (most common)
-            {
-                color = new Color(brightness, brightness * 0.98f, brightness * 0.95f);
-            }
-            else if (starType < 0.85f) // Yellow-white stars
-            {
-                color = new Color(1.0f * brightness, 0.95f * brightness, 0.8f * brightness);
-            }
-            else // Red stars (cooler)
-            {
-                color = new Color(1.0f * brightness, 0.7f * brightness, 0.5f * brightness);
-            }
-            
-            // Vary star sizes
-            float size = 1f + (float)(random.NextDouble() * 3f);
-            if (brightness > 0.8f) size *= 1.5f; // Brighter stars appear larger
-            
-            // Lifecycle properties
-            float maxLife = 5f + (float)(random.NextDouble() * 10f); // 5-15 seconds lifespan
-            
-            return new Star
-            {
-                Position = position,
-                Size = size,
-                Color = color,
-                Brightness = brightness,
-                Depth = depth,
-                Life = 0f, // Start faded out
-                MaxLife = maxLife,
-                TwinklePhase = (float)(random.NextDouble() * Math.PI * 2),
-                TwinkleSpeed = 0.5f + (float)(random.NextDouble() * 2f)
-            };
-        }
-        
-        private Texture2D CreateStarTexture(GraphicsDevice device, int size)
-        {
-            Texture2D texture = new Texture2D(device, size, size);
-            Color[] data = new Color[size * size];
-            
-            Vector2 center = new Vector2(size / 2f, size / 2f);
-            
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    Vector2 pos = new Vector2(x, y);
-                    float distance = Vector2.Distance(pos, center) / (size / 2f);
-                    
-                    // Create radial gradient with bright center
-                    float alpha = Math.Max(0, 1f - distance);
-                    alpha = (float)Math.Pow(alpha, 1.5f); // Sharper center
-                    
-                    data[y * size + x] = new Color(1f, 1f, 1f, alpha);
-                }
-            }
-            
-            texture.SetData(data);
-            return texture;
-        }
-
-        /// <summary>
         /// Update star lifecycle (call this from your game's Update method)
         /// </summary>
         public void Update(float deltaTime)
         {
             if (!EnableLifecycle) return;
 
-            for (int i = 0; i < _stars.Length; i++)
+            foreach (var layer in _layers)
             {
-                // Age the star
-                _stars[i].Life += deltaTime * LifecycleSpeed;
-                
-                // Update twinkle phase
-                _stars[i].TwinklePhase += deltaTime * _stars[i].TwinkleSpeed;
-                
-                // When star reaches end of life, respawn it
-                if (_stars[i].Life >= _stars[i].MaxLife)
+                layer.Update(deltaTime, LifecycleSpeed, _random);
+                for (int i = 0; i < layer.Stars.Length; i++)
                 {
-                    _stars[i] = CreateNewStar(_random);
+                    Color finalColor = CalculateStarColor(layer.Stars[i]);
+                    layer.Vertices[i].Color = finalColor;
+                    layer.Vertices[i].Position = layer.Stars[i].Position;
                 }
-                
-                // Update vertex color based on lifecycle and mode
-                Color finalColor = CalculateStarColor(_stars[i]);
-                _vertices[i].Color = finalColor;
             }
         }
 
@@ -250,34 +219,33 @@ namespace Roguelancer
             // Update view and projection matrices
             _effect.View = view;
             _effect.Projection = projection;
-            _effect.World = Matrix.CreateTranslation(cameraPosition);
             
             // Draw based on current mode
             switch (Mode)
             {
                 case StarfieldMode.Static:
-                    DrawStaticStars();
+                    DrawStaticStars(cameraPosition);
                     break;
 
                 case StarfieldMode.Parallax:
-                    DrawParallaxStars(view, cameraPosition);
+                    DrawParallaxStars(cameraPosition);
                     break;
 
                 case StarfieldMode.MotionStreak:
                     // Draw stars with motion streaks that scale with speed
                     if (speed > 0.1f)
                     {
-                        DrawStarsWithMotion(view, projection, shipVelocity, speed);
+                        DrawStarsWithMotion(cameraPosition, shipVelocity, speed);
                     }
                     else
                     {
                         // Full stop - draw static stars
-                        DrawStaticStars();
+                        DrawStaticStars(cameraPosition);
                     }
                     break;
 
                 case StarfieldMode.Twinkling:
-                    DrawTwinklingStars();
+                    DrawTwinklingStars(cameraPosition);
                     break;
             }
             
@@ -287,75 +255,80 @@ namespace Roguelancer
             _graphicsDevice.RasterizerState = oldRasterizerState;
         }
         
-        private void DrawStaticStars()
+        private void DrawStaticStars(Vector3 cameraPosition)
         {
             // Draw stars as points with no depth testing (always in background)
             _graphicsDevice.DepthStencilState = DepthStencilState.None;
             _graphicsDevice.BlendState = BlendState.Additive;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
             
-            foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
+            foreach (var layer in _layers)
             {
-                pass.Apply();
-                _graphicsDevice.DrawUserPrimitives(
-                    PrimitiveType.PointList,
-                    _vertices,
-                    0,
-                    _stars.Length
-                );
+                _effect.World = Matrix.CreateTranslation(cameraPosition);
+                foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
+                {
+                    pass.Apply();
+                    _graphicsDevice.DrawUserPrimitives(
+                        PrimitiveType.PointList,
+                        layer.Vertices,
+                        0,
+                        layer.Stars.Length
+                    );
+                }
             }
         }
 
-        private void DrawParallaxStars(Matrix view, Vector3 cameraPosition)
+        private void DrawParallaxStars(Vector3 cameraPosition)
         {
             // Draw stars with depth-based parallax (closer stars appear to move more)
             _graphicsDevice.DepthStencilState = DepthStencilState.None;
             _graphicsDevice.BlendState = BlendState.Additive;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            
+            foreach (var layer in _layers)
+            {
+                // Apply parallax effect by moving the layer's world matrix
+                Vector3 parallaxOffset = cameraPosition * layer.SpeedMultiplier * ParallaxStrength;
+                _effect.World = Matrix.CreateTranslation(parallaxOffset);
 
-            // Update vertices with parallax offset based on camera movement
-            Vector3 cameraMovement = cameraPosition - _lastCameraPosition;
-            
-            for (int i = 0; i < _stars.Length; i++)
-            {
-                float parallaxFactor = 1f - _stars[i].Depth * ParallaxStrength;
-                Vector3 offset = cameraMovement * parallaxFactor * 0.1f;
-                _vertices[i].Position = _stars[i].Position + offset;
-            }
-            
-            foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                _graphicsDevice.DrawUserPrimitives(
-                    PrimitiveType.PointList,
-                    _vertices,
-                    0,
-                    _stars.Length
-                );
+                foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
+                {
+                    pass.Apply();
+                    _graphicsDevice.DrawUserPrimitives(
+                        PrimitiveType.PointList,
+                        layer.Vertices,
+                        0,
+                        layer.Stars.Length
+                    );
+                }
             }
         }
 
-        private void DrawTwinklingStars()
+        private void DrawTwinklingStars(Vector3 cameraPosition)
         {
             // Draw stars with pulsing/twinkling effect
             _graphicsDevice.DepthStencilState = DepthStencilState.None;
             _graphicsDevice.BlendState = BlendState.Additive;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
             
-            // Vertices already updated with twinkling in Update()
-            foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
+            foreach (var layer in _layers)
             {
-                pass.Apply();
-                _graphicsDevice.DrawUserPrimitives(
-                    PrimitiveType.PointList,
-                    _vertices,
-                    0,
-                    _stars.Length
-                );
+                _effect.World = Matrix.CreateTranslation(cameraPosition);
+                // Vertices already updated with twinkling in Update()
+                foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
+                {
+                    pass.Apply();
+                    _graphicsDevice.DrawUserPrimitives(
+                        PrimitiveType.PointList,
+                        layer.Vertices,
+                        0,
+                        layer.Stars.Length
+                    );
+                }
             }
         }
         
-        private void DrawStarsWithMotion(Matrix view, Matrix projection, Vector3 velocity, float speed)
+        private void DrawStarsWithMotion(Vector3 cameraPosition, Vector3 velocity, float speed)
         {
             // Set render states for motion streaks
             _graphicsDevice.DepthStencilState = DepthStencilState.None;
@@ -368,49 +341,53 @@ namespace Roguelancer
             Vector3 motionDir = Vector3.Normalize(velocity);
             
             // Smooth scaling of streak length based on speed
-            float speedFactor = MathHelper.Clamp(speed / 50f, 0f, 1f);
+            float speedFactor = MathHelper.Clamp(speed / 500f, 0f, 1f); // Increased divisor for less sensitive scaling
             float baseStreakLength = speed * StreakMultiplier * speedFactor;
-            float streakLength = Math.Min(baseStreakLength, 100f);
             
             // If streaks are too small, just draw static stars instead
-            if (streakLength < 0.5f)
+            if (baseStreakLength < 0.5f)
             {
-                DrawStaticStars();
+                DrawStaticStars(cameraPosition);
                 return;
             }
-            
-            // Create line list for motion streaks
-            VertexPositionColor[] lineVertices = new VertexPositionColor[_stars.Length * 2];
-            
-            for (int i = 0; i < _stars.Length; i++)
+
+            foreach (var layer in _layers)
             {
-                Vector3 starPos = _stars[i].Position;
+                _effect.World = Matrix.CreateTranslation(cameraPosition);
+                float streakLength = Math.Min(baseStreakLength * layer.SpeedMultiplier * 2.0f, 200f); // Layers move at different speeds
+                if (streakLength < 0.5f) continue;
+
+                // Create line list for motion streaks
+                var lineVertices = new VertexPositionColor[layer.Stars.Length * 2];
                 
-                // Parallax effect - closer stars move faster
-                float parallaxFactor = 1f - _stars[i].Depth * ParallaxStrength;
-                Vector3 streak = motionDir * streakLength * parallaxFactor * _stars[i].Brightness;
+                for (int i = 0; i < layer.Stars.Length; i++)
+                {
+                    Vector3 starPos = layer.Stars[i].Position;
+                    
+                    Vector3 streak = motionDir * streakLength * layer.Stars[i].Brightness;
+                    
+                    // Get lifecycle-adjusted color
+                    Color starColor = layer.Vertices[i].Color;
+                    
+                    // Start point (star position) - full brightness
+                    lineVertices[i * 2] = new VertexPositionColor(starPos, starColor);
+                    
+                    // End point (stretched in motion direction) - fade out at the tail
+                    Color fadeColor = starColor;
+                    fadeColor.A = (byte)(fadeColor.A * 0.2f);
+                    lineVertices[i * 2 + 1] = new VertexPositionColor(starPos - streak, fadeColor);
+                }
                 
-                // Get lifecycle-adjusted color
-                Color starColor = _vertices[i].Color;
-                
-                // Start point (star position) - full brightness
-                lineVertices[i * 2] = new VertexPositionColor(starPos, starColor);
-                
-                // End point (stretched in motion direction) - fade out at the tail
-                Color fadeColor = starColor;
-                fadeColor.A = (byte)(fadeColor.A * (0.2f + speedFactor * 0.8f));
-                lineVertices[i * 2 + 1] = new VertexPositionColor(starPos - streak, fadeColor);
-            }
-            
-            foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-                _graphicsDevice.DrawUserPrimitives(
-                    PrimitiveType.LineList,
-                    lineVertices,
-                    0,
-                    _stars.Length
-                );
+                foreach (EffectPass pass in _effect.CurrentTechnique.Passes)
+                {
+                    pass.Apply();
+                    _graphicsDevice.DrawUserPrimitives(
+                        PrimitiveType.LineList,
+                        lineVertices,
+                        0,
+                        layer.Stars.Length
+                    );
+                }
             }
         }
 

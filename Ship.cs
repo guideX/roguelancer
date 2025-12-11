@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
+using System.Collections.Generic;
 
 namespace Roguelancer
 {
@@ -63,6 +64,7 @@ namespace Roguelancer
 
         // Keyboard state tracking
         private KeyboardState _previousKeyboardState;
+        private int _previousScrollWheelValue;
         
         // Ship model
         public Model Model { get; set; }
@@ -71,6 +73,9 @@ namespace Roguelancer
         // Hull integrity
         public HullIntegrity Hull { get; private set; }
         public float CollisionRadius { get; set; } = 10f;
+        
+        // Cargo hold
+        public CargoHold CargoHold { get; private set; }
         
         // Direction vectors
         public Vector3 Forward => Vector3.Transform(Vector3.Forward, _rotation);
@@ -86,6 +91,11 @@ namespace Roguelancer
         // Combat & targeting
         private bool _isDocking = false;
         private object _currentTarget = null;
+        
+        // Docking system
+        private Station _nearestStation = null;
+        public Station NearestStation => _nearestStation;
+        public bool CanDock => _nearestStation != null && Vector3.Distance(Position, _nearestStation.Position) <= _nearestStation.DockingRange;
         
         // Autopilot / GOTO
         private bool _gotoActive = false;
@@ -113,6 +123,7 @@ namespace Roguelancer
             Orientation = Matrix.CreateFromQuaternion(_rotation);
             Velocity = Vector3.Zero;
             _previousKeyboardState = Keyboard.GetState();
+            _previousScrollWheelValue = Mouse.GetState().ScrollWheelValue;
             
             Hull = new HullIntegrity(100f);
             Hull.OnDestroyed += () =>
@@ -122,6 +133,9 @@ namespace Roguelancer
                 // Trigger player ship explosion
                 _explosionParticles?.TriggerExplosion(Position, Velocity, intensity: 1.5f);
             };
+
+            // Initialize cargo hold with default capacity
+            CargoHold = new CargoHold(50);
 
             InitializeEnergy();
         }
@@ -156,6 +170,15 @@ namespace Roguelancer
         }
         
         /// <summary>
+        /// Set new hull integrity (used when purchasing a new ship)
+        /// Note: This will reset hull event handlers - they need to be re-registered after calling this
+        /// </summary>
+        public void SetHull(float maxHull)
+        {
+            Hull = new HullIntegrity(maxHull);
+        }
+        
+        /// <summary>
         /// Update ship's energy system (regeneration)
         /// </summary>
         public void UpdateEnergy(GameTime gameTime)
@@ -169,13 +192,63 @@ namespace Roguelancer
         private void LaunchTorpedo() { Console.WriteLine("Launch torpedo (stub)"); }
         private void LaunchMine() { Console.WriteLine("Launch mine (stub)"); }
         private void LaunchCountermeasures() { Console.WriteLine("Launch countermeasures (stub)"); }
-        private void Dock() { _isDocking = true; Console.WriteLine("Dock command (stub)"); }
         private void TargetClosestEnemy() { Console.WriteLine("Target closest enemy (stub)"); }
         private void PreviousEnemyTarget() { Console.WriteLine("Previous enemy target (stub)"); }
         private void NextEnemyTarget() { Console.WriteLine("Next enemy target (stub)"); }
         private void NextTarget() { Console.WriteLine("Next target (stub)"); }
         private void PreviousTarget() { Console.WriteLine("Previous target (stub)"); }
         private void ClearTarget() { _currentTarget = null; Console.WriteLine("Clear target (stub)"); }
+        
+        /// <summary>
+        /// Attempt to dock at the nearest station
+        /// </summary>
+        public bool TryDock()
+        {
+            if (!CanDock)
+            {
+                if (_nearestStation != null)
+                {
+                    float distance = Vector3.Distance(Position, _nearestStation.Position);
+                    _notificationManager?.ShowMessage($"Too far from {_nearestStation.Name} ({distance:F0}m)", 2f);
+                }
+                else
+                {
+                    _notificationManager?.ShowMessage("No station in range", 2f);
+                }
+                return false;
+            }
+
+            _isDocking = true;
+            Console.WriteLine($"[DOCK] Initiating docking at {_nearestStation.Name}");
+            return true;
+        }
+
+        /// <summary>
+        /// Update the nearest station for docking checks
+        /// </summary>
+        public void UpdateNearestStation(List<Station> stations)
+        {
+            if (stations == null || stations.Count == 0)
+            {
+                _nearestStation = null;
+                return;
+            }
+
+            Station nearest = null;
+            float nearestDistance = float.MaxValue;
+
+            foreach (var station in stations)
+            {
+                float distance = Vector3.Distance(Position, station.Position);
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    nearest = station;
+                }
+            }
+
+            _nearestStation = nearest;
+        }
 
         public void Update(GameTime gameTime, KeyboardState keyboardState)
         {
@@ -185,10 +258,24 @@ namespace Roguelancer
             // Update energy system
             UpdateEnergy(gameTime);
 
-            // Emit damage smoke if hull is low
-            if (Hull.HullPercentage > 0 && Hull.HullPercentage <= 0.25f) // From 25% hull
+            // Emit damage smoke based on hull integrity
+            DamageStage damageStage = DamageStage.None;
+            if (Hull.HullPercentage <= 0.90f && Hull.HullPercentage > 0.75f)
             {
-                _damageSmokeParticles?.Emit(Position - Forward * 15, Velocity);
+                damageStage = DamageStage.Light;
+            }
+            else if (Hull.HullPercentage <= 0.75f && Hull.HullPercentage > 0.50f)
+            {
+                damageStage = DamageStage.Heavy;
+            }
+            else if (Hull.HullPercentage <= 0.50f)
+            {
+                damageStage = DamageStage.Critical;
+            }
+
+            if (damageStage != DamageStage.None)
+            {
+                _damageSmokeParticles?.Emit(Position - Forward * 15, Velocity, damageStage);
             }
             
             bool spacebarPressed = keyboardState.IsKeyDown(Keys.Space) && _previousKeyboardState.IsKeyUp(Keys.Space);
@@ -198,7 +285,6 @@ namespace Roguelancer
             bool zPressed = keyboardState.IsKeyDown(Keys.Z) && _previousKeyboardState.IsKeyUp(Keys.Z);
             bool bPressed = keyboardState.IsKeyDown(Keys.B) && _previousKeyboardState.IsKeyUp(Keys.B);
             bool xPressed = keyboardState.IsKeyDown(Keys.X) && _previousKeyboardState.IsKeyUp(Keys.X);
-            bool f3Pressed = keyboardState.IsKeyDown(Keys.F3) && _previousKeyboardState.IsKeyUp(Keys.F3);
             bool rPressed = keyboardState.IsKeyDown(Keys.R) && _previousKeyboardState.IsKeyUp(Keys.R);
             bool ctrlRPressed = keyboardState.IsKeyDown(Keys.LeftControl) && rPressed;
             bool shiftRPressed = keyboardState.IsKeyDown(Keys.LeftShift) && rPressed;
@@ -323,8 +409,6 @@ namespace Roguelancer
                 Console.WriteLine("Reverse thrust engaged");
             }
             
-            if (f3Pressed) Dock();
-            
             if (keyboardState.IsKeyDown(Keys.Q) && _previousKeyboardState.IsKeyUp(Keys.Q))
             {
                 if (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift)) LaunchTorpedo();
@@ -349,13 +433,31 @@ namespace Roguelancer
                     Console.WriteLine("Manual throttle input cancelled GOTO.");
                 }
 
+                // Mouse wheel throttle control
+                int scrollWheelDelta = mouseState.ScrollWheelValue - _previousScrollWheelValue;
+                if (scrollWheelDelta != 0)
+                {
+                    float throttleStep = 0.1f * (scrollWheelDelta / 120); // Normalize scroll
+                    _throttle = MathHelper.Clamp(_throttle + throttleStep, -1f, 1f);
+                    
+                    // Exit cruise mode when scrolling down (slowing down)
+                    if (scrollWheelDelta < 0 && (IsCruiseActive || IsCruiseCharging))
+                    {
+                        IsCruiseActive = false;
+                        IsCruiseCharging = false;
+                        _cruiseChargeTimer = 0f;
+                        _notificationManager?.ShowMessage("Cruise Mode Deactivated");
+                        Console.WriteLine("Mouse wheel: Cruise mode deactivated");
+                    }
+                }
+
                 if (keyboardState.IsKeyDown(Keys.W) && !cruiseKeyPressed && !IsCruiseActive)
                 {
                     _throttle = MathHelper.Clamp(_throttle + deltaTime * 0.5f, -1f, 1f);
                 }
                 else if (keyboardState.IsKeyDown(Keys.S) && !IsCruiseActive)
                 {
-                    _throttle = MathHelper.Clamp(_throttle - deltaTime * 0.5f, 0f, 1f);
+                    _throttle = MathHelper.Clamp(_throttle - deltaTime * 0.5f, -1f, 1f);
                     
                     if (IsAfterburnerActive)
                     {
@@ -551,6 +653,7 @@ namespace Roguelancer
 
             _prevLeftMouseState = mouseState.LeftButton; 
             _previousKeyboardState = keyboardState;
+            _previousScrollWheelValue = mouseState.ScrollWheelValue;
         }
 
         public void Draw(Matrix view, Matrix projection, Vector3 lightDirection)
@@ -563,15 +666,6 @@ namespace Roguelancer
             Matrix pitchTilt = Matrix.CreateFromAxisAngle(Orientation.Right, _pitchTiltAngle);
             Matrix bankTilt = Matrix.CreateFromAxisAngle(Orientation.Forward, _bankTiltAngle);
             Matrix world = modelScale * modelCorrection * ModelRotationCorrection * Orientation * pitchTilt * bankTilt * Matrix.CreateTranslation(Position);
-            
-            var graphicsDevice = Model.Meshes[0].Effects[0].GraphicsDevice;
-            var oldBlendState = graphicsDevice.BlendState;
-            var oldDepthStencilState = graphicsDevice.DepthStencilState;
-            var oldRasterizerState = graphicsDevice.RasterizerState;
-            
-            graphicsDevice.BlendState = BlendState.Opaque;
-            graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
             
             foreach (ModelMesh mesh in Model.Meshes)
             {
@@ -591,10 +685,6 @@ namespace Roguelancer
                 }
                 mesh.Draw();
             }
-            
-            graphicsDevice.BlendState = oldBlendState;
-            graphicsDevice.DepthStencilState = oldDepthStencilState;
-            graphicsDevice.RasterizerState = oldRasterizerState;
         }
 
         public float GetThrottle() => _throttle;

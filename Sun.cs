@@ -45,10 +45,17 @@ namespace Roguelancer {
 
         public void LoadContent(Microsoft.Xna.Framework.Content.ContentManager content) {
             try {
-                _sunEffect = content.Load<Effect>("SunEffect");
-                Console.WriteLine("SunEffect.fx loaded successfully!");
+                _sunEffect = content.Load<Effect>("SunEffect"); // Try without "effects/" prefix
+                Console.WriteLine("[SUN] SunEffect.fx loaded successfully!");
             } catch (Exception ex) {
-                Console.WriteLine($"Error loading sun effect: {ex.Message}");
+                Console.WriteLine($"[SUN] Error loading sun effect from 'SunEffect': {ex.Message}");
+                // Try with effects/ prefix
+                try {
+                    _sunEffect = content.Load<Effect>("effects/SunEffect");
+                    Console.WriteLine("[SUN] SunEffect.fx loaded successfully from effects/ folder!");
+                } catch (Exception ex2) {
+                    Console.WriteLine($"[SUN] Error loading sun effect from 'effects/SunEffect': {ex2.Message}");
+                }
             }
             
             _noiseTexture = CreateNoiseTexture(256);
@@ -74,6 +81,8 @@ namespace Roguelancer {
             // Time is passed to the shader, no CPU-side rotation needed
         }
 
+        private bool _loggedShaderWarning = false;
+
         public void Draw(Matrix view, Matrix projection) {
             if (_vertexBuffer == null) {
                 Console.WriteLine("[WARNING] SUN DRAW SKIPPED: Missing vertex buffer!");
@@ -81,8 +90,11 @@ namespace Roguelancer {
             }
             
             if (_sunEffect == null) {
-                Console.WriteLine("[WARNING] SUN DRAW SKIPPED: Shader not loaded! Attempting fallback rendering...");
-                // Don't skip - we should still try to render something
+                if (!_loggedShaderWarning) {
+                    Console.WriteLine("[WARNING] SUN: Shader not loaded! Using fallback BasicEffect rendering...");
+                    _loggedShaderWarning = true;
+                }
+                DrawWithBasicEffect(view, projection);
                 return;
             }
 
@@ -90,7 +102,6 @@ namespace Roguelancer {
             var oldBlendState = _graphicsDevice.BlendState;
             var oldDepthStencilState = _graphicsDevice.DepthStencilState;
             var oldRasterizerState = _graphicsDevice.RasterizerState;
-            var oldSamplerState = _graphicsDevice.SamplerStates[0];
 
             try {
                 _graphicsDevice.SetVertexBuffer(_vertexBuffer);
@@ -124,7 +135,62 @@ namespace Roguelancer {
                 _graphicsDevice.BlendState = oldBlendState;
                 _graphicsDevice.DepthStencilState = oldDepthStencilState;
                 _graphicsDevice.RasterizerState = oldRasterizerState;
-                _graphicsDevice.SamplerStates[0] = oldSamplerState;
+            }
+        }
+
+        private void DrawWithBasicEffect(Matrix view, Matrix projection) {
+            // Save current render states
+            var oldBlendState = _graphicsDevice.BlendState;
+            var oldDepthStencilState = _graphicsDevice.DepthStencilState;
+            var oldRasterizerState = _graphicsDevice.RasterizerState;
+            
+            var basicEffect = new BasicEffect(_graphicsDevice);
+            
+            try {
+                Matrix invView = Matrix.Invert(view);
+                Vector3 cameraPosition = invView.Translation;
+                
+                // Make the sun HUGE and always face the camera (billboard)
+                Matrix billboardWorld = Matrix.CreateScale(Scale) * Matrix.CreateBillboard(Position, cameraPosition, Vector3.Up, invView.Forward);
+
+                basicEffect.World = billboardWorld;
+                basicEffect.View = view;
+                basicEffect.Projection = projection;
+                
+                // Make it extremely bright and emissive
+                Vector3 sunColor = EmissiveColor.ToVector3() * EmissiveIntensity;
+                basicEffect.DiffuseColor = sunColor;
+                basicEffect.EmissiveColor = sunColor * 2.0f; // Extra bright
+                basicEffect.Alpha = 1.0f;
+                
+                basicEffect.TextureEnabled = false;
+                basicEffect.LightingEnabled = false; // Don't apply lighting to the sun itself
+                basicEffect.VertexColorEnabled = false;
+
+                _graphicsDevice.SetVertexBuffer(_vertexBuffer);
+                _graphicsDevice.Indices = _indexBuffer;
+                _graphicsDevice.BlendState = BlendState.Additive; // Bright glowing effect
+                _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead; // Don't write depth
+
+                foreach (var pass in basicEffect.CurrentTechnique.Passes) {
+                    pass.Apply();
+                    _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
+                }
+                
+                // Log once per second to confirm it's drawing
+                if (!_loggedShaderWarning)
+                {
+                    Console.WriteLine($"[SUN DRAW] Using BasicEffect at {Position}, Scale={Scale}, Color={EmissiveColor}, Intensity={EmissiveIntensity}");
+                    Console.WriteLine($"[SUN DRAW] Distance from camera: {Vector3.Distance(Position, cameraPosition):F2} units");
+                    _loggedShaderWarning = true; // Reuse this flag to prevent spam
+                }
+            }
+            finally {
+                // Always restore render states
+                _graphicsDevice.BlendState = oldBlendState;
+                _graphicsDevice.DepthStencilState = oldDepthStencilState;
+                _graphicsDevice.RasterizerState = oldRasterizerState;
+                basicEffect.Dispose();
             }
         }
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace Roguelancer.Configuration {
@@ -28,5 +29,11 @@ namespace Roguelancer.Configuration {
 
         [JsonPropertyName("sun_rotation_speed")]
         public float SunRotationSpeed { get; set; } = 0.05f;
+
+        /// <summary>
+        /// A list of NPC patrols defined for this system.
+        /// </summary>
+        [JsonPropertyName("npc_patrols")]
+        public List<NpcPatrolConfig> NpcPatrols { get; set; } = new List<NpcPatrolConfig>();
     }
 }

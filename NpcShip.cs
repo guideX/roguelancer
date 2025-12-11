@@ -13,6 +13,7 @@ namespace Roguelancer
         public Vector3 Velocity { get; set; }
         public float Speed { get; private set; }
         public Matrix ModelRotationCorrection { get; set; } = Matrix.Identity;
+        public string ModelPath { get; set; }
 
         // Hull integrity
         public HullIntegrity Hull { get; private set; }
@@ -79,9 +80,23 @@ namespace Roguelancer
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
             // Emit damage smoke if hull is low
-            if (Hull.HullPercentage > 0 && Hull.HullPercentage <= 0.50f)
+            DamageStage damageStage = DamageStage.None;
+            if (Hull.HullPercentage <= 0.75f && Hull.HullPercentage > 0.50f)
             {
-                damageSmoke?.Emit(Position - Forward * 15, Velocity);
+                damageStage = DamageStage.Light;
+            }
+            else if (Hull.HullPercentage <= 0.50f && Hull.HullPercentage > 0.25f)
+            {
+                damageStage = DamageStage.Heavy;
+            }
+            else if (Hull.HullPercentage <= 0.25f && Hull.HullPercentage > 0)
+            {
+                damageStage = DamageStage.Critical;
+            }
+
+            if (damageStage != DamageStage.None)
+            {
+                damageSmoke?.Emit(Position - Forward * 15, Velocity, damageStage);
             }
             
             // Update patrol angle
@@ -140,22 +155,10 @@ namespace Roguelancer
         {
             if (Model == null || IsDestroyed) return;
             
-            // Apply same model correction as player ship
+            // Match player ship rendering exactly: scale, correction, then orientation
+            Matrix modelScale = Matrix.CreateScale(0.1f);
             Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
-            Matrix world = modelCorrection * ModelRotationCorrection * Orientation * Matrix.CreateTranslation(Position);
-            
-            // Get graphics device from first mesh's effect to set render states
-            var graphicsDevice = Model.Meshes[0].Effects[0].GraphicsDevice;
-            
-            // Save current render states
-            var oldBlendState = graphicsDevice.BlendState;
-            var oldDepthStencilState = graphicsDevice.DepthStencilState;
-            var oldRasterizerState = graphicsDevice.RasterizerState;
-            
-            // Force opaque rendering with proper depth testing
-            graphicsDevice.BlendState = BlendState.Opaque;
-            graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+            Matrix world = modelScale * modelCorrection * ModelRotationCorrection * Orientation * Matrix.CreateTranslation(Position);
             
             foreach (ModelMesh mesh in Model.Meshes)
             {
@@ -168,8 +171,6 @@ namespace Roguelancer
                     effect.EnableDefaultLighting();
                     effect.PreferPerPixelLighting = true;
                     effect.SpecularPower = 16f;
-                    
-                    // Force full alpha - no transparency
                     effect.Alpha = 1.0f;
                     
                     effect.DirectionalLight0.Direction = lightDirection;
@@ -180,11 +181,6 @@ namespace Roguelancer
                 
                 mesh.Draw();
             }
-            
-            // Restore previous render states
-            graphicsDevice.BlendState = oldBlendState;
-            graphicsDevice.DepthStencilState = oldDepthStencilState;
-            graphicsDevice.RasterizerState = oldRasterizerState;
         }
         
         private Quaternion CreateRotationFromDirection(Vector3 direction)
