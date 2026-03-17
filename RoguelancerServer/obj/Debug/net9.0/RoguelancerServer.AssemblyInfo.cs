@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("RoguelancerServer")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9e78574a86f213b00a961b518e4281e8395e7896")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ffdf05f1c65a1347e71225866d062cbcdf696d9d")]
 [assembly: System.Reflection.AssemblyProductAttribute("RoguelancerServer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("RoguelancerServer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
