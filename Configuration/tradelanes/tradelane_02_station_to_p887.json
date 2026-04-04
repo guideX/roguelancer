@@ -1,0 +1,20 @@
+{
+{
+  "name": "P-887 Express Lane",
+  "description": "Short-range tradelane connecting Space Station to P-887 Station",
+  "system_index": 1,
+  "start_position_x": 5200.0,
+  "start_position_y": -120.0,
+  "start_position_z": 4600.0,
+  "end_position_x": 5600.0,
+  "end_position_y": -400.0,
+  "end_position_z": 3900.0,
+  "ring_spacing": 900.0,
+  "ring_scale": 5.0,
+  "activation_range": 200.0,
+  "travel_speed": 1500.0,
+  "ring_color_r": 255,
+  "ring_color_g": 180,
+  "ring_color_b": 80,
+  "model_path": "BASES/TRACK_RING/TRACK_RING"
+}

@@ -138,6 +138,12 @@ namespace Roguelancer {
         private JumpHoleManager _jumpHoleManager;
         private int _currentSystemIndex = 1;
 
+        // Tradelane system
+        private TradelaneManager _tradelaneManager;
+
+        // System map overlay
+        private SystemMap _systemMap;
+
         // Input state tracking
         private KeyboardState _prevKeys;
         private MouseState _prevMouseState;
@@ -399,10 +405,21 @@ namespace Roguelancer {
             _jumpHoleManager.LoadJumpHolesForSystem(_currentSystemIndex);
             _jumpHoleManager.OnSystemChange += HandleSystemChange;
 
+            // Initialize Tradelane Manager (font will be set after LoadContent)
+            _tradelaneManager = new TradelaneManager(GraphicsDevice, null);
+            _tradelaneManager.LoadAllConfigs();
+            _tradelaneManager.LoadTradelanesForSystem(_currentSystemIndex);
+
             // Add jump holes as targetable space objects
             foreach (var jh in _jumpHoleManager.GetJumpHolesAsSpaceObjects()) {
                 _spaceObjects.Add(jh);
                 Console.WriteLine($"[JUMPHOLE] Added: {jh.Name} at {jh.Position}");
+            }
+
+            // Add tradelane entry/exit rings as targetable space objects
+            foreach (var ring in _tradelaneManager.GetTradelaneSpaceObjects()) {
+                _spaceObjects.Add(ring);
+                Console.WriteLine($"[TRADELANE] Added: {ring.Name} at {ring.Position}");
             }
 
             // Create reference grid markers - MUCH SPARSER GRID
@@ -631,6 +648,17 @@ namespace Roguelancer {
                 _jumpHoleManager.LoadJumpHolesForSystem(_currentSystemIndex);
                 _jumpHoleManager.OnSystemChange += HandleSystemChange;
             }
+
+            // Re-initialize TradelaneManager with font and load models
+            if (_tradelaneManager != null) {
+                _tradelaneManager = new TradelaneManager(GraphicsDevice, _font);
+                _tradelaneManager.LoadAllConfigs();
+                _tradelaneManager.LoadTradelanesForSystem(_currentSystemIndex);
+                _tradelaneManager.LoadContent(Content);
+            }
+
+            // Initialize system map overlay
+            _systemMap = new SystemMap(GraphicsDevice, _font);
         }
 
         protected override void Update(GameTime gameTime) {
@@ -646,6 +674,29 @@ namespace Roguelancer {
                 return; // Skip the rest of the update logic
             }
 
+            // Toggle system map with ESC (before any other ESC handling)
+            if (keyboardState.IsKeyDown(Keys.Escape) && _prevKeys.IsKeyUp(Keys.Escape)) {
+                if (_stationDockUI?.IsDocked != true && _jumpHoleManager?.IsInTransit != true) {
+                    _systemMap?.Toggle();
+                    Console.WriteLine($"[MAP] System map {(_systemMap?.IsVisible == true ? "OPENED" : "CLOSED")}");
+                }
+            }
+
+            // Update system map data and animation
+            if (_systemMap != null) {
+                string sysName = _config.GetSystem(_currentSystemIndex)?.Description ?? $"System {_currentSystemIndex}";
+                _systemMap.UpdateData(_spaceObjects, _jumpHoleManager?.GetJumpHoles(), _playerShip.Position, sysName);
+                _systemMap.Update(gameTime);
+            }
+
+            // If system map is open, consume input (don't update gameplay)
+            if (_systemMap?.IsVisible == true) {
+                _prevKeys = keyboardState;
+                _prevMouseState = mouseState;
+                base.Update(gameTime);
+                return;
+            }
+
             // If docked, handle station UI input
             if (_stationDockUI?.IsDocked == true) {
                 HandleDockedInput(keyboardState);
@@ -656,6 +707,18 @@ namespace Roguelancer {
             // Skip normal update if in jump transit
             if (_jumpHoleManager?.IsInTransit == true) {
                 _jumpHoleManager.Update(gameTime, _playerShip.Position, keyboardState);
+                _prevKeys = keyboardState;
+                _prevMouseState = mouseState;
+                base.Update(gameTime);
+                return;
+            }
+
+            // Update tradelane manager (handles transit lock)
+            _tradelaneManager?.Update(gameTime, _playerShip, keyboardState);
+
+            // If in tradelane transit, skip normal ship input but still update visuals
+            if (_tradelaneManager?.IsInTransit == true) {
+                _camera.Follow(_playerShip.Position, _playerShip.Forward, _playerShip.Up, 0.3f);
                 _prevKeys = keyboardState;
                 _prevMouseState = mouseState;
                 base.Update(gameTime);
@@ -2032,6 +2095,12 @@ namespace Roguelancer {
                 _jumpHoleManager.Draw3D(_camera.View, _camera.Projection, _camera.Position);
             }
 
+            // Draw Tradelane Rings
+            if (_tradelaneManager != null && _camera != null && _sun != null) {
+                Vector3 lightDir = _sun.GetLightDirection(Vector3.Zero);
+                _tradelaneManager.Draw3D(_camera.View, _camera.Projection, lightDir);
+            }
+
             // Reset render states
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
             GraphicsDevice.BlendState = BlendState.Opaque;
@@ -2136,6 +2205,11 @@ namespace Roguelancer {
             // Draw weapon projectiles
             _weaponSystem.Draw(_camera);
 
+            // Draw tradelane energy effects
+            if (_tradelaneManager != null && _camera != null) {
+                _tradelaneManager.DrawEnergyEffects(_camera.View, _camera.Projection);
+            }
+
             // Draw engine trail
             _engineTrail.Draw(_camera);
 
@@ -2164,23 +2238,31 @@ namespace Roguelancer {
             if (_stationDockUI?.IsDocked == true) {
                 _stationDockUI.Draw(_spriteBatch, GraphicsDevice, _playerCredits, _playerShip);
             } else {
-                // Regular HUD when not docked
-                DrawStatusPanel();
-                DrawCurrentTargetDisplay();
-                DrawSpaceObjectBrackets();
-                DrawGotoStatus();
-                DrawSunDistanceIndicator();
-                DrawCrosshair();
-                DrawCoordinates();
+            // Regular HUD when not docked
+                // If system map is open, draw it instead of normal HUD
+                if (_systemMap?.IsVisible == true) {
+                    _systemMap.Draw(_spriteBatch);
+                } else {
+                    DrawStatusPanel();
+                    DrawCurrentTargetDisplay();
+                    DrawSpaceObjectBrackets();
+                    DrawGotoStatus();
+                    DrawSunDistanceIndicator();
+                    DrawCrosshair();
+                    DrawCoordinates();
 
-                // Draw jump hole proximity prompt
-                _jumpHoleManager?.DrawHUD(_spriteBatch);
+                    // Draw jump hole proximity prompt
+                    _jumpHoleManager?.DrawHUD(_spriteBatch);
 
-                // Draw current system name
-                DrawSystemName();
+                    // Draw tradelane HUD (proximity prompt / transit status)
+                    _tradelaneManager?.DrawHUD(_spriteBatch);
 
-                // Draw notifications
-                _notificationManager.Draw(_spriteBatch);
+                    // Draw current system name
+                    DrawSystemName();
+
+                    // Draw notifications
+                    _notificationManager.Draw(_spriteBatch);
+                }
             }
 
             _spriteBatch.End();
@@ -2312,6 +2394,16 @@ namespace Roguelancer {
                 foreach (var jh in _jumpHoleManager.GetJumpHolesAsSpaceObjects()) {
                     _spaceObjects.Add(jh);
                     Console.WriteLine($"[SYSTEM CHANGE] Jump hole: {jh.Name} at {jh.Position}");
+                }
+
+                // Load tradelanes for the new system
+                if (_tradelaneManager != null) {
+                    _tradelaneManager.LoadTradelanesForSystem(newSystemIndex);
+                    _tradelaneManager.LoadContent(Content);
+                    foreach (var ring in _tradelaneManager.GetTradelaneSpaceObjects()) {
+                        _spaceObjects.Add(ring);
+                        Console.WriteLine($"[SYSTEM CHANGE] Tradelane ring: {ring.Name} at {ring.Position}");
+                    }
                 }
 
                 // Recreate grid markers

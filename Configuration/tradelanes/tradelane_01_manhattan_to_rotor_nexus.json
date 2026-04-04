@@ -1,0 +1,20 @@
+{
+{
+  "name": "Manhattan - Rotor Nexus Tradelane",
+  "description": "High-speed tradelane connecting Space Station to Rotor Nexus Station",
+  "system_index": 1,
+  "start_position_x": 3900.0,
+  "start_position_y": 0.0,
+  "start_position_z": 3900.0,
+  "end_position_x": -4150.0,
+  "end_position_y": 500.0,
+  "end_position_z": -4150.0,
+  "ring_spacing": 1400.0,
+  "ring_scale": 5.0,
+  "activation_range": 200.0,
+  "travel_speed": 2000.0,
+  "ring_color_r": 100,
+  "ring_color_g": 200,
+  "ring_color_b": 255,
+  "model_path": "BASES/TRACK_RING/TRACK_RING"
+}
