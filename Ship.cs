@@ -43,7 +43,8 @@ namespace Roguelancer
         private Vector2 _lastMousePosition;
         private bool _mouseFlightInitialized = false;
         private ButtonState _prevLeftMouseState = ButtonState.Released;
-        private bool _shouldAutoLevel = false;
+    private bool _shouldAutoLevel = false;
+        private bool _autoLevelToggle = false;
         private float _autoLevelSpeed = 1.5f;
 
         // Special states
@@ -52,6 +53,9 @@ namespace Roguelancer
         public bool EnginesKilled { get; private set; }
         public bool AfterburnerJustActivated { get; private set; }
         public bool IsFreeFlightMode => _isFreeFlightMode;
+        
+        // Afterburner energy cost
+        private const float AfterburnerEnergyDrainPerSecond = 40f; // Energy consumed per second while afterburner is active
         
         // Cruise charge system
         public bool IsCruiseCharging { get; private set; }
@@ -250,7 +254,7 @@ namespace Roguelancer
             _nearestStation = nearest;
         }
 
-        public void Update(GameTime gameTime, KeyboardState keyboardState)
+        public void Update(GameTime gameTime, KeyboardState keyboardState, bool isRearView = false)
         {
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
             MouseState mouseState = Mouse.GetState();
@@ -346,18 +350,37 @@ namespace Roguelancer
             
             if (tabJustPressed && !IsAfterburnerActive)
             {
-                // Activate afterburner when TAB is first pressed
-                IsAfterburnerActive = true;
-                IsCruiseActive = false;
-                IsCruiseCharging = false;
-                _cruiseChargeTimer = 0f;
-                _notificationManager?.ShowMessage("Afterburner Engaged");
+                // Only activate if we have energy and are not in depletion cooldown
+                if (Energy != null && !Energy.IsDepleted && Energy.CurrentEnergy > 0f)
+                {
+                    IsAfterburnerActive = true;
+                    IsCruiseActive = false;
+                    IsCruiseCharging = false;
+                    _cruiseChargeTimer = 0f;
+                    _notificationManager?.ShowMessage("Afterburner Engaged");
+                }
+                else
+                {
+                    _notificationManager?.ShowMessage("Afterburner Unavailable - No Energy");
+                }
             }
             else if (tabJustReleased && IsAfterburnerActive)
             {
                 // Deactivate afterburner when TAB is released
                 IsAfterburnerActive = false;
                 _notificationManager?.ShowMessage("Afterburner Disengaged");
+            }
+            
+            // Consume energy while afterburner is active
+            if (IsAfterburnerActive && Energy != null)
+            {
+                float energyCost = AfterburnerEnergyDrainPerSecond * deltaTime;
+                if (!Energy.TryConsume(energyCost))
+                {
+                    // Out of energy — force deactivate
+                    IsAfterburnerActive = false;
+                    _notificationManager?.ShowMessage("Afterburner Cut Out - Energy Depleted");
+                }
             }
 
             if (cruiseKeyPressed && (_previousKeyboardState.IsKeyUp(Keys.W) || _previousKeyboardState.IsKeyUp(Keys.LeftShift)))
@@ -401,6 +424,13 @@ namespace Roguelancer
             }
             
             if (bPressed) ToggleNewtonianMode();
+
+            if (keyboardState.IsKeyDown(Keys.L) && _previousKeyboardState.IsKeyUp(Keys.L))
+            {
+                _autoLevelToggle = !_autoLevelToggle;
+                _notificationManager?.ShowMessage(_autoLevelToggle ? "Auto Level Enabled" : "Auto Level Disabled");
+                Console.WriteLine($"Auto Level: {(_autoLevelToggle ? "ENABLED" : "DISABLED")}");
+            }
             
             if (xPressed && !EnginesKilled)
             {
@@ -457,7 +487,7 @@ namespace Roguelancer
                 }
                 else if (keyboardState.IsKeyDown(Keys.S) && !IsCruiseActive)
                 {
-                    _throttle = MathHelper.Clamp(_throttle - deltaTime * 0.5f, -1f, 1f);
+                    _throttle = MathHelper.Clamp(_throttle - deltaTime * 0.5f, 0f, 1f);
                     
                     if (IsAfterburnerActive)
                     {
@@ -515,19 +545,27 @@ namespace Roguelancer
                 yawInput = MathHelper.Clamp(yawInput, -1f, 1f);
                 pitchInput = MathHelper.Clamp(pitchInput, -1f, 1f);
             }
+
+            if (isRearView)
+            {
+                pitchInput = -pitchInput;
+            }
             
-            bool isStrafing = keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift);
-            if (!isStrafing)
+            bool isShiftHeld = keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift);
+            if (isShiftHeld)
             {
                 if (keyboardState.IsKeyDown(Keys.A)) rollInput = 1f;
                 if (keyboardState.IsKeyDown(Keys.D)) rollInput = -1f;
             }
 
             Vector3 strafeVelocity = Vector3.Zero;
-            if (isStrafing)
+            if (!isShiftHeld)
             {
                 if (keyboardState.IsKeyDown(Keys.A)) strafeVelocity -= Right * StrafeSpeed;
                 if (keyboardState.IsKeyDown(Keys.D)) strafeVelocity += Right * StrafeSpeed;
+            }
+            if (isShiftHeld)
+            {
                 if (keyboardState.IsKeyDown(Keys.W) && !cruiseKeyPressed) strafeVelocity += Up * StrafeSpeed;
                 if (keyboardState.IsKeyDown(Keys.S)) strafeVelocity -= Up * StrafeSpeed;
             }
@@ -550,7 +588,7 @@ namespace Roguelancer
             _rotation = _rotation * pitchDelta * yawDelta * rollDelta;
             _rotation.Normalize();
             
-            if (_shouldAutoLevel)
+            if (_shouldAutoLevel || _autoLevelToggle)
             {
                 Vector3 currentForward = Vector3.Transform(Vector3.Forward, _rotation);
                 Vector3 currentRight = Vector3.Transform(Vector3.Right, _rotation);

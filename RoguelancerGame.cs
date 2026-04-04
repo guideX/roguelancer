@@ -777,7 +777,7 @@ namespace Roguelancer {
             }
 
             // Update player ship
-            _playerShip.Update(gameTime, keyboardState);
+            _playerShip.Update(gameTime, keyboardState, _camera.IsRearViewActive);
 
             // FIX: Update NPC ships
             foreach (var npc in _npcShips) {
