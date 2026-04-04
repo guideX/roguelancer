@@ -30,6 +30,9 @@ namespace Roguelancer
         // Energy system
         public ShipEnergy Energy { get; private set; }
         
+        // Shield system
+        public ShieldSystem Shields { get; private set; }
+        
         // Ship state
         private float _currentBankAngle = 0f;
         private float _currentPitch = 0f;
@@ -142,6 +145,7 @@ namespace Roguelancer
             CargoHold = new CargoHold(50);
 
             InitializeEnergy();
+            InitializeShields();
         }
 
         public void SetNotificationManager(NotificationManager manager)
@@ -171,6 +175,14 @@ namespace Roguelancer
         public void InitializeEnergy(float maxEnergy = 200f, float regenRate = 50f, float regenDelay = 2f)
         {
             Energy = new ShipEnergy(maxEnergy, regenRate, regenDelay);
+        }
+
+        /// <summary>
+        /// Initialize the ship's shield system
+        /// </summary>
+        public void InitializeShields(float maxShields = 50f, float regenRate = 15f, float regenDelay = 3f)
+        {
+            Shields = new ShieldSystem(maxShields, regenRate, regenDelay);
         }
         
         /// <summary>
@@ -261,6 +273,9 @@ namespace Roguelancer
             
             // Update energy system
             UpdateEnergy(gameTime);
+
+            // Update shield system
+            Shields?.Update(gameTime);
 
             // Emit damage smoke based on hull integrity
             DamageStage damageStage = DamageStage.None;

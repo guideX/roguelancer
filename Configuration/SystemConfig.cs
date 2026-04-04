@@ -35,5 +35,11 @@ namespace Roguelancer.Configuration {
         /// </summary>
         [JsonPropertyName("npc_patrols")]
         public List<NpcPatrolConfig> NpcPatrols { get; set; } = new List<NpcPatrolConfig>();
+
+        /// <summary>
+        /// A list of jump hole config file names associated with this system.
+        /// </summary>
+        [JsonPropertyName("jump_holes")]
+        public List<string> JumpHoles { get; set; } = new List<string>();
     }
 }

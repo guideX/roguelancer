@@ -134,6 +134,10 @@ namespace Roguelancer {
         private ShipDealer _shipDealer;
         private CommodityDealer _commodityDealer;
 
+        // Jump hole system
+        private JumpHoleManager _jumpHoleManager;
+        private int _currentSystemIndex = 1;
+
         // Input state tracking
         private KeyboardState _prevKeys;
         private MouseState _prevMouseState;
@@ -258,9 +262,17 @@ namespace Roguelancer {
 
         private void OnRemotePlayerHit(string targetPlayerId, float damage) {
             if (targetPlayerId == _networkManager?.PlayerId) {
-                // We got hit!
-                _playerShip?.Hull.TakeDamage(damage);
-                _notificationManager?.ShowMessage($"Hit! -{damage:F0} hull", 1f);
+                // We got hit! Route through shields first
+                float hullDamage = damage;
+                if (_playerShip?.Shields != null)
+                {
+                    hullDamage = _playerShip.Shields.AbsorbDamage(damage);
+                }
+                if (hullDamage > 0f)
+                {
+                    _playerShip?.Hull.TakeDamage(hullDamage);
+                }
+                _notificationManager?.ShowMessage($"Hit! -{damage:F0}", 1f);
             }
         }
 
@@ -380,6 +392,18 @@ namespace Roguelancer {
 
             Console.WriteLine($"[NPC SPAWN] COMPLETE: Created {_npcShips.Count} NPC ships total");
             Console.WriteLine($"[NPC SPAWN] Space objects count: {_spaceObjects.Count}");
+
+            // Initialize Jump Hole Manager (font will be set after LoadContent)
+            _jumpHoleManager = new JumpHoleManager(GraphicsDevice, null);
+            _jumpHoleManager.LoadAllConfigs();
+            _jumpHoleManager.LoadJumpHolesForSystem(_currentSystemIndex);
+            _jumpHoleManager.OnSystemChange += HandleSystemChange;
+
+            // Add jump holes as targetable space objects
+            foreach (var jh in _jumpHoleManager.GetJumpHolesAsSpaceObjects()) {
+                _spaceObjects.Add(jh);
+                Console.WriteLine($"[JUMPHOLE] Added: {jh.Name} at {jh.Position}");
+            }
 
             // Create reference grid markers - MUCH SPARSER GRID
             int gridSize = 20000; // Expanded range but fewer markers
@@ -599,6 +623,14 @@ namespace Roguelancer {
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
             _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
+
+            // Re-initialize JumpHoleManager with font now that it's loaded
+            if (_jumpHoleManager != null) {
+                _jumpHoleManager = new JumpHoleManager(GraphicsDevice, _font);
+                _jumpHoleManager.LoadAllConfigs();
+                _jumpHoleManager.LoadJumpHolesForSystem(_currentSystemIndex);
+                _jumpHoleManager.OnSystemChange += HandleSystemChange;
+            }
         }
 
         protected override void Update(GameTime gameTime) {
@@ -620,6 +652,18 @@ namespace Roguelancer {
                 _prevKeys = keyboardState;
                 return; // Don't update ship while docked
             }
+
+            // Skip normal update if in jump transit
+            if (_jumpHoleManager?.IsInTransit == true) {
+                _jumpHoleManager.Update(gameTime, _playerShip.Position, keyboardState);
+                _prevKeys = keyboardState;
+                _prevMouseState = mouseState;
+                base.Update(gameTime);
+                return;
+            }
+
+            // Update jump hole manager
+            _jumpHoleManager?.Update(gameTime, _playerShip.Position, keyboardState);
 
             // Update nearest station for docking
             _playerShip.UpdateNearestStation(_stationManager.GetStations());
@@ -866,7 +910,7 @@ namespace Roguelancer {
             // Check projectile collisions with NPC ships
             foreach (var npc in _npcShips) {
                 if (!npc.IsDestroyed) {
-                    List<HitInfo> hits = _weaponSystem.CheckCollisions(npc.Position, npc.Radius, npc.Hull);
+                    List<HitInfo> hits = _weaponSystem.CheckCollisions(npc.Position, npc.Radius, npc.Hull, npc.Shields);
 
                     // Trigger impact effects for each hit
                     foreach (var hit in hits) {
@@ -1162,7 +1206,7 @@ namespace Roguelancer {
 
             Vector2 position = new Vector2(
                 (GraphicsDevice.Viewport.Width - maxWidth) / 2,
-                GraphicsDevice.Viewport.Height - totalHeight - 15 // a bit more padding
+                GraphicsDevice.Viewport.Height - totalHeight - 180 // Above the Freelancer HUD bars
             );
 
             Rectangle background = new Rectangle(
@@ -1421,120 +1465,154 @@ namespace Roguelancer {
         }
 
         private void DrawStatusPanel() {
-            // Draw status box background - made taller for hull bar
-            Rectangle panel = new Rectangle(10, 10, 280, 310);
-            _spriteBatch.Draw(_pixel, panel, Color.Black * 0.7f);
-            _spriteBatch.Draw(_pixel, new Rectangle(10, 10, 280, 2), Color.Cyan);
-            _spriteBatch.Draw(_pixel, new Rectangle(10, 10, 2, 310), Color.Cyan);
-            _spriteBatch.Draw(_pixel, new Rectangle(288, 10, 2, 310), Color.Cyan);
-            _spriteBatch.Draw(_pixel, new Rectangle(10, 318, 280, 2), Color.Cyan);
+            int screenWidth = GraphicsDevice.Viewport.Width;
+            int screenHeight = GraphicsDevice.Viewport.Height;
+
+            // === FREELANCER-STYLE BOTTOM CENTER HUD ===
+            // Three segmented bars: Shields (blue) | Hull (red) | Energy (green)
+            int totalBarWidth = 500;
+            int barHeight = 16;
+            int barSpacing = 4;
+            int segmentCount = 20;
+            int segmentGap = 2;
+            int segmentWidth = (totalBarWidth - (segmentCount - 1) * segmentGap) / segmentCount;
+
+            // Position: bottom center of screen
+            int hudX = (screenWidth - totalBarWidth) / 2;
+            int hudBottomMargin = 50;
+            int hudY = screenHeight - hudBottomMargin - (barHeight * 3 + barSpacing * 2 + 60);
+
+            // Background panel
+            int panelPadding = 12;
+            Rectangle panelBg = new Rectangle(
+                hudX - panelPadding,
+                hudY - panelPadding,
+                totalBarWidth + panelPadding * 2,
+                barHeight * 3 + barSpacing * 2 + panelPadding * 2 + 40
+            );
+            _spriteBatch.Draw(_pixel, panelBg, Color.Black * 0.75f);
+
+            // Panel border (subtle metallic look)
+            Color borderColor = new Color(60, 80, 100);
+            _spriteBatch.Draw(_pixel, new Rectangle(panelBg.X, panelBg.Y, panelBg.Width, 2), borderColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(panelBg.X, panelBg.Y, 2, panelBg.Height), borderColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(panelBg.Right - 2, panelBg.Y, 2, panelBg.Height), borderColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(panelBg.X, panelBg.Bottom - 2, panelBg.Width, 2), borderColor);
+
+            // --- SHIELD BAR (Blue) ---
+            float shieldPercent = _playerShip.Shields?.ShieldPercentage ?? 0f;
+            Color shieldColor = new Color(80, 160, 255);
+            Color shieldDim = new Color(20, 40, 80);
+            DrawSegmentedBar(hudX, hudY, totalBarWidth, barHeight, segmentCount, segmentGap, segmentWidth, shieldPercent, shieldColor, shieldDim);
 
             if (_font != null) {
-                _spriteBatch.DrawString(_font, "STATUS", new Vector2(20, 20), Color.Cyan);
+                _spriteBatch.DrawString(_font, $"SHIELDS {shieldPercent * 100:F0}%",
+                    new Vector2(hudX + totalBarWidth + 10, hudY - 2), shieldColor);
+            }
 
-                // Hull integrity display
-                float hullPercent = _playerShip.Hull.HullPercentage;
-                Color hullColor = _playerShip.Hull.GetHullColor();
-                _spriteBatch.DrawString(_font, $"Hull: {hullPercent * 100:F0}%", new Vector2(20, 45), hullColor);
+            // --- HULL BAR (Red) ---
+            int hullBarY = hudY + barHeight + barSpacing;
+            float hullPercent = _playerShip.Hull.HullPercentage;
+            Color hullColor = new Color(220, 50, 50);
+            Color hullDim = new Color(60, 15, 15);
+            DrawSegmentedBar(hudX, hullBarY, totalBarWidth, barHeight, segmentCount, segmentGap, segmentWidth, hullPercent, hullColor, hullDim);
 
-                // Hull bar
-                Rectangle hullBarBg = new Rectangle(20, 65, 250, 15);
-                Rectangle hullBarFill = new Rectangle(20, 65, (int)(250 * hullPercent), 15);
-                _spriteBatch.Draw(_pixel, hullBarBg, Color.DarkGray * 0.5f);
-                _spriteBatch.Draw(_pixel, hullBarFill, hullColor);
+            if (_font != null) {
+                _spriteBatch.DrawString(_font, $"HULL {hullPercent * 100:F0}%",
+                    new Vector2(hudX + totalBarWidth + 10, hullBarY - 2), hullColor);
+            }
 
-                // Energy display
-                float energyPercent = _playerShip.Energy.EnergyPercentage;
-                Color energyColor = _playerShip.Energy.GetEnergyColor();
-                _spriteBatch.DrawString(_font, $"Energy: {energyPercent * 100:F0}%", new Vector2(20, 90), energyColor);
+            // --- ENERGY BAR (Green) ---
+            int energyBarY = hullBarY + barHeight + barSpacing;
+            float energyPercent = _playerShip.Energy.EnergyPercentage;
+            Color energyColor = new Color(50, 220, 80);
+            Color energyDim = new Color(15, 60, 20);
+            DrawSegmentedBar(hudX, energyBarY, totalBarWidth, barHeight, segmentCount, segmentGap, segmentWidth, energyPercent, energyColor, energyDim);
 
-                // Energy bar
-                Rectangle energyBarBg = new Rectangle(20, 110, 250, 15);
-                Rectangle energyBarFill = new Rectangle(20, 110, (int)(250 * energyPercent), 15);
-                _spriteBatch.Draw(_pixel, energyBarBg, Color.DarkGray * 0.5f);
-                _spriteBatch.Draw(_pixel, energyBarFill, energyColor);
+            if (_font != null) {
+                _spriteBatch.DrawString(_font, $"ENERGY {energyPercent * 100:F0}%",
+                    new Vector2(hudX + totalBarWidth + 10, energyBarY - 2), energyColor);
+            }
 
-                // Other status info
-                _spriteBatch.DrawString(_font, $"Speed: {Math.Abs(_playerShip.Speed):F1}", new Vector2(20, 135), Color.White);
-                _spriteBatch.DrawString(_font, $"Throttle: {_playerShip.GetThrottle() * 100:F0}%", new Vector2(20, 155), Color.White);
-                _spriteBatch.DrawString(_font, $"Mode: {_playerShip.GetFlightStatus()}", new Vector2(20, 175), Color.Yellow);
+            // --- STATUS TEXT below bars ---
+            int statusY = energyBarY + barHeight + 8;
+            if (_font != null) {
+                // Speed & throttle
+                string speedText = $"SPD: {Math.Abs(_playerShip.Speed):F0}  THR: {_playerShip.GetThrottle() * 100:F0}%";
+                Vector2 speedSize = _font.MeasureString(speedText);
+                _spriteBatch.DrawString(_font, speedText,
+                    new Vector2(hudX + (totalBarWidth - speedSize.X) / 2, statusY), Color.White * 0.8f);
 
-                // Weapon display
-                _spriteBatch.DrawString(_font, $"Weapon: {_weaponSystem.CurrentWeapon}", new Vector2(20, 195), Color.Orange);
+                // Flight mode
+                string modeText = _playerShip.GetFlightStatus();
+                Vector2 modeSize = _font.MeasureString(modeText);
+                _spriteBatch.DrawString(_font, modeText,
+                    new Vector2(hudX + (totalBarWidth - modeSize.X) / 2, statusY + 18), Color.Yellow * 0.9f);
+            }
 
-                // Charge beam indicator
+            // --- LEFT SIDE: weapon & mode indicators ---
+            int leftPanelX = 10;
+            int leftPanelY = screenHeight - 200;
+            Rectangle leftPanel = new Rectangle(leftPanelX, leftPanelY, 220, 180);
+            _spriteBatch.Draw(_pixel, leftPanel, Color.Black * 0.6f);
+            _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX, leftPanelY, 220, 2), borderColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX, leftPanelY, 2, 180), borderColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX + 218, leftPanelY, 2, 180), borderColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX, leftPanelY + 178, 220, 2), borderColor);
+
+            if (_font != null) {
+                int ly = leftPanelY + 8;
+                _spriteBatch.DrawString(_font, $"Weapon: {_weaponSystem.CurrentWeapon}", new Vector2(leftPanelX + 10, ly), Color.Orange);
+                ly += 22;
+
                 if (_weaponSystem.IsCharging()) {
                     float chargeProgress = _weaponSystem.GetChargeProgress();
-                    _spriteBatch.DrawString(_font, $"CHARGING: {chargeProgress * 100:F0}%", new Vector2(20, 215), Color.Yellow);
-
-                    // Charge bar
-                    Rectangle chargeBarBg = new Rectangle(20, 235, 250, 15);
-                    Rectangle chargeBarFill = new Rectangle(20, 235, (int)(250 * chargeProgress), 15);
+                    _spriteBatch.DrawString(_font, $"CHARGING: {chargeProgress * 100:F0}%", new Vector2(leftPanelX + 10, ly), Color.Yellow);
+                    ly += 18;
+                    Rectangle chargeBarBg = new Rectangle(leftPanelX + 10, ly, 200, 10);
+                    Rectangle chargeBarFill = new Rectangle(leftPanelX + 10, ly, (int)(200 * chargeProgress), 10);
                     _spriteBatch.Draw(_pixel, chargeBarBg, Color.DarkGray * 0.5f);
                     _spriteBatch.Draw(_pixel, chargeBarFill, Color.Lerp(Color.Yellow, Color.Red, chargeProgress));
+                    ly += 16;
                 }
 
+                if (_playerShip.IsAfterburnerActive)
+                    _spriteBatch.DrawString(_font, "AFTERBURNER", new Vector2(leftPanelX + 10, ly += 22), Color.OrangeRed);
+                if (_playerShip.IsCruiseActive)
+                    _spriteBatch.DrawString(_font, "CRUISE", new Vector2(leftPanelX + 10, ly += 22), Color.Cyan);
                 if (_playerShip.IsNewtonianMode)
-                    _spriteBatch.DrawString(_font, "NEWTONIAN", new Vector2(20, 255), Color.Lime);
+                    _spriteBatch.DrawString(_font, "NEWTONIAN", new Vector2(leftPanelX + 10, ly += 22), Color.Lime);
                 if (_camera.IsTurretViewActive)
-                    _spriteBatch.DrawString(_font, "TURRET VIEW", new Vector2(20, 275), Color.Orange);
+                    _spriteBatch.DrawString(_font, "TURRET VIEW", new Vector2(leftPanelX + 10, ly += 22), Color.Orange);
                 if (_playerShip.IsGotoActive && _playerShip.CurrentGotoTarget != null)
-                    _spriteBatch.DrawString(_font, $"GOTO: {_playerShip.CurrentGotoTarget.Name}", new Vector2(20, 295), Color.Orange);
-            } else {
-                // Fallback visual indicators when no font available
-                // Hull bar (horizontal)
-                float hullPercent = _playerShip.Hull.HullPercentage;
-                Color hullColor = _playerShip.Hull.GetHullColor();
-                int hullBarWidth = (int)(250 * hullPercent);
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 30, 250, 20), Color.DarkGray * 0.5f);
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 30, hullBarWidth, 20), hullColor);
+                    _spriteBatch.DrawString(_font, $"GOTO: {_playerShip.CurrentGotoTarget.Name}", new Vector2(leftPanelX + 10, ly += 22), Color.Orange);
+            }
+        }
 
-                // Energy bar (horizontal)
-                float energyPercent = _playerShip.Energy.EnergyPercentage;
-                Color energyColor = _playerShip.Energy.GetEnergyColor();
-                int energyBarWidth = (int)(250 * energyPercent);
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 60, 250, 20), Color.DarkGray * 0.5f);
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 60, energyBarWidth, 20), energyColor);
+        /// <summary>
+        /// Draw a Freelancer-style segmented bar (like the shield/hull/energy bars)
+        /// </summary>
+        private void DrawSegmentedBar(int x, int y, int totalWidth, int height, int segmentCount, int segmentGap, int segmentWidth, float fillPercent, Color fillColor, Color emptyColor) {
+            for (int i = 0; i < segmentCount; i++) {
+                int segX = x + i * (segmentWidth + segmentGap);
+                float segmentThreshold = (float)(i + 1) / segmentCount;
+                bool isFilled = fillPercent >= segmentThreshold;
+                bool isPartial = !isFilled && fillPercent > (float)i / segmentCount;
 
-                // Speed bar (horizontal)
-                int speedBarWidth = (int)(250 * MathHelper.Clamp(Math.Abs(_playerShip.Speed) / _playerShip.MaxSpeed, 0f, 1f));
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 90, 250, 20), Color.DarkGray * 0.5f);
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 90, speedBarWidth, 20), Color.Cyan);
+                Rectangle segRect = new Rectangle(segX, y, segmentWidth, height);
 
-                // Throttle bar (horizontal)
-                float throttle = _playerShip.GetThrottle();
-                int throttleBarWidth = (int)(250 * Math.Abs(throttle));
-                Color throttleColor = throttle >= 0 ? Color.Green : Color.Orange;
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 120, 250, 20), Color.DarkGray * 0.5f);
-                _spriteBatch.Draw(_pixel, new Rectangle(20, 120, throttleBarWidth, 20), throttleColor);
-
-                // Weapon/charge indicator
-                if (_weaponSystem.IsCharging()) {
-                    float chargeProgress = _weaponSystem.GetChargeProgress();
-                    Rectangle chargeBar = new Rectangle(20, 150, (int)(250 * chargeProgress), 20);
-                    _spriteBatch.Draw(_pixel, chargeBar, Color.Lerp(Color.Yellow, Color.Red, chargeProgress));
-                }
-
-                // Status indicators
-                int yPos = 180;
-                if (_playerShip.IsAfterburnerActive) {
-                    _spriteBatch.Draw(_pixel, new Rectangle(20, yPos, 250, 20), Color.Red * 0.7f);
-                    yPos += 25;
-                }
-                if (_playerShip.IsCruiseActive) {
-                    _spriteBatch.Draw(_pixel, new Rectangle(20, yPos, 250, 20), Color.Yellow * 0.7f);
-                    yPos += 25;
-                }
-                if (_playerShip.IsNewtonianMode) {
-                    _spriteBatch.Draw(_pixel, new Rectangle(20, yPos, 250, 20), Color.Lime * 0.7f);
-                    yPos += 25;
-                }
-                if (_camera.IsTurretViewActive) {
-                    _spriteBatch.Draw(_pixel, new Rectangle(20, yPos, 250, 20), Color.Orange * 0.7f);
-                    yPos += 25;
-                }
-                if (_playerShip.EnginesKilled) {
-                    _spriteBatch.Draw(_pixel, new Rectangle(20, yPos, 250, 20), Color.Gray * 0.7f);
+                if (isFilled) {
+                    _spriteBatch.Draw(_pixel, segRect, fillColor);
+                    // Subtle highlight on top edge
+                    _spriteBatch.Draw(_pixel, new Rectangle(segX, y, segmentWidth, 2), fillColor * 1.3f);
+                } else if (isPartial) {
+                    // Partially filled segment
+                    float partialFill = (fillPercent - (float)i / segmentCount) * segmentCount;
+                    int partialWidth = (int)(segmentWidth * partialFill);
+                    _spriteBatch.Draw(_pixel, segRect, emptyColor);
+                    _spriteBatch.Draw(_pixel, new Rectangle(segX, y, partialWidth, height), fillColor * 0.7f);
+                } else {
+                    _spriteBatch.Draw(_pixel, segRect, emptyColor);
                 }
             }
         }
@@ -1575,9 +1653,32 @@ namespace Roguelancer {
                 // Only show hull bar for nearby ships (within 2000 units)
                 if (distance > 2000f) continue;
 
-                // Hull bar dimensions
+                // Shield bar dimensions (above hull bar)
                 int barWidth = 60;
                 int barHeight = 6;
+                float shieldPercent = npc.Shields?.ShieldPercentage ?? 0f;
+
+                if (shieldPercent > 0f) {
+                    // Draw shield bar above hull bar
+                    Rectangle shieldBarBg = new Rectangle(
+                        (int)(screenPos.X - barWidth / 2),
+                        (int)screenPos.Y - barHeight - 2,
+                        barWidth,
+                        barHeight
+                    );
+                    Rectangle shieldBarFill = new Rectangle(
+                        (int)(screenPos.X - barWidth / 2),
+                        (int)screenPos.Y - barHeight - 2,
+                        (int)(barWidth * shieldPercent),
+                        barHeight
+                    );
+                    _spriteBatch.Draw(_pixel, shieldBarBg, Color.Black * 0.7f);
+                    _spriteBatch.Draw(_pixel, shieldBarFill, new Color(80, 160, 255));
+                    _spriteBatch.Draw(_pixel, new Rectangle(shieldBarBg.X, shieldBarBg.Y, shieldBarBg.Width, 1), Color.White * 0.3f);
+                    _spriteBatch.Draw(_pixel, new Rectangle(shieldBarBg.X, shieldBarBg.Bottom - 1, shieldBarBg.Width, 1), Color.White * 0.3f);
+                }
+
+                // Hull bar dimensions
                 float hullPercent = npc.Hull.HullPercentage;
                 Color hullColor = npc.Hull.GetHullColor();
 
@@ -1839,7 +1940,7 @@ namespace Roguelancer {
             _playerShip.SetExplosionSystem(_explosionParticles);
             _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
 
-            Console.WriteLine($"[SHIP PURCHASE] New ship fully configured with hull: {_playerShip.Hull.MaxHull}, energy: {_playerShip.Energy.MaxEnergy}");
+            Console.WriteLine($"[SHIP PURCHASE] New ship fully configured with hull: {_playerShip.Hull.MaxHull}, energy: {_playerShip.Energy.MaxEnergy}, shields: {_playerShip.Shields?.MaxShields ?? 0}");
         }
 
         /// <summary>
@@ -1924,6 +2025,11 @@ namespace Roguelancer {
             if (_stationManager != null && _camera != null && _sun != null) {
                 Vector3 lightDir = _sun.GetLightDirection(Vector3.Zero);
                 _stationManager.Draw(_camera, lightDir);
+            }
+
+            // Draw Jump Holes
+            if (_jumpHoleManager != null && _camera != null) {
+                _jumpHoleManager.Draw3D(_camera.View, _camera.Projection, _camera.Position);
             }
 
             // Reset render states
@@ -2046,6 +2152,12 @@ namespace Roguelancer {
         }
 
         private void DrawHUD() {
+            // Draw jump transit effect (uses its own sprite batch, must be drawn first)
+            if (_jumpHoleManager?.IsInTransit == true) {
+                _jumpHoleManager.DrawHUD(null);
+                return;
+            }
+
             _spriteBatch.Begin();
 
             // If docked, draw station UI instead of regular HUD
@@ -2061,11 +2173,172 @@ namespace Roguelancer {
                 DrawCrosshair();
                 DrawCoordinates();
 
+                // Draw jump hole proximity prompt
+                _jumpHoleManager?.DrawHUD(_spriteBatch);
+
+                // Draw current system name
+                DrawSystemName();
+
                 // Draw notifications
                 _notificationManager.Draw(_spriteBatch);
             }
 
             _spriteBatch.End();
+        }
+
+        /// <summary>
+        /// Draw the current system name in the top-left corner
+        /// </summary>
+        private void DrawSystemName() {
+            if (_font == null) return;
+
+            SystemConfig currentSystem = _config.GetSystem(_currentSystemIndex);
+            string systemName = currentSystem?.Description ?? $"System {_currentSystemIndex}";
+
+            Vector2 pos = new Vector2(10, 10);
+            _spriteBatch.DrawString(_font, systemName, pos + Vector2.One, Color.Black * 0.5f);
+            _spriteBatch.DrawString(_font, systemName, pos, Color.Gold);
+        }
+
+        /// <summary>
+        /// Handle system change triggered by jump hole transit
+        /// </summary>
+        private void HandleSystemChange(int newSystemIndex, string arrivalJumpHoleName) {
+            Console.WriteLine($"[SYSTEM CHANGE] Switching from system {_currentSystemIndex} to system {newSystemIndex}");
+            _currentSystemIndex = newSystemIndex;
+
+            // Get arrival position
+            Vector3 arrivalPos = _jumpHoleManager.GetArrivalPosition(newSystemIndex, arrivalJumpHoleName);
+
+            // Clear current system objects
+            _spaceObjects.Clear();
+            _npcShips.Clear();
+            _wrecks.Clear();
+            _markers.Clear();
+
+            // Reload configuration
+            _config.LoadAll();
+
+            // Load the new system config
+            SystemConfig newSystem = _config.GetSystem(newSystemIndex);
+            if (newSystem != null) {
+                Console.WriteLine($"[SYSTEM CHANGE] Loaded: {newSystem.Description}");
+                _notificationManager?.ShowMessage($"Entering {newSystem.Description}", 3f);
+
+                // Load planets
+                string systemFileName = newSystemIndex == 1 ? "system_01_new_york.json" : $"system_{newSystemIndex:D2}_california.json";
+                try {
+                    _planetManager.LoadSystem(systemFileName);
+                    foreach (var planet in _planetManager.GetPlanets()) {
+                        _spaceObjects.Add(planet);
+                    }
+                    Console.WriteLine($"[SYSTEM CHANGE] Loaded {_planetManager.GetPlanets().Count} planets");
+                } catch (Exception ex) {
+                    Console.WriteLine($"[SYSTEM CHANGE] Error loading planets: {ex.Message}");
+                }
+
+                // Load stations
+                try {
+                    _stationManager = new StationManager(Content, GraphicsDevice);
+                    _stationManager.LoadStations();
+                    foreach (var station in _stationManager.GetStations()) {
+                        _spaceObjects.Add(station);
+                        Console.WriteLine($"[SYSTEM CHANGE] Loaded station: {station.Name}");
+                    }
+                } catch (Exception ex) {
+                    Console.WriteLine($"[SYSTEM CHANGE] Error loading stations: {ex.Message}");
+                }
+
+                // Update sun
+                _sun = new Sun(GraphicsDevice,
+                    new Vector3(newSystem.SunPositionX, newSystem.SunPositionY, newSystem.SunPositionZ),
+                    scale: newSystem.SunScale * 15.0f) {
+                    EmissiveColor = new Color(255, 220, 180),
+                    EmissiveIntensity = newSystem.SunIntensity * 3.0f
+                };
+                _sun.LoadContent(Content);
+                _spaceObjects.Add(new SpaceObject("SUN", _sun.Position, 500f));
+
+                // Add station configs as space objects
+                List<StationConfig> stations = _config.GetStationsForSystem(newSystemIndex);
+                foreach (StationConfig stationConfig in stations) {
+                    var stationObject = new SpaceObject(
+                        stationConfig.Description,
+                        stationConfig.StartupPosition,
+                        stationConfig.Radius
+                    );
+                    if (!string.IsNullOrEmpty(stationConfig.ModelPath)) {
+                        stationObject.ModelPath = stationConfig.ModelPath;
+                    } else if (stationConfig.ModelIndex > 0) {
+                        ModelConfig modelConf = _config.GetModel(stationConfig.ModelIndex);
+                        if (modelConf != null) {
+                            stationObject.ModelPath = modelConf.Path;
+                        }
+                    }
+                    _spaceObjects.Add(stationObject);
+                }
+
+                // Load models for space objects
+                foreach (var spaceObject in _spaceObjects) {
+                    if (!string.IsNullOrEmpty(spaceObject.ModelPath)) {
+                        try {
+                            spaceObject.Model = Content.Load<Model>(spaceObject.ModelPath);
+                        } catch (Exception ex) {
+                            Console.WriteLine($"[SYSTEM CHANGE] Error loading model for {spaceObject.Name}: {ex.Message}");
+                        }
+                    }
+                }
+
+                // Spawn NPCs
+                if (newSystem.NpcPatrols != null) {
+                    SpawnNpcsFromConfig(newSystem);
+                }
+
+                // Load NPC models
+                foreach (var npc in _npcShips) {
+                    if (!string.IsNullOrEmpty(npc.ModelPath)) {
+                        try {
+                            npc.Model = Content.Load<Model>(npc.ModelPath);
+                        } catch (Exception ex) {
+                            Console.WriteLine($"[SYSTEM CHANGE] Error loading NPC model: {ex.Message}");
+                            npc.Model = _playerShip.Model;
+                        }
+                    } else {
+                        npc.Model = _playerShip.Model;
+                    }
+                }
+
+                // Add jump holes
+                foreach (var jh in _jumpHoleManager.GetJumpHolesAsSpaceObjects()) {
+                    _spaceObjects.Add(jh);
+                    Console.WriteLine($"[SYSTEM CHANGE] Jump hole: {jh.Name} at {jh.Position}");
+                }
+
+                // Recreate grid markers
+                int gridSize = 20000;
+                int gridSpacing = 2000;
+                Color markerColor = new Color(0, 255, 255, 180);
+                for (int x = -gridSize; x <= gridSize; x += gridSpacing) {
+                    for (int z = -gridSize; z <= gridSize; z += gridSpacing) {
+                        _markers.Add(new Marker3D(GraphicsDevice, new Vector3(x, 0, z), markerColor, 400f));
+                        if ((x / gridSpacing) % 2 == 0 && (z / gridSpacing) % 2 == 0) {
+                            _markers.Add(new Marker3D(GraphicsDevice, new Vector3(x, 1000, z), Color.Yellow * 0.6f, 350f));
+                            _markers.Add(new Marker3D(GraphicsDevice, new Vector3(x, -1000, z), Color.Red * 0.5f, 350f));
+                        }
+                    }
+                }
+
+                Console.WriteLine($"[SYSTEM CHANGE] Complete! Objects: {_spaceObjects.Count}, NPCs: {_npcShips.Count}");
+            } else {
+                Console.WriteLine($"[SYSTEM CHANGE] ERROR: System {newSystemIndex} not found!");
+            }
+
+            // Move player to arrival position
+            _playerShip.Position = arrivalPos;
+            _playerShip.Velocity = Vector3.Zero;
+            _selectedSpaceObjectIndex = -1;
+
+            Console.WriteLine($"[SYSTEM CHANGE] Player positioned at {arrivalPos}");
         }
     }
 }

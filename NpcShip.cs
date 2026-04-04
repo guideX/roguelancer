@@ -18,6 +18,9 @@ namespace Roguelancer
         // Hull integrity
         public HullIntegrity Hull { get; private set; }
         public bool IsDestroyed => Hull.IsDestroyed;
+
+        // Shield system
+        public ShieldSystem Shields { get; private set; }
         
         // Event to signal when the ship is destroyed
         public event Action<NpcShip> OnDestroyed;
@@ -53,6 +56,9 @@ namespace Roguelancer
             
             Console.WriteLine($"[NPC] {name} created with Hull: {Hull.CurrentHull}/{Hull.MaxHull}, IsDestroyed: {Hull.IsDestroyed}");
             
+            // Initialize shield system for NPC ships
+            Shields = new ShieldSystem(40f, 10f, 4f); // NPCs get 40 shields, slower regen
+            
             // Initial orientation facing toward patrol center
             Vector3 toCenter = patrolCenter - startPosition;
             
@@ -78,6 +84,9 @@ namespace Roguelancer
             if (IsDestroyed) return; // Don't update if destroyed
 
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            // Update shield regeneration
+            Shields?.Update(gameTime);
 
             // Emit damage smoke if hull is low
             DamageStage damageStage = DamageStage.None;

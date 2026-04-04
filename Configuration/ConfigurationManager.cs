@@ -13,11 +13,13 @@ namespace Roguelancer.Configuration {
         private const string ShipsPath = "ships";
         private const string SystemsPath = "systems";
         private const string StationsPath = "stations";
+        private const string JumpHolesPath = "jumpholes";
 
         public List<ModelConfig> Models { get; private set; } = new();
         public List<ShipConfig> Ships { get; private set; } = new();
         public List<SystemConfig> Systems { get; private set; } = new();
         public List<StationConfig> Stations { get; private set; } = new();
+        public List<JumpHoleConfig> JumpHoles { get; private set; } = new();
 
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions {
             WriteIndented = true,
@@ -38,8 +40,9 @@ namespace Roguelancer.Configuration {
             LoadSystems();
             LoadShips();
             LoadStations();
+            LoadJumpHoles();
 
-            Console.WriteLine($"[CONFIG] Loaded {Models.Count} models, {Systems.Count} systems, {Ships.Count} ships, {Stations.Count} stations");
+            Console.WriteLine($"[CONFIG] Loaded {Models.Count} models, {Systems.Count} systems, {Ships.Count} ships, {Stations.Count} stations, {JumpHoles.Count} jump holes");
         }
 
         /// <summary>
@@ -139,6 +142,30 @@ namespace Roguelancer.Configuration {
         }
 
         /// <summary>
+        /// Load all jump hole configurations
+        /// </summary>
+        private void LoadJumpHoles() {
+            string jumpHolesDir = Path.Combine(ConfigurationPath, JumpHolesPath);
+            if (!Directory.Exists(jumpHolesDir)) {
+                Console.WriteLine($"[CONFIG] Jump holes directory not found: {jumpHolesDir}");
+                return;
+            }
+
+            foreach (string file in Directory.GetFiles(jumpHolesDir, "*.json")) {
+                try {
+                    string json = File.ReadAllText(file);
+                    var jumpHole = JsonSerializer.Deserialize<JumpHoleConfig>(json, JsonOptions);
+                    if (jumpHole != null) {
+                        JumpHoles.Add(jumpHole);
+                        Console.WriteLine($"[CONFIG] Loaded jump hole: {jumpHole.Name} from {Path.GetFileName(file)}");
+                    }
+                } catch (Exception ex) {
+                    Console.WriteLine($"[CONFIG] Error loading jump hole {file}: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
         /// Get a model by index (1-based)
         /// </summary>
         public ModelConfig GetModel(int index) {
@@ -181,6 +208,13 @@ namespace Roguelancer.Configuration {
         public List<ShipConfig> GetAllShipConfigs()
         {
             return Ships;
+        }
+
+        /// <summary>
+        /// Get all jump holes for a specific system
+        /// </summary>
+        public List<JumpHoleConfig> GetJumpHolesForSystem(int systemIndex) {
+            return JumpHoles.FindAll(j => j.SystemIndex == systemIndex);
         }
     }
 }

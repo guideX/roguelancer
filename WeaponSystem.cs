@@ -639,10 +639,11 @@ namespace Roguelancer
         }
 
         /// <summary>
-        /// Check collisions between projectiles and a ship, apply damage on hit
+        /// Check collisions between projectiles and a ship, apply damage on hit.
+        /// If shields are provided, damage hits shields first; remaining damage goes to hull.
         /// </summary>
         /// <returns>List of hits that occurred</returns>
-        public List<HitInfo> CheckCollisions(Vector3 shipPosition, float shipRadius, HullIntegrity hull)
+        public List<HitInfo> CheckCollisions(Vector3 shipPosition, float shipRadius, HullIntegrity hull, ShieldSystem shields = null)
         {
             List<HitInfo> hits = new List<HitInfo>();
             
@@ -656,7 +657,19 @@ namespace Roguelancer
                     // Hit! Apply damage based on weapon type
                     float damage = _weaponStats[p.Type].WeaponDamage;
                     float hullBefore = hull.CurrentHull;
-                    hull.TakeDamage(damage);
+                    
+                    // Route damage through shields first
+                    float hullDamage = damage;
+                    if (shields != null)
+                    {
+                        hullDamage = shields.AbsorbDamage(damage);
+                    }
+                    
+                    // Apply remaining damage to hull
+                    if (hullDamage > 0f)
+                    {
+                        hull.TakeDamage(hullDamage);
+                    }
                     float hullAfter = hull.CurrentHull;
                     
                     // Record hit info
@@ -771,15 +784,32 @@ namespace Roguelancer
         }
         
         /// <summary>
-        /// Apply lightning damage (hull and energy drain) to a target
+        /// Apply lightning damage (hull and energy drain) to a target.
+        /// Routes damage through shields first if available.
         /// </summary>
         private void ApplyLightningDamage(object target, float hullDamage, float energyDrainAmount)
         {
-            // Get hull and energy properties via reflection
+            // Get hull, energy, and shield properties via reflection
             System.Reflection.PropertyInfo hullProp = target.GetType().GetProperty("Hull");
             System.Reflection.PropertyInfo energyProp = target.GetType().GetProperty("Energy");
+            System.Reflection.PropertyInfo shieldsProp = target.GetType().GetProperty("Shields");
+
+            // Route damage through shields first
+            float remainingDamage = hullDamage;
+            if (shieldsProp != null)
+            {
+                var shields = shieldsProp.GetValue(target);
+                if (shields != null)
+                {
+                    var absorbMethod = shields.GetType().GetMethod("AbsorbDamage");
+                    if (absorbMethod != null)
+                    {
+                        remainingDamage = (float)absorbMethod.Invoke(shields, new object[] { hullDamage });
+                    }
+                }
+            }
             
-            if (hullProp != null)
+            if (hullProp != null && remainingDamage > 0f)
             {
                 var hull = hullProp.GetValue(target);
                 if (hull != null)
@@ -787,7 +817,7 @@ namespace Roguelancer
                     var takeDamageMethod = hull.GetType().GetMethod("TakeDamage");
                     if (takeDamageMethod != null)
                     {
-                        takeDamageMethod.Invoke(hull, new object[] { hullDamage });
+                        takeDamageMethod.Invoke(hull, new object[] { remainingDamage });
                     }
                 }
             }

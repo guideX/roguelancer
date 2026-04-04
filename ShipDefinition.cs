@@ -23,6 +23,7 @@ namespace Roguelancer
         public float TurnSpeed { get; set; } = 1.5f;
         public float MaxHull { get; set; } = 100f;
         public float MaxEnergy { get; set; } = 200f;
+        public float MaxShields { get; set; } = 50f;
         public int CargoCapacity { get; set; } = 50;
         
         // Model correction rotation
@@ -63,6 +64,7 @@ namespace Roguelancer
                 TurnSpeed = 1.5f,
                 MaxHull = 100f,
                 MaxEnergy = 200f,
+                MaxShields = 50f,
                 CargoCapacity = 50,
                 DisplayColor = Color.Cyan
             };
@@ -88,6 +90,7 @@ namespace Roguelancer
                 TurnSpeed = 0.8f,
                 MaxHull = 250f,
                 MaxEnergy = 300f,
+                MaxShields = 100f,
                 CargoCapacity = 200,
                 DisplayColor = Color.Yellow,
                 ModelCorrectionRotation = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi) // Fix orientation: -90° pitch + 180° yaw
@@ -112,6 +115,9 @@ namespace Roguelancer
             // Reset energy to max for new ship
             ship.InitializeEnergy(MaxEnergy);
             
+            // Reset shields for new ship
+            ship.InitializeShields(MaxShields);
+            
             // Update cargo hold capacity
             ship.CargoHold.SetMaxCapacity(CargoCapacity);
             
@@ -127,7 +133,7 @@ namespace Roguelancer
         /// </summary>
         public string GetStatsString()
         {
-            return $"Speed: {MaxSpeed:F0} | Hull: {MaxHull:F0} | Cargo: {CargoCapacity}";
+            return $"Speed: {MaxSpeed:F0} | Hull: {MaxHull:F0} | Shields: {MaxShields:F0} | Cargo: {CargoCapacity}";
         }
     }
 }

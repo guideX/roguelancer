@@ -87,6 +87,15 @@ namespace Roguelancer.Configuration {
         [JsonPropertyName("energy_regen_delay")]
         public float EnergyRegenDelay { get; set; } = 2f;
 
+        [JsonPropertyName("max_shields")]
+        public float MaxShields { get; set; } = 50f;
+
+        [JsonPropertyName("shield_regen_rate")]
+        public float ShieldRegenRate { get; set; } = 15f;
+
+        [JsonPropertyName("shield_regen_delay")]
+        public float ShieldRegenDelay { get; set; } = 3f;
+
         [JsonPropertyName("patrol_center_x")]
         public float? PatrolCenterX { get; set; }
 
