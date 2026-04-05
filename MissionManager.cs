@@ -14,6 +14,7 @@ namespace Roguelancer
         private Random _random = new();
         private PlayerCredits _playerCredits;
         private NotificationManager _notificationManager;
+        private MissionWaypointSystem _waypointSystem;
 
         // Mission generation data
         private static readonly string[] DeliveryTargets = {
@@ -46,6 +47,14 @@ namespace Roguelancer
         {
             _playerCredits = playerCredits;
             _notificationManager = notificationManager;
+        }
+
+        /// <summary>
+        /// Set the waypoint system reference for automatic registration/unregistration
+        /// </summary>
+        public void SetWaypointSystem(MissionWaypointSystem waypointSystem)
+        {
+            _waypointSystem = waypointSystem;
         }
 
         /// <summary>
@@ -127,6 +136,7 @@ namespace Roguelancer
 
             mission.Status = MissionStatus.Active;
             _activeMissions.Add(mission);
+            _waypointSystem?.RegisterMission(mission);
             _notificationManager?.ShowMessage($"Mission accepted: {mission.Description}", 3f);
             Console.WriteLine($"[MISSION] Accepted: {mission.GetSummary()}");
             return true;
@@ -142,6 +152,7 @@ namespace Roguelancer
             mission.Status = MissionStatus.Completed;
             _activeMissions.Remove(mission);
             _completedMissions.Add(mission);
+            _waypointSystem?.UnregisterMission(mission);
 
             _playerCredits.AddCredits(mission.Reward);
             _notificationManager?.ShowMessage($"Mission complete! +{mission.Reward:N0} CR", 4f);
@@ -158,6 +169,7 @@ namespace Roguelancer
             mission.Status = MissionStatus.Failed;
             _activeMissions.Remove(mission);
             _completedMissions.Add(mission);
+            _waypointSystem?.UnregisterMission(mission);
 
             _notificationManager?.ShowMessage($"Mission failed: {reason}", 4f);
             Console.WriteLine($"[MISSION] Failed: {mission.Description} | Reason: {reason}");

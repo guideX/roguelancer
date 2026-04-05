@@ -1,5 +1,8 @@
 using System;
 
+
+using Microsoft.Xna.Framework;
+
 namespace Roguelancer
 {
     /// <summary>
@@ -55,6 +58,10 @@ namespace Roguelancer
 
         // Progress tracking
         public bool ObjectiveComplete { get; set; }
+
+        // Waypoint / marker tracking (resolved at runtime by MissionWaypointSystem)
+        public Vector3? TargetPosition { get; set; }
+        public SpaceObject TargetSpaceObject { get; set; }
 
         public bool IsExpired => TimeLimit > 0 && ElapsedTime >= TimeLimit;
         public float TimeRemaining => TimeLimit > 0 ? Math.Max(0, TimeLimit - ElapsedTime) : -1;

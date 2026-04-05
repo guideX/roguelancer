@@ -140,6 +140,11 @@ namespace Roguelancer {
         // NPC weapon system (NPC-to-player damage)
         private NpcWeaponSystem _npcWeaponSystem;
 
+        // Mission waypoint/marker/guidance systems
+        private MissionWaypointSystem _missionWaypointSystem;
+        private MissionMarkerRenderer _missionMarkerRenderer;
+        private MissionGuidanceHUD _missionGuidanceHUD;
+
         // Jump hole system
         private JumpHoleManager _jumpHoleManager;
         private int _currentSystemIndex = 1;
@@ -544,6 +549,16 @@ namespace Roguelancer {
 
             // Initialize NPC weapon system
             _npcWeaponSystem = new NpcWeaponSystem(GraphicsDevice);
+
+            // Initialize mission waypoint/marker/guidance systems
+            _missionWaypointSystem = new MissionWaypointSystem();
+            _missionMarkerRenderer = new MissionMarkerRenderer(GraphicsDevice);
+            if (_font != null) {
+                _missionGuidanceHUD = new MissionGuidanceHUD(_font, _pixel);
+            }
+
+            // Connect mission manager to waypoint system
+            _missionManager?.SetWaypointSystem(_missionWaypointSystem);
 
             // Initialize station dock UI
             if (_font != null) {
@@ -1002,6 +1017,18 @@ namespace Roguelancer {
 
             // Update mission manager
             _missionManager?.Update(deltaTime, _playerShip.Hull.IsDestroyed);
+
+            // Update mission waypoint system (resolve targets, build paths, check proximity)
+            _missionWaypointSystem?.Update(
+                _playerShip.Position,
+                _spaceObjects,
+                _npcShips,
+                _tradelaneManager?.GetTradeLanes() ?? new List<TradeLane>(),
+                _jumpHoleManager?.GetJumpHoles() ?? new List<JumpHole>());
+
+            // Update mission marker animations
+            _missionMarkerRenderer?.Update(deltaTime);
+            _missionGuidanceHUD?.Update(deltaTime);
 
             // Update notification manager
             _notificationManager.Update(gameTime);
@@ -2243,6 +2270,9 @@ namespace Roguelancer {
             // Draw NPC weapon projectiles
             _npcWeaponSystem?.Draw(_camera);
 
+            // Draw 3D mission markers, waypoint path arrows, and proximity halos
+            _missionMarkerRenderer?.Draw3D(_camera.View, _camera.Projection, _playerShip.Position, _missionWaypointSystem);
+
             // Draw tradelane energy effects
             if (_tradelaneManager != null && _camera != null) {
                 _tradelaneManager.DrawEnergyEffects(_camera.View, _camera.Projection);
@@ -2289,6 +2319,9 @@ namespace Roguelancer {
                     DrawCrosshair();
                     DrawCoordinates();
                     DrawActiveMissionsHUD();
+
+                    // Draw mission guidance overlay (distance, arrows, proximity alerts)
+                    _missionGuidanceHUD?.Draw(_spriteBatch, GraphicsDevice, _camera, _playerShip.Position, _missionWaypointSystem);
 
                     // Draw jump hole proximity prompt
                     _jumpHoleManager?.DrawHUD(_spriteBatch);
