@@ -860,6 +860,27 @@ namespace Roguelancer
             Console.WriteLine($"Newtonian Mode: {(_newtonianMode ? "ENABLED" : "DISABLED")}");
         }
 
+        /// <summary>
+        /// Instantly orient the ship to face the given direction.
+        /// Used when entering a tradelane so the model faces the travel direction.
+        /// </summary>
+        public void SetFacing(Vector3 direction)
+        {
+            if (direction.LengthSquared() < 0.0001f) return;
+            direction.Normalize();
+
+            // Build a look-at rotation: Forward in MonoGame is -Z
+            Vector3 up = Vector3.Up;
+            // Handle near-vertical directions
+            if (Math.Abs(Vector3.Dot(direction, up)) > 0.999f)
+                up = Vector3.Forward;
+
+            Matrix lookAt = Matrix.CreateWorld(Vector3.Zero, direction, up);
+            _rotation = Quaternion.CreateFromRotationMatrix(lookAt);
+            _rotation.Normalize();
+            Orientation = Matrix.CreateFromQuaternion(_rotation);
+        }
+
         public void Reset()
         {
             IsAfterburnerActive = false;

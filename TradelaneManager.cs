@@ -170,6 +170,8 @@ namespace Roguelancer {
                 keyboardState.IsKeyDown(Keys.F5) && _prevKeys.IsKeyUp(Keys.F5)) {
                 if (_nearbyLane.StartTravel(_nearbyRing)) {
                     _activeLane = _nearbyLane;
+                    // Orient the ship to face the tradelane travel direction
+                    playerShip.SetFacing(_nearbyLane.GetTravelForward());
                     Console.WriteLine($"[TRADELANES] Player entered tradelane: {_nearbyLane.Config.Name}");
                 }
             }
