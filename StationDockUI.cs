@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Roguelancer
 {
@@ -24,7 +25,20 @@ namespace Roguelancer
         private int _selectedCommodityIndex = 0;
         private int _purchaseQuantity = 1;
         private bool _buyingMode = true; // true = buying, false = selling
-        
+
+        // Bar NPC system
+        private List<BarNpc> _barNpcs = new();
+        private int _selectedNpcIndex = 0;
+        private bool _isTalkingToNpc = false;
+        private BarNpc _currentTalkNpc = null;
+        private Mission _offeredMission = null;
+        private string _dialogueLine = "";
+        private int _dialogueState = 0; // 0=greeting, 1=offer, 2=accepted/declined
+
+        // Job board system
+        private JobBoard _jobBoard;
+        private MissionManager _missionManager;
+
         public bool IsDocked => _isDocked;
         public StationArea CurrentArea => _currentArea;
         public Station DockedStation => _dockedStation;
@@ -32,12 +46,14 @@ namespace Roguelancer
         public event Action? OnUndock;
         public event Action<ShipDefinition>? OnShipPurchased;
 
-        public StationDockUI(SpriteFont font, Texture2D pixel, ShipDealer shipDealer, CommodityDealer commodityDealer)
+        public StationDockUI(SpriteFont font, Texture2D pixel, ShipDealer shipDealer, CommodityDealer commodityDealer, MissionManager missionManager)
         {
             _font = font;
             _pixel = pixel;
             _shipDealer = shipDealer;
             _commodityDealer = commodityDealer;
+            _missionManager = missionManager;
+            _jobBoard = new JobBoard(missionManager);
             _isDocked = false;
             _currentArea = StationArea.Hangar;
         }
@@ -52,7 +68,27 @@ namespace Roguelancer
             _dockedStation = station;
             _isDocked = true;
             _currentArea = StationArea.Hangar;
-            
+
+            // Spawn bar NPCs and refresh job board
+            _barNpcs = BarNpc.GenerateBarNpcs();
+            _selectedNpcIndex = 0;
+            _isTalkingToNpc = false;
+            _currentTalkNpc = null;
+            _offeredMission = null;
+            _dialogueState = 0;
+
+            // Generate a random mission for each NPC
+            foreach (var npc in _barNpcs)
+            {
+                npc.CurrentMission = _missionManager.GenerateRandomMission();
+                npc.CurrentMission.OfferedBy = npc.Name;
+            }
+
+            _jobBoard.RefreshMissions(6);
+
+            // Notify mission manager we docked (for delivery missions)
+            _missionManager.NotifyArrivedAtStation(station.Name);
+
             Console.WriteLine($"[DOCK] Docked at {station.Name}");
         }
 
@@ -117,7 +153,13 @@ namespace Roguelancer
                 case StationArea.ShipDealer:
                     DrawShipDealer(spriteBatch, screenWidth, screenHeight);
                     break;
+                case StationArea.JobBoard:
+                    DrawJobBoard(spriteBatch, screenWidth, screenHeight);
+                    break;
             }
+
+            // Active missions panel (always visible at top-right when docked)
+            DrawActiveMissions(spriteBatch, screenWidth);
 
             // Navigation menu
             DrawNavigationMenu(spriteBatch, screenWidth, screenHeight);
@@ -372,24 +414,101 @@ namespace Roguelancer
             // Title
             string title = "== BAR ==";
             Vector2 titleSize = _font.MeasureString(title);
-            spriteBatch.DrawString(_font, title, new Vector2(centerX - titleSize.X / 2, centerY - 200), Color.Orange);
+            spriteBatch.DrawString(_font, title, new Vector2(centerX - titleSize.X / 2, 100), Color.Orange);
 
-            // Placeholder content
-            string[] barText = {
-                "The bartender nods at you.",
-                "",
-                "A few pilots are chatting in the corner.",
-                "",
-                "[PLACEHOLDER - Future conversation system]"
-            };
-
-            int yOffset = centerY - 80;
-            foreach (string line in barText)
+            if (_isTalkingToNpc && _currentTalkNpc != null)
             {
-                Vector2 lineSize = _font.MeasureString(line);
-                spriteBatch.DrawString(_font, line, 
-                    new Vector2(centerX - lineSize.X / 2, yOffset), Color.LightGray);
-                yOffset += 30;
+                // NPC Dialogue mode
+                DrawNpcDialogue(spriteBatch, centerX, centerY);
+            }
+            else
+            {
+                // NPC List mode
+                spriteBatch.DrawString(_font, "The bar is busy tonight. Several people look approachable.",
+                    new Vector2(centerX - 280, 140), Color.LightGray);
+
+                int yOffset = 190;
+                for (int i = 0; i < _barNpcs.Count; i++)
+                {
+                    var npc = _barNpcs[i];
+                    bool isSelected = (i == _selectedNpcIndex);
+
+                    Rectangle npcPanel = new Rectangle(centerX - 350, yOffset - 5, 700, 55);
+                    Color panelColor = isSelected ? Color.Orange * 0.25f : Color.DarkGray * 0.2f;
+                    spriteBatch.Draw(_pixel, npcPanel, panelColor);
+
+                    Color borderColor = isSelected ? Color.Orange : Color.Gray * 0.5f;
+                    spriteBatch.Draw(_pixel, new Rectangle(npcPanel.X, npcPanel.Y, npcPanel.Width, 2), borderColor);
+                    spriteBatch.Draw(_pixel, new Rectangle(npcPanel.X, npcPanel.Bottom - 2, npcPanel.Width, 2), borderColor);
+
+                    string npcLabel = $"{npc.Name} - {npc.Title}";
+                    spriteBatch.DrawString(_font, npcLabel, new Vector2(npcPanel.X + 15, yOffset), isSelected ? Color.Orange : Color.White);
+
+                    if (npc.CurrentMission != null)
+                    {
+                        string missionHint = $"  Has a job: {npc.CurrentMission.Type} ({npc.CurrentMission.Difficulty})";
+                        spriteBatch.DrawString(_font, missionHint, new Vector2(npcPanel.X + 15, yOffset + 25), Color.Yellow * 0.7f);
+                    }
+
+                    yOffset += 65;
+                }
+
+                string instructions = "UP/DOWN: Select NPC | ENTER: Talk | TAB: Job Board";
+                Vector2 instrSize = _font.MeasureString(instructions);
+                spriteBatch.DrawString(_font, instructions, new Vector2(centerX - instrSize.X / 2, screenHeight - 160), Color.White);
+            }
+        }
+
+        private void DrawNpcDialogue(SpriteBatch spriteBatch, int centerX, int centerY)
+        {
+            // NPC name and title
+            string npcHeader = $"{_currentTalkNpc.Name} - {_currentTalkNpc.Title}";
+            Vector2 headerSize = _font.MeasureString(npcHeader);
+            spriteBatch.DrawString(_font, npcHeader, new Vector2(centerX - headerSize.X / 2, 160), Color.Orange);
+
+            // Dialogue panel
+            Rectangle dialogPanel = new Rectangle(centerX - 400, 200, 800, 300);
+            spriteBatch.Draw(_pixel, dialogPanel, Color.Black * 0.6f);
+            spriteBatch.Draw(_pixel, new Rectangle(dialogPanel.X, dialogPanel.Y, dialogPanel.Width, 2), Color.Orange);
+            spriteBatch.Draw(_pixel, new Rectangle(dialogPanel.X, dialogPanel.Bottom - 2, dialogPanel.Width, 2), Color.Orange);
+            spriteBatch.Draw(_pixel, new Rectangle(dialogPanel.X, dialogPanel.Y, 2, dialogPanel.Height), Color.Orange);
+            spriteBatch.Draw(_pixel, new Rectangle(dialogPanel.Right - 2, dialogPanel.Y, 2, dialogPanel.Height), Color.Orange);
+
+            // Dialogue line
+            spriteBatch.DrawString(_font, $"\"{_dialogueLine}\"", new Vector2(dialogPanel.X + 20, 220), Color.White);
+
+            if (_dialogueState == 1 && _offeredMission != null)
+            {
+                // Show mission details
+                int yOff = 270;
+                spriteBatch.DrawString(_font, "--- MISSION OFFER ---", new Vector2(dialogPanel.X + 20, yOff), Color.Yellow);
+                yOff += 30;
+                spriteBatch.DrawString(_font, $"Type: {_offeredMission.Type}", new Vector2(dialogPanel.X + 20, yOff), Color.Cyan);
+                yOff += 25;
+                spriteBatch.DrawString(_font, $"Description: {_offeredMission.Description}", new Vector2(dialogPanel.X + 20, yOff), Color.White);
+                yOff += 25;
+                spriteBatch.DrawString(_font, $"Difficulty: {_offeredMission.Difficulty}", new Vector2(dialogPanel.X + 20, yOff), Color.White);
+                yOff += 25;
+                spriteBatch.DrawString(_font, $"Reward: {_offeredMission.Reward:N0} CR", new Vector2(dialogPanel.X + 20, yOff), Color.Yellow);
+                yOff += 25;
+                if (_offeredMission.TimeLimit > 0)
+                    spriteBatch.DrawString(_font, $"Time Limit: {_offeredMission.TimeLimit:F0}s", new Vector2(dialogPanel.X + 20, yOff), Color.Red);
+
+                string acceptInstr = "[ENTER] Accept Mission | [ESC] Decline";
+                Vector2 aSize = _font.MeasureString(acceptInstr);
+                spriteBatch.DrawString(_font, acceptInstr, new Vector2(centerX - aSize.X / 2, dialogPanel.Bottom + 20), Color.Lime);
+            }
+            else if (_dialogueState == 2)
+            {
+                string backInstr = "[ESC] Back to bar";
+                Vector2 bSize = _font.MeasureString(backInstr);
+                spriteBatch.DrawString(_font, backInstr, new Vector2(centerX - bSize.X / 2, dialogPanel.Bottom + 20), Color.White);
+            }
+            else
+            {
+                string contInstr = "[ENTER] Continue | [ESC] Leave";
+                Vector2 cSize = _font.MeasureString(contInstr);
+                spriteBatch.DrawString(_font, contInstr, new Vector2(centerX - cSize.X / 2, dialogPanel.Bottom + 20), Color.White);
             }
         }
 
@@ -572,11 +691,268 @@ namespace Roguelancer
                 new Vector2(centerX - instructSize.X / 2, screenHeight - 150), Color.White);
         }
 
+        private void DrawJobBoard(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
+        {
+            int centerX = screenWidth / 2;
+
+            // Title
+            string title = "== JOB BOARD ==";
+            Vector2 titleSize = _font.MeasureString(title);
+            spriteBatch.DrawString(_font, title, new Vector2(centerX - titleSize.X / 2, 100), Color.Lime);
+
+            var missions = _jobBoard.AvailableMissions;
+            if (missions.Count == 0)
+            {
+                string emptyMsg = "No jobs available right now. Check back later.";
+                Vector2 emptySize = _font.MeasureString(emptyMsg);
+                spriteBatch.DrawString(_font, emptyMsg, new Vector2(centerX - emptySize.X / 2, 300), Color.Gray);
+            }
+            else
+            {
+                int yOffset = 150;
+                for (int i = 0; i < missions.Count; i++)
+                {
+                    var mission = missions[i];
+                    bool isSelected = (i == _jobBoard.SelectedIndex);
+
+                    Rectangle mPanel = new Rectangle(centerX - 420, yOffset - 5, 840, 70);
+                    Color pColor = isSelected ? Color.Lime * 0.2f : Color.DarkGray * 0.2f;
+                    spriteBatch.Draw(_pixel, mPanel, pColor);
+
+                    Color bColor = isSelected ? Color.Lime : Color.Gray * 0.5f;
+                    spriteBatch.Draw(_pixel, new Rectangle(mPanel.X, mPanel.Y, mPanel.Width, 2), bColor);
+                    spriteBatch.Draw(_pixel, new Rectangle(mPanel.X, mPanel.Bottom - 2, mPanel.Width, 2), bColor);
+
+                    Color typeColor = mission.Type switch
+                    {
+                        MissionType.Delivery => Color.Cyan,
+                        MissionType.Bounty => Color.Red,
+                        MissionType.Escort => Color.Yellow,
+                        _ => Color.White
+                    };
+
+                    string typeTag = $"[{mission.Type.ToString().ToUpper()}]";
+                    spriteBatch.DrawString(_font, typeTag, new Vector2(mPanel.X + 10, yOffset), typeColor);
+                    spriteBatch.DrawString(_font, mission.Description, new Vector2(mPanel.X + 120, yOffset), isSelected ? Color.White : Color.LightGray);
+
+                    string diffStr = mission.Difficulty.ToString();
+                    string rewardStr = $"{mission.Reward:N0} CR";
+                    string timeStr = mission.TimeLimit > 0 ? $"  Time: {mission.TimeLimit:F0}s" : "";
+                    spriteBatch.DrawString(_font, $"{diffStr} | {rewardStr}{timeStr}",
+                        new Vector2(mPanel.X + 120, yOffset + 25), Color.Yellow * 0.8f);
+
+                    if (isSelected)
+                    {
+                        string acceptText = "[ENTER] Accept";
+                        Vector2 accSize = _font.MeasureString(acceptText);
+                        spriteBatch.DrawString(_font, acceptText, new Vector2(mPanel.Right - accSize.X - 10, yOffset + 20), Color.Lime);
+                    }
+
+                    yOffset += 80;
+                }
+            }
+
+            string instructions = "UP/DOWN: Select | ENTER: Accept Mission | R: Refresh Board";
+            Vector2 instrSize = _font.MeasureString(instructions);
+            spriteBatch.DrawString(_font, instructions, new Vector2(centerX - instrSize.X / 2, screenHeight - 160), Color.White);
+        }
+
+        private void DrawActiveMissions(SpriteBatch spriteBatch, int screenWidth)
+        {
+            var activeMissions = _missionManager.ActiveMissions;
+            if (activeMissions.Count == 0) return;
+
+            int panelX = 20;
+            int panelY = 110;
+            int panelWidth = 350;
+            int lineHeight = 22;
+            int panelHeight = 30 + activeMissions.Count * (lineHeight * 2 + 10);
+
+            Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
+            spriteBatch.Draw(_pixel, panel, Color.Black * 0.7f);
+            spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 2), Color.Cyan);
+
+            spriteBatch.DrawString(_font, "ACTIVE MISSIONS", new Vector2(panelX + 10, panelY + 5), Color.Cyan);
+
+            int yOff = panelY + 30;
+            foreach (var m in activeMissions)
+            {
+                Color typeColor = m.Type switch
+                {
+                    MissionType.Delivery => Color.Cyan,
+                    MissionType.Bounty => Color.Red,
+                    MissionType.Escort => Color.Yellow,
+                    _ => Color.White
+                };
+
+                spriteBatch.DrawString(_font, $"[{m.Type}] {m.Description}", new Vector2(panelX + 10, yOff), typeColor);
+                yOff += lineHeight;
+
+                string detailStr = $"  Reward: {m.Reward:N0} CR";
+                if (m.TimeLimit > 0)
+                    detailStr += $" | Time: {m.TimeRemaining:F0}s";
+                spriteBatch.DrawString(_font, detailStr, new Vector2(panelX + 10, yOff), Color.LightGray * 0.8f);
+                yOff += lineHeight + 10;
+            }
+        }
+
+        /// <summary>
+        /// Handle input for bar NPC interactions
+        /// </summary>
+        public bool HandleBarInput(Microsoft.Xna.Framework.Input.KeyboardState keyboardState,
+                                    Microsoft.Xna.Framework.Input.KeyboardState prevKeyboardState)
+        {
+            if (_currentArea != StationArea.Bar) return false;
+
+            if (_isTalkingToNpc)
+            {
+                // In dialogue mode
+                if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Escape) &&
+                    prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Escape))
+                {
+                    if (_dialogueState == 1 && _offeredMission != null)
+                    {
+                        // Decline mission
+                        _dialogueLine = _currentTalkNpc.GetDeclineLine();
+                        _dialogueState = 2;
+                    }
+                    else
+                    {
+                        // Leave conversation
+                        _isTalkingToNpc = false;
+                        _currentTalkNpc = null;
+                        _offeredMission = null;
+                        _dialogueState = 0;
+                    }
+                    return true;
+                }
+
+                if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Enter) &&
+                    prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Enter))
+                {
+                    if (_dialogueState == 0)
+                    {
+                        // Advance to mission offer
+                        if (_currentTalkNpc.CurrentMission != null)
+                        {
+                            _dialogueLine = _currentTalkNpc.GetMissionOfferLine();
+                            _offeredMission = _currentTalkNpc.CurrentMission;
+                            _dialogueState = 1;
+                        }
+                        else
+                        {
+                            _dialogueLine = "I don't have any work right now. Check back later.";
+                            _dialogueState = 2;
+                        }
+                    }
+                    else if (_dialogueState == 1 && _offeredMission != null)
+                    {
+                        // Accept mission
+                        _offeredMission.OfferedBy = _currentTalkNpc.Name;
+                        bool accepted = _missionManager.AcceptMission(_offeredMission);
+                        if (accepted)
+                        {
+                            _currentTalkNpc.CurrentMission = null;
+                            _dialogueLine = "Good luck out there, pilot.";
+                        }
+                        else
+                        {
+                            _dialogueLine = "Looks like you already have that mission.";
+                        }
+                        _dialogueState = 2;
+                    }
+                    return true;
+                }
+            }
+            else
+            {
+                // NPC list selection mode
+                if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Up) &&
+                    prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Up))
+                {
+                    _selectedNpcIndex--;
+                    if (_selectedNpcIndex < 0) _selectedNpcIndex = _barNpcs.Count - 1;
+                    return true;
+                }
+
+                if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Down) &&
+                    prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Down))
+                {
+                    _selectedNpcIndex++;
+                    if (_selectedNpcIndex >= _barNpcs.Count) _selectedNpcIndex = 0;
+                    return true;
+                }
+
+                if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Enter) &&
+                    prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Enter))
+                {
+                    if (_barNpcs.Count > 0)
+                    {
+                        _currentTalkNpc = _barNpcs[_selectedNpcIndex];
+                        _isTalkingToNpc = true;
+                        _dialogueLine = _currentTalkNpc.GetGreeting();
+                        _dialogueState = 0;
+                        Console.WriteLine($"[BAR] Talking to {_currentTalkNpc.Name}");
+                    }
+                    return true;
+                }
+
+                // TAB to switch to job board
+                if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Tab) &&
+                    prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Tab))
+                {
+                    NavigateToArea(StationArea.JobBoard);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Handle input for job board
+        /// </summary>
+        public bool HandleJobBoardInput(Microsoft.Xna.Framework.Input.KeyboardState keyboardState,
+                                         Microsoft.Xna.Framework.Input.KeyboardState prevKeyboardState)
+        {
+            if (_currentArea != StationArea.JobBoard) return false;
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Up) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Up))
+            {
+                _jobBoard.MoveSelectionUp();
+                return true;
+            }
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Down) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Down))
+            {
+                _jobBoard.MoveSelectionDown();
+                return true;
+            }
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Enter) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Enter))
+            {
+                _jobBoard.AcceptSelectedMission();
+                return true;
+            }
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.R) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.R))
+            {
+                _jobBoard.RefreshMissions(6);
+                return true;
+            }
+
+            return false;
+        }
+
         private void DrawNavigationMenu(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
         {
             // Bottom navigation menu
             int menuY = screenHeight - 100;
-            int menuWidth = 900;
+            int menuWidth = 1000;
             int menuX = (screenWidth - menuWidth) / 2;
 
             Rectangle menuPanel = new Rectangle(menuX, menuY, menuWidth, 80);
@@ -584,8 +960,8 @@ namespace Roguelancer
             spriteBatch.Draw(_pixel, new Rectangle(menuPanel.X, menuPanel.Y, menuPanel.Width, 2), Color.Cyan);
 
             // Menu buttons
-            string[] menuItems = { "[1] Hangar", "[2] Bar", "[3] Equipment", "[4] Ships" };
-            StationArea[] areas = { StationArea.Hangar, StationArea.Bar, StationArea.Dealer, StationArea.ShipDealer };
+            string[] menuItems = { "[1] Hangar", "[2] Bar", "[3] Equipment", "[4] Ships", "[5] Jobs" };
+            StationArea[] areas = { StationArea.Hangar, StationArea.Bar, StationArea.Dealer, StationArea.ShipDealer, StationArea.JobBoard };
 
             int buttonWidth = menuWidth / menuItems.Length;
             for (int i = 0; i < menuItems.Length; i++)

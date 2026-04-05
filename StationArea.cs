@@ -23,6 +23,11 @@ namespace Roguelancer
         /// <summary>
         /// Ship dealer for buying new ships
         /// </summary>
-        ShipDealer
+        ShipDealer,
+
+        /// <summary>
+        /// Job board for browsing and accepting missions
+        /// </summary>
+        JobBoard
     }
 }

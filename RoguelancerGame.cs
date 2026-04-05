@@ -134,6 +134,12 @@ namespace Roguelancer {
         private ShipDealer _shipDealer;
         private CommodityDealer _commodityDealer;
 
+        // Mission system
+        private MissionManager _missionManager;
+
+        // NPC weapon system (NPC-to-player damage)
+        private NpcWeaponSystem _npcWeaponSystem;
+
         // Jump hole system
         private JumpHoleManager _jumpHoleManager;
         private int _currentSystemIndex = 1;
@@ -533,9 +539,15 @@ namespace Roguelancer {
             // Initialize commodity dealer
             _commodityDealer = new CommodityDealer();
 
+            // Initialize mission manager
+            _missionManager = new MissionManager(_playerCredits, _notificationManager);
+
+            // Initialize NPC weapon system
+            _npcWeaponSystem = new NpcWeaponSystem(GraphicsDevice);
+
             // Initialize station dock UI
             if (_font != null) {
-                _stationDockUI = new StationDockUI(_font, _pixel, _shipDealer, _commodityDealer);
+                _stationDockUI = new StationDockUI(_font, _pixel, _shipDealer, _commodityDealer, _missionManager);
                 _stationDockUI.OnUndock += HandleUndock;
                 _stationDockUI.OnShipPurchased += HandleShipPurchased;
             }
@@ -985,8 +997,11 @@ namespace Roguelancer {
             // Check lightning beam collisions (Wunderwafffle)
             _weaponSystem.CheckLightningCollisions(deltaTime);
 
-            // TODO: Check NPC weapon fire against player (when NPCs can fire)
-            // _npcWeaponSystem.CheckCollisions(_playerShip.Position, _playerShip.CollisionRadius, _playerShip.Hull);
+            // NPC weapon system: fire at player and check collisions
+            _npcWeaponSystem?.Update(gameTime, _npcShips, _playerShip);
+
+            // Update mission manager
+            _missionManager?.Update(deltaTime, _playerShip.Hull.IsDestroyed);
 
             // Update notification manager
             _notificationManager.Update(gameTime);
@@ -1147,6 +1162,12 @@ namespace Roguelancer {
 
             // Remove the destroyed ship from the list of targetable space objects
             _spaceObjects.Remove(destroyedShip);
+
+            // Notify mission manager of bounty kill
+            _missionManager?.NotifyTargetDestroyed(destroyedShip.Name);
+
+            // Clean up NPC weapon system tracking
+            _npcWeaponSystem?.RemoveNpc(destroyedShip);
         }
 
         /// <summary>
@@ -1195,6 +1216,18 @@ namespace Roguelancer {
                 }
             }
 
+            // Let bar handle its own input (NPC dialogue)
+            if (_stationDockUI?.CurrentArea == StationArea.Bar) {
+                bool handled = _stationDockUI.HandleBarInput(keyboardState, _prevKeys);
+                if (handled) return;
+            }
+
+            // Let job board handle its own input
+            if (_stationDockUI?.CurrentArea == StationArea.JobBoard) {
+                bool handled = _stationDockUI.HandleJobBoardInput(keyboardState, _prevKeys);
+                if (handled) return;
+            }
+
             // Navigate between areas
             if (keyboardState.IsKeyDown(Keys.D1) && _prevKeys.IsKeyUp(Keys.D1)) {
                 _stationDockUI?.NavigateToArea(StationArea.Hangar);
@@ -1204,6 +1237,8 @@ namespace Roguelancer {
                 _stationDockUI?.NavigateToArea(StationArea.Dealer);
             } else if (keyboardState.IsKeyDown(Keys.D4) && _prevKeys.IsKeyUp(Keys.D4)) {
                 _stationDockUI?.NavigateToArea(StationArea.ShipDealer);
+            } else if (keyboardState.IsKeyDown(Keys.D5) && _prevKeys.IsKeyUp(Keys.D5)) {
+                _stationDockUI?.NavigateToArea(StationArea.JobBoard);
             }
 
             // Undock with U key (only from hangar)
@@ -2205,6 +2240,9 @@ namespace Roguelancer {
             // Draw weapon projectiles
             _weaponSystem.Draw(_camera);
 
+            // Draw NPC weapon projectiles
+            _npcWeaponSystem?.Draw(_camera);
+
             // Draw tradelane energy effects
             if (_tradelaneManager != null && _camera != null) {
                 _tradelaneManager.DrawEnergyEffects(_camera.View, _camera.Projection);
@@ -2250,6 +2288,7 @@ namespace Roguelancer {
                     DrawSunDistanceIndicator();
                     DrawCrosshair();
                     DrawCoordinates();
+                    DrawActiveMissionsHUD();
 
                     // Draw jump hole proximity prompt
                     _jumpHoleManager?.DrawHUD(_spriteBatch);
@@ -2280,6 +2319,43 @@ namespace Roguelancer {
             Vector2 pos = new Vector2(10, 10);
             _spriteBatch.DrawString(_font, systemName, pos + Vector2.One, Color.Black * 0.5f);
             _spriteBatch.DrawString(_font, systemName, pos, Color.Gold);
+        }
+
+        /// <summary>
+        /// Draw active missions on the in-flight HUD
+        /// </summary>
+        private void DrawActiveMissionsHUD() {
+            if (_font == null || _missionManager == null) return;
+
+            var activeMissions = _missionManager.ActiveMissions;
+            if (activeMissions.Count == 0) return;
+
+            int panelX = 10;
+            int panelY = 40;
+            int panelWidth = 320;
+            int lineHeight = 20;
+            int panelHeight = 25 + activeMissions.Count * (lineHeight + 5);
+
+            _spriteBatch.Draw(_pixel, new Rectangle(panelX, panelY, panelWidth, panelHeight), Color.Black * 0.5f);
+            _spriteBatch.Draw(_pixel, new Rectangle(panelX, panelY, panelWidth, 2), Color.Cyan * 0.6f);
+
+            _spriteBatch.DrawString(_font, "MISSIONS", new Vector2(panelX + 5, panelY + 3), Color.Cyan * 0.8f);
+
+            int yOff = panelY + 22;
+            foreach (var m in activeMissions) {
+                Color typeColor = m.Type switch {
+                    MissionType.Delivery => Color.Cyan,
+                    MissionType.Bounty => Color.Red,
+                    MissionType.Escort => Color.Yellow,
+                    _ => Color.White
+                };
+
+                string summary = m.Description;
+                if (summary.Length > 35) summary = summary.Substring(0, 32) + "...";
+                string timeStr = m.TimeLimit > 0 ? $" [{m.TimeRemaining:F0}s]" : "";
+                _spriteBatch.DrawString(_font, $"{summary}{timeStr}", new Vector2(panelX + 5, yOff), typeColor * 0.8f);
+                yOff += lineHeight + 5;
+            }
         }
 
         /// <summary>
