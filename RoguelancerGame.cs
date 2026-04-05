@@ -300,7 +300,7 @@ namespace Roguelancer {
         protected override void Initialize() {
             float aspectRatio = GraphicsDevice.Viewport.AspectRatio;
             _camera = new Camera(aspectRatio);
-            _playerShip = new Ship(new Vector3(3000, 1500, 2000)); // Start closer to sun and station
+            _playerShip = new Ship(new Vector3(500, 200, -500)); // Start near Planet Manhattan
             Window.ClientSizeChanged += OnWindowFocusChanged;
             this.Activated += OnWindowActivated;
             this.Deactivated += OnWindowDeactivated;
@@ -346,7 +346,7 @@ namespace Roguelancer {
 
                 Console.WriteLine($"[SUN] INITIALIZED at position: {_sun.Position}, scale: {currentSystem.SunScale * 15.0f}, intensity: {currentSystem.SunIntensity * 3.0f}");
                 Console.WriteLine($"[SUN] Distance from origin: {_sun.Position.Length():F2} units");
-                Console.WriteLine($"[SUN] Player will start at: (3000, 1500, 2000) = ~2,828 units from sun");
+                Console.WriteLine($"[SUN] Player will start at: (500, 200, -500) near Planet Manhattan");
 
                 Console.WriteLine($"[PLANETS] Loaded {_planetManager.GetPlanets().Count} planets");
                 foreach (var planet in _planetManager.GetPlanets()) {
@@ -674,8 +674,8 @@ namespace Roguelancer {
                 return; // Skip the rest of the update logic
             }
 
-            // Toggle system map with ESC (before any other ESC handling)
-            if (keyboardState.IsKeyDown(Keys.Escape) && _prevKeys.IsKeyUp(Keys.Escape)) {
+            // Toggle system map with M
+            if (keyboardState.IsKeyDown(Keys.M) && _prevKeys.IsKeyUp(Keys.M)) {
                 if (_stationDockUI?.IsDocked != true && _jumpHoleManager?.IsInTransit != true) {
                     _systemMap?.Toggle();
                     Console.WriteLine($"[MAP] System map {(_systemMap?.IsVisible == true ? "OPENED" : "CLOSED")}");

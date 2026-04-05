@@ -1,0 +1,19 @@
+{
+  "name": "Jump Hole to Colorado",
+  "description": "A shimmering jump hole leading to the Colorado system",
+  "system_index": 1,
+  "target_system_index": 3,
+  "target_jumphole_name": "Jump Hole to New York",
+  "position_x": 16000.0,
+  "position_y": 200.0,
+  "position_z": -4000.0,
+  "radius": 300.0,
+  "activation_range": 180.0,
+  "ring_color_r": 120,
+  "ring_color_g": 200,
+  "ring_color_b": 80,
+  "core_color_r": 180,
+  "core_color_g": 255,
+  "core_color_b": 140,
+  "transit_duration": 4.0
+}

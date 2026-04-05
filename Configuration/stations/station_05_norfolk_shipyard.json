@@ -1,0 +1,20 @@
+{
+  "description": "Norfolk Shipyard",
+  "description_long": "Liberty Navy shipyard and repair facility. Restricted access for civilian vessels.",
+  "model_path": "STATIONS/spaceStation/source/p_887_spaceStation",
+  "system_index": 1,
+  "startup_position_x": 5000.0,
+  "startup_position_y": 400.0,
+  "startup_position_z": -6000.0,
+  "startup_model_rotation_x": 1.5708,
+  "startup_model_rotation_y": 0.0,
+  "startup_model_rotation_z": 0.0,
+  "radius": 2500.0,
+  "scale": 60.0,
+  "rotation_speed": 0.03,
+  "docking_range": 1800.0,
+  "docking_point_x": 0.0,
+  "docking_point_y": 0.0,
+  "docking_point_z": -140.0,
+  "docking_approach_distance": 450.0
+}

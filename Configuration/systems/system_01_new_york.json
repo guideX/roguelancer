@@ -1,31 +1,42 @@
 {
   "description": "New York System",
   "path": "new_york",
-  "sun_position_x": -3000.0,
-  "sun_position_y": 8000.0,
-  "sun_position_z": -18000.0,
-  "sun_scale": 2000.0,
+  "sun_position_x": -15000.0,
+  "sun_position_y": 2000.0,
+  "sun_position_z": -15000.0,
+  "sun_scale": 2500.0,
   "sun_intensity": 2.0,
   "sun_rotation_speed": 0.05,
   "npc_patrols": [
     {
-      "name": "Liberty Navy Patrol",
+      "name": "Liberty Navy Patrol Alpha",
       "ship_description": "Patrol Fighter 1",
       "count": 6,
-      "patrol_center_x": -3000.0,
+      "patrol_center_x": 0.0,
       "patrol_center_y": 0.0,
-      "patrol_center_z": -3000.0,
-      "patrol_radius": 10000.0,
+      "patrol_center_z": 0.0,
+      "patrol_radius": 8000.0,
       "patrol_speed": 200.0,
-      "spawn_radius": 5000.0
+      "spawn_radius": 4000.0
+    },
+    {
+      "name": "Liberty Navy Patrol Beta",
+      "ship_description": "Patrol Fighter 1",
+      "count": 4,
+      "patrol_center_x": 10000.0,
+      "patrol_center_y": 0.0,
+      "patrol_center_z": 10000.0,
+      "patrol_radius": 6000.0,
+      "patrol_speed": 200.0,
+      "spawn_radius": 3000.0
     },
     {
       "name": "Trade Convoy",
       "ship_description": "Starliner Transport",
       "count": 4,
-      "patrol_center_x": 0.0,
+      "patrol_center_x": 2000.0,
       "patrol_center_y": 0.0,
-      "patrol_center_z": 3000.0,
+      "patrol_center_z": 5000.0,
       "patrol_radius": 12000.0,
       "patrol_speed": 100.0,
       "spawn_radius": 6000.0
@@ -33,13 +44,24 @@
     {
       "name": "Badlands Patrol",
       "ship_description": "Warthog Fighter",
-      "count": 6,
-      "patrol_center_x": 3000.0,
+      "count": 8,
+      "patrol_center_x": -8000.0,
       "patrol_center_y": 0.0,
-      "patrol_center_z": 6000.0,
+      "patrol_center_z": 10000.0,
       "patrol_radius": 8000.0,
       "patrol_speed": 250.0,
-      "spawn_radius": 4000.0
+      "spawn_radius": 5000.0
+    },
+    {
+      "name": "Rogues Patrol",
+      "ship_description": "Warthog Fighter",
+      "count": 6,
+      "patrol_center_x": 14000.0,
+      "patrol_center_y": 0.0,
+      "patrol_center_z": -6000.0,
+      "patrol_radius": 6000.0,
+      "patrol_speed": 220.0,
+      "spawn_radius": 3500.0
     }
   ],
   "planets": [
@@ -48,6 +70,9 @@
       "radius": 120.0,
       "orbit_radius": 0.01,
       "orbit_speed": 0.0,
+      "position_x": 0.0,
+      "position_y": 0.0,
+      "position_z": 0.0,
       "surface_model_asset": "Models/planet_surface",
       "clouds_model_asset": "Models/planet_clouds",
       "atmosphere_model_asset": "Models/planet_atmosphere",
@@ -60,6 +85,9 @@
       "radius": 90.0,
       "orbit_radius": 0.01,
       "orbit_speed": 0.0,
+      "position_x": 12000.0,
+      "position_y": 0.0,
+      "position_z": 12000.0,
       "surface_model_asset": "Models/planet_surface",
       "clouds_model_asset": "Models/planet_clouds",
       "atmosphere_model_asset": "Models/planet_atmosphere",

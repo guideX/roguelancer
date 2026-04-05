@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace Roguelancer {
     /// <summary>
     /// Full-screen 2D system map overlay showing bases, jump holes, tradelanes, planets, and the sun.
-    /// Toggled on/off with ESC. Does NOT display individual ships.
+    /// Toggled on/off with M. Does NOT display individual ships.
     /// </summary>
     public class SystemMap {
         private SpriteFont _font;

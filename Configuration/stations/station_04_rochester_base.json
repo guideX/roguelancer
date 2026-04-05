@@ -1,0 +1,13 @@
+{
+  "description": "Rochester Base",
+  "description_long": "A hidden Junker base in the asteroid field near Pittsburgh. Deals in salvage and contraband.",
+  "model_path": "STATIONS/STATION1/STATION1",
+  "system_index": 1,
+  "startup_position_x": 14000.0,
+  "startup_position_y": -200.0,
+  "startup_position_z": 10000.0,
+  "startup_model_rotation_x": 0.0,
+  "startup_model_rotation_y": 0.785,
+  "startup_model_rotation_z": 0.0,
+  "radius": 800.0
+}

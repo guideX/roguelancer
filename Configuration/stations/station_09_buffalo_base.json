@@ -1,0 +1,13 @@
+{
+  "description": "Buffalo Base",
+  "description_long": "A Rogue pirate base hidden deep in the Badlands asteroid field. Offers black market goods and illegal services.",
+  "model_path": "STATIONS/STATION1/STATION1",
+  "system_index": 1,
+  "startup_position_x": -10000.0,
+  "startup_position_y": -400.0,
+  "startup_position_z": 12000.0,
+  "startup_model_rotation_x": 0.0,
+  "startup_model_rotation_y": 3.14,
+  "startup_model_rotation_z": 0.0,
+  "radius": 700.0
+}

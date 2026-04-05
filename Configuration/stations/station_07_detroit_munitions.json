@@ -1,0 +1,13 @@
+{
+  "description": "Detroit Munitions",
+  "description_long": "Ageira Technologies weapons manufacturing platform. Produces trade lane components and military ordnance.",
+  "model_path": "STATIONS/STATION1/STATION1",
+  "system_index": 1,
+  "startup_position_x": 8000.0,
+  "startup_position_y": -100.0,
+  "startup_position_z": 6000.0,
+  "startup_model_rotation_x": 0.0,
+  "startup_model_rotation_y": 0.0,
+  "startup_model_rotation_z": 0.0,
+  "radius": 900.0
+}

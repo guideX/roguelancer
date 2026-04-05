@@ -1,0 +1,19 @@
+{
+  "name": "Jump Hole to Texas",
+  "description": "An unstable vortex leading to the Texas system",
+  "system_index": 1,
+  "target_system_index": 4,
+  "target_jumphole_name": "Jump Hole to New York",
+  "position_x": 12000.0,
+  "position_y": -300.0,
+  "position_z": -14000.0,
+  "radius": 300.0,
+  "activation_range": 180.0,
+  "ring_color_r": 255,
+  "ring_color_g": 120,
+  "ring_color_b": 60,
+  "core_color_r": 255,
+  "core_color_g": 180,
+  "core_color_b": 100,
+  "transit_duration": 4.0
+}

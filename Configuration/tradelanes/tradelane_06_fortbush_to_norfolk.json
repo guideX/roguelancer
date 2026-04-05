@@ -1,0 +1,19 @@
+{
+  "name": "Fort Bush - Norfolk Shipyard Tradelane",
+  "description": "Military tradelane connecting Fort Bush to Norfolk Shipyard",
+  "system_index": 1,
+  "start_position_x": 2200.0,
+  "start_position_y": 220.0,
+  "start_position_z": -1800.0,
+  "end_position_x": 4800.0,
+  "end_position_y": 380.0,
+  "end_position_z": -5700.0,
+  "ring_spacing": 800.0,
+  "ring_scale": 5.0,
+  "activation_range": 200.0,
+  "travel_speed": 2200.0,
+  "ring_color_r": 150,
+  "ring_color_g": 150,
+  "ring_color_b": 255,
+  "model_path": "BASES/TRACK_RING/TRACK_RING"
+}

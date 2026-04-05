@@ -1,0 +1,19 @@
+{
+  "name": "Manhattan - Trenton Outpost Tradelane",
+  "description": "Tradelane connecting Planet Manhattan to Trenton Outpost near the Badlands",
+  "system_index": 1,
+  "start_position_x": -400.0,
+  "start_position_y": 100.0,
+  "start_position_z": 500.0,
+  "end_position_x": -5500.0,
+  "end_position_y": 280.0,
+  "end_position_z": 7500.0,
+  "ring_spacing": 1200.0,
+  "ring_scale": 5.0,
+  "activation_range": 200.0,
+  "travel_speed": 2000.0,
+  "ring_color_r": 100,
+  "ring_color_g": 255,
+  "ring_color_b": 150,
+  "model_path": "BASES/TRACK_RING/TRACK_RING"
+}

@@ -1,0 +1,19 @@
+{
+  "name": "Manhattan - Newark Station Tradelane",
+  "description": "Short-range tradelane connecting Planet Manhattan to Newark Station trade hub",
+  "system_index": 1,
+  "start_position_x": -400.0,
+  "start_position_y": -100.0,
+  "start_position_z": 300.0,
+  "end_position_x": -2200.0,
+  "end_position_y": -280.0,
+  "end_position_z": 1800.0,
+  "ring_spacing": 500.0,
+  "ring_scale": 5.0,
+  "activation_range": 200.0,
+  "travel_speed": 1800.0,
+  "ring_color_r": 255,
+  "ring_color_g": 220,
+  "ring_color_b": 100,
+  "model_path": "BASES/TRACK_RING/TRACK_RING"
+}

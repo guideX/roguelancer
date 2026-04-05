@@ -1,0 +1,19 @@
+{
+  "name": "Jump Hole to Magellan",
+  "description": "A faint jump hole leading to the Magellan system on the border of Liberty space",
+  "system_index": 1,
+  "target_system_index": 5,
+  "target_jumphole_name": "Jump Hole to New York",
+  "position_x": -14000.0,
+  "position_y": 100.0,
+  "position_z": -12000.0,
+  "radius": 300.0,
+  "activation_range": 180.0,
+  "ring_color_r": 180,
+  "ring_color_g": 100,
+  "ring_color_b": 220,
+  "core_color_r": 220,
+  "core_color_g": 160,
+  "core_color_b": 255,
+  "transit_duration": 4.5
+}
