@@ -31,6 +31,11 @@ namespace Roguelancer {
         private TradelaneRing _nearbyRing;
         private TradeLane _nearbyLane;
 
+        // Auto-orient approach state
+        private bool _isAutoOrienting;
+        private TradelaneRing _autoOrientTarget;
+        private TradeLane _autoOrientLane;
+
         /// <summary>
         /// Whether the player is currently traveling in a tradelane
         /// </summary>
@@ -165,14 +170,67 @@ namespace Roguelancer {
                 }
             }
 
+            // Auto-orient approach: when within AutoOrientRange, smoothly rotate and guide the ship
+            _isAutoOrienting = false;
+            _autoOrientTarget = null;
+            _autoOrientLane = null;
+
+            if (!IsInTransit && _nearbyRing != null && _nearbyLane != null) {
+                float distToRing = Vector3.Distance(playerPos, _nearbyRing.Position);
+                float autoOrientRange = _nearbyLane.Config.AutoOrientRange;
+                float activationRange = _nearbyLane.Config.ActivationRange;
+
+                if (distToRing <= autoOrientRange) {
+                    _isAutoOrienting = true;
+                    _autoOrientTarget = _nearbyRing;
+                    _autoOrientLane = _nearbyLane;
+
+                    // Determine the direction the ship should face to fly through the ring
+                    Vector3 travelDir = _nearbyRing.Direction == TradelaneRing.RingDirection.Forward
+                        ? _nearbyLane.LaneDirection
+                        : -_nearbyLane.LaneDirection;
+
+                    // Smoothly orient the ship toward the ring opening
+                    float orientStrength = 1f - MathHelper.Clamp((distToRing - activationRange) / (autoOrientRange - activationRange), 0f, 1f);
+                    float orientSpeed = 2.5f * orientStrength;
+
+                    Vector3 currentForward = playerShip.Forward;
+                    float alignment = Vector3.Dot(currentForward, travelDir);
+                    if (alignment < 0.999f) {
+                        Vector3 rotAxis = Vector3.Cross(currentForward, travelDir);
+                        if (rotAxis.LengthSquared() > 0.0001f) {
+                            rotAxis.Normalize();
+                            float angle = (float)Math.Acos(MathHelper.Clamp(alignment, -1f, 1f));
+                            float step = Math.Min(angle, orientSpeed * dt);
+                            playerShip.ApplyRotation(rotAxis, step);
+                        }
+                    }
+
+                    // Gently pull the ship toward the ring center (lateral correction)
+                    Vector3 toRingCenter = _nearbyRing.Position - playerPos;
+                    // Remove the component along the travel direction to get the lateral offset
+                    Vector3 lateralOffset = toRingCenter - travelDir * Vector3.Dot(toRingCenter, travelDir);
+                    if (lateralOffset.LengthSquared() > 1f) {
+                        float pullStrength = 80f * orientStrength;
+                        playerShip.Position += Vector3.Normalize(lateralOffset) * Math.Min(lateralOffset.Length(), pullStrength * dt);
+                    }
+                }
+            }
+
             // Check for tradelane activation (F5 key when near an entry ring)
             if (_nearbyRing != null && _nearbyLane != null &&
                 keyboardState.IsKeyDown(Keys.F5) && _prevKeys.IsKeyUp(Keys.F5)) {
-                if (_nearbyLane.StartTravel(_nearbyRing)) {
-                    _activeLane = _nearbyLane;
-                    // Orient the ship to face the tradelane travel direction
-                    playerShip.SetFacing(_nearbyLane.GetTravelForward());
-                    Console.WriteLine($"[TRADELANES] Player entered tradelane: {_nearbyLane.Config.Name}");
+                float distForActivation = Vector3.Distance(playerPos, _nearbyRing.Position);
+                if (distForActivation <= _nearbyLane.Config.DockingRange) {
+                    if (_nearbyLane.StartTravel(_nearbyRing)) {
+                        _activeLane = _nearbyLane;
+                        // Orient the ship to face the tradelane travel direction
+                        Vector3 dir = _nearbyRing.Direction == TradelaneRing.RingDirection.Forward
+                            ? _nearbyLane.LaneDirection
+                            : -_nearbyLane.LaneDirection;
+                        playerShip.SetFacing(dir);
+                        Console.WriteLine($"[TRADELANES] Player entered tradelane: {_nearbyLane.Config.Name}");
+                    }
                 }
             }
 
@@ -281,8 +339,24 @@ namespace Roguelancer {
                 int w = _graphicsDevice.Viewport.Width;
                 int h = _graphicsDevice.Viewport.Height;
 
-                string direction = _nearbyRing.Type == TradelaneRing.RingType.Start ? "forward" : "reverse";
-                string promptText = $"Press F5 to enter {_nearbyLane.Config.Name} ({direction})";
+                float distToRing = Vector3.Distance(
+                    new Vector3(w / 2f, h / 2f, 0), // placeholder; we use world distance below
+                    Vector3.Zero);
+
+                string direction = _nearbyRing.Direction == TradelaneRing.RingDirection.Forward ? "forward" : "reverse";
+                string ringLabel = _nearbyRing.Direction == TradelaneRing.RingDirection.Forward ? "TOP" : "BOTTOM";
+
+                // Show different prompts based on whether we're auto-orienting or close enough to dock
+                string promptText;
+                Color promptColor;
+                if (_isAutoOrienting) {
+                    promptText = $"Approaching {_nearbyLane.Config.Name} [{ringLabel}] ({direction})\nPress F5 to dock";
+                    promptColor = Color.Cyan;
+                } else {
+                    promptText = $"Press F5 to enter {_nearbyLane.Config.Name} [{ringLabel}] ({direction})";
+                    promptColor = Color.White;
+                }
+
                 Vector2 textSize = _font.MeasureString(promptText);
 
                 int boxW = (int)textSize.X + 40;
@@ -293,7 +367,7 @@ namespace Roguelancer {
                 // Background
                 spriteBatch.Draw(_pixel, new Rectangle(boxX, boxY, boxW, boxH), Color.Black * 0.7f);
                 // Border
-                Color borderColor = _nearbyLane.Config.RingColor;
+                Color borderColor = _isAutoOrienting ? Color.Cyan * 0.8f : _nearbyLane.Config.RingColor;
                 spriteBatch.Draw(_pixel, new Rectangle(boxX, boxY, boxW, 2), borderColor);
                 spriteBatch.Draw(_pixel, new Rectangle(boxX, boxY + boxH - 2, boxW, 2), borderColor);
                 spriteBatch.Draw(_pixel, new Rectangle(boxX, boxY, 2, boxH), borderColor);
@@ -301,7 +375,7 @@ namespace Roguelancer {
 
                 // Text
                 spriteBatch.DrawString(_font, promptText,
-                    new Vector2(boxX + 20, boxY + 10), Color.White);
+                    new Vector2(boxX + 20, boxY + 10), promptColor);
             }
         }
     }

@@ -6,22 +6,31 @@ using System.Collections.Generic;
 
 namespace Roguelancer {
     /// <summary>
-    /// A tradelane consisting of a sequence of rings between two endpoints.
+    /// A tradelane consisting of paired ring stacks between two endpoints.
+    /// At each position, two rings are stacked vertically:
+    ///   - Top ring: for forward travel (start -> end)
+    ///   - Bottom ring: for reverse travel (end -> start)
     /// Players dock at one end and are accelerated through the lane at high speed.
     /// If a ring is destroyed, the lane breaks and the ship is ejected.
-    /// 
-    /// The lane supports bidirectional travel:
-    ///   - Approach the Start ring to travel toward the End.
-    ///   - Approach the End ring to travel toward the Start.
     /// </summary>
     public class TradeLane {
         private GraphicsDevice _graphicsDevice;
         private TradelaneConfig _config;
 
         /// <summary>
-        /// All rings in order from start to end
+        /// All rings (both forward and reverse) for model assignment and rendering
         /// </summary>
         public List<TradelaneRing> Rings { get; } = new();
+
+        /// <summary>
+        /// Forward (top) rings in order from start to end, used for start->end travel
+        /// </summary>
+        public List<TradelaneRing> ForwardRings { get; } = new();
+
+        /// <summary>
+        /// Reverse (bottom) rings in order from start to end, used for end->start travel
+        /// </summary>
+        public List<TradelaneRing> ReverseRings { get; } = new();
 
         /// <summary>
         /// The configuration for this tradelane
@@ -39,12 +48,12 @@ namespace Roguelancer {
         public bool IsBroken { get; private set; }
 
         /// <summary>
-        /// Current ring index the ship is at (or heading toward)
+        /// Current ring index the ship is at (or heading toward) within the active ring list
         /// </summary>
         public int CurrentRingIndex { get; private set; }
 
         /// <summary>
-        /// Direction of travel: +1 = start to end, -1 = end to start
+        /// Direction of travel: +1 = start to end (forward rings), -1 = end to start (reverse rings)
         /// </summary>
         public int TravelDirection { get; private set; }
 
@@ -67,6 +76,9 @@ namespace Roguelancer {
         // Pulse cascade
         private int _lastPulsedRingIndex = -1;
 
+        // The active ring list during transit (forward or reverse)
+        private List<TradelaneRing> _activeRings;
+
         public TradeLane(GraphicsDevice graphicsDevice, TradelaneConfig config) {
             _graphicsDevice = graphicsDevice;
             _config = config;
@@ -75,22 +87,44 @@ namespace Roguelancer {
             float totalDistance = Vector3.Distance(config.StartPosition, config.EndPosition);
             int ringCount = Math.Max(2, (int)(totalDistance / config.RingSpacing) + 1);
 
+            // Compute the vertical offset direction (perpendicular to lane, along world up)
+            Vector3 upDir = Vector3.Up;
+            if (Math.Abs(Vector3.Dot(LaneDirection, Vector3.Up)) > 0.99f)
+                upDir = Vector3.Forward;
+            float halfOffset = config.RingVerticalOffset * 0.5f;
+
             for (int i = 0; i < ringCount; i++) {
                 float t = (float)i / (ringCount - 1);
-                Vector3 ringPosition = Vector3.Lerp(config.StartPosition, config.EndPosition, t);
+                Vector3 basePosition = Vector3.Lerp(config.StartPosition, config.EndPosition, t);
 
                 TradelaneRing.RingType type;
                 if (i == 0) type = TradelaneRing.RingType.Start;
                 else if (i == ringCount - 1) type = TradelaneRing.RingType.End;
                 else type = TradelaneRing.RingType.Intermediate;
 
-                string ringName = $"{config.Name} Ring {i + 1}";
-                var ring = new TradelaneRing(
-                    graphicsDevice, ringName, ringPosition,
+                // Top ring (forward direction: start -> end)
+                Vector3 topPosition = basePosition + upDir * halfOffset;
+                string topName = $"{config.Name} Ring {i + 1} (Fwd)";
+                var topRing = new TradelaneRing(
+                    graphicsDevice, topName, topPosition,
                     LaneDirection, type, i,
-                    config.RingScale, config.RingColor
+                    config.RingScale, config.RingColor,
+                    TradelaneRing.RingDirection.Forward
                 );
-                Rings.Add(ring);
+                ForwardRings.Add(topRing);
+                Rings.Add(topRing);
+
+                // Bottom ring (reverse direction: end -> start)
+                Vector3 bottomPosition = basePosition - upDir * halfOffset;
+                string bottomName = $"{config.Name} Ring {i + 1} (Rev)";
+                var bottomRing = new TradelaneRing(
+                    graphicsDevice, bottomName, bottomPosition,
+                    LaneDirection, type, i,
+                    config.RingScale, config.RingColor,
+                    TradelaneRing.RingDirection.Reverse
+                );
+                ReverseRings.Add(bottomRing);
+                Rings.Add(bottomRing);
             }
         }
 
@@ -104,62 +138,75 @@ namespace Roguelancer {
         }
 
         /// <summary>
-        /// Get all rings as SpaceObjects (for targeting)
+        /// Get entry/exit rings as SpaceObjects (for targeting).
+        /// Returns the forward start ring and the reverse end ring.
         /// </summary>
         public List<SpaceObject> GetRingsAsSpaceObjects() {
             var objects = new List<SpaceObject>();
-            // Add the start and end ring as targetable objects so players can GOTO them
-            if (Rings.Count > 0) {
-                objects.Add(Rings[0]);
+            // Forward entry: first forward ring (top, start position)
+            if (ForwardRings.Count > 0) {
+                objects.Add(ForwardRings[0]);
             }
-            if (Rings.Count > 1) {
-                objects.Add(Rings[Rings.Count - 1]);
+            // Reverse entry: last reverse ring (bottom, end position)
+            if (ReverseRings.Count > 0) {
+                objects.Add(ReverseRings[ReverseRings.Count - 1]);
             }
             return objects;
         }
 
         /// <summary>
-        /// Check if the player is near an entry ring (start or end) and return that ring
+        /// Check if the player is near an entry ring and return that ring.
+        /// Forward travel: approach the first forward (top) ring at the start.
+        /// Reverse travel: approach the last reverse (bottom) ring at the end.
+        /// Uses the extended DockingRange for detection.
         /// </summary>
         public TradelaneRing GetNearbyEntryRing(Vector3 playerPosition) {
-            if (Rings.Count == 0) return null;
+            float dockRange = _config.DockingRange;
 
-            // Check start ring
-            float distToStart = Vector3.Distance(playerPosition, Rings[0].Position);
-            if (distToStart <= _config.ActivationRange && !Rings[0].IsDestroyed) {
-                return Rings[0];
+            // Check forward entry (first forward/top ring)
+            if (ForwardRings.Count > 0 && !ForwardRings[0].IsDestroyed) {
+                float dist = Vector3.Distance(playerPosition, ForwardRings[0].Position);
+                if (dist <= dockRange) {
+                    return ForwardRings[0];
+                }
             }
 
-            // Check end ring
-            float distToEnd = Vector3.Distance(playerPosition, Rings[Rings.Count - 1].Position);
-            if (distToEnd <= _config.ActivationRange && !Rings[Rings.Count - 1].IsDestroyed) {
-                return Rings[Rings.Count - 1];
+            // Check reverse entry (last reverse/bottom ring)
+            if (ReverseRings.Count > 0 && !ReverseRings[ReverseRings.Count - 1].IsDestroyed) {
+                float dist = Vector3.Distance(playerPosition, ReverseRings[ReverseRings.Count - 1].Position);
+                if (dist <= dockRange) {
+                    return ReverseRings[ReverseRings.Count - 1];
+                }
             }
 
             return null;
         }
 
         /// <summary>
-        /// Initiate travel from the given entry ring
+        /// Initiate travel from the given entry ring.
+        /// Forward (top) ring at start ? travel start to end through ForwardRings.
+        /// Reverse (bottom) ring at end ? travel end to start through ReverseRings.
         /// </summary>
         public bool StartTravel(TradelaneRing entryRing) {
             if (IsActive || IsBroken) return false;
 
-            if (entryRing == Rings[0]) {
-                // Travel from start to end
+            if (entryRing.Direction == TradelaneRing.RingDirection.Forward && entryRing == ForwardRings[0]) {
+                // Travel forward (start -> end) using top rings
                 TravelDirection = 1;
+                _activeRings = ForwardRings;
                 CurrentRingIndex = 0;
-            } else if (entryRing == Rings[Rings.Count - 1]) {
-                // Travel from end to start
+            } else if (entryRing.Direction == TradelaneRing.RingDirection.Reverse && entryRing == ReverseRings[ReverseRings.Count - 1]) {
+                // Travel reverse (end -> start) using bottom rings
                 TravelDirection = -1;
-                CurrentRingIndex = Rings.Count - 1;
+                _activeRings = ReverseRings;
+                CurrentRingIndex = ReverseRings.Count - 1;
             } else {
                 return false;
             }
 
             IsActive = true;
             _lastPulsedRingIndex = CurrentRingIndex;
-            Rings[CurrentRingIndex].TriggerPulse();
+            _activeRings[CurrentRingIndex].TriggerPulse();
             AdvanceToNextRing();
 
             Console.WriteLine($"[TRADELANE] Travel started: {_config.Name} direction={TravelDirection}");
@@ -167,25 +214,26 @@ namespace Roguelancer {
         }
 
         /// <summary>
-        /// Set up interpolation to the next ring
+        /// Set up interpolation to the next ring in the active ring list
         /// </summary>
         private void AdvanceToNextRing() {
+            if (_activeRings == null) return;
             int nextIndex = CurrentRingIndex + TravelDirection;
 
             // Check if we've reached the end
-            if (nextIndex < 0 || nextIndex >= Rings.Count) {
+            if (nextIndex < 0 || nextIndex >= _activeRings.Count) {
                 CompleteTravel();
                 return;
             }
 
             // Check if the next ring is destroyed (lane break)
-            if (Rings[nextIndex].IsDestroyed) {
+            if (_activeRings[nextIndex].IsDestroyed) {
                 BreakLane();
                 return;
             }
 
-            _transitStartPos = Rings[CurrentRingIndex].Position;
-            _transitEndPos = Rings[nextIndex].Position;
+            _transitStartPos = _activeRings[CurrentRingIndex].Position;
+            _transitEndPos = _activeRings[nextIndex].Position;
             _transitProgress = 0f;
 
             float ringDistance = Vector3.Distance(_transitStartPos, _transitEndPos);
@@ -200,7 +248,7 @@ namespace Roguelancer {
         public void Update(GameTime gameTime, Vector3 playerPosition) {
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // Update all rings
+            // Update all rings (both forward and reverse)
             foreach (var ring in Rings) {
                 ring.Update(gameTime);
             }
@@ -219,12 +267,12 @@ namespace Roguelancer {
             NearbyEntryRing = GetNearbyEntryRing(playerPosition);
 
             // Update transit
-            if (IsActive) {
+            if (IsActive && _activeRings != null) {
                 _transitProgress += dt / _transitDuration;
 
                 if (_transitProgress >= 1f) {
                     // Arrived at current ring - pulse it and advance
-                    Rings[CurrentRingIndex].TriggerPulse();
+                    _activeRings[CurrentRingIndex].TriggerPulse();
                     _lastPulsedRingIndex = CurrentRingIndex;
                     AdvanceToNextRing();
                 }
@@ -251,6 +299,7 @@ namespace Roguelancer {
         /// </summary>
         private void CompleteTravel() {
             IsActive = false;
+            _activeRings = null;
             Console.WriteLine($"[TRADELANE] Travel complete: {_config.Name}");
         }
 
@@ -260,6 +309,7 @@ namespace Roguelancer {
         private void BreakLane() {
             IsActive = false;
             IsBroken = true;
+            _activeRings = null;
             Console.WriteLine($"[TRADELANE] Lane BROKEN: {_config.Name} at ring {CurrentRingIndex}");
         }
 

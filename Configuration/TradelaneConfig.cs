@@ -59,6 +59,25 @@ namespace Roguelancer.Configuration {
         public string ModelPath { get; set; } = "BASES/TRACK_RING/TRACK_RING";
 
         /// <summary>
+        /// Vertical offset between the top and bottom ring at each position.
+        /// Top ring travels forward (start->end), bottom ring travels reverse (end->start).
+        /// </summary>
+        [JsonPropertyName("ring_vertical_offset")]
+        public float RingVerticalOffset { get; set; } = 30f;
+
+        /// <summary>
+        /// Extended range at which the player can initiate docking with a tradelane ring.
+        /// </summary>
+        [JsonPropertyName("docking_range")]
+        public float DockingRange { get; set; } = 600f;
+
+        /// <summary>
+        /// Range at which the ship begins auto-orienting toward the ring opening.
+        /// </summary>
+        [JsonPropertyName("auto_orient_range")]
+        public float AutoOrientRange { get; set; } = 500f;
+
+        /// <summary>
         /// Helper to get start position as Vector3
         /// </summary>
         [JsonIgnore]

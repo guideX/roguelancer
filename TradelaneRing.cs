@@ -11,6 +11,11 @@ namespace Roguelancer {
     public class TradelaneRing : SpaceObject {
         public enum RingType { Start, Intermediate, End }
 
+        /// <summary>
+        /// Which direction this ring serves: Forward (start->end) on top, Reverse (end->start) on bottom.
+        /// </summary>
+        public enum RingDirection { Forward, Reverse }
+
         private GraphicsDevice _graphicsDevice;
         private BasicEffect _pulseEffect;
 
@@ -33,6 +38,11 @@ namespace Roguelancer {
         /// Index of this ring in the lane sequence
         /// </summary>
         public int Index { get; set; }
+
+        /// <summary>
+        /// Which direction this ring serves (Forward = top ring, Reverse = bottom ring)
+        /// </summary>
+        public RingDirection Direction { get; set; } = RingDirection.Forward;
 
         /// <summary>
         /// Scale applied when drawing the model
@@ -63,7 +73,7 @@ namespace Roguelancer {
         private const int PulseSegments = 32;
         private float _pulseRadius = 60f;
 
-        public TradelaneRing(GraphicsDevice graphicsDevice, string name, Vector3 position, Vector3 laneDirection, RingType type, int index, float scale, Color energyColor)
+        public TradelaneRing(GraphicsDevice graphicsDevice, string name, Vector3 position, Vector3 laneDirection, RingType type, int index, float scale, Color energyColor, RingDirection direction = RingDirection.Forward)
             : base(name, position, 100f) {
             _graphicsDevice = graphicsDevice;
             LaneDirection = laneDirection;
@@ -71,6 +81,7 @@ namespace Roguelancer {
             Index = index;
             Scale = scale;
             EnergyColor = energyColor;
+            Direction = direction;
             _ambientGlowPhase = index * 0.5f;
 
             _pulseEffect = new BasicEffect(graphicsDevice) {

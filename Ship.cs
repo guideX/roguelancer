@@ -881,6 +881,19 @@ namespace Roguelancer
             Orientation = Matrix.CreateFromQuaternion(_rotation);
         }
 
+        /// <summary>
+        /// Apply an incremental rotation around the given axis by the given angle (radians).
+        /// Used by tradelane auto-orient to smoothly steer the ship.
+        /// </summary>
+        public void ApplyRotation(Vector3 axis, float angleRadians)
+        {
+            if (axis.LengthSquared() < 0.0001f || Math.Abs(angleRadians) < 0.00001f) return;
+            Quaternion delta = Quaternion.CreateFromAxisAngle(axis, angleRadians);
+            _rotation *= delta;
+            _rotation.Normalize();
+            Orientation = Matrix.CreateFromQuaternion(_rotation);
+        }
+
         public void Reset()
         {
             IsAfterburnerActive = false;
