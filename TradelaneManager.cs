@@ -125,6 +125,13 @@ namespace Roguelancer {
         }
 
         /// <summary>
+        /// Get all active TradeLane objects for the current system
+        /// </summary>
+        public List<TradeLane> GetTradeLanes() {
+            return _tradeLanes;
+        }
+
+        /// <summary>
         /// Get all tradelane entry/exit rings as targetable SpaceObjects
         /// </summary>
         public List<SpaceObject> GetTradelaneSpaceObjects() {

@@ -75,7 +75,7 @@ namespace Roguelancer
 
                 var planet = new Planet(
                     planetConfig.Name,
-                    Vector3.Zero, // Initial position, will be updated by orbit
+                    new Vector3(planetConfig.PositionX, planetConfig.PositionY, planetConfig.PositionZ)
                     planetConfig.Radius,
                     surfaceModel,
                     cloudsModel,

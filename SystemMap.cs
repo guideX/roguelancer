@@ -21,6 +21,7 @@ namespace Roguelancer {
         // Cached references for drawing
         private List<SpaceObject> _spaceObjects;
         private List<JumpHole> _jumpHoles;
+        private List<TradeLane> _tradeLanes;
         private Vector3 _playerPosition;
         private string _systemName;
 
@@ -66,10 +67,12 @@ namespace Roguelancer {
         public void UpdateData(
             List<SpaceObject> spaceObjects,
             List<JumpHole> jumpHoles,
+            List<TradeLane> tradeLanes,
             Vector3 playerPosition,
             string systemName) {
             _spaceObjects = spaceObjects;
             _jumpHoles = jumpHoles;
+            _tradeLanes = tradeLanes;
             _playerPosition = playerPosition;
             _systemName = systemName;
         }
@@ -119,6 +122,9 @@ namespace Roguelancer {
                     new Vector2((screenW - instrSize.X) / 2, screenH - MapMargin + 8),
                     Color.Gray);
             }
+
+            // Draw tradelane routes (lines connecting rings)
+            DrawTradeLanes(spriteBatch, mapX, mapY, mapW, mapH);
 
             // Draw all non-ship space objects
             foreach (var obj in _spaceObjects) {
@@ -265,6 +271,68 @@ namespace Roguelancer {
                 labelPos.X = MathHelper.Clamp(labelPos.X, mapX + 2, mapX + mapW - labelSize.X - 2);
                 spriteBatch.DrawString(_font, label, labelPos + Vector2.One, Color.Black * 0.6f);
                 spriteBatch.DrawString(_font, label, labelPos, playerColor);
+            }
+        }
+
+        /// <summary>
+        /// Draw all tradelane routes as dashed lines with ring dots along each path.
+        /// </summary>
+        private void DrawTradeLanes(SpriteBatch spriteBatch, int mapX, int mapY, int mapW, int mapH) {
+            if (_tradeLanes == null || _tradeLanes.Count == 0) return;
+
+            Color laneLineColor = new Color(0, 200, 220) * 0.5f; // dim cyan line
+            Color ringDotColor = new Color(0, 220, 255);          // bright cyan dots
+            Color endpointColor = Color.White;                     // white for start/end
+
+            foreach (var lane in _tradeLanes) {
+                if (lane.Rings.Count < 2) continue;
+
+                // Draw connecting line from first ring to last ring
+                Vector2 startMap = WorldToMap(lane.Rings[0].Position, mapX, mapY, mapW, mapH);
+                Vector2 endMap = WorldToMap(lane.Rings[lane.Rings.Count - 1].Position, mapX, mapY, mapW, mapH);
+
+                startMap.X = MathHelper.Clamp(startMap.X, mapX + 2, mapX + mapW - 2);
+                startMap.Y = MathHelper.Clamp(startMap.Y, mapY + 2, mapY + mapH - 2);
+                endMap.X = MathHelper.Clamp(endMap.X, mapX + 2, mapX + mapW - 2);
+                endMap.Y = MathHelper.Clamp(endMap.Y, mapY + 2, mapY + mapH - 2);
+
+                // Draw the lane line
+                DrawMapLine(spriteBatch, startMap, endMap, laneLineColor);
+
+                // Draw a small dot for each ring along the path
+                for (int i = 0; i < lane.Rings.Count; i++) {
+                    var ring = lane.Rings[i];
+                    Vector2 ringMap = WorldToMap(ring.Position, mapX, mapY, mapW, mapH);
+                    ringMap.X = MathHelper.Clamp(ringMap.X, mapX + 2, mapX + mapW - 2);
+                    ringMap.Y = MathHelper.Clamp(ringMap.Y, mapY + 2, mapY + mapH - 2);
+
+                    bool isEndpoint = (ring.Type == TradelaneRing.RingType.Start || ring.Type == TradelaneRing.RingType.End);
+                    int dotSize = isEndpoint ? 5 : 3;
+                    Color dotColor = isEndpoint ? endpointColor : ringDotColor;
+
+                    spriteBatch.Draw(_pixel, new Rectangle(
+                        (int)ringMap.X - dotSize / 2, (int)ringMap.Y - dotSize / 2,
+                        dotSize, dotSize), dotColor);
+                }
+
+                // Label the lane name at the midpoint
+                if (_font != null) {
+                    Vector2 midMap = (startMap + endMap) / 2f;
+                    // Offset label slightly so it doesn't sit right on the line
+                    Vector2 lineDir = endMap - startMap;
+                    Vector2 perp = new Vector2(-lineDir.Y, lineDir.X);
+                    if (perp.LengthSquared() > 0) perp.Normalize();
+                    Vector2 labelPos = midMap + perp * 12f;
+
+                    string label = lane.Config.Name;
+                    Vector2 labelSize = _font.MeasureString(label);
+                    labelPos -= labelSize / 2f;
+                    labelPos.X = MathHelper.Clamp(labelPos.X, mapX + 2, mapX + mapW - labelSize.X - 2);
+                    labelPos.Y = MathHelper.Clamp(labelPos.Y, mapY + 2, mapY + mapH - labelSize.Y - 2);
+
+                    spriteBatch.DrawString(_font, label, labelPos + Vector2.One, Color.Black * 0.6f);
+                    spriteBatch.DrawString(_font, label, labelPos, new Color(0, 200, 220) * 0.8f);
+                }
             }
         }
 

@@ -685,7 +685,7 @@ namespace Roguelancer {
             // Update system map data and animation
             if (_systemMap != null) {
                 string sysName = _config.GetSystem(_currentSystemIndex)?.Description ?? $"System {_currentSystemIndex}";
-                _systemMap.UpdateData(_spaceObjects, _jumpHoleManager?.GetJumpHoles(), _playerShip.Position, sysName);
+                _systemMap.UpdateData(_spaceObjects, _jumpHoleManager?.GetJumpHoles(), _tradelaneManager?.GetTradeLanes(), _playerShip.Position, sysName);
                 _systemMap.Update(gameTime);
             }
 

@@ -17,6 +17,15 @@ namespace Roguelancer.Configuration
         [JsonPropertyName("orbit_speed")]
         public float OrbitSpeed { get; set; }
 
+        [JsonPropertyName("position_x")]
+        public float PositionX { get; set; } = 0f;
+
+        [JsonPropertyName("position_y")]
+        public float PositionY { get; set; } = 0f;
+
+        [JsonPropertyName("position_z")]
+        public float PositionZ { get; set; } = 0f;
+
         [JsonPropertyName("surface_model_asset")]
         public string SurfaceModelAsset { get; set; }
 
