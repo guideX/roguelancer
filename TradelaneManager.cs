@@ -339,10 +339,6 @@ namespace Roguelancer {
                 int w = _graphicsDevice.Viewport.Width;
                 int h = _graphicsDevice.Viewport.Height;
 
-                float distToRing = Vector3.Distance(
-                    new Vector3(w / 2f, h / 2f, 0), // placeholder; we use world distance below
-                    Vector3.Zero);
-
                 string direction = _nearbyRing.Direction == TradelaneRing.RingDirection.Forward ? "forward" : "reverse";
                 string ringLabel = _nearbyRing.Direction == TradelaneRing.RingDirection.Forward ? "TOP" : "BOTTOM";
 

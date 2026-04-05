@@ -15,5 +15,8 @@
   "ring_color_r": 150,
   "ring_color_g": 150,
   "ring_color_b": 255,
+  "ring_vertical_offset": 30.0,
+  "docking_range": 600.0,
+  "auto_orient_range": 500.0,
   "model_path": "BASES/TRACK_RING/TRACK_RING"
 }
