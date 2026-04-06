@@ -66,6 +66,9 @@ namespace Roguelancer
                 {
                     DrawProximityAlert(spriteBatch, viewport, data, missionColor);
                 }
+
+                // Draw compass arrow near top-center of screen pointing toward mission objective
+                DrawCompassArrow(spriteBatch, viewport, camera, targetPos, data);
             }
 
             // Draw next waypoint indicator for the first active mission with waypoints
@@ -102,27 +105,54 @@ namespace Roguelancer
                 ? data.Mission.Target
                 : data.Mission.Destination;
 
-            // Draw mission type tag
+            // Flashing green pulse
+            float flash = (float)Math.Abs(Math.Sin(_animationTime * 5.0));
+            Color greenFlash = Color.Lime * (0.6f + 0.4f * flash);
+
+            // Draw flashing green bracket around target
+            int bracketSize = 28 + (int)(6 * flash);
+            int bracketThick = 2;
+            Color bracketColor = greenFlash;
+
+            // Top-left corner
+            spriteBatch.Draw(_pixel, new Rectangle((int)screenPos.X - bracketSize, (int)screenPos.Y - bracketSize, 12, bracketThick), bracketColor);
+            spriteBatch.Draw(_pixel, new Rectangle((int)screenPos.X - bracketSize, (int)screenPos.Y - bracketSize, bracketThick, 12), bracketColor);
+            // Top-right corner
+            spriteBatch.Draw(_pixel, new Rectangle((int)screenPos.X + bracketSize - 12, (int)screenPos.Y - bracketSize, 12, bracketThick), bracketColor);
+            spriteBatch.Draw(_pixel, new Rectangle((int)screenPos.X + bracketSize, (int)screenPos.Y - bracketSize, bracketThick, 12), bracketColor);
+            // Bottom-left corner
+            spriteBatch.Draw(_pixel, new Rectangle((int)screenPos.X - bracketSize, (int)screenPos.Y + bracketSize, 12, bracketThick), bracketColor);
+            spriteBatch.Draw(_pixel, new Rectangle((int)screenPos.X - bracketSize, (int)screenPos.Y + bracketSize - 12, bracketThick, 12), bracketColor);
+            // Bottom-right corner
+            spriteBatch.Draw(_pixel, new Rectangle((int)screenPos.X + bracketSize - 12, (int)screenPos.Y + bracketSize, 12, bracketThick), bracketColor);
+            spriteBatch.Draw(_pixel, new Rectangle((int)screenPos.X + bracketSize, (int)screenPos.Y + bracketSize - 12, bracketThick, 12), bracketColor);
+
+            // Draw mission type tag with green background
             Vector2 tagSize = _font.MeasureString(typeTag);
-            Vector2 tagPos = new Vector2(screenPos.X - tagSize.X / 2, screenPos.Y - 50);
+            Vector2 tagPos = new Vector2(screenPos.X - tagSize.X / 2, screenPos.Y - 55);
 
-            // Background
+            // Background with green border
             spriteBatch.Draw(_pixel,
-                new Rectangle((int)tagPos.X - 4, (int)tagPos.Y - 2, (int)tagSize.X + 8, (int)tagSize.Y + 4),
-                Color.Black * 0.6f);
-            spriteBatch.DrawString(_font, typeTag, tagPos, color);
+                new Rectangle((int)tagPos.X - 6, (int)tagPos.Y - 3, (int)tagSize.X + 12, (int)tagSize.Y + 6),
+                Color.Black * 0.7f);
+            spriteBatch.Draw(_pixel,
+                new Rectangle((int)tagPos.X - 6, (int)tagPos.Y - 3, (int)tagSize.X + 12, 2),
+                greenFlash);
+            spriteBatch.Draw(_pixel,
+                new Rectangle((int)tagPos.X - 6, (int)tagPos.Y + (int)tagSize.Y + 1, (int)tagSize.X + 12, 2),
+                greenFlash);
+            spriteBatch.DrawString(_font, typeTag, tagPos, greenFlash);
 
-            // Draw distance below
+            // Draw distance below in bright green
             Vector2 distSize = _font.MeasureString(distText);
-            Vector2 distPos = new Vector2(screenPos.X - distSize.X / 2, screenPos.Y - 28);
-            spriteBatch.DrawString(_font, distText, distPos, Color.White * 0.9f);
+            Vector2 distPos = new Vector2(screenPos.X - distSize.X / 2, screenPos.Y - 30);
+            spriteBatch.DrawString(_font, distText, distPos, Color.Lime * 0.95f);
 
-            // Draw small diamond marker at screen position
-            int markerSize = 6;
-            float pulse = 0.7f + 0.3f * (float)Math.Sin(_animationTime * 4.0);
-            Color markerColor = color * pulse;
+            // Draw larger crosshair marker at screen position
+            int markerSize = 10;
+            Color markerColor = greenFlash;
 
-            // Diamond shape using rectangles rotated 45 degrees
+            // Crosshair lines
             spriteBatch.Draw(_pixel,
                 new Rectangle((int)screenPos.X - markerSize, (int)screenPos.Y - 1, markerSize * 2, 2),
                 markerColor);
@@ -149,7 +179,7 @@ namespace Roguelancer
             else
                 screenDir = Vector2.UnitX;
 
-            int edgeMargin = 60;
+            int edgeMargin = 80;
             Vector2 screenCenter = new Vector2(viewport.Width / 2f, viewport.Height / 2f);
             float halfWidth = viewport.Width / 2f - edgeMargin;
             float halfHeight = viewport.Height / 2f - edgeMargin;
@@ -160,34 +190,43 @@ namespace Roguelancer
 
             Vector2 arrowPos = screenCenter + screenDir * t;
 
-            float pulse = 0.6f + 0.4f * (float)Math.Sin(_animationTime * 3.0);
-            Color arrowColor = color * pulse;
+            // Flashing green for high visibility
+            float flash = (float)Math.Abs(Math.Sin(_animationTime * 5.0));
+            Color arrowColor = Color.Lime * (0.6f + 0.4f * flash);
 
-            // Draw arrow triangle
+            // Draw larger arrow triangle
             float arrowAngle = (float)Math.Atan2(screenDir.Y, screenDir.X);
             Vector2 arrowDir = new Vector2((float)Math.Cos(arrowAngle), (float)Math.Sin(arrowAngle));
             Vector2 arrowPerp = new Vector2(-arrowDir.Y, arrowDir.X);
 
-            Vector2 tip = arrowPos + arrowDir * 20f;
-            Vector2 left = arrowPos - arrowDir * 10f + arrowPerp * 12f;
-            Vector2 right = arrowPos - arrowDir * 10f - arrowPerp * 12f;
+            Vector2 tip = arrowPos + arrowDir * 30f;
+            Vector2 left = arrowPos - arrowDir * 15f + arrowPerp * 18f;
+            Vector2 right = arrowPos - arrowDir * 15f - arrowPerp * 18f;
 
-            // Simple filled arrow using lines
-            DrawLine(spriteBatch, tip, left, 3, arrowColor);
-            DrawLine(spriteBatch, tip, right, 3, arrowColor);
-            DrawLine(spriteBatch, left, right, 3, arrowColor);
+            // Filled arrow using thicker lines
+            DrawLine(spriteBatch, tip, left, 4, arrowColor);
+            DrawLine(spriteBatch, tip, right, 4, arrowColor);
+            DrawLine(spriteBatch, left, right, 4, arrowColor);
 
-            // Distance text near arrow
+            // Second smaller inner arrow for motion effect
+            float innerOffset = 8f + 6f * flash;
+            Vector2 tip2 = arrowPos + arrowDir * (30f - innerOffset);
+            Vector2 left2 = arrowPos - arrowDir * (15f - innerOffset * 0.5f) + arrowPerp * 12f;
+            Vector2 right2 = arrowPos - arrowDir * (15f - innerOffset * 0.5f) - arrowPerp * 12f;
+            DrawLine(spriteBatch, tip2, left2, 2, arrowColor * 0.6f);
+            DrawLine(spriteBatch, tip2, right2, 2, arrowColor * 0.6f);
+
+            // Distance text near arrow - larger and green
             string distText = FormatDistance(data.DistanceToTarget);
             Vector2 distSize = _font.MeasureString(distText);
-            Vector2 textPos = arrowPos - new Vector2(distSize.X / 2, 25);
+            Vector2 textPos = arrowPos - new Vector2(distSize.X / 2, 30);
             textPos.X = MathHelper.Clamp(textPos.X, 5, viewport.Width - distSize.X - 5);
             textPos.Y = MathHelper.Clamp(textPos.Y, 5, viewport.Height - distSize.Y - 5);
 
             spriteBatch.Draw(_pixel,
-                new Rectangle((int)textPos.X - 3, (int)textPos.Y - 1, (int)distSize.X + 6, (int)distSize.Y + 2),
-                Color.Black * 0.5f);
-            spriteBatch.DrawString(_font, distText, textPos, arrowColor * 0.9f);
+                new Rectangle((int)textPos.X - 4, (int)textPos.Y - 2, (int)distSize.X + 8, (int)distSize.Y + 4),
+                Color.Black * 0.6f);
+            spriteBatch.DrawString(_font, distText, textPos, Color.Lime * 0.95f);
 
             // Mission type indicator
             string typeChar = data.Mission.Type switch
@@ -205,15 +244,15 @@ namespace Roguelancer
         private void DrawProximityAlert(SpriteBatch spriteBatch, Viewport viewport,
             MissionGuidanceData data, Color color)
         {
-            float pulse = 0.5f + 0.5f * (float)Math.Sin(_animationTime * 5.0);
-            Color alertColor = color * pulse;
+            float flash = (float)Math.Abs(Math.Sin(_animationTime * 6.0));
+            Color alertColor = Color.Lime * (0.6f + 0.4f * flash);
 
             string alertText = data.Mission.Type switch
             {
-                MissionType.Delivery => "APPROACHING DESTINATION",
-                MissionType.Bounty => "TARGET NEARBY",
-                MissionType.Escort => "NEAR ESCORT WAYPOINT",
-                _ => "NEAR OBJECTIVE"
+                MissionType.Delivery => ">> APPROACHING DESTINATION <<",
+                MissionType.Bounty => ">> TARGET NEARBY <<",
+                MissionType.Escort => ">> NEAR ESCORT WAYPOINT <<",
+                _ => ">> NEAR OBJECTIVE <<"
             };
 
             string distText = FormatDistance(data.DistanceToTarget);
@@ -222,17 +261,27 @@ namespace Roguelancer
             Vector2 textSize = _font.MeasureString(alertText);
             Vector2 pos = new Vector2(
                 (viewport.Width - textSize.X) / 2,
-                viewport.Height * 0.15f);
+                viewport.Height * 0.12f);
 
-            // Background
+            // Flashing green background panel
             spriteBatch.Draw(_pixel,
-                new Rectangle((int)pos.X - 10, (int)pos.Y - 5, (int)textSize.X + 20, (int)textSize.Y + 10),
-                Color.Black * 0.6f * pulse);
+                new Rectangle((int)pos.X - 14, (int)pos.Y - 6, (int)textSize.X + 28, (int)textSize.Y + 12),
+                Color.Black * 0.7f);
+            // Green border top
             spriteBatch.Draw(_pixel,
-                new Rectangle((int)pos.X - 10, (int)pos.Y - 5, (int)textSize.X + 20, 2),
+                new Rectangle((int)pos.X - 14, (int)pos.Y - 6, (int)textSize.X + 28, 3),
                 alertColor);
+            // Green border bottom
             spriteBatch.Draw(_pixel,
-                new Rectangle((int)pos.X - 10, (int)pos.Y + (int)textSize.Y + 3, (int)textSize.X + 20, 2),
+                new Rectangle((int)pos.X - 14, (int)pos.Y + (int)textSize.Y + 4, (int)textSize.X + 28, 3),
+                alertColor);
+            // Green border left
+            spriteBatch.Draw(_pixel,
+                new Rectangle((int)pos.X - 14, (int)pos.Y - 6, 3, (int)textSize.Y + 15),
+                alertColor);
+            // Green border right
+            spriteBatch.Draw(_pixel,
+                new Rectangle((int)pos.X + (int)textSize.X + 12, (int)pos.Y - 6, 3, (int)textSize.Y + 15),
                 alertColor);
 
             spriteBatch.DrawString(_font, alertText, pos, alertColor);
@@ -301,6 +350,63 @@ namespace Roguelancer
                 MissionType.Escort => new Color(255, 200, 50),
                 _ => Color.White
             };
+        }
+
+        /// <summary>
+        /// Draw a persistent compass arrow near the top-center of the screen that always points
+        /// toward the active mission objective, with distance and label
+        /// </summary>
+        private void DrawCompassArrow(SpriteBatch spriteBatch, Viewport viewport, Camera camera,
+            Vector3 targetWorldPos, MissionGuidanceData data)
+        {
+            // Calculate direction from camera to target in camera space
+            Vector3 targetDir = targetWorldPos - camera.Position;
+            if (targetDir.LengthSquared() < 0.001f) return;
+            targetDir.Normalize();
+
+            Matrix viewMatrix = camera.View;
+            Vector3 camSpace = Vector3.TransformNormal(targetDir, viewMatrix);
+
+            // 2D direction on screen (X = right, Y = up in screen coords)
+            Vector2 dir2D = new Vector2(camSpace.X, -camSpace.Y);
+            if (camSpace.Z > 0) dir2D = -dir2D; // Target is behind camera
+            if (dir2D.LengthSquared() < 0.0001f) dir2D = Vector2.UnitY;
+            dir2D.Normalize();
+
+            // Position: top-center area of screen
+            float compassY = 55f;
+            Vector2 compassCenter = new Vector2(viewport.Width / 2f, compassY);
+
+            float flash = (float)Math.Abs(Math.Sin(_animationTime * 4.5));
+            Color arrowColor = Color.Lime * (0.7f + 0.3f * flash);
+
+            // Draw compass arrow pointing toward target
+            float arrowLen = 22f;
+            float arrowWidth = 14f;
+            Vector2 tip = compassCenter + dir2D * arrowLen;
+            Vector2 perp = new Vector2(-dir2D.Y, dir2D.X);
+            Vector2 left = compassCenter - dir2D * 8f + perp * arrowWidth * 0.5f;
+            Vector2 right = compassCenter - dir2D * 8f - perp * arrowWidth * 0.5f;
+
+            DrawLine(spriteBatch, tip, left, 3, arrowColor);
+            DrawLine(spriteBatch, tip, right, 3, arrowColor);
+            DrawLine(spriteBatch, left, right, 2, arrowColor * 0.7f);
+
+            // Draw label below compass
+            string label = data.Mission.Type == MissionType.Bounty
+                ? data.Mission.Target
+                : data.Mission.Destination;
+            if (label.Length > 20) label = label.Substring(0, 17) + "...";
+            string distStr = FormatDistance(data.DistanceToTarget);
+            string compassText = $"? {label} - {distStr}";
+
+            Vector2 textSize = _font.MeasureString(compassText);
+            Vector2 textPos = new Vector2(viewport.Width / 2f - textSize.X / 2f, compassY + 28f);
+
+            spriteBatch.Draw(_pixel,
+                new Rectangle((int)textPos.X - 5, (int)textPos.Y - 2, (int)textSize.X + 10, (int)textSize.Y + 4),
+                Color.Black * 0.6f);
+            spriteBatch.DrawString(_font, compassText, textPos, arrowColor * 0.9f);
         }
     }
 }

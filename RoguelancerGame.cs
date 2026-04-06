@@ -1198,12 +1198,13 @@ namespace Roguelancer {
         }
 
         /// <summary>
-        /// Handle targeting input (T, Shift+T, Ctrl+T for cycling targets, G for GOTO)
+        /// Handle targeting input (T, Shift+T, Ctrl+T for cycling targets, H for hostile-only targeting, G for GOTO)
         /// </summary>
         private void HandleTargetingInput(KeyboardState keyboardState) {
             bool tPressed = keyboardState.IsKeyDown(Keys.T) && _prevKeys.IsKeyUp(Keys.T);
             bool shiftT = tPressed && (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift));
             bool ctrlT = tPressed && (keyboardState.IsKeyDown(Keys.LeftControl) || keyboardState.IsKeyDown(Keys.RightControl));
+            bool hPressed = keyboardState.IsKeyDown(Keys.H) && _prevKeys.IsKeyUp(Keys.H);
             bool gPressed = keyboardState.IsKeyDown(Keys.G) && _prevKeys.IsKeyUp(Keys.G);
 
             // T key: Cycle to next target
@@ -1212,6 +1213,27 @@ namespace Roguelancer {
                 var selectedObject = _spaceObjects[_selectedSpaceObjectIndex];
                 _notificationManager?.ShowMessage($"Target: {selectedObject.Name}");
                 Console.WriteLine($"[TARGETING] Selected: {selectedObject.Name}");
+            }
+
+            // H key: Cycle to next hostile target (NPC ships only)
+            if (hPressed && _spaceObjects.Count > 0) {
+                int startIndex = _selectedSpaceObjectIndex;
+                int current = startIndex;
+                bool found = false;
+                for (int i = 0; i < _spaceObjects.Count; i++) {
+                    current = (startIndex + 1 + i) % _spaceObjects.Count;
+                    if (_spaceObjects[current] is NpcShip npcTarget && !npcTarget.IsDestroyed) {
+                        _selectedSpaceObjectIndex = current;
+                        _notificationManager?.ShowMessage($"Hostile Target: {npcTarget.Name}");
+                        Console.WriteLine($"[TARGETING] Hostile Selected: {npcTarget.Name}");
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    _notificationManager?.ShowMessage("No hostile targets");
+                    Console.WriteLine("[TARGETING] No hostile targets found");
+                }
             }
 
             // G key: GOTO selected target

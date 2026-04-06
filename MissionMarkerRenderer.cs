@@ -82,20 +82,20 @@ namespace Roguelancer
         private void DrawBeacon(Vector3 position, Color color, float distanceToPlayer)
         {
             // Scale beacon size based on distance (bigger when far away for visibility)
-            float baseSize = 40f;
-            float distanceScale = MathHelper.Clamp(distanceToPlayer / 5000f, 0.5f, 4f);
-            float pulse = 0.8f + 0.2f * (float)Math.Sin(_animationTime * 3.0);
+            float baseSize = 60f;
+            float distanceScale = MathHelper.Clamp(distanceToPlayer / 4000f, 0.6f, 5f);
+            float pulse = 0.7f + 0.3f * (float)Math.Sin(_animationTime * 4.0);
             float size = baseSize * distanceScale * pulse;
 
             // Rotate the beacon
-            float rotation = _animationTime * 1.5f;
+            float rotation = _animationTime * 2.0f;
 
             // Build diamond shape (two pyramids joined at base)
             var vertices = new List<VertexPositionColor>();
-            Color beaconColor = color * (0.7f + 0.3f * pulse);
+            Color beaconColor = color * (0.8f + 0.2f * pulse);
 
-            Vector3 top = position + Vector3.Up * size * 2f;
-            Vector3 bottom = position - Vector3.Up * size * 2f;
+            Vector3 top = position + Vector3.Up * size * 2.5f;
+            Vector3 bottom = position - Vector3.Up * size * 2.5f;
 
             for (int i = 0; i < DiamondSegments; i++)
             {
@@ -114,13 +114,13 @@ namespace Roguelancer
 
                 // Top pyramid
                 vertices.Add(new VertexPositionColor(top, beaconColor));
-                vertices.Add(new VertexPositionColor(p1, beaconColor * 0.5f));
-                vertices.Add(new VertexPositionColor(p2, beaconColor * 0.5f));
+                vertices.Add(new VertexPositionColor(p1, beaconColor * 0.6f));
+                vertices.Add(new VertexPositionColor(p2, beaconColor * 0.6f));
 
                 // Bottom pyramid
                 vertices.Add(new VertexPositionColor(bottom, beaconColor));
-                vertices.Add(new VertexPositionColor(p2, beaconColor * 0.5f));
-                vertices.Add(new VertexPositionColor(p1, beaconColor * 0.5f));
+                vertices.Add(new VertexPositionColor(p2, beaconColor * 0.6f));
+                vertices.Add(new VertexPositionColor(p1, beaconColor * 0.6f));
             }
 
             if (vertices.Count >= 3)
@@ -136,14 +136,14 @@ namespace Roguelancer
             }
 
             // Draw vertical beam line extending up and down
-            float beamHeight = size * 6f;
-            Color beamColor = color * (0.3f + 0.15f * pulse);
+            float beamHeight = size * 8f;
+            Color beamColor = color * (0.4f + 0.2f * pulse);
             var beamVertices = new VertexPositionColor[]
             {
-                new(position + Vector3.Up * beamHeight, beamColor * 0.1f),
+                new(position + Vector3.Up * beamHeight, beamColor * 0.15f),
                 new(position, beamColor),
                 new(position, beamColor),
-                new(position - Vector3.Up * beamHeight, beamColor * 0.1f)
+                new(position - Vector3.Up * beamHeight, beamColor * 0.15f)
             };
 
             _effect.World = Matrix.Identity;
@@ -151,6 +151,71 @@ namespace Roguelancer
             {
                 pass.Apply();
                 _graphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, beamVertices, 0, 2);
+            }
+
+            // Draw flashing green outer rings that pulse outward
+            DrawFlashingRings(position, size, distanceToPlayer);
+        }
+
+        /// <summary>
+        /// Draw flashing green rings around the beacon to make mission targets unmissable
+        /// </summary>
+        private void DrawFlashingRings(Vector3 position, float beaconSize, float distanceToPlayer)
+        {
+            int ringCount = 3;
+            int segments = 32;
+            float flashRate = 5.0f;
+            float ringScale = MathHelper.Clamp(distanceToPlayer / 3000f, 1f, 4f);
+
+            for (int r = 0; r < ringCount; r++)
+            {
+                float phase = _animationTime * flashRate + r * MathHelper.TwoPi / ringCount;
+                float expand = (float)((Math.Sin(phase) + 1.0) * 0.5); // 0..1 pulsing
+                float ringRadius = beaconSize * (1.5f + expand * 2.0f) * ringScale;
+                float alpha = 0.4f + 0.6f * (1f - expand); // Brighter when small
+                float flash = (float)Math.Abs(Math.Sin(_animationTime * 6.0 + r * 1.2));
+                Color ringColor = Color.Lime * alpha * (0.5f + 0.5f * flash);
+
+                var ringVerts = new VertexPositionColor[segments * 2];
+                for (int i = 0; i < segments; i++)
+                {
+                    float a1 = (float)i / segments * MathHelper.TwoPi;
+                    float a2 = (float)(i + 1) / segments * MathHelper.TwoPi;
+
+                    ringVerts[i * 2] = new VertexPositionColor(
+                        position + new Vector3((float)Math.Cos(a1) * ringRadius, 0, (float)Math.Sin(a1) * ringRadius),
+                        ringColor);
+                    ringVerts[i * 2 + 1] = new VertexPositionColor(
+                        position + new Vector3((float)Math.Cos(a2) * ringRadius, 0, (float)Math.Sin(a2) * ringRadius),
+                        ringColor);
+                }
+
+                _effect.World = Matrix.Identity;
+                foreach (var pass in _effect.CurrentTechnique.Passes)
+                {
+                    pass.Apply();
+                    _graphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, ringVerts, 0, segments);
+                }
+
+                // Draw a second ring tilted vertically for 3D visibility
+                for (int i = 0; i < segments; i++)
+                {
+                    float a1 = (float)i / segments * MathHelper.TwoPi;
+                    float a2 = (float)(i + 1) / segments * MathHelper.TwoPi;
+
+                    ringVerts[i * 2] = new VertexPositionColor(
+                        position + new Vector3((float)Math.Cos(a1) * ringRadius, (float)Math.Sin(a1) * ringRadius, 0),
+                        ringColor * 0.7f);
+                    ringVerts[i * 2 + 1] = new VertexPositionColor(
+                        position + new Vector3((float)Math.Cos(a2) * ringRadius, (float)Math.Sin(a2) * ringRadius, 0),
+                        ringColor * 0.7f);
+                }
+
+                foreach (var pass in _effect.CurrentTechnique.Passes)
+                {
+                    pass.Apply();
+                    _graphicsDevice.DrawUserPrimitives(PrimitiveType.LineList, ringVerts, 0, segments);
+                }
             }
         }
 
@@ -161,9 +226,9 @@ namespace Roguelancer
         {
             if (data.Waypoints.Count == 0) return;
 
-            Color pathColor = Color.Lime * 0.6f;
-            float arrowSpacing = 400f;
-            float arrowSize = 15f;
+            Color pathColor = Color.Lime * 0.9f;
+            float arrowSpacing = 250f;
+            float arrowSize = 30f;
 
             // Build path segments: player -> waypoint1 -> waypoint2 -> ... -> target
             Vector3 prevPoint = playerPos;
@@ -180,18 +245,19 @@ namespace Roguelancer
 
                 Vector3 direction = Vector3.Normalize(nextPoint - prevPoint);
 
-                // Color tradelane segments differently
+                // Color tradelane segments differently - all bright for visibility
+                float segFlash = 0.7f + 0.3f * (float)Math.Sin(_animationTime * 5.0);
                 Color segColor = waypoint.Type switch
                 {
-                    MissionWaypointType.TradelaneEntry => Color.Cyan * 0.5f,
-                    MissionWaypointType.TradelaneExit => Color.Cyan * 0.5f,
-                    MissionWaypointType.Destination => missionColor * 0.5f,
-                    _ => pathColor
+                    MissionWaypointType.TradelaneEntry => Color.Cyan * 0.8f * segFlash,
+                    MissionWaypointType.TradelaneExit => Color.Cyan * 0.7f * segFlash,
+                    MissionWaypointType.Destination => Color.Lime * 0.9f * segFlash,
+                    _ => pathColor * segFlash
                 };
 
-                // Draw arrows along this segment
-                int arrowCount = Math.Max(1, (int)(segmentLength / arrowSpacing));
-                arrowCount = Math.Min(arrowCount, 25); // Cap to avoid too many arrows
+                // Draw arrows along this segment - more arrows, closer together
+                int arrowCount = Math.Max(2, (int)(segmentLength / arrowSpacing));
+                arrowCount = Math.Min(arrowCount, 40); // Allow more arrows for long paths
 
                 for (int i = 1; i <= arrowCount; i++)
                 {
@@ -244,10 +310,11 @@ namespace Roguelancer
         /// </summary>
         private void DrawProximityHalo(Vector3 position, Color color, float distance)
         {
-            // Halo gets brighter and tighter as player approaches
-            float intensity = MathHelper.Clamp(1f - distance / 2000f, 0.1f, 1f);
-            float haloSize = 80f + 20f * (float)Math.Sin(_animationTime * 2.5);
-            Color haloColor = color * intensity * 0.5f;
+            // Halo gets brighter and tighter as player approaches - flash green!
+            float intensity = MathHelper.Clamp(1f - distance / 2000f, 0.2f, 1f);
+            float flash = (float)Math.Abs(Math.Sin(_animationTime * 6.0));
+            float haloSize = 120f + 40f * (float)Math.Sin(_animationTime * 3.0);
+            Color haloColor = Color.Lime * intensity * (0.6f + 0.4f * flash);
 
             int segments = 24;
             var vertices = new VertexPositionColor[segments * 2];
