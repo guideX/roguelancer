@@ -287,9 +287,9 @@ namespace Roguelancer
             var lanes = _tradelaneManager.GetTradeLanes();
             if (lanes == null || lanes.Count == 0) return;
 
-            // Find the lane whose midpoint is roughly between us and the target, and
-            // whose travel direction reduces total distance.
-            float bestSaving = 500f;    // must save at least this many units
+            // Find the lane that provides the best time saving or brings us significantly closer to destination
+            // Lower threshold to catch more useful tradelanes
+            float bestScore = 0f;    // Best score (higher is better - represents time saved in seconds)
             TradeLane bestLane = null;
             TradelaneRing bestEntry = null;
 
@@ -298,8 +298,8 @@ namespace Roguelancer
                 if (lane.IsBroken) continue;
 
                 // Check both directions
-                CheckLaneDirection(start, end, lane, lane.ForwardRings, ref bestSaving, ref bestLane, ref bestEntry);
-                CheckLaneDirection(start, end, lane, lane.ReverseRings, ref bestSaving, ref bestLane, ref bestEntry);
+                CheckLaneDirection(start, end, lane, lane.ForwardRings, ref bestScore, ref bestLane, ref bestEntry);
+                CheckLaneDirection(start, end, lane, lane.ReverseRings, ref bestScore, ref bestLane, ref bestEntry);
             }
 
             if (bestLane == null || bestEntry == null) return;
@@ -336,30 +336,57 @@ namespace Roguelancer
             Vector3 start, Vector3 end,
             TradeLane lane,
             List<TradelaneRing> rings,
-            ref float bestSaving, ref TradeLane bestLane, ref TradelaneRing bestEntry)
+            ref float bestScore, ref TradeLane bestLane, ref TradelaneRing bestEntry)
         {
             if (rings == null || rings.Count < 2) return;
 
             TradelaneRing entryRing = rings[0];
             TradelaneRing exitRing = rings[rings.Count - 1];
 
-            // Naïve travel time comparison (straight-line distances)
-            float directDist = Vector3.Distance(start, end);
-            float viaLane = Vector3.Distance(start, entryRing.Position)
-                          + Vector3.Distance(entryRing.Position, exitRing.Position) / (lane.Config.TravelSpeed / lane.Config.TravelSpeed) // normalised
-                          + Vector3.Distance(exitRing.Position, end);
+            if (entryRing.IsDestroyed) return;
 
-            // Correct for travel-speed ratio: time via lane
             float shipSpeed = _ship.CruiseSpeed;
-            float timeViaLane = Vector3.Distance(start, entryRing.Position) / shipSpeed
-                              + Vector3.Distance(entryRing.Position, exitRing.Position) / lane.Config.TravelSpeed
-                              + Vector3.Distance(exitRing.Position, end) / shipSpeed;
+            float directDist = Vector3.Distance(start, end);
+            float distToEntry = Vector3.Distance(start, entryRing.Position);
+            float distExitToEnd = Vector3.Distance(exitRing.Position, end);
+            float laneLength = Vector3.Distance(entryRing.Position, exitRing.Position);
+
+            // Calculate travel time via lane
+            float timeToEntry = distToEntry / shipSpeed;
+            float timeInLane = laneLength / lane.Config.TravelSpeed;
+            float timeFromExit = distExitToEnd / shipSpeed;
+            float timeViaLane = timeToEntry + timeInLane + timeFromExit;
+
+            // Calculate direct travel time
             float timeDirect = directDist / shipSpeed;
 
-            float saving = timeDirect - timeViaLane;
-            if (saving > bestSaving && !entryRing.IsDestroyed)
+            // Base score: time saved (in seconds)
+            float timeSaving = timeDirect - timeViaLane;
+            float score = timeSaving;
+
+            // Bonus 1: If exit ring is very close to destination (within 2km), add significant bonus
+            // This handles cases where tradelane deposits you near the target
+            if (distExitToEnd < 2000f)
             {
-                bestSaving = saving;
+                float proximityBonus = (2000f - distExitToEnd) / 100f; // Up to 20 second bonus
+                score += proximityBonus;
+            }
+
+            // Bonus 2: If tradelane brings us significantly closer (covers >60% of distance), add bonus
+            float progressRatio = (directDist - distExitToEnd) / directDist;
+            if (progressRatio > 0.6f && laneLength > 3000f)
+            {
+                float progressBonus = (progressRatio - 0.6f) * 50f; // Up to 20 second bonus
+                score += progressBonus;
+            }
+
+            // Only accept if we actually save time OR get close enough to destination
+            // Minimum threshold: save at least 2 seconds OR exit within 2km of target
+            bool worthUsing = (timeSaving > 2f) || (distExitToEnd < 2000f && timeSaving > -5f);
+
+            if (worthUsing && score > bestScore)
+            {
+                bestScore = score;
                 bestLane = lane;
                 bestEntry = entryRing;
             }
@@ -453,6 +480,10 @@ namespace Roguelancer
             
             float dist = Vector3.Distance(_ship.Position, rawTarget);
             
+            // Check if this is a tradelane ring approach (next node will be TradelaneEntry)
+            bool isTradelaneApproach = node.Reference is TradelaneRing || 
+                                       (_nodeIndex + 1 < _route.Count && _route[_nodeIndex + 1].Type == NodeType.TradelaneEntry);
+            
             // Only manage speed when reasonably aligned to prevent erratic movement
             Vector3 toTarget = rawTarget - _ship.Position;
             if (toTarget.LengthSquared() > 0.001f)
@@ -464,16 +495,18 @@ namespace Roguelancer
                 
                 if (alignment > 0.7f)
                 {
-                    ManageSpeed(dist, node.ArrivalRadius, isTrdelane: false);
+                    ManageSpeed(dist, node.ArrivalRadius, isTrdelane: isTradelaneApproach);
                 }
                 else
                 {
-                    // Slow down while turning
-                    SetTargetSpeed(_ship.MaxSpeed * 0.5f);
+                    // Slow down while turning, but less for tradelane approaches
+                    float turnSpeed = isTradelaneApproach ? 0.7f : 0.5f;
+                    SetTargetSpeed(_ship.MaxSpeed * turnSpeed);
                 }
                 
                 // Extra safety: if moving away or very close, slow down drastically
-                if (approachRate < 0 && dist < node.ArrivalRadius * 2f)
+                // But be less aggressive for tradelane approaches
+                if (approachRate < 0 && dist < node.ArrivalRadius * 2f && !isTradelaneApproach)
                 {
                     SetTargetSpeed(_ship.MaxSpeed * 0.1f);
                 }
@@ -485,15 +518,25 @@ namespace Roguelancer
 
         private void ExecuteTradelaneEntry(float deltaTime, RouteNode node)
         {
-            // Steer toward ring, approach slowly
+            // Steer toward ring, approach at good speed
             SteerToward(node.Position, deltaTime);
             float dist = Vector3.Distance(_ship.Position, node.Position);
 
-            // Slow down as we close in
-            float approachSpeed = MathHelper.Lerp(
-                _ship.MaxSpeed * 0.4f,
-                _ship.MaxSpeed,
-                MathHelper.Clamp((dist - 50f) / (TradelaneActivationRange - 50f), 0f, 1f));
+            // Maintain higher speed for faster tradelane entry - only slow down when very close
+            float approachSpeed;
+            if (dist > 200f)
+            {
+                // Keep near max speed when further away
+                approachSpeed = _ship.MaxSpeed * 0.9f;
+            }
+            else
+            {
+                // Gentle slowdown in final approach
+                approachSpeed = MathHelper.Lerp(
+                    _ship.MaxSpeed * 0.65f,
+                    _ship.MaxSpeed * 0.9f,
+                    MathHelper.Clamp((dist - 50f) / 150f, 0f, 1f));
+            }
             SetTargetSpeed(approachSpeed);
 
             if (dist <= TradelaneActivationRange)
@@ -652,7 +695,11 @@ namespace Roguelancer
 
         private void ManageSpeed(float distToTarget, float arrivalRadius, bool isTrdelane)
         {
-            float brakeStart = arrivalRadius * 4f + 800f;  // Increased brake distance for smoother deceleration
+            // For tradelane approaches, use much shorter brake distance
+            float brakeStart = isTrdelane 
+                ? arrivalRadius * 2f + 300f    // Shorter brake distance for tradelanes
+                : arrivalRadius * 4f + 800f;   // Normal brake distance for other targets
+            
             float cruiseDropDist = CruiseDropDistance;
 
             // Exit cruise if close
@@ -681,12 +728,15 @@ namespace Roguelancer
             }
             else
             {
+                // For tradelanes, maintain higher minimum speed
+                float minSpeedFactor = isTrdelane ? 0.75f : 0.05f;
+                
                 // Smoother braking curve with exponential falloff
                 float distFactor = MathHelper.Clamp((distToTarget - arrivalRadius) / (brakeStart - arrivalRadius), 0f, 1f);
                 // Use smoothstep for more natural deceleration
                 float smoothFactor = distFactor * distFactor * (3f - 2f * distFactor);
                 speed = MathHelper.Lerp(
-                    _ship.MaxSpeed * 0.05f,  // Lower minimum speed
+                    _ship.MaxSpeed * minSpeedFactor,
                     _ship.MaxSpeed,
                     smoothFactor);
             }
