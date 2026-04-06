@@ -170,52 +170,10 @@ namespace Roguelancer {
                 }
             }
 
-            // Auto-orient approach: when within AutoOrientRange, smoothly rotate and guide the ship
+            // Auto-orient approach: only active during active transit or on F5 press (see below)
             _isAutoOrienting = false;
             _autoOrientTarget = null;
             _autoOrientLane = null;
-
-            if (!IsInTransit && _nearbyRing != null && _nearbyLane != null) {
-                float distToRing = Vector3.Distance(playerPos, _nearbyRing.Position);
-                float autoOrientRange = _nearbyLane.Config.AutoOrientRange;
-                float activationRange = _nearbyLane.Config.ActivationRange;
-
-                if (distToRing <= autoOrientRange) {
-                    _isAutoOrienting = true;
-                    _autoOrientTarget = _nearbyRing;
-                    _autoOrientLane = _nearbyLane;
-
-                    // Determine the direction the ship should face to fly through the ring
-                    Vector3 travelDir = _nearbyRing.Direction == TradelaneRing.RingDirection.Forward
-                        ? _nearbyLane.LaneDirection
-                        : -_nearbyLane.LaneDirection;
-
-                    // Smoothly orient the ship toward the ring opening
-                    float orientStrength = 1f - MathHelper.Clamp((distToRing - activationRange) / (autoOrientRange - activationRange), 0f, 1f);
-                    float orientSpeed = 2.5f * orientStrength;
-
-                    Vector3 currentForward = playerShip.Forward;
-                    float alignment = Vector3.Dot(currentForward, travelDir);
-                    if (alignment < 0.999f) {
-                        Vector3 rotAxis = Vector3.Cross(currentForward, travelDir);
-                        if (rotAxis.LengthSquared() > 0.0001f) {
-                            rotAxis.Normalize();
-                            float angle = (float)Math.Acos(MathHelper.Clamp(alignment, -1f, 1f));
-                            float step = Math.Min(angle, orientSpeed * dt);
-                            playerShip.ApplyRotation(rotAxis, step);
-                        }
-                    }
-
-                    // Gently pull the ship toward the ring center (lateral correction)
-                    Vector3 toRingCenter = _nearbyRing.Position - playerPos;
-                    // Remove the component along the travel direction to get the lateral offset
-                    Vector3 lateralOffset = toRingCenter - travelDir * Vector3.Dot(toRingCenter, travelDir);
-                    if (lateralOffset.LengthSquared() > 1f) {
-                        float pullStrength = 80f * orientStrength;
-                        playerShip.Position += Vector3.Normalize(lateralOffset) * Math.Min(lateralOffset.Length(), pullStrength * dt);
-                    }
-                }
-            }
 
             // Check for tradelane activation (F5 key when near an entry ring)
             if (_nearbyRing != null && _nearbyLane != null &&

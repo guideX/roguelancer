@@ -529,7 +529,7 @@ namespace Roguelancer
 
             bool temporarySteering = !_isFreeFlightMode && leftMouseHeld;
             
-            if (!_isFreeFlightMode && !leftMouseHeld && _prevLeftMouseState == ButtonState.Pressed)
+            if (!_isFreeFlightMode && !leftMouseHeld && _prevLeftMouseState == ButtonState.Pressed && !_gotoActive)
             {
                 _shouldAutoLevel = true;
             }
@@ -603,7 +603,7 @@ namespace Roguelancer
             _rotation = _rotation * pitchDelta * yawDelta * rollDelta;
             _rotation.Normalize();
             
-            if (_shouldAutoLevel || _autoLevelToggle)
+            if ((_shouldAutoLevel || _autoLevelToggle) && !_gotoActive)
             {
                 Vector3 currentForward = Vector3.Transform(Vector3.Forward, _rotation);
                 Vector3 currentRight = Vector3.Transform(Vector3.Right, _rotation);
