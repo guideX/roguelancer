@@ -52,8 +52,8 @@ namespace Roguelancer
 
         // Special states
         public bool IsAfterburnerActive { get; private set; }
-        public bool IsCruiseActive { get; private set; }
-        public bool EnginesKilled { get; private set; }
+        public bool IsCruiseActive { get; set; }
+        public bool EnginesKilled { get; set; }
         public bool AfterburnerJustActivated { get; private set; }
         public bool IsFreeFlightMode => _isFreeFlightMode;
         
@@ -61,7 +61,7 @@ namespace Roguelancer
         private const float AfterburnerEnergyDrainPerSecond = 40f; // Energy consumed per second while afterburner is active
         
         // Cruise charge system
-        public bool IsCruiseCharging { get; private set; }
+        public bool IsCruiseCharging { get; set; }
         public float CruiseChargeProgress => _cruiseChargeTimer / CruiseChargeTime;
         private float _cruiseChargeTimer = 0f;
         private const float CruiseChargeTime = 3f;
@@ -109,6 +109,13 @@ namespace Roguelancer
         private SpaceObject _gotoTarget = null;
         public bool IsGotoActive => _gotoActive;
         public SpaceObject CurrentGotoTarget => _gotoTarget;
+
+        // Full route autopilot
+        private GotoAutopilot _gotoAutopilot;
+        public GotoAutopilot GotoAutopilot => _gotoAutopilot;
+
+        // Target speed set by autopilot (overrides player throttle while active)
+        private float _autopilotTargetSpeed = -1f;
         
         // Newtonian flight mode
         private bool _newtonianMode = false;
@@ -151,6 +158,23 @@ namespace Roguelancer
         public void SetNotificationManager(NotificationManager manager)
         {
             _notificationManager = manager;
+        }
+
+        /// <summary>
+        /// Attach the full-route autopilot. Call once after construction.
+        /// </summary>
+        public void SetGotoAutopilot(GotoAutopilot autopilot)
+        {
+            _gotoAutopilot = autopilot;
+        }
+
+        /// <summary>
+        /// Called by GotoAutopilot to set the desired speed while autopilot is active.
+        /// Pass a negative value to release the override.
+        /// </summary>
+        public void SetAutopilotTargetSpeed(float speed)
+        {
+            _autopilotTargetSpeed = speed;
         }
         
         /// <summary>
@@ -754,22 +778,32 @@ namespace Roguelancer
         public void ActivateGoto(SpaceObject target)
         {
             if (target == null) return;
-            _gotoTarget = target; 
-            _gotoActive = true; 
-            EnginesKilled = false; 
-            _notificationManager?.ShowMessage($"GOTO: {target.Name}");
-            float distance = Vector3.Distance(Position, target.Position);
-            
-            if (distance > 5000f)
+            _gotoTarget = target;
+            _gotoActive = true;
+            EnginesKilled = false;
+            IsAfterburnerActive = false;
+            _autopilotTargetSpeed = -1f;
+
+            // Delegate to full autopilot if available
+            if (_gotoAutopilot != null)
             {
-                IsCruiseCharging = true;
-                _cruiseChargeTimer = 0f;
-                IsAfterburnerActive = false;
+                _gotoAutopilot.Activate(target);
             }
             else
             {
-                IsCruiseActive = false;
-                IsCruiseCharging = false;
+                // Fallback: simple legacy goto
+                _notificationManager?.ShowMessage($"GOTO: {target.Name}");
+                float distance = Vector3.Distance(Position, target.Position);
+                if (distance > 5000f)
+                {
+                    IsCruiseCharging = true;
+                    _cruiseChargeTimer = 0f;
+                }
+                else
+                {
+                    IsCruiseActive = false;
+                    IsCruiseCharging = false;
+                }
             }
         }
         
@@ -780,17 +814,46 @@ namespace Roguelancer
                 _notificationManager?.ShowMessage("GOTO Cancelled");
                 Console.WriteLine("GOTO cancelled");
             }
-            _gotoActive = false; 
+            _gotoActive = false;
             _gotoTarget = null;
+            _autopilotTargetSpeed = -1f;
+            _gotoAutopilot?.Cancel();
         }
         
         private void UpdateGoto(float deltaTime)
         {
-            if (!_gotoActive || _gotoTarget == null) return;
-            
+            if (!_gotoActive) return;
+
+            // If full autopilot is running, let it handle everything
+            if (_gotoAutopilot != null && _gotoAutopilot.IsActive)
+            {
+                _gotoAutopilot.Update(deltaTime);
+
+                // Sync _gotoActive flag in case autopilot finished
+                if (!_gotoAutopilot.IsActive)
+                {
+                    _gotoActive = false;
+                    _gotoTarget = null;
+                    _autopilotTargetSpeed = -1f;
+                    EnginesKilled = true;
+                    IsCruiseActive = false;
+                    IsCruiseCharging = false;
+                    _cruiseChargeTimer = 0f;
+                }
+
+                // Apply autopilot target speed override
+                if (_autopilotTargetSpeed >= 0f)
+                    _targetSpeed = _autopilotTargetSpeed;
+
+                return;
+            }
+
+            // Legacy fallback goto (no autopilot assigned)
+            if (_gotoTarget == null) return;
+
             Vector3 toTarget = _gotoTarget.Position - Position;
             float distance = toTarget.Length();
-            
+
             if (distance <= 300f + _gotoTarget.Radius)
             {
                 CancelGoto();
@@ -800,17 +863,17 @@ namespace Roguelancer
                 _cruiseChargeTimer = 0f;
                 return;
             }
-            
+
             if ((IsCruiseActive || IsCruiseCharging) && distance < 1500f)
             {
                 IsCruiseActive = false;
                 IsCruiseCharging = false;
                 _cruiseChargeTimer = 0f;
             }
-            
+
             Vector3 desiredForward = Vector3.Normalize(toTarget);
             float alignment = Vector3.Dot(Forward, desiredForward);
-            
+
             if (alignment < 0.99f)
             {
                 float alignSpeed = TurnSpeed * 0.8f * deltaTime;
@@ -825,7 +888,7 @@ namespace Roguelancer
                     _rotation.Normalize();
                 }
             }
-            
+
             if (alignment > 0.7f)
             {
                 if (IsCruiseActive || IsCruiseCharging) _targetSpeed = CruiseSpeed;

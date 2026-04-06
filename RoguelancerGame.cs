@@ -152,6 +152,9 @@ namespace Roguelancer {
         // Tradelane system
         private TradelaneManager _tradelaneManager;
 
+        // Full-route GOTO autopilot
+        private GotoAutopilot _gotoAutopilot;
+
         // System map overlay
         private SystemMap _systemMap;
 
@@ -687,6 +690,29 @@ namespace Roguelancer {
 
             // Initialize system map overlay
             _systemMap = new SystemMap(GraphicsDevice, _font);
+
+            // Initialize full-route GOTO autopilot and wire it to the ship
+            _gotoAutopilot = new GotoAutopilot();
+            _gotoAutopilot.Initialize(
+                _playerShip,
+                _tradelaneManager,
+                _jumpHoleManager,
+                _stationManager.GetStations(),
+                _spaceObjects,
+                _npcShips,
+                _notificationManager,
+                GraphicsDevice,
+                _font);
+            _gotoAutopilot.OnDockingComplete += () =>
+            {
+                var station = _stationManager.GetStations().Find(
+                    s => _gotoAutopilot.Destination == s ||
+                         (_gotoAutopilot.Destination != null &&
+                          Vector3.Distance(s.Position, _gotoAutopilot.Destination.Position) < 10f));
+                if (station != null)
+                    _stationDockUI?.DockAtStation(station);
+            };
+            _playerShip.SetGotoAutopilot(_gotoAutopilot);
         }
 
         protected override void Update(GameTime gameTime) {
@@ -761,6 +787,18 @@ namespace Roguelancer {
 
             // Update tradelane manager (handles transit lock)
             _tradelaneManager?.Update(gameTime, _playerShip, keyboardState);
+
+            // Keep autopilot obstacle list up-to-date
+            _gotoAutopilot?.Initialize(
+                _playerShip,
+                _tradelaneManager,
+                _jumpHoleManager,
+                _stationManager?.GetStations() ?? new System.Collections.Generic.List<Station>(),
+                _spaceObjects,
+                _npcShips,
+                _notificationManager,
+                GraphicsDevice,
+                _font);
 
             // If in tradelane transit, skip normal ship input but still update visuals
             if (_tradelaneManager?.IsInTransit == true) {
@@ -2375,6 +2413,10 @@ namespace Roguelancer {
 
                     // Draw notifications
                     _notificationManager.Draw(_spriteBatch);
+
+                    // Draw autopilot nav arrow
+                    if (_gotoAutopilot != null)
+                        _gotoAutopilot.DrawHUD(_spriteBatch, _camera.View, _camera.Projection, GraphicsDevice.Viewport);
                 }
             }
 

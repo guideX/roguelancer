@@ -332,5 +332,53 @@ namespace Roguelancer {
                     new Vector2(boxX + 20, boxY + 10), promptColor);
             }
         }
+
+        // ?????????????????????????????????????????????????????????????????
+        //  Autopilot hooks (called by GotoAutopilot)
+        // ?????????????????????????????????????????????????????????????????
+
+        /// <summary>
+        /// Attempts to programmatically enter the tradelane at the given entry ring.
+        /// Returns true if transit was successfully started.
+        /// </summary>
+        public bool TryEnterTradelaneAt(TradelaneRing entryRing, Ship playerShip) {
+            if (IsInTransit) return false;
+            if (entryRing == null || entryRing.IsDestroyed) return false;
+
+            float dist = Vector3.Distance(playerShip.Position, entryRing.Position);
+            if (dist > 800f) return false; // out of range
+
+            // Find the lane that owns this ring
+            foreach (var lane in _tradeLanes) {
+                if (lane.IsBroken) continue;
+
+                bool owns = lane.ForwardRings.Contains(entryRing) || lane.ReverseRings.Contains(entryRing);
+                if (!owns) continue;
+
+                if (lane.StartTravel(entryRing)) {
+                    _activeLane = lane;
+                    Vector3 dir = entryRing.Direction == TradelaneRing.RingDirection.Forward
+                        ? lane.LaneDirection
+                        : -lane.LaneDirection;
+                    playerShip.SetFacing(dir);
+                    Console.WriteLine($"[TRADELANES] Autopilot entered tradelane: {lane.Config.Name}");
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Returns whether the given entry ring is reachable (lane exists, not broken, in range).
+        /// </summary>
+        public bool IsEntryRingReachable(TradelaneRing entryRing, Vector3 fromPosition) {
+            if (entryRing == null || entryRing.IsDestroyed) return false;
+            foreach (var lane in _tradeLanes) {
+                if (lane.IsBroken) continue;
+                bool owns = lane.ForwardRings.Contains(entryRing) || lane.ReverseRings.Contains(entryRing);
+                if (owns) return true;
+            }
+            return false;
+        }
     }
 }

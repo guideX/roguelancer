@@ -232,7 +232,7 @@ namespace Roguelancer {
         }
 
         /// <summary>
-        /// Draw the transit effect and any HUD elements (2D rendering phase)
+        /// Draw proximity prompt when near a jump hole
         /// </summary>
         public void DrawHUD(SpriteBatch spriteBatch) {
             // Draw transit effect (uses its own sprite batch)
@@ -270,6 +270,25 @@ namespace Roguelancer {
                 // Text
                 spriteBatch.DrawString(_font, promptText, pos, Color.White * pulse);
             }
+        }
+
+        // ?????????????????????????????????????????????????????????????????
+        //  Autopilot hooks (called by GotoAutopilot)
+        // ?????????????????????????????????????????????????????????????????
+
+        /// <summary>
+        /// Attempts to initiate a jump hole transit from code (GotoAutopilot).
+        /// Returns true if transit was successfully started.
+        /// </summary>
+        public bool TryInitiateTransitFor(JumpHole jumpHole, Ship playerShip) {
+            if (IsInTransit) return false;
+            if (jumpHole == null) return false;
+
+            float dist = Vector3.Distance(playerShip.Position, jumpHole.Position);
+            if (dist > jumpHole.Config.Radius * 2.5f) return false; // too far
+
+            InitiateTransit(jumpHole.Config);
+            return true;
         }
     }
 }
