@@ -116,7 +116,8 @@ namespace Roguelancer {
                     Color.Gold);
 
                 // Instructions
-                string instructions = "Press ESC to close";
+                string instructions = "Click to target | Press M or ESC to close";
+
                 Vector2 instrSize = _font.MeasureString(instructions);
                 spriteBatch.DrawString(_font, instructions,
                     new Vector2((screenW - instrSize.X) / 2, screenH - MapMargin + 8),
@@ -173,6 +174,59 @@ namespace Roguelancer {
                 mapX + nx * mapW,
                 mapY + nz * mapH
             );
+        }
+
+        /// <summary>
+        /// Convert a 2D screen pixel position back to a world XZ position (Y = 0).
+        /// </summary>
+        private Vector3 MapToWorld(Vector2 screenPos, int mapX, int mapY, int mapW, int mapH) {
+            float nx = (screenPos.X - mapX) / mapW;
+            float nz = (screenPos.Y - mapY) / mapH;
+            return new Vector3(
+                nx * (WorldExtent * 2f) - WorldExtent,
+                0f,
+                nz * (WorldExtent * 2f) - WorldExtent
+            );
+        }
+
+        /// <summary>
+        /// Try to select a space object at the given screen click position.
+        /// Returns the matched SpaceObject or null if nothing was close enough.
+        /// </summary>
+        public SpaceObject HandleClick(Vector2 clickPos, List<SpaceObject> spaceObjects) {
+            if (!IsVisible || spaceObjects == null) return null;
+
+            int screenW = _graphicsDevice.Viewport.Width;
+            int screenH = _graphicsDevice.Viewport.Height;
+            int mapX = MapMargin;
+            int mapY = MapMargin + 40;
+            int mapW = screenW - MapMargin * 2;
+            int mapH = screenH - MapMargin * 2 - 40;
+
+            // Only handle clicks within the map area
+            if (clickPos.X < mapX || clickPos.X > mapX + mapW ||
+                clickPos.Y < mapY || clickPos.Y > mapY + mapH)
+                return null;
+
+            const float HitRadiusPx = 18f; // pixel radius for hit detection
+            SpaceObject closest = null;
+            float closestDist = float.MaxValue;
+
+            foreach (var obj in spaceObjects) {
+                if (obj is NpcShip) continue; // NPC ships are not shown on the map
+
+                Vector2 mapPos = WorldToMap(obj.Position, mapX, mapY, mapW, mapH);
+                mapPos.X = MathHelper.Clamp(mapPos.X, mapX + 4, mapX + mapW - 4);
+                mapPos.Y = MathHelper.Clamp(mapPos.Y, mapY + 4, mapY + mapH - 4);
+
+                float dist = Vector2.Distance(clickPos, mapPos);
+                if (dist <= HitRadiusPx && dist < closestDist) {
+                    closestDist = dist;
+                    closest = obj;
+                }
+            }
+
+            return closest;
         }
 
         /// <summary>

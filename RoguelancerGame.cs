@@ -717,8 +717,26 @@ namespace Roguelancer {
                 _systemMap.Update(gameTime);
             }
 
-            // If system map is open, consume input (don't update gameplay)
+            // If system map is open, handle map click targeting then consume input
             if (_systemMap?.IsVisible == true) {
+                IsMouseVisible = true; // Always show cursor on the map
+                // Left-click on map icon selects that object as the player's target
+                if (mouseState.LeftButton == ButtonState.Pressed && _prevMouseState.LeftButton == ButtonState.Released) {
+                    var clickPos = new Vector2(mouseState.X, mouseState.Y);
+                    var clicked = _systemMap.HandleClick(clickPos, _spaceObjects);
+                    if (clicked != null) {
+                        int idx = _spaceObjects.IndexOf(clicked);
+                        if (idx >= 0) {
+                            _selectedSpaceObjectIndex = idx;
+                            _notificationManager?.ShowMessage($"Target: {clicked.Name}");
+                            Console.WriteLine($"[MAP] Map-click targeted: {clicked.Name}");
+                        }
+                    }
+                }
+                // ESC closes the map
+                if (keyboardState.IsKeyDown(Keys.Escape) && _prevKeys.IsKeyUp(Keys.Escape)) {
+                    _systemMap.Hide();
+                }
                 _prevKeys = keyboardState;
                 _prevMouseState = mouseState;
                 base.Update(gameTime);
