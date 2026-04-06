@@ -1,0 +1,19 @@
+{
+  "name": "Jump Hole to Galileo",
+  "description": "A shimmering jump hole leading to the Galileo system",
+  "system_index": 3,
+  "target_system_index": 5,
+  "target_jumphole_name": "Jump Hole to Colorado",
+  "position_x": -5500.0,
+  "position_y": -200.0,
+  "position_z": 8500.0,
+  "radius": 300.0,
+  "activation_range": 180.0,
+  "ring_color_r": 120,
+  "ring_color_g": 200,
+  "ring_color_b": 255,
+  "core_color_r": 220,
+  "core_color_g": 240,
+  "core_color_b": 255,
+  "transit_duration": 4.0
+}

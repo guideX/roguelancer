@@ -1,0 +1,19 @@
+{
+  "name": "Sea of Shadows Jump Hole",
+  "description": "A mysterious jump hole leading into the dangerous Sea of Shadows nebula",
+  "system_index": 3,
+  "target_system_index": 6,
+  "target_jumphole_name": "Jump Hole to Colorado",
+  "position_x": -1000.0,
+  "position_y": -200.0,
+  "position_z": 3000.0,
+  "radius": 300.0,
+  "activation_range": 180.0,
+  "ring_color_r": 140,
+  "ring_color_g": 80,
+  "ring_color_b": 200,
+  "core_color_r": 180,
+  "core_color_g": 120,
+  "core_color_b": 240,
+  "transit_duration": 4.0
+}

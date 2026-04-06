@@ -1,0 +1,92 @@
+{
+  "description": "Colorado System",
+  "path": "colorado",
+  "sun_position_x": 0.0,
+  "sun_position_y": 0.0,
+  "sun_position_z": 0.0,
+  "sun_scale": 2000.0,
+  "sun_intensity": 1.9,
+  "sun_rotation_speed": 0.045,
+  "npc_patrols": [
+    {
+      "name": "Liberty Navy Patrol",
+      "ship_description": "Patrol Fighter 1",
+      "count": 5,
+      "patrol_center_x": 0.0,
+      "patrol_center_y": 0.0,
+      "patrol_center_z": 0.0,
+      "patrol_radius": 15000.0,
+      "patrol_speed": 190.0,
+      "spawn_radius": 8000.0
+    },
+    {
+      "name": "Colorado Border Patrol",
+      "ship_description": "Patrol Fighter 1",
+      "count": 4,
+      "patrol_center_x": -5000.0,
+      "patrol_center_y": 0.0,
+      "patrol_center_z": 8000.0,
+      "patrol_radius": 12000.0,
+      "patrol_speed": 180.0,
+      "spawn_radius": 6000.0
+    },
+    {
+      "name": "Trade Route Security",
+      "ship_description": "Starliner Transport",
+      "count": 3,
+      "patrol_center_x": 3000.0,
+      "patrol_center_y": 0.0,
+      "patrol_center_z": 4000.0,
+      "patrol_radius": 10000.0,
+      "patrol_speed": 120.0,
+      "spawn_radius": 5000.0
+    }
+  ],
+  "planets": [
+    {
+      "name": "Planet Denver",
+      "radius": 150.0,
+      "orbit_radius": 0.0,
+      "orbit_speed": 0.0,
+      "position_x": 3000.0,
+      "position_y": 0.0,
+      "position_z": 4000.0,
+      "surface_model_asset": "Models/planet_surface",
+      "clouds_model_asset": "Models/planet_clouds",
+      "atmosphere_model_asset": "Models/planet_atmosphere",
+      "surface_texture_asset": "Textures/planets/planet_01_diffuse",
+      "clouds_texture_asset": "Textures/planets/planet_01_clouds",
+      "atmosphere_texture_asset": "Textures/planets/planet_01_atmosphere"
+    },
+    {
+      "name": "Planet Gunnison",
+      "radius": 110.0,
+      "orbit_radius": 0.0,
+      "orbit_speed": 0.0,
+      "position_x": -7000.0,
+      "position_y": 0.0,
+      "position_z": 4000.0,
+      "surface_model_asset": "Models/planet_surface",
+      "clouds_model_asset": "Models/planet_clouds",
+      "atmosphere_model_asset": "Models/planet_atmosphere",
+      "surface_texture_asset": "Textures/planets/planet_02_diffuse",
+      "clouds_texture_asset": "Textures/planets/planet_02_clouds",
+      "atmosphere_texture_asset": "Textures/planets/planet_02_atmosphere"
+    },
+    {
+      "name": "Planet Durango",
+      "radius": 100.0,
+      "orbit_radius": 0.0,
+      "orbit_speed": 0.0,
+      "position_x": -2000.0,
+      "position_y": 0.0,
+      "position_z": -5000.0,
+      "surface_model_asset": "Models/planet_surface",
+      "clouds_model_asset": "Models/planet_clouds",
+      "atmosphere_model_asset": "Models/planet_atmosphere",
+      "surface_texture_asset": "Textures/planets/planet_03_diffuse",
+      "clouds_texture_asset": "Textures/planets/planet_03_clouds",
+      "atmosphere_texture_asset": "Textures/planets/planet_03_atmosphere"
+    }
+  ]
+}
