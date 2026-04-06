@@ -1,0 +1,19 @@
+{
+  "name": "Pennsylvania Jump Hole",
+  "description": "A jump hole in the southeastern California system leading to the Pennsylvania system.",
+  "system_index": 2,
+  "target_system_index": 8,
+  "target_jumphole_name": "California Jump Hole",
+  "position_x": 7500.0,
+  "position_y": -300.0,
+  "position_z": 9500.0,
+  "radius": 300.0,
+  "activation_range": 180.0,
+  "ring_color_r": 160,
+  "ring_color_g": 100,
+  "ring_color_b": 220,
+  "core_color_r": 200,
+  "core_color_g": 160,
+  "core_color_b": 255,
+  "transit_duration": 4.0
+}

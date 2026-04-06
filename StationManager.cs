@@ -32,16 +32,16 @@ namespace Roguelancer
         }
 
         /// <summary>
-        /// Load Stations
+        /// Load Stations for a specific system index (1-based). Pass 0 to load all stations.
         /// </summary>
-        public void LoadStations()
+        public void LoadStations(int systemIndex = 0)
         {
             _stations.Clear();
             _loadedModels.Clear();
 
             var configPath = Path.Combine("Configuration", "stations");
             
-            Console.WriteLine($"[STATION MANAGER] Loading stations from: {configPath}");
+            Console.WriteLine($"[STATION MANAGER] Loading stations from: {configPath} (system {systemIndex})");
             
             if (!Directory.Exists(configPath))
             {
@@ -64,6 +64,12 @@ namespace Roguelancer
                 var stationConfig = JsonSerializer.Deserialize<StationConfig>(jsonString, options);
                 if (stationConfig != null)
                 {
+                    // Filter by system index if specified
+                    if (systemIndex > 0 && stationConfig.SystemIndex != systemIndex)
+                    {
+                        continue;
+                    }
+
                     Console.WriteLine($"[STATION MANAGER] Config loaded: {stationConfig.Description}");
                     Console.WriteLine($"[STATION MANAGER]   Model path: {stationConfig.ModelPath}");
                     Console.WriteLine($"[STATION MANAGER]   Position: {stationConfig.StartupPosition}");

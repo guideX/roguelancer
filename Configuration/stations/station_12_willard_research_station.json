@@ -1,0 +1,20 @@
+{
+  "description": "Willard Research Station",
+  "description_long": "A scientific research station orbiting Planet California Minor, studying the unique mineral composition of the smaller planet.",
+  "model_path": "STATIONS/spaceStation/source/p_887_spaceStation",
+  "system_index": 2,
+  "startup_position_x": 2500.0,
+  "startup_position_y": 200.0,
+  "startup_position_z": 9000.0,
+  "startup_model_rotation_x": 0.0,
+  "startup_model_rotation_y": 0.0,
+  "startup_model_rotation_z": 0.0,
+  "radius": 700.0,
+  "scale": 8.0,
+  "rotation_speed": 0.015,
+  "docking_range": 500.0,
+  "docking_point_x": 0.0,
+  "docking_point_y": 0.0,
+  "docking_point_z": 0.0,
+  "docking_approach_distance": 200.0
+}

@@ -1,0 +1,20 @@
+{
+  "description": "Battleship Carcassonne",
+  "description_long": "A Gallic Navy battleship patrolling the southern reaches of California, near the Magellan jump point. Serves as a show of Gallic military presence.",
+  "model_path": "STATIONS/STATION1/STATION1",
+  "system_index": 2,
+  "startup_position_x": -12000.0,
+  "startup_position_y": 300.0,
+  "startup_position_z": 14000.0,
+  "startup_model_rotation_x": 0.0,
+  "startup_model_rotation_y": 3.14,
+  "startup_model_rotation_z": 0.0,
+  "radius": 900.0,
+  "scale": 12.0,
+  "rotation_speed": 0.0,
+  "docking_range": 600.0,
+  "docking_point_x": 0.0,
+  "docking_point_y": 0.0,
+  "docking_point_z": 0.0,
+  "docking_approach_distance": 250.0
+}

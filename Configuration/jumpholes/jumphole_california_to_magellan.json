@@ -1,0 +1,19 @@
+{
+  "name": "California -> Magellan",
+  "description": "A jump hole in the southern California system leading to the Magellan system. Also labeled California -> Magellan.",
+  "system_index": 2,
+  "target_system_index": 5,
+  "target_jumphole_name": "California Jump Hole",
+  "position_x": -13000.0,
+  "position_y": -300.0,
+  "position_z": 15000.0,
+  "radius": 300.0,
+  "activation_range": 180.0,
+  "ring_color_r": 180,
+  "ring_color_g": 100,
+  "ring_color_b": 220,
+  "core_color_r": 220,
+  "core_color_g": 160,
+  "core_color_b": 255,
+  "transit_duration": 4.5
+}

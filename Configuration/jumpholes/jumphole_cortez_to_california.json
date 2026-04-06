@@ -1,0 +1,19 @@
+{
+  "name": "California Jump Hole",
+  "description": "A jump hole leading from Cortez back to the California system.",
+  "system_index": 7,
+  "target_system_index": 2,
+  "target_jumphole_name": "Cortez Jump Hole",
+  "position_x": 0.0,
+  "position_y": 0.0,
+  "position_z": 0.0,
+  "radius": 300.0,
+  "activation_range": 180.0,
+  "ring_color_r": 80,
+  "ring_color_g": 180,
+  "ring_color_b": 120,
+  "core_color_r": 140,
+  "core_color_g": 220,
+  "core_color_b": 180,
+  "transit_duration": 4.0
+}

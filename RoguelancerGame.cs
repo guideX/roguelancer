@@ -330,14 +330,15 @@ namespace Roguelancer {
                 Console.WriteLine($"[SYSTEM] Loaded: {currentSystem.Description}");
 
                 // Load the planetary system from JSON
-                _planetManager.LoadSystem("system_01_new_york.json");
+                string initSystemFile = $"system_{1:D2}_{currentSystem.Path}.json";
+                _planetManager.LoadSystem(initSystemFile);
                 foreach (var planet in _planetManager.GetPlanets()) {
                     _spaceObjects.Add(planet);
                 }
 
                 // Load stations
                 try {
-                    _stationManager.LoadStations();
+                    _stationManager.LoadStations(1);
                     foreach (var station in _stationManager.GetStations()) {
                         _spaceObjects.Add(station);
                         Console.WriteLine($"[STATION] Loaded: {station.Name} at {station.Position}");
@@ -623,7 +624,7 @@ namespace Roguelancer {
             // Initialize StationManager with GraphicsDevice and load stations
             _stationManager = new StationManager(Content, GraphicsDevice);
             try {
-                _stationManager.LoadStations();
+                _stationManager.LoadStations(_currentSystemIndex);
             } catch (Exception ex) {
                 Console.WriteLine($"Failed to load stations: {ex.Message}");
             }
@@ -2439,7 +2440,7 @@ namespace Roguelancer {
                 _notificationManager?.ShowMessage($"Entering {newSystem.Description}", 3f);
 
                 // Load planets
-                string systemFileName = newSystemIndex == 1 ? "system_01_new_york.json" : $"system_{newSystemIndex:D2}_california.json";
+                string systemFileName = $"system_{newSystemIndex:D2}_{newSystem.Path}.json";
                 try {
                     _planetManager.LoadSystem(systemFileName);
                     foreach (var planet in _planetManager.GetPlanets()) {
@@ -2453,7 +2454,7 @@ namespace Roguelancer {
                 // Load stations
                 try {
                     _stationManager = new StationManager(Content, GraphicsDevice);
-                    _stationManager.LoadStations();
+                    _stationManager.LoadStations(newSystemIndex);
                     foreach (var station in _stationManager.GetStations()) {
                         _spaceObjects.Add(station);
                         Console.WriteLine($"[SYSTEM CHANGE] Loaded station: {station.Name}");

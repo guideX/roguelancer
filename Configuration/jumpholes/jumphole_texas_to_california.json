@@ -1,0 +1,19 @@
+{
+  "name": "California Jump Hole",
+  "description": "A jump hole leading from Texas back to the California system.",
+  "system_index": 4,
+  "target_system_index": 2,
+  "target_jumphole_name": "Texas Jump Hole",
+  "position_x": 0.0,
+  "position_y": 0.0,
+  "position_z": 0.0,
+  "radius": 300.0,
+  "activation_range": 180.0,
+  "ring_color_r": 255,
+  "ring_color_g": 120,
+  "ring_color_b": 60,
+  "core_color_r": 255,
+  "core_color_g": 180,
+  "core_color_b": 100,
+  "transit_duration": 4.0
+}

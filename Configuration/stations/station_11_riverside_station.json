@@ -1,0 +1,20 @@
+{
+  "description": "Riverside Station",
+  "description_long": "A commercial station orbiting Planet Mojave, serving as a trade hub and refueling depot for the California system.",
+  "model_path": "STATIONS/ROTATOR_NEXUS/source/SpaceStation_RotorNexus",
+  "system_index": 2,
+  "startup_position_x": 7000.0,
+  "startup_position_y": 200.0,
+  "startup_position_z": -7000.0,
+  "startup_model_rotation_x": 0.0,
+  "startup_model_rotation_y": 0.0,
+  "startup_model_rotation_z": 0.0,
+  "radius": 800.0,
+  "scale": 10.0,
+  "rotation_speed": 0.02,
+  "docking_range": 500.0,
+  "docking_point_x": 0.0,
+  "docking_point_y": 0.0,
+  "docking_point_z": 0.0,
+  "docking_approach_distance": 200.0
+}
