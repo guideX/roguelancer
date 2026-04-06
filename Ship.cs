@@ -176,6 +176,13 @@ namespace Roguelancer
         {
             _autopilotTargetSpeed = speed;
         }
+
+        /// <summary>
+        /// Control methods for GotoAutopilot to manipulate ship state.
+        /// </summary>
+        public void SetEnginesKilled(bool killed) => EnginesKilled = killed;
+        public void SetCruiseActive(bool active) => IsCruiseActive = active;
+        public void SetCruiseCharging(bool charging) => IsCruiseCharging = charging;
         
         /// <summary>
         /// Set the explosion particles system for this ship

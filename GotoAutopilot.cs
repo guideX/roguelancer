@@ -559,7 +559,7 @@ namespace Roguelancer
             {
                 // Dock
                 SetTargetSpeed(0f);
-                _ship.EnginesKilled = false;
+                _ship.SetEnginesKilled(false);
                 _state = AutopilotState.Docked;
                 _notifications?.ShowMessage($"Docked at {node.Reference?.Name ?? "station"}");
                 Console.WriteLine($"[AUTOPILOT] Docked at '{node.Reference?.Name}'.");
@@ -598,14 +598,14 @@ namespace Roguelancer
             // Exit cruise if close
             if (_ship.IsCruiseActive && distToTarget < cruiseDropDist)
             {
-                _ship.IsCruiseActive = false;
-                _ship.IsCruiseCharging = false;
+                _ship.SetCruiseActive(false);
+                _ship.SetCruiseCharging(false);
             }
 
             if (distToTarget > cruiseDropDist * 1.5f && !_ship.IsCruiseActive && !_ship.IsCruiseCharging)
             {
                 // Engage cruise for long legs
-                _ship.IsCruiseCharging = true;
+                _ship.SetCruiseCharging(true);
             }
 
             float speed;
@@ -742,7 +742,7 @@ namespace Roguelancer
         {
             _state = AutopilotState.Inactive;
             SetTargetSpeed(0f);
-            _ship.EnginesKilled = true;
+            _ship.SetEnginesKilled(true);
             _notifications?.ShowMessage($"Arrived at {_destination?.Name ?? "target"}");
             Console.WriteLine($"[AUTOPILOT] Arrived at destination.");
             _destination = null;
