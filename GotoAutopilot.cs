@@ -69,7 +69,9 @@ namespace Roguelancer
         private float _avoidanceScanTimer = 0f;
 
         // smooth steering
-        private const float SteeringRate = 1.8f;           // rad/s turn rate while in autopilot
+        private const float SteeringRate = 1.2f;           // rad/s turn rate while in autopilot (reduced for smoother turns)
+        private const float MinSteeringRate = 0.3f;        // minimum turn rate when close to target
+        private const float AlignmentThreshold = 0.98f;    // dot product threshold for "aligned"
         private const float CruiseDropDistance = 1500f;    // exit cruise inside this range
         private const float TradelaneActivationRange = 450f;
         private const float JumpholeActivationRange = 180f;
@@ -448,9 +450,35 @@ namespace Roguelancer
             Vector3 avoidedTarget = ApplyAvoidance(rawTarget);
 
             SteerToward(avoidedTarget, deltaTime);
-            ManageSpeed(Vector3.Distance(_ship.Position, rawTarget), node.ArrivalRadius, isTrdelane: false);
-
+            
             float dist = Vector3.Distance(_ship.Position, rawTarget);
+            
+            // Only manage speed when reasonably aligned to prevent erratic movement
+            Vector3 toTarget = rawTarget - _ship.Position;
+            if (toTarget.LengthSquared() > 0.001f)
+            {
+                float alignment = Vector3.Dot(_ship.Forward, Vector3.Normalize(toTarget));
+                
+                // Check if we're moving towards or away from target
+                float approachRate = Vector3.Dot(_ship.Velocity, Vector3.Normalize(toTarget));
+                
+                if (alignment > 0.7f)
+                {
+                    ManageSpeed(dist, node.ArrivalRadius, isTrdelane: false);
+                }
+                else
+                {
+                    // Slow down while turning
+                    SetTargetSpeed(_ship.MaxSpeed * 0.5f);
+                }
+                
+                // Extra safety: if moving away or very close, slow down drastically
+                if (approachRate < 0 && dist < node.ArrivalRadius * 2f)
+                {
+                    SetTargetSpeed(_ship.MaxSpeed * 0.1f);
+                }
+            }
+
             if (dist <= node.ArrivalRadius)
                 AdvanceNode();
         }
@@ -502,7 +530,17 @@ namespace Roguelancer
         {
             SteerToward(node.Position, deltaTime);
             float dist = Vector3.Distance(_ship.Position, node.Position);
-            ManageSpeed(dist, node.ArrivalRadius, isTrdelane: false);
+            
+            // Only accelerate when aligned
+            float alignment = Vector3.Dot(_ship.Forward, Vector3.Normalize(node.Position - _ship.Position));
+            if (alignment > 0.8f)
+            {
+                ManageSpeed(dist, node.ArrivalRadius, isTrdelane: false);
+            }
+            else
+            {
+                SetTargetSpeed(_ship.MaxSpeed * 0.4f);
+            }
 
             if (dist <= node.ArrivalRadius)
                 AdvanceNode();
@@ -538,20 +576,35 @@ namespace Roguelancer
             Vector3 targetPos = node.Position;
             float dist = Vector3.Distance(_ship.Position, targetPos);
 
+            // Calculate alignment for smoother approach
+            float alignment = Vector3.Dot(_ship.Forward, Vector3.Normalize(targetPos - _ship.Position));
+
             // Phase 1: Approach waypoint
             if (dist > DockingFinalRange * 3f)
             {
                 SteerToward(targetPos, deltaTime);
-                float speed = MathHelper.Lerp(_ship.MaxSpeed * 0.2f, _ship.MaxSpeed * 0.8f,
-                    MathHelper.Clamp((dist - DockingFinalRange * 3f) / (DockingApproachRange * 0.5f), 0f, 1f));
-                SetTargetSpeed(speed);
+                
+                // Only accelerate when reasonably aligned
+                if (alignment > 0.7f)
+                {
+                    float distFactor = MathHelper.Clamp((dist - DockingFinalRange * 3f) / (DockingApproachRange * 0.5f), 0f, 1f);
+                    float speed = MathHelper.Lerp(_ship.MaxSpeed * 0.2f, _ship.MaxSpeed * 0.6f, distFactor);
+                    SetTargetSpeed(speed);
+                }
+                else
+                {
+                    SetTargetSpeed(_ship.MaxSpeed * 0.3f);
+                }
             }
             else
             {
                 // Phase 2: Slow final approach
                 SteerToward(targetPos, deltaTime);
-                float speed = MathHelper.Lerp(20f, _ship.MaxSpeed * 0.2f,
-                    MathHelper.Clamp(dist / (DockingFinalRange * 3f), 0f, 1f));
+                
+                // Very gentle approach speed curve
+                float distFactor = MathHelper.Clamp(dist / (DockingFinalRange * 3f), 0f, 1f);
+                float smoothFactor = distFactor * distFactor * (3f - 2f * distFactor);
+                float speed = MathHelper.Lerp(15f, _ship.MaxSpeed * 0.2f, smoothFactor);
                 SetTargetSpeed(speed);
             }
 
@@ -579,20 +632,27 @@ namespace Roguelancer
             Vector3 current = _ship.Forward;
             float dot = MathHelper.Clamp(Vector3.Dot(current, desired), -1f, 1f);
 
-            if (dot >= 0.9998f) return;
+            // Already aligned - no steering needed
+            if (dot >= AlignmentThreshold) return;
 
             Vector3 axis = Vector3.Cross(current, desired);
             if (axis.LengthSquared() < 0.0001f) return;
             axis.Normalize();
 
             float angle = (float)Math.Acos(dot);
-            float step = Math.Min(angle, SteeringRate * deltaTime);
+            
+            // Adaptive steering rate: slower when closer to alignment
+            float alignmentFactor = MathHelper.Clamp((1f - dot) / (1f - AlignmentThreshold), 0f, 1f);
+            float adaptiveRate = MathHelper.Lerp(MinSteeringRate, SteeringRate, alignmentFactor);
+            
+            // Apply damping to prevent overshoot
+            float step = Math.Min(angle * 0.5f, adaptiveRate * deltaTime);
             _ship.ApplyRotation(axis, step);
         }
 
         private void ManageSpeed(float distToTarget, float arrivalRadius, bool isTrdelane)
         {
-            float brakeStart = arrivalRadius * 4f + 600f;
+            float brakeStart = arrivalRadius * 4f + 800f;  // Increased brake distance for smoother deceleration
             float cruiseDropDist = CruiseDropDistance;
 
             // Exit cruise if close
@@ -602,9 +662,11 @@ namespace Roguelancer
                 _ship.SetCruiseCharging(false);
             }
 
-            if (distToTarget > cruiseDropDist * 1.5f && !_ship.IsCruiseActive && !_ship.IsCruiseCharging)
+            // Only engage cruise when far away and aligned
+            float alignment = Vector3.Dot(_ship.Forward, Vector3.Normalize(_ship.Position + _ship.Forward * distToTarget - _ship.Position));
+            if (distToTarget > cruiseDropDist * 2.0f && !_ship.IsCruiseActive && !_ship.IsCruiseCharging && alignment > 0.9f)
             {
-                // Engage cruise for long legs
+                // Engage cruise for long legs only when well-aligned
                 _ship.SetCruiseCharging(true);
             }
 
@@ -619,10 +681,14 @@ namespace Roguelancer
             }
             else
             {
+                // Smoother braking curve with exponential falloff
+                float distFactor = MathHelper.Clamp((distToTarget - arrivalRadius) / (brakeStart - arrivalRadius), 0f, 1f);
+                // Use smoothstep for more natural deceleration
+                float smoothFactor = distFactor * distFactor * (3f - 2f * distFactor);
                 speed = MathHelper.Lerp(
-                    _ship.MaxSpeed * 0.1f,
+                    _ship.MaxSpeed * 0.05f,  // Lower minimum speed
                     _ship.MaxSpeed,
-                    MathHelper.Clamp((distToTarget - arrivalRadius) / (brakeStart - arrivalRadius), 0f, 1f));
+                    smoothFactor);
             }
 
             SetTargetSpeed(speed);
@@ -648,7 +714,7 @@ namespace Roguelancer
             }
 
             Vector3 steer = Vector3.Zero;
-            float lookAhead = 600f;
+            float lookAhead = 400f;  // Reduced lookahead for less aggressive avoidance
             Vector3 fwd = _ship.Forward;
             Vector3 pos = _ship.Position;
 
@@ -672,7 +738,7 @@ namespace Roguelancer
                     if (lateral.LengthSquared() < 0.001f) lateral = _ship.Up;
                     lateral.Normalize();
                     float strength = 1f - (lateralDist / avoidRadius);
-                    steer += lateral * strength * 1.5f;
+                    steer += lateral * strength * 0.8f;  // Reduced strength
                 }
             }
 
@@ -696,12 +762,13 @@ namespace Roguelancer
                         if (lateral.LengthSquared() < 0.001f) lateral = _ship.Up;
                         lateral.Normalize();
                         float strength = 1f - (lateralDist / avoidRadius);
-                        steer += lateral * strength * 2f;
+                        steer += lateral * strength * 1.2f;  // Reduced from 2.0f
                     }
                 }
             }
 
-            _avoidanceOffset = steer;
+            // Smooth the avoidance with damping
+            _avoidanceOffset = Vector3.Lerp(_avoidanceOffset, steer, 0.3f);
         }
 
         private Vector3 ApplyAvoidance(Vector3 target)
@@ -717,7 +784,8 @@ namespace Roguelancer
             Vector3 avoidDir = _avoidanceOffset;
             // Remove component along flight direction
             avoidDir -= dir * Vector3.Dot(avoidDir, dir);
-            avoidDir *= Math.Min(dist * 0.4f, 300f);
+            // Reduced avoidance magnitude
+            avoidDir *= Math.Min(dist * 0.25f, 200f);
             return target + avoidDir;
         }
 
