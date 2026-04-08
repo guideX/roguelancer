@@ -1021,6 +1021,9 @@ namespace Roguelancer {
             // Update engine trail with current throttle
             _engineTrail.Update(gameTime, _playerShip, _playerShip.GetThrottle());
 
+            // Update engine glow (for pulsing effects)
+            _engineGlow.Update(deltaTime);
+
             // Update cruise sparks (firefly particles during charge)
             _cruiseSparks.Update(gameTime, _playerShip);
 
@@ -2312,21 +2315,15 @@ namespace Roguelancer {
 
             GraphicsDevice.DepthStencilState = oldDepth;
 
-            // Draw engine glows
-            float glowIntensity = Math.Max(1.0f, _playerShip.GetThrottle());
+            // Draw player ship engine glows (state-based intensity now handled internally)
+            _engineGlow.DrawEngineGlows(GraphicsDevice, _playerShip, _camera, _playerShip.GetThrottle());
 
-            if (_playerShip.IsCruiseCharging) {
-                float chargeProgress = _playerShip.CruiseChargeProgress;
-                glowIntensity = MathHelper.Lerp(0.5f, 2.0f, chargeProgress);
-                float pulse = (float)Math.Sin(gameTime.TotalGameTime.TotalSeconds * 8.0) * 0.2f + 0.8f;
-                glowIntensity *= pulse;
-            } else if (_playerShip.IsAfterburnerActive) {
-                glowIntensity = 1.2f;
-            } else if (_playerShip.IsCruiseActive) {
-                glowIntensity = 1.0f;
+            // Draw NPC ship engine glows
+            foreach (var npc in _npcShips) {
+                if (!npc.IsDestroyed) {
+                    _engineGlow.DrawNpcEngineGlows(npc, _camera);
+                }
             }
-
-            _engineGlow.DrawEngineGlows(GraphicsDevice, _playerShip, _camera, glowIntensity);
 
             // Draw cruise sparks
             _cruiseSparks.Draw(_camera);
