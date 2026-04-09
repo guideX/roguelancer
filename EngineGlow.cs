@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -27,17 +28,19 @@ namespace Roguelancer
         private Random _random = new Random();
         private float _pulseTimer = 0f;
         
-        // Glow parameters for different states
-        private const float IdleGlowSize = 0.3f;
-        private const float AcceleratingGlowSize = 0.8f;
-        private const float AfterburnerGlowSize = 1.5f;
-        private const float CruiseGlowSize = 1.2f;
+        // Glow parameters for different states (in world units, will be scaled by ship scale)
+        // Original code used (5f + intensity * 10f) * 0.1f = 0.5 to 1.5 final size
+        // So we need base sizes around 5-15 that get multiplied by 0.1 ship scale
+        private const float IdleGlowSize = 5.0f;
+        private const float AcceleratingGlowSize = 10.0f;
+        private const float AfterburnerGlowSize = 18.0f;
+        private const float CruiseGlowSize = 15.0f;
         
-        // Trail length multipliers
-        private const float IdleTrailLength = 1.0f;
-        private const float AcceleratingTrailLength = 2.5f;
-        private const float AfterburnerTrailLength = 5.0f;
-        private const float CruiseTrailLength = 4.0f;
+        // Trail length multipliers (in world units before ship scale)
+        private const float IdleTrailLength = 3.0f;
+        private const float AcceleratingTrailLength = 8.0f;
+        private const float AfterburnerTrailLength = 20.0f;
+        private const float CruiseTrailLength = 15.0f;
 
         // Default engine positions for player ship (in model space)
         private static readonly List<Vector3> DefaultEngineOffsets = new List<Vector3>
@@ -79,19 +82,36 @@ namespace Roguelancer
         /// </summary>
         public void DrawEngineGlows(GraphicsDevice graphicsDevice, Ship ship, Camera camera, float throttle)
         {
-            // Determine engine state from ship properties
-            EngineState state = EngineState.Idle;
+            if (ship.Model == null) return;
             
-            if (ship.IsCruiseCharging)
-                state = EngineState.CruiseCharging;
-            else if (ship.IsCruiseActive)
-                state = EngineState.Cruise;
-            else if (ship.IsAfterburnerActive)
-                state = EngineState.Afterburner;
-            else if (throttle > 0.1f)
-                state = EngineState.Accelerating;
-            else if (ship.EnginesKilled)
+            // Determine engine state from ship properties
+            EngineState state;
+            
+            if (ship.EnginesKilled)
+            {
                 state = EngineState.Idle;
+            }
+            else if (ship.IsCruiseCharging)
+            {
+                state = EngineState.CruiseCharging;
+            }
+            else if (ship.IsCruiseActive)
+            {
+                state = EngineState.Cruise;
+            }
+            else if (ship.IsAfterburnerActive)
+            {
+                state = EngineState.Afterburner;
+            }
+            else if (throttle > 0.05f || ship.Speed > 10f)
+            {
+                // Show accelerating glow when there's any throttle or the ship is moving
+                state = EngineState.Accelerating;
+            }
+            else
+            {
+                state = EngineState.Idle;
+            }
             
             DrawEngineGlowsInternal(ship.Model, ship.Position, ship.Orientation, ship.ModelRotationCorrection, 
                                     camera, throttle, state, DefaultEngineOffsets, 0.1f);
@@ -253,8 +273,8 @@ namespace Roguelancer
             // Layer 3: Hot core (smallest, brightest)
             DrawBillboard(enginePos, glowSize * 0.8f, coreColor, cameraPos);
             
-            // Layer 4: Engine trail (elongated in backward direction)
-            if (trailLength > 1.0f && intensity > 0.3f)
+            // Layer 4: Engine trail (elongated in backward direction) - draw when accelerating or faster
+            if (state != EngineState.Idle && intensity > 0.2f)
             {
                 DrawEngineTrail(enginePos, backward, cameraPos, baseColor, glowSize, trailLength, intensity, state);
             }
