@@ -44,20 +44,19 @@ namespace Roguelancer
 
         // Default engine positions for player ship (in model space)
         // These coordinates are BEFORE model correction rotations are applied
-        // After correction: X?-X, Y?Y, Z?-Y in the rotated space
+        // Positioned at the rear wing-mounted engine pods
         private static readonly List<Vector3> DefaultEngineOffsets = new List<Vector3>
         {
-            new Vector3(-2.5f, 8.5f, -1.0f),  // Left engine (X=-2.5 stays left, Z?Y so engine at rear)
-            new Vector3(2.5f, 8.5f, -1.0f),   // Right engine
-            new Vector3(0f, 9.0f, -1.0f)      // Center engine
+            new Vector3(-2.5f, 0.5f, -0.8f),  // Left engine at rear wing pod
+            new Vector3(2.5f, 0.5f, -0.8f),   // Right engine at rear wing pod
         };
 
-        // NPC ship engine positions (smaller ships, single engine)
+        // NPC ship engine positions (smaller ships)
         // These coordinates are BEFORE model correction rotations are applied
         private static readonly List<Vector3> NpcEngineOffsets = new List<Vector3>
         {
-            new Vector3(-1.5f, 6.0f, -0.5f),  // Left engine
-            new Vector3(1.5f, 6.0f, -0.5f),   // Right engine
+            new Vector3(-1.5f, 0.3f, -0.5f),  // Left engine
+            new Vector3(1.5f, 0.3f, -0.5f),   // Right engine
         };
 
         public EngineGlow(GraphicsDevice graphicsDevice)
