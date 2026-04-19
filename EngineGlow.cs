@@ -43,18 +43,21 @@ namespace Roguelancer
         private const float CruiseTrailLength = 15.0f;
 
         // Default engine positions for player ship (in model space)
+        // These coordinates are BEFORE model correction rotations are applied
+        // After correction: X?-X, Y?Y, Z?-Y in the rotated space
         private static readonly List<Vector3> DefaultEngineOffsets = new List<Vector3>
         {
-            new Vector3(-2.5f, -1.0f, 8.5f),  // Left engine
-            new Vector3(2.5f, -1.0f, 8.5f),   // Right engine
-            new Vector3(0f, -1.0f, 9.0f)      // Center engine
+            new Vector3(-2.5f, 8.5f, -1.0f),  // Left engine (X=-2.5 stays left, Z?Y so engine at rear)
+            new Vector3(2.5f, 8.5f, -1.0f),   // Right engine
+            new Vector3(0f, 9.0f, -1.0f)      // Center engine
         };
 
         // NPC ship engine positions (smaller ships, single engine)
+        // These coordinates are BEFORE model correction rotations are applied
         private static readonly List<Vector3> NpcEngineOffsets = new List<Vector3>
         {
-            new Vector3(-1.5f, -0.5f, 6.0f),  // Left engine
-            new Vector3(1.5f, -0.5f, 6.0f),   // Right engine
+            new Vector3(-1.5f, 6.0f, -0.5f),  // Left engine
+            new Vector3(1.5f, 6.0f, -0.5f),   // Right engine
         };
 
         public EngineGlow(GraphicsDevice graphicsDevice)
@@ -146,11 +149,14 @@ namespace Roguelancer
             var oldDepthStencilState = _graphicsDevice.DepthStencilState;
             var oldRasterizerState = _graphicsDevice.RasterizerState;
             
-            // Apply the same model correction as in Ship.Draw
+            // Apply the same model transformation as in Ship.Draw
+            // IMPORTANT: The order must match Ship.Draw exactly:
+            // modelScale * modelCorrection * ModelRotationCorrection * Orientation * Translation
+            Matrix modelScale = Matrix.CreateScale(shipScale);
             Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
             
-            // Transform engine positions to world space
-            Matrix shipTransform = modelCorrection * modelRotationCorrection * orientation * Matrix.CreateTranslation(position);
+            // Transform engine positions to world space using the EXACT same transform as Ship.Draw
+            Matrix shipTransform = modelScale * modelCorrection * modelRotationCorrection * orientation * Matrix.CreateTranslation(position);
             
             // Set render states for glowing particles
             _graphicsDevice.BlendState = BlendState.Additive;
@@ -165,6 +171,7 @@ namespace Roguelancer
             
             foreach (var offset in engineOffsets)
             {
+                // Transform engine offset to world space (offset is in model space)
                 Vector3 engineWorldPos = Vector3.Transform(offset, shipTransform);
                 
                 // Get the backward direction of the ship (where the glow trail should extend)
