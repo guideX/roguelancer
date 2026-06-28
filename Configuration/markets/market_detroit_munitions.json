@@ -4,7 +4,7 @@
   "faction_id": "liberty_corporations",
   "goods": [
     { "commodity_id": "engine-components", "buy_price": 780, "sell_price": 600, "stock": 200, "demand_level": 9, "is_available": true },
-    { "commodity_id": "construction-materials", "buy_price": 380, "sell_price": 260, "stock": 250, "demand_level": 8, "is_available": true },
+    { "commodity_id": "construction-materials", "buy_price": 500, "sell_price": 360, "stock": 250, "demand_level": 8, "is_available": true },
     { "commodity_id": "boron", "buy_price": 190, "sell_price": 150, "stock": 220, "demand_level": 8, "is_available": true },
     { "commodity_id": "h-fuel", "buy_price": 280, "sell_price": 190, "stock": 150, "demand_level": 6, "is_available": true },
     { "commodity_id": "side-arms", "buy_price": 1700, "sell_price": 1000, "stock": 90, "demand_level": 8, "is_available": true },

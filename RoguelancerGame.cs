@@ -754,7 +754,7 @@ namespace Roguelancer {
             if (_runMarketSmoke)
             {
                 RunMarketSmokeTest();
-                Exit();
+                Environment.Exit(0);
             }
         }
 
