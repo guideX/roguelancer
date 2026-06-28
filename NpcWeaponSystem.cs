@@ -25,6 +25,7 @@ namespace Roguelancer
         private GraphicsDevice _graphicsDevice;
         private BasicEffect _effect;
         private Random _random = new();
+        private ReputationManager _reputationManager;
 
         // NPC firing parameters
         private const float FireRange = 1200f;
@@ -37,14 +38,20 @@ namespace Roguelancer
         // Per-NPC fire timers
         private Dictionary<NpcShip, float> _fireCooldowns = new();
 
-        public NpcWeaponSystem(GraphicsDevice graphicsDevice)
+        public NpcWeaponSystem(GraphicsDevice graphicsDevice, ReputationManager reputationManager = null)
         {
             _graphicsDevice = graphicsDevice;
+            _reputationManager = reputationManager;
             _effect = new BasicEffect(graphicsDevice)
             {
                 VertexColorEnabled = true,
                 LightingEnabled = false
             };
+        }
+
+        public void SetReputationManager(ReputationManager reputationManager)
+        {
+            _reputationManager = reputationManager;
         }
 
         /// <summary>
@@ -90,6 +97,7 @@ namespace Roguelancer
             foreach (var npc in npcShips)
             {
                 if (npc.IsDestroyed) continue;
+                if (_reputationManager != null && !_reputationManager.IsHostile(npc.FactionId)) continue;
 
                 float distToPlayer = Vector3.Distance(npc.Position, playerShip.Position);
                 if (distToPlayer > FireRange) continue;
@@ -111,6 +119,7 @@ namespace Roguelancer
 
         private void FireAtTarget(NpcShip npc, Vector3 targetPosition)
         {
+            Console.WriteLine($"[NPC AI] {npc.Name} ({npc.FactionId}) firing at player");
             Vector3 direction = Vector3.Normalize(targetPosition - npc.Position);
 
             // Add accuracy spread

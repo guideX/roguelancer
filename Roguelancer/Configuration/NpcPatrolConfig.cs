@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Roguelancer;
 
 namespace Roguelancer.Configuration
 {
@@ -19,6 +20,12 @@ namespace Roguelancer.Configuration
         /// </summary>
         [JsonPropertyName("ship_description")]
         public string ShipDescription { get; set; }
+
+        /// <summary>
+        /// The faction id assigned to ships spawned by this patrol.
+        /// </summary>
+        [JsonPropertyName("faction_id")]
+        public string FactionId { get; set; } = string.Empty;
 
         /// <summary>
         /// The number of ships to spawn in this patrol group.

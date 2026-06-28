@@ -1,6 +1,7 @@
 {
   "description": "Patrol Fighter 1",
   "description_long": "System Defense Fighter - Patrol Route Alpha",
+  "faction_id": "liberty_navy",
   "model_index": 1,
   "system_index": 1,
   "startup_position_x": -2000.0,

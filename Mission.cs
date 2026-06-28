@@ -55,6 +55,7 @@ namespace Roguelancer
         public float ElapsedTime { get; set; }
         public string Description { get; }
         public string OfferedBy { get; set; }
+        public string FactionId { get; set; }
 
         // Progress tracking
         public bool ObjectiveComplete { get; set; }
@@ -66,7 +67,7 @@ namespace Roguelancer
         public bool IsExpired => TimeLimit > 0 && ElapsedTime >= TimeLimit;
         public float TimeRemaining => TimeLimit > 0 ? Math.Max(0, TimeLimit - ElapsedTime) : -1;
 
-        public Mission(MissionType type, MissionDifficulty difficulty, string target, string destination, int reward, float timeLimit, string description)
+        public Mission(MissionType type, MissionDifficulty difficulty, string target, string destination, int reward, float timeLimit, string description, string factionId = null)
         {
             Id = _nextId++;
             Type = type;
@@ -79,6 +80,7 @@ namespace Roguelancer
             ElapsedTime = 0f;
             Description = description;
             OfferedBy = "";
+            FactionId = FactionManager.NormalizeFactionId(factionId);
             ObjectiveComplete = false;
         }
 
@@ -113,7 +115,7 @@ namespace Roguelancer
         public string GetDetailedDescription()
         {
             string timeStr = TimeLimit > 0 ? $"Time Limit: {TimeLimit:F0}s" : "No Time Limit";
-            return $"{Description}\nTarget: {Target}\nDestination: {Destination}\nReward: {Reward:N0} CR\nDifficulty: {Difficulty}\n{timeStr}";
+            return $"{Description}\nTarget: {Target}\nDestination: {Destination}\nFaction: {FactionId}\nReward: {Reward:N0} CR\nDifficulty: {Difficulty}\n{timeStr}";
         }
     }
 }

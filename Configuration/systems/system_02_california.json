@@ -11,6 +11,7 @@
     {
       "name": "California Border Patrol",
       "ship_description": "Patrol Fighter 1",
+      "faction_id": "liberty_navy",
       "count": 6,
       "patrol_center_x": -2000.0,
       "patrol_center_y": 0.0,
@@ -21,7 +22,8 @@
     },
     {
       "name": "Freelancer Convoy",
-      "ship_description": "Starliner Transport",
+      "ship_description": "Transport Ship Alpha",
+      "faction_id": "neutral_civilians",
       "count": 3,
       "patrol_center_x": 4000.0,
       "patrol_center_y": 500.0,
@@ -32,7 +34,8 @@
     },
     {
       "name": "Rogue Warthog Wing",
-      "ship_description": "Warthog Fighter",
+      "ship_description": "Warthog Heavy Fighter",
+      "faction_id": "liberty_rogues",
       "count": 5,
       "patrol_center_x": -6000.0,
       "patrol_center_y": -500.0,

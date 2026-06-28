@@ -1,6 +1,7 @@
 {
   "description": "Transport Ship Alpha",
   "description_long": "Heavy Cargo Transport - Route Alpha",
+  "faction_id": "neutral_civilians",
   "model_index": 2,
   "system_index": 1,
   "startup_position_x": -3500.0,

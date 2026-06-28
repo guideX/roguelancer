@@ -22,6 +22,11 @@ namespace Roguelancer
         public StationConfig Config { get; }
 
         /// <summary>
+        /// Faction ownership for docking and reputation checks.
+        /// </summary>
+        public string FactionId { get; }
+
+        /// <summary>
         /// Docking range - distance at which a ship can dock
         /// </summary>
         public float DockingRange { get; set; }
@@ -43,6 +48,7 @@ namespace Roguelancer
         {
             Config = config;
             Model = model;
+            FactionId = FactionManager.NormalizeFactionId(config.FactionId);
             DockingRange = config.DockingRange;
         }
 

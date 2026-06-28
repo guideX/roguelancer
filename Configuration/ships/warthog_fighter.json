@@ -3,6 +3,7 @@
   "SystemIndex": 1,
   "ModelIndex": 3,
   "Description": "Warthog Heavy Fighter",
+  "FactionId": "liberty_rogues",
   "StartupPosition": {
     "X": 1000,
     "Y": 100,

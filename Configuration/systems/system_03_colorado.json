@@ -11,6 +11,7 @@
     {
       "name": "Liberty Navy Patrol",
       "ship_description": "Patrol Fighter 1",
+      "faction_id": "liberty_navy",
       "count": 5,
       "patrol_center_x": 0.0,
       "patrol_center_y": 0.0,
@@ -22,6 +23,7 @@
     {
       "name": "Colorado Border Patrol",
       "ship_description": "Patrol Fighter 1",
+      "faction_id": "liberty_navy",
       "count": 4,
       "patrol_center_x": -5000.0,
       "patrol_center_y": 0.0,
@@ -32,7 +34,8 @@
     },
     {
       "name": "Trade Route Security",
-      "ship_description": "Starliner Transport",
+      "ship_description": "Transport Ship Alpha",
+      "faction_id": "liberty_corporations",
       "count": 3,
       "patrol_center_x": 3000.0,
       "patrol_center_y": 0.0,

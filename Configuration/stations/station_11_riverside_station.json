@@ -1,6 +1,7 @@
 {
   "description": "Riverside Station",
   "description_long": "A commercial station orbiting Planet Mojave, serving as a trade hub and refueling depot for the California system.",
+  "faction_id": "liberty_corporations",
   "model_path": "STATIONS/ROTATOR_NEXUS/source/SpaceStation_RotorNexus",
   "system_index": 2,
   "startup_position_x": 7000.0,

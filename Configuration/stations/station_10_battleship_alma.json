@@ -1,6 +1,7 @@
 {
   "description": "Battleship Alma",
   "description_long": "A Liberty Navy battleship stationed near Planet Los Angeles, providing defense and law enforcement for the California system.",
+  "faction_id": "liberty_navy",
   "model_path": "STATIONS/STATION1/STATION1",
   "system_index": 2,
   "startup_position_x": -7500.0,

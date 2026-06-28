@@ -38,6 +38,7 @@ namespace Roguelancer
         // Job board system
         private JobBoard _jobBoard;
         private MissionManager _missionManager;
+        private ReputationManager _reputationManager;
 
         public bool IsDocked => _isDocked;
         public StationArea CurrentArea => _currentArea;
@@ -46,13 +47,14 @@ namespace Roguelancer
         public event Action? OnUndock;
         public event Action<ShipDefinition>? OnShipPurchased;
 
-        public StationDockUI(SpriteFont font, Texture2D pixel, ShipDealer shipDealer, CommodityDealer commodityDealer, MissionManager missionManager)
+        public StationDockUI(SpriteFont font, Texture2D pixel, ShipDealer shipDealer, CommodityDealer commodityDealer, MissionManager missionManager, ReputationManager reputationManager = null)
         {
             _font = font;
             _pixel = pixel;
             _shipDealer = shipDealer;
             _commodityDealer = commodityDealer;
             _missionManager = missionManager;
+            _reputationManager = reputationManager;
             _jobBoard = new JobBoard(missionManager);
             _isDocked = false;
             _currentArea = StationArea.Hangar;
@@ -61,9 +63,15 @@ namespace Roguelancer
         /// <summary>
         /// Dock at a space station
         /// </summary>
-        public void DockAtStation(Station station)
+        public bool DockAtStation(Station station)
         {
-            if (station == null) return;
+            if (station == null) return false;
+
+            if (_reputationManager != null && _reputationManager.IsHostile(station.FactionId))
+            {
+                Console.WriteLine($"[DOCK] Docking denied at {station.Name} because faction '{station.FactionId}' is hostile.");
+                return false;
+            }
             
             _dockedStation = station;
             _isDocked = true;
@@ -80,16 +88,17 @@ namespace Roguelancer
             // Generate a random mission for each NPC
             foreach (var npc in _barNpcs)
             {
-                npc.CurrentMission = _missionManager.GenerateRandomMission();
+                npc.CurrentMission = _missionManager.GenerateRandomMission(npc.FactionId);
                 npc.CurrentMission.OfferedBy = npc.Name;
             }
 
-            _jobBoard.RefreshMissions(6);
+            _jobBoard.RefreshMissions(6, _dockedStation?.FactionId);
 
             // Notify mission manager we docked (for delivery missions)
             _missionManager.NotifyArrivedAtStation(station.Name);
 
             Console.WriteLine($"[DOCK] Docked at {station.Name}");
+            return true;
         }
 
         /// <summary>

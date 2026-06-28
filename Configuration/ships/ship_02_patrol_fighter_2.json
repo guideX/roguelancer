@@ -1,6 +1,7 @@
 {
   "description": "Patrol Fighter 2",
   "description_long": "System Defense Fighter - Patrol Route Beta",
+  "faction_id": "liberty_navy",
   "model_index": 1,
   "system_index": 1,
   "startup_position_x": 1500.0,

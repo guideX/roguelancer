@@ -11,6 +11,7 @@
     {
       "name": "Liberty Navy Patrol Alpha",
       "ship_description": "Patrol Fighter 1",
+      "faction_id": "liberty_navy",
       "count": 6,
       "patrol_center_x": 0.0,
       "patrol_center_y": 0.0,
@@ -22,6 +23,7 @@
     {
       "name": "Liberty Navy Patrol Beta",
       "ship_description": "Patrol Fighter 1",
+      "faction_id": "liberty_navy",
       "count": 4,
       "patrol_center_x": 30000.0,
       "patrol_center_y": 0.0,
@@ -32,7 +34,8 @@
     },
     {
       "name": "Trade Convoy",
-      "ship_description": "Starliner Transport",
+      "ship_description": "Transport Ship Alpha",
+      "faction_id": "neutral_civilians",
       "count": 4,
       "patrol_center_x": 6000.0,
       "patrol_center_y": 0.0,
@@ -43,7 +46,8 @@
     },
     {
       "name": "Badlands Patrol",
-      "ship_description": "Warthog Fighter",
+      "ship_description": "Warthog Heavy Fighter",
+      "faction_id": "liberty_rogues",
       "count": 8,
       "patrol_center_x": -24000.0,
       "patrol_center_y": 0.0,
@@ -54,14 +58,15 @@
     },
     {
       "name": "Rogues Patrol",
-      "ship_description": "Warthog Fighter",
+      "ship_description": "Warthog Heavy Fighter",
+      "faction_id": "liberty_rogues",
       "count": 6,
-      "patrol_center_x": 42000.0,
-      "patrol_center_y": 0.0,
-      "patrol_center_z": -18000.0,
-      "patrol_radius": 18000.0,
+      "patrol_center_x": 1200.0,
+      "patrol_center_y": 200.0,
+      "patrol_center_z": -1000.0,
+      "patrol_radius": 1500.0,
       "patrol_speed": 220.0,
-      "spawn_radius": 10500.0
+      "spawn_radius": 500.0
     }
   ],
   "planets": [

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Roguelancer
 {
@@ -15,6 +14,7 @@ namespace Roguelancer
         private PlayerCredits _playerCredits;
         private NotificationManager _notificationManager;
         private MissionWaypointSystem _waypointSystem;
+        private ReputationManager _reputationManager;
 
         // Mission generation data
         private static readonly string[] DeliveryTargets = {
@@ -43,10 +43,16 @@ namespace Roguelancer
         public IReadOnlyList<Mission> ActiveMissions => _activeMissions.AsReadOnly();
         public IReadOnlyList<Mission> CompletedMissions => _completedMissions.AsReadOnly();
 
-        public MissionManager(PlayerCredits playerCredits, NotificationManager notificationManager)
+        public MissionManager(PlayerCredits playerCredits, NotificationManager notificationManager, ReputationManager reputationManager = null)
         {
             _playerCredits = playerCredits;
             _notificationManager = notificationManager;
+            _reputationManager = reputationManager;
+        }
+
+        public void SetReputationManager(ReputationManager reputationManager)
+        {
+            _reputationManager = reputationManager;
         }
 
         /// <summary>
@@ -60,7 +66,7 @@ namespace Roguelancer
         /// <summary>
         /// Generate a single random mission
         /// </summary>
-        public Mission GenerateRandomMission()
+        public Mission GenerateRandomMission(string factionId = null)
         {
             MissionType type = (MissionType)_random.Next(3);
             MissionDifficulty difficulty = (MissionDifficulty)_random.Next(4);
@@ -111,18 +117,18 @@ namespace Roguelancer
                     break;
             }
 
-            return new Mission(type, difficulty, target, destination, baseReward, timeLimit, description);
+            return new Mission(type, difficulty, target, destination, baseReward, timeLimit, description, factionId);
         }
 
         /// <summary>
         /// Generate multiple random missions for a job board
         /// </summary>
-        public List<Mission> GenerateJobBoardMissions(int count)
+        public List<Mission> GenerateJobBoardMissions(int count, string factionId = null)
         {
             var missions = new List<Mission>();
             for (int i = 0; i < count; i++)
             {
-                missions.Add(GenerateRandomMission());
+                missions.Add(GenerateRandomMission(factionId));
             }
             return missions;
         }
@@ -134,6 +140,7 @@ namespace Roguelancer
         {
             if (mission.Status != MissionStatus.Available) return false;
 
+            mission.FactionId = FactionManager.NormalizeFactionId(mission.FactionId);
             mission.Status = MissionStatus.Active;
             _activeMissions.Add(mission);
             _waypointSystem?.RegisterMission(mission);
@@ -157,6 +164,12 @@ namespace Roguelancer
             _playerCredits.AddCredits(mission.Reward);
             _notificationManager?.ShowMessage($"Mission complete! +{mission.Reward:N0} CR", 4f);
             Console.WriteLine($"[MISSION] Completed: {mission.Description} | Reward: {mission.Reward:N0} CR");
+
+            if (_reputationManager != null)
+            {
+                string factionId = FactionManager.NormalizeFactionId(mission.FactionId);
+                _reputationManager.AddReputation(factionId, 0.12f, $"Mission completed: {mission.Description}");
+            }
         }
 
         /// <summary>

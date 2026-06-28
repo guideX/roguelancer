@@ -1,6 +1,7 @@
 {
   "description": "Fort Bush",
   "description_long": "Liberty Police Inc. base of operations in the New York system. Provides patrol coordination and trade lane security.",
+  "faction_id": "liberty_police",
   "model_path": "STATIONS/STATION1/STATION1",
   "system_index": 1,
   "startup_position_x": 6000.0,

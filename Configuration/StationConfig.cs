@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Microsoft.Xna.Framework;
+using Roguelancer;
 
 namespace Roguelancer.Configuration {
     /// <summary>
@@ -20,6 +21,9 @@ namespace Roguelancer.Configuration {
 
         [JsonPropertyName("system_index")]
         public int SystemIndex { get; set; } = 0;
+
+        [JsonPropertyName("faction_id")]
+        public string FactionId { get; set; } = string.Empty;
 
         [JsonPropertyName("startup_position_x")]
         public float StartupPositionX { get; set; } = 0f;

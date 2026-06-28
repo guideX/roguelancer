@@ -14,6 +14,7 @@ namespace Roguelancer
         public float Speed { get; private set; }
         public Matrix ModelRotationCorrection { get; set; } = Matrix.Identity;
         public string ModelPath { get; set; }
+        public string FactionId { get; set; }
 
         // Hull integrity
         public HullIntegrity Hull { get; private set; }
@@ -37,12 +38,13 @@ namespace Roguelancer
         public Vector3 Up => Vector3.Transform(Vector3.Up, _rotation);
         public Vector3 Right => Vector3.Transform(Vector3.Right, _rotation);
         
-        public NpcShip(string name, Vector3 startPosition, Vector3 patrolCenter, float patrolRadius, float patrolSpeed)
+        public NpcShip(string name, Vector3 startPosition, Vector3 patrolCenter, float patrolRadius, float patrolSpeed, string factionId = null)
             : base(name, startPosition, 10f)
         {
             _patrolCenter = patrolCenter;
             _patrolRadius = patrolRadius;
             _patrolSpeed = patrolSpeed;
+            FactionId = FactionManager.NormalizeFactionId(factionId);
             _bobPhase = (float)(new Random().NextDouble() * MathHelper.TwoPi);
             _bobSpeed = 0.3f + (float)(new Random().NextDouble() * 0.4f);
             

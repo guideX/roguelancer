@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -77,6 +78,8 @@ namespace Roguelancer {
         /// Configuration Manager
         /// </summary>
         private ConfigurationManager _config;
+        private FactionManager _factionManager;
+        private ReputationManager _reputationManager;
         /// <summary>
         /// Lighting Direction
         /// </summary>
@@ -192,6 +195,8 @@ namespace Roguelancer {
 
             // Initialize configuration manager
             _config = new ConfigurationManager();
+            _factionManager = new FactionManager();
+            _reputationManager = new ReputationManager(_factionManager);
 
             // Load game settings
             _gameSettings = GameSettings.Load();
@@ -493,6 +498,7 @@ namespace Roguelancer {
 
                     var patrolCenter = new Vector3(patrolConfig.PatrolCenterX, patrolConfig.PatrolCenterY, patrolConfig.PatrolCenterZ);
                     var spawnPosition = patrolCenter + spawnOffset;
+                    string factionId = FactionManager.CoalesceFactionId(shipConfig.FactionId, patrolConfig.FactionId);
 
                     // Create the NPC ship
                     NpcShip npc = new NpcShip(
@@ -500,7 +506,8 @@ namespace Roguelancer {
                         spawnPosition,
                         patrolCenter,
                         patrolConfig.PatrolRadius,
-                        patrolConfig.PatrolSpeed
+                        patrolConfig.PatrolSpeed,
+                        factionId
                     );
 
                     // Assign model path for later loading
@@ -517,7 +524,7 @@ namespace Roguelancer {
                     _spaceObjects.Add(npc); // Add to targetable objects
                     npc.OnDestroyed += HandleNpcDestroyed; // Subscribe to the event
 
-                    Console.WriteLine($"  ✓ Created ship: {npc.Name} at {npc.Position:F1}");
+                    Console.WriteLine($"  ✓ Created ship: {npc.Name} at {npc.Position:F1} | Faction: {npc.FactionId}");
                 }
             }
         }
@@ -549,10 +556,10 @@ namespace Roguelancer {
             _commodityDealer = new CommodityDealer();
 
             // Initialize mission manager
-            _missionManager = new MissionManager(_playerCredits, _notificationManager);
+            _missionManager = new MissionManager(_playerCredits, _notificationManager, _reputationManager);
 
             // Initialize NPC weapon system
-            _npcWeaponSystem = new NpcWeaponSystem(GraphicsDevice);
+            _npcWeaponSystem = new NpcWeaponSystem(GraphicsDevice, _reputationManager);
 
             // Initialize mission waypoint/marker/guidance systems
             _missionWaypointSystem = new MissionWaypointSystem();
@@ -563,10 +570,13 @@ namespace Roguelancer {
 
             // Connect mission manager to waypoint system
             _missionManager?.SetWaypointSystem(_missionWaypointSystem);
+            _missionManager?.SetReputationManager(_reputationManager);
+
+            _npcWeaponSystem?.SetReputationManager(_reputationManager);
 
             // Initialize station dock UI
             if (_font != null) {
-                _stationDockUI = new StationDockUI(_font, _pixel, _shipDealer, _commodityDealer, _missionManager);
+                _stationDockUI = new StationDockUI(_font, _pixel, _shipDealer, _commodityDealer, _missionManager, _reputationManager);
                 _stationDockUI.OnUndock += HandleUndock;
                 _stationDockUI.OnShipPurchased += HandleShipPurchased;
             }
@@ -710,7 +720,12 @@ namespace Roguelancer {
                          (_gotoAutopilot.Destination != null &&
                           Vector3.Distance(s.Position, _gotoAutopilot.Destination.Position) < 10f));
                 if (station != null)
-                    _stationDockUI?.DockAtStation(station);
+                {
+                    if (_stationDockUI?.DockAtStation(station) != true)
+                    {
+                        _notificationManager?.ShowMessage("Docking denied by station security", 3f);
+                    }
+                }
             };
             _playerShip.SetGotoAutopilot(_gotoAutopilot);
         }
@@ -819,8 +834,11 @@ namespace Roguelancer {
             if (keyboardState.IsKeyDown(Keys.F3) && _prevKeys.IsKeyUp(Keys.F3)) {
                 if (_playerShip.TryDock()) {
                     // Successfully initiated docking
-                    _stationDockUI?.DockAtStation(_playerShip.NearestStation);
-                    _notificationManager?.ShowMessage($"Docked at {_playerShip.NearestStation?.Name}", 3f);
+                    if (_stationDockUI?.DockAtStation(_playerShip.NearestStation) == true) {
+                        _notificationManager?.ShowMessage($"Docked at {_playerShip.NearestStation?.Name}", 3f);
+                    } else {
+                        _notificationManager?.ShowMessage("Docking denied by station security", 3f);
+                    }
                 }
             }
 
@@ -1283,11 +1301,14 @@ namespace Roguelancer {
                 for (int i = 0; i < _spaceObjects.Count; i++) {
                     current = (startIndex + 1 + i) % _spaceObjects.Count;
                     if (_spaceObjects[current] is NpcShip npcTarget && !npcTarget.IsDestroyed) {
-                        _selectedSpaceObjectIndex = current;
-                        _notificationManager?.ShowMessage($"Hostile Target: {npcTarget.Name}");
-                        Console.WriteLine($"[TARGETING] Hostile Selected: {npcTarget.Name}");
-                        found = true;
-                        break;
+                        if (_reputationManager == null || _reputationManager.IsHostile(npcTarget.FactionId)) {
+                            _selectedSpaceObjectIndex = current;
+                            string factionName = _factionManager.GetFaction(npcTarget.FactionId).DisplayName;
+                            _notificationManager?.ShowMessage($"Hostile Target: {npcTarget.Name}");
+                            Console.WriteLine($"[TARGETING] Hostile Selected: {npcTarget.Name} | Faction: {factionName}");
+                            found = true;
+                            break;
+                        }
                     }
                 }
                 if (!found) {
@@ -1435,34 +1456,48 @@ namespace Roguelancer {
 
             SpaceObject target = _spaceObjects[_selectedSpaceObjectIndex];
             float distance = Vector3.Distance(_playerShip.Position, target.Position);
+            string factionId = GetTargetFactionId(target);
+            Faction faction = _factionManager.GetFaction(factionId);
+            string standingLabel = _reputationManager?.GetStandingSummary(factionId) ?? "Neutral (0.00)";
+            Color factionColor = faction.Color;
 
             // Draw target info at top center of screen
             int screenCenterX = GraphicsDevice.Viewport.Width / 2;
             int topY = 20;
 
             // Background panel
-            Rectangle panel = new Rectangle(screenCenterX - 200, topY, 400, 80);
+            Rectangle panel = new Rectangle(screenCenterX - 220, topY, 440, 112);
             _spriteBatch.Draw(_pixel, panel, Color.Black * 0.8f);
-            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 3), Color.Orange);
-            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, 3, panel.Height), Color.Orange);
-            _spriteBatch.Draw(_pixel, new Rectangle(panel.X + panel.Width - 3, panel.Y, 3, panel.Height), Color.Orange);
-            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y + panel.Height - 3, panel.Width, 3), Color.Orange);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 3), factionColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, 3, panel.Height), factionColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X + panel.Width - 3, panel.Y, 3, panel.Height), factionColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y + panel.Height - 3, panel.Width, 3), factionColor);
 
             if (_font != null) {
                 // Target label
-                _spriteBatch.DrawString(_font, "TARGET", new Vector2(20, 20), Color.Orange);
+                _spriteBatch.DrawString(_font, "TARGET", new Vector2(20, 20), factionColor);
 
                 // Target name (large)
                 Vector2 nameSize = _font.MeasureString(target.Name);
-                _spriteBatch.DrawString(_font, target.Name, new Vector2(screenCenterX - nameSize.X / 2, panel.Y + 30), Color.White);
+                _spriteBatch.DrawString(_font, target.Name, new Vector2(screenCenterX - nameSize.X / 2, panel.Y + 28), Color.White);
+
+                string factionText = $"Faction: {faction.DisplayName}";
+                Vector2 factionSize = _font.MeasureString(factionText);
+                _spriteBatch.DrawString(_font, factionText, new Vector2(screenCenterX - factionSize.X / 2, panel.Y + 53), factionColor);
+
+                string standingText = $"Standing: {standingLabel}";
+                Vector2 standingSize = _font.MeasureString(standingText);
+                Color standingColor = _reputationManager != null && _reputationManager.IsHostile(factionId) ? Color.IndianRed :
+                    _reputationManager != null && _reputationManager.IsFriendly(factionId) ? Color.LightGreen : Color.LightGray;
+                _spriteBatch.DrawString(_font, standingText, new Vector2(screenCenterX - standingSize.X / 2, panel.Y + 74), standingColor);
 
                 // Distance
                 string distText = $"{distance / 1000f:F2} km";
                 Vector2 distSize = _font.MeasureString(distText);
-                _spriteBatch.DrawString(_font, distText, new Vector2(screenCenterX - distSize.X / 2, panel.Y + 55), Color.Cyan);
+                _spriteBatch.DrawString(_font, distText, new Vector2(screenCenterX - distSize.X / 2, panel.Y + 95), Color.Cyan);
             } else {
                 // Fallback: Just draw colored bars to indicate target is selected
-                _spriteBatch.Draw(_pixel, new Rectangle(panel.X + 10, panel.Y + 30, (int)(380 * MathHelper.Clamp(distance / 10000f, 0f, 1f)), 30), Color.Orange * 0.8f);
+                _spriteBatch.Draw(_pixel, new Rectangle(panel.X + 10, panel.Y + 30, (int)(420 * MathHelper.Clamp(distance / 10000f, 0f, 1f)), 30), factionColor * 0.8f);
             }
 
             // Draw targeting reticle on the actual target or off-screen indicator
@@ -1481,6 +1516,28 @@ namespace Roguelancer {
                 // Target is off-screen - draw directional arrow at screen edge
                 DrawOffScreenTargetIndicator(target.Position, distance);
             }
+        }
+
+        private string GetTargetFactionId(SpaceObject target) {
+            if (target is NpcShip npcTarget) {
+                return FactionManager.NormalizeFactionId(npcTarget.FactionId);
+            }
+
+            if (target is Station stationTarget) {
+                return FactionManager.NormalizeFactionId(stationTarget.FactionId);
+            }
+
+            Station matchingStation = null;
+            if (_stationManager != null)
+            {
+                matchingStation = _stationManager.GetStations().FirstOrDefault(s =>
+                    s.Name.Equals(target.Name, StringComparison.OrdinalIgnoreCase));
+            }
+            if (matchingStation != null) {
+                return FactionManager.NormalizeFactionId(matchingStation.FactionId);
+            }
+
+            return FactionManager.NeutralCivilians;
         }
 
         /// <summary>
@@ -1921,8 +1978,10 @@ namespace Roguelancer {
                         Color.White * 0.8f);
                 }
 
-                // ✨ NEW: Draw targeting lead crosshair
-                DrawLeadingCrosshair(npc);
+                // Only draw lead indicator for hostile targets
+                if (_reputationManager == null || _reputationManager.IsHostile(npc.FactionId)) {
+                    DrawLeadingCrosshair(npc);
+                }
             }
         }
 
