@@ -180,6 +180,7 @@ namespace Roguelancer {
         private bool _firstFrame = true;
         private readonly bool _runMarketSmoke;
         private readonly bool _runMissileSmoke;
+        private readonly bool _runCountermeasureSmoke;
         private string _activeMountedGunId = string.Empty;
         private WeaponType? _activeMountedGunWeaponType;
         private bool _wasUsingMountedGun = false;
@@ -219,6 +220,7 @@ namespace Roguelancer {
             _reputationManager = new ReputationManager(_factionManager);
             _runMarketSmoke = args?.Any(arg => string.Equals(arg, "--market-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMissileSmoke = args?.Any(arg => string.Equals(arg, "--missile-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runCountermeasureSmoke = args?.Any(arg => string.Equals(arg, "--countermeasure-smoke", StringComparison.OrdinalIgnoreCase)) == true;
 
             // Load game settings
             _gameSettings = GameSettings.Load();
@@ -982,6 +984,12 @@ namespace Roguelancer {
                 var result = RunMissileSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+
+            if (_runCountermeasureSmoke)
+            {
+                var result = RunCountermeasureSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
         }
 
         private (int Passed, int Failed) RunMarketSmokeTest()
@@ -1014,6 +1022,20 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[MISSILE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunCountermeasureSmokeTest()
+        {
+            try
+            {
+                var harness = new CountermeasureSmokeTest(GraphicsDevice);
+                return harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[COUNTERMEASURE SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
