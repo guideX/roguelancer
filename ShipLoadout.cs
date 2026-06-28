@@ -36,7 +36,7 @@ namespace Roguelancer
             }
         }
 
-        public static ShipLoadout CreateStarterLoadout()
+        public static ShipLoadout CreateStarterLoadout(bool includeStarterEquipment = true)
         {
             var loadout = new ShipLoadout(new[]
             {
@@ -51,13 +51,16 @@ namespace Roguelancer
                 new ShipHardpoint { Id = "TractorBeam", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.TractorBeam } }
             });
 
-            MountStarterEquipment(loadout, "PrimaryGunLeft", "liberty_light_laser", EquipmentType.Gun);
-            MountStarterEquipment(loadout, "PrimaryGunRight", "rogue_blaster", EquipmentType.Gun);
-            MountStarterEquipment(loadout, "MissileRack", "basic_missile_launcher", EquipmentType.MissileLauncher);
-            MountStarterEquipment(loadout, "ShieldGenerator", "civilian_shield_generator", EquipmentType.ShieldGenerator);
-            MountStarterEquipment(loadout, "Thruster", "light_thruster", EquipmentType.Thruster);
-            MountStarterEquipment(loadout, "Scanner", "basic_scanner", EquipmentType.Scanner);
-            MountStarterEquipment(loadout, "CountermeasureRack", "basic_countermeasure_dropper", EquipmentType.CountermeasureDropper);
+            if (includeStarterEquipment)
+            {
+                MountStarterEquipment(loadout, "PrimaryGunLeft", "liberty_light_laser", EquipmentType.Gun);
+                MountStarterEquipment(loadout, "PrimaryGunRight", "rogue_blaster", EquipmentType.Gun);
+                MountStarterEquipment(loadout, "MissileRack", "basic_missile_launcher", EquipmentType.MissileLauncher);
+                MountStarterEquipment(loadout, "ShieldGenerator", "civilian_shield_generator", EquipmentType.ShieldGenerator);
+                MountStarterEquipment(loadout, "Thruster", "light_thruster", EquipmentType.Thruster);
+                MountStarterEquipment(loadout, "Scanner", "basic_scanner", EquipmentType.Scanner);
+                MountStarterEquipment(loadout, "CountermeasureRack", "basic_countermeasure_dropper", EquipmentType.CountermeasureDropper);
+            }
 
             return loadout;
         }

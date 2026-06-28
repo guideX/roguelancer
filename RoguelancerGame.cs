@@ -186,6 +186,8 @@ namespace Roguelancer {
         private readonly bool _runMissileSmoke;
         private readonly bool _runCountermeasureSmoke;
         private readonly bool _runMineSmoke;
+        private readonly bool _runSaveSmoke;
+        private SaveGameManager _saveGameManager;
         private string _activeMountedGunId = string.Empty;
         private WeaponType? _activeMountedGunWeaponType;
         private bool _wasUsingMountedGun = false;
@@ -227,6 +229,7 @@ namespace Roguelancer {
             _runMissileSmoke = args?.Any(arg => string.Equals(arg, "--missile-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runCountermeasureSmoke = args?.Any(arg => string.Equals(arg, "--countermeasure-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMineSmoke = args?.Any(arg => string.Equals(arg, "--mine-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runSaveSmoke = args?.Any(arg => string.Equals(arg, "--save-smoke", StringComparison.OrdinalIgnoreCase)) == true;
 
             // Load game settings
             _gameSettings = GameSettings.Load();
@@ -983,6 +986,17 @@ namespace Roguelancer {
             };
             _playerShip.SetGotoAutopilot(_gotoAutopilot);
 
+            _saveGameManager = new SaveGameManager();
+            if (_runSaveSmoke)
+            {
+                var result = RunSaveSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else
+            {
+                TryAutoLoadSavedGame();
+            }
+
             if (_runMarketSmoke)
             {
                 var result = RunMarketSmokeTest();
@@ -1070,6 +1084,240 @@ namespace Roguelancer {
             }
         }
 
+        private (int Passed, int Failed) RunSaveSmokeTest()
+        {
+            try
+            {
+                var harness = new SaveSmokeTest();
+                return harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SAVE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private bool HandleSaveLoadHotkeys(KeyboardState keyboardState)
+        {
+            if (keyboardState.IsKeyDown(Keys.F6) && _prevKeys.IsKeyUp(Keys.F6))
+            {
+                TryQuickSave();
+            }
+
+            if (keyboardState.IsKeyDown(Keys.F8) && _prevKeys.IsKeyUp(Keys.F8))
+            {
+                if (TryQuickLoad())
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void TryAutoLoadSavedGame()
+        {
+            if (_saveGameManager == null || !_saveGameManager.HasSaveFile())
+            {
+                return;
+            }
+
+            TryQuickLoad(showMissingSaveFailure: false);
+        }
+
+        private bool TryQuickSave()
+        {
+            if (_saveGameManager == null)
+            {
+                _notificationManager?.ShowMessage("Save Failed", 2f);
+                return false;
+            }
+
+            SaveGameData saveData = CaptureSaveData();
+            if (_saveGameManager.TrySave(saveData, out string failureReason))
+            {
+                _notificationManager?.ShowMessage("Game Saved", 2f);
+                return true;
+            }
+
+            _notificationManager?.ShowMessage("Save Failed", 2f);
+            return false;
+        }
+
+        private bool TryQuickLoad(bool showMissingSaveFailure = true)
+        {
+            if (_saveGameManager == null)
+            {
+                if (showMissingSaveFailure)
+                {
+                    _notificationManager?.ShowMessage("Load Failed", 2f);
+                }
+                return false;
+            }
+
+            if (!_saveGameManager.TryLoad(out SaveGameData saveData, out string failureReason))
+            {
+                if (showMissingSaveFailure || !string.Equals(failureReason, "save file not found", StringComparison.OrdinalIgnoreCase))
+                {
+                    _notificationManager?.ShowMessage("Load Failed", 2f);
+                }
+                return false;
+            }
+
+            if (!ApplySaveData(saveData, out string applyFailureReason))
+            {
+                _notificationManager?.ShowMessage("Load Failed", 2f);
+                Console.WriteLine($"[SAVE] Load failed: {applyFailureReason}");
+                return false;
+            }
+
+            _notificationManager?.ShowMessage("Game Loaded", 2f);
+            IsMouseVisible = !_playerShip.IsFreeFlightMode;
+            _inputCooldown = InputCooldownTime;
+            return true;
+        }
+
+        private SaveGameData CaptureSaveData()
+        {
+            var saveData = new SaveGameData
+            {
+                PlayerCredits = _playerCredits?.Credits ?? 0,
+                CurrentSystemIndex = _currentSystemIndex,
+                CurrentShipName = _shipDealer?.CurrentPlayerShip?.Name ?? "Scimitar",
+                PlayerPosition = SaveVector3Data.From(_playerShip?.Position ?? Vector3.Zero),
+                PlayerVelocity = SaveVector3Data.From(_playerShip?.Velocity ?? Vector3.Zero),
+                PlayerForward = SaveVector3Data.From(_playerShip?.Forward ?? Vector3.Forward)
+            };
+
+            saveData.OwnedEquipment = _saveGameManager?.CaptureOwnedEquipment(_playerShip?.Loadout) ?? new List<SaveOwnedEquipmentData>();
+            saveData.MountedEquipment = _saveGameManager?.CaptureMountedEquipment(_playerShip?.Loadout) ?? new List<SaveMountedEquipmentData>();
+            saveData.Cargo = _saveGameManager?.CaptureCargo(_playerShip?.CargoHold) ?? new List<SaveCargoItemData>();
+            saveData.FactionReputation = _saveGameManager?.CaptureReputation(_reputationManager) ?? new List<SaveFactionReputationData>();
+            saveData.ActiveMissions = _saveGameManager?.CaptureMissions(_missionManager?.ActiveMissions) ?? new List<SaveMissionData>();
+            saveData.CompletedMissions = _saveGameManager?.CaptureMissions(_missionManager?.CompletedMissions) ?? new List<SaveMissionData>();
+            saveData.StationMarkets = _commodityDealer?.CaptureMarketState() ?? new List<SaveMarketStateData>();
+
+            return saveData;
+        }
+
+        private bool ApplySaveData(SaveGameData saveData, out string failureReason)
+        {
+            failureReason = string.Empty;
+
+            if (saveData == null)
+            {
+                failureReason = "save data was null";
+                return false;
+            }
+
+            int targetSystemIndex = Math.Max(1, saveData.CurrentSystemIndex);
+            if (_stationDockUI?.IsDocked == true)
+            {
+                _stationDockUI.Undock();
+            }
+
+            HandleSystemChange(targetSystemIndex, null);
+
+            ShipDefinition shipDefinition = _shipDealer?.GetShipByName(saveData.CurrentShipName) ?? _shipDealer?.CurrentPlayerShip;
+            if (shipDefinition == null)
+            {
+                failureReason = "no ship definition was available";
+                return false;
+            }
+
+            shipDefinition.ApplyToShip(_playerShip);
+
+            List<string> loadoutWarnings = new();
+            ShipLoadout loadout = ShipLoadout.CreateStarterLoadout(false);
+            if (_saveGameManager != null)
+            {
+                loadout = _saveGameManager.BuildLoadout(saveData, out loadoutWarnings);
+            }
+            _playerShip.SetLoadout(loadout);
+
+            _playerCredits?.SetCredits(saveData.PlayerCredits);
+            _reputationManager?.LoadStandings(ToStandingDictionary(saveData));
+            _commodityDealer?.RestoreMarketState(saveData.StationMarkets);
+
+            if (_saveGameManager != null)
+            {
+                List<string> cargoWarnings = new();
+                List<string> missionWarnings = new();
+                _saveGameManager.ApplyCargo(_playerShip.CargoHold, saveData, out cargoWarnings);
+                _saveGameManager.ApplyMissions(_missionManager, saveData, out missionWarnings);
+
+                foreach (string warning in loadoutWarnings)
+                {
+                    Console.WriteLine($"[SAVE] Loadout: {warning}");
+                }
+
+                foreach (string warning in cargoWarnings)
+                {
+                    Console.WriteLine($"[SAVE] Cargo: {warning}");
+                }
+
+                foreach (string warning in missionWarnings)
+                {
+                    Console.WriteLine($"[SAVE] Mission: {warning}");
+                }
+            }
+
+            _playerShip.ApplySavedState(
+                saveData.PlayerPosition.ToVector3(_playerShip.Position),
+                saveData.PlayerVelocity.ToVector3(Vector3.Zero),
+                saveData.PlayerForward.ToVector3(_playerShip.Forward));
+
+            _playerShip.SetNotificationManager(_notificationManager);
+            _playerShip.SetExplosionSystem(_explosionParticles);
+            _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
+
+            if (_weaponSystem != null)
+            {
+                _weaponSystem.SetEnergySystem(_playerShip.Energy);
+            }
+
+            _gotoAutopilot?.Initialize(
+                _playerShip,
+                _tradelaneManager,
+                _jumpHoleManager,
+                _stationManager?.GetStations() ?? new List<Station>(),
+                _spaceObjects,
+                _npcShips,
+                _notificationManager,
+                GraphicsDevice,
+                _font);
+
+            SyncMountedGunWeaponProfile();
+
+            _currentSystemIndex = targetSystemIndex;
+            failureReason = string.Empty;
+            return true;
+        }
+
+        private static Dictionary<string, float> ToStandingDictionary(SaveGameData saveData)
+        {
+            var standings = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+            if (saveData?.FactionReputation == null)
+            {
+                return standings;
+            }
+
+            foreach (var entry in saveData.FactionReputation)
+            {
+                if (entry == null || string.IsNullOrWhiteSpace(entry.FactionId))
+                {
+                    continue;
+                }
+
+                standings[FactionManager.NormalizeFactionId(entry.FactionId)] = float.IsNaN(entry.Standing) || float.IsInfinity(entry.Standing)
+                    ? 0f
+                    : Math.Clamp(entry.Standing, -1f, 1f);
+            }
+
+            return standings;
+        }
+
         protected override void Update(GameTime gameTime) {
             KeyboardState keyboardState = Keyboard.GetState();
             MouseState mouseState = Mouse.GetState();
@@ -1081,6 +1329,14 @@ namespace Roguelancer {
                 _prevKeys = keyboardState;
                 _prevMouseState = mouseState;
                 return; // Skip the rest of the update logic
+            }
+
+            if (HandleSaveLoadHotkeys(keyboardState))
+            {
+                _prevKeys = keyboardState;
+                _prevMouseState = mouseState;
+                base.Update(gameTime);
+                return;
             }
 
             // Toggle system map with M

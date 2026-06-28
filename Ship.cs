@@ -994,6 +994,29 @@ namespace Roguelancer
             CountermeasureLaunchRequested = false;
         }
 
+        /// <summary>
+        /// Restore a saved motion state without re-running user input.
+        /// </summary>
+        public void ApplySavedState(Vector3 position, Vector3 velocity, Vector3? forward = null)
+        {
+            Reset();
+
+            Position = position;
+            Velocity = velocity;
+            Speed = velocity.Length();
+            _newtonianVelocity = velocity;
+            _targetSpeed = Speed;
+
+            if (forward.HasValue && forward.Value.LengthSquared() > 0.0001f)
+            {
+                SetFacing(forward.Value);
+            }
+            else
+            {
+                Orientation = Matrix.CreateFromQuaternion(_rotation);
+            }
+        }
+
         public void SetLoadout(ShipLoadout loadout)
         {
             Loadout = loadout ?? ShipLoadout.CreateStarterLoadout();

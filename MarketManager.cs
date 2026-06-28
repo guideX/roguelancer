@@ -295,6 +295,93 @@ namespace Roguelancer
             return CommodityCatalog.BuildRegistry();
         }
 
+        public List<SaveMarketStateData> CaptureRuntimeState()
+        {
+            var states = new List<SaveMarketStateData>();
+
+            foreach (var kvp in _runtimeMarkets)
+            {
+                if (kvp.Value == null || kvp.Value.Count == 0)
+                {
+                    continue;
+                }
+
+                states.Add(new SaveMarketStateData
+                {
+                    StationKey = kvp.Key,
+                    StationName = string.Empty,
+                    Listings = kvp.Value
+                        .Where(listing => listing != null && listing.Commodity != null)
+                        .Select(listing => new SaveMarketListingData
+                        {
+                            CommodityId = listing.Commodity.Id,
+                            BuyPrice = listing.BuyPrice,
+                            SellPrice = listing.SellPrice,
+                            Stock = listing.Stock,
+                            DemandLevel = listing.DemandLevel,
+                            IsAvailable = listing.IsAvailable
+                        })
+                        .ToList()
+                });
+            }
+
+            return states;
+        }
+
+        public void RestoreRuntimeState(IEnumerable<SaveMarketStateData> states)
+        {
+            _runtimeMarkets.Clear();
+
+            if (states == null)
+            {
+                return;
+            }
+
+            foreach (var state in states)
+            {
+                if (state == null)
+                {
+                    continue;
+                }
+
+                string stationKey = GetStationKey(state.StationKey, state.StationName);
+                if (string.IsNullOrWhiteSpace(stationKey))
+                {
+                    continue;
+                }
+
+                var listings = new List<StationMarketListing>();
+                foreach (var listing in state.Listings ?? new List<SaveMarketListingData>())
+                {
+                    if (listing == null)
+                    {
+                        continue;
+                    }
+
+                    var commodity = ResolveCommodity(listing.CommodityId);
+                    if (commodity == null)
+                    {
+                        continue;
+                    }
+
+                    listings.Add(new StationMarketListing(
+                        commodity,
+                        listing.BuyPrice,
+                        listing.SellPrice,
+                        listing.Stock,
+                        listing.DemandLevel,
+                        listing.IsAvailable));
+                }
+
+                if (listings.Count > 0)
+                {
+                    _runtimeMarkets[stationKey] = listings;
+                }
+            }
+
+            Console.WriteLine($"[MARKET] Restored {_runtimeMarkets.Count} runtime market snapshots");
+        }
+
         private List<StationMarketListing> BuildRuntimeListings(StationMarketConfig config)
         {
             var listings = new List<StationMarketListing>();

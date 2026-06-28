@@ -84,6 +84,36 @@ namespace Roguelancer
             ObjectiveComplete = false;
         }
 
+        private Mission(int id, MissionType type, MissionDifficulty difficulty, MissionStatus status, string target, string destination, int reward, float timeLimit, string description, string offeredBy, string factionId, float elapsedTime, bool objectiveComplete)
+        {
+            Id = id > 0 ? id : _nextId++;
+            Type = type;
+            Difficulty = difficulty;
+            Status = status;
+            Target = target ?? string.Empty;
+            Destination = destination ?? string.Empty;
+            Reward = reward;
+            TimeLimit = Math.Max(0f, timeLimit);
+            ElapsedTime = Math.Max(0f, elapsedTime);
+            Description = description ?? string.Empty;
+            OfferedBy = offeredBy ?? string.Empty;
+            FactionId = FactionManager.NormalizeFactionId(factionId);
+            ObjectiveComplete = objectiveComplete;
+
+            if (_nextId <= Id)
+            {
+                _nextId = Id + 1;
+            }
+        }
+
+        /// <summary>
+        /// Restore a mission from save data without disturbing the save file's mission identity.
+        /// </summary>
+        public static Mission CreateRestored(int id, MissionType type, MissionDifficulty difficulty, MissionStatus status, string target, string destination, int reward, float timeLimit, string description, string offeredBy, string factionId, float elapsedTime, bool objectiveComplete)
+        {
+            return new Mission(id, type, difficulty, status, target, destination, reward, timeLimit, description, offeredBy, factionId, elapsedTime, objectiveComplete);
+        }
+
         /// <summary>
         /// Get a short summary string for UI display
         /// </summary>

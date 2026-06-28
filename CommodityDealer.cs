@@ -98,6 +98,16 @@ namespace Roguelancer
             return _marketManager.GetCommodityRegistry();
         }
 
+        public List<SaveMarketStateData> CaptureMarketState()
+        {
+            return _marketManager.CaptureRuntimeState();
+        }
+
+        public void RestoreMarketState(IEnumerable<SaveMarketStateData> states)
+        {
+            _marketManager.RestoreRuntimeState(states);
+        }
+
         public bool CanAfford(Commodity commodity, int quantity, PlayerCredits credits)
         {
             var listing = ResolveListing(commodity);

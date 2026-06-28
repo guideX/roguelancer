@@ -76,6 +76,34 @@ namespace Roguelancer
             return $"{GetStandingLabel(factionId)} ({standing:+0.00;-0.00;0.00})";
         }
 
+        public IReadOnlyDictionary<string, float> GetStandingsSnapshot()
+        {
+            return new Dictionary<string, float>(_standing, StringComparer.OrdinalIgnoreCase);
+        }
+
+        public void LoadStandings(IReadOnlyDictionary<string, float> standings)
+        {
+            _standing.Clear();
+            SeedDefaultStandings();
+
+            if (standings == null)
+            {
+                return;
+            }
+
+            foreach (var kvp in standings)
+            {
+                if (string.IsNullOrWhiteSpace(kvp.Key))
+                {
+                    continue;
+                }
+
+                _standing[FactionManager.NormalizeFactionId(kvp.Key)] = NormalizeStanding(kvp.Value);
+            }
+
+            Console.WriteLine($"[REPUTATION] Restored standings for {_standing.Count} factions");
+        }
+
         private void SeedDefaultStandings()
         {
             foreach (var faction in _factionManager.Factions.Values)
@@ -107,6 +135,16 @@ namespace Roguelancer
         private static float ClampStanding(float value)
         {
             return Math.Clamp(value, -1f, 1f);
+        }
+
+        private static float NormalizeStanding(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return 0f;
+            }
+
+            return ClampStanding(value);
         }
 
         private void LogStandingChange(string factionId, float previous, float current, string? reason, string action)

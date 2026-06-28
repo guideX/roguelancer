@@ -64,6 +64,63 @@ namespace Roguelancer
         }
 
         /// <summary>
+        /// Clear all mission state and unregister any active waypoints.
+        /// </summary>
+        public void ClearState()
+        {
+            foreach (var mission in _activeMissions)
+            {
+                _waypointSystem?.UnregisterMission(mission);
+            }
+
+            _activeMissions.Clear();
+            _completedMissions.Clear();
+        }
+
+        /// <summary>
+        /// Restore saved mission state.
+        /// </summary>
+        public void RestoreState(IEnumerable<Mission> activeMissions, IEnumerable<Mission> completedMissions)
+        {
+            ClearState();
+
+            if (activeMissions != null)
+            {
+                foreach (var mission in activeMissions)
+                {
+                    if (mission == null)
+                    {
+                        continue;
+                    }
+
+                    mission.Status = MissionStatus.Active;
+                    _activeMissions.Add(mission);
+                    _waypointSystem?.RegisterMission(mission);
+                }
+            }
+
+            if (completedMissions != null)
+            {
+                foreach (var mission in completedMissions)
+                {
+                    if (mission == null)
+                    {
+                        continue;
+                    }
+
+                    if (mission.Status == MissionStatus.Active)
+                    {
+                        mission.Status = MissionStatus.Completed;
+                    }
+
+                    _completedMissions.Add(mission);
+                }
+            }
+
+            Console.WriteLine($"[MISSION] Restored {_activeMissions.Count} active and {_completedMissions.Count} completed missions");
+        }
+
+        /// <summary>
         /// Generate a single random mission
         /// </summary>
         public Mission GenerateRandomMission(string factionId = null)

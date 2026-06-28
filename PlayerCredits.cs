@@ -23,6 +23,15 @@ namespace Roguelancer
         }
 
         /// <summary>
+        /// Set the player's credit balance directly.
+        /// </summary>
+        public void SetCredits(int amount)
+        {
+            Credits = amount;
+            OnCreditsChanged?.Invoke(Credits);
+        }
+
+        /// <summary>
         /// Add credits to player account
         /// </summary>
         public void AddCredits(int amount)
