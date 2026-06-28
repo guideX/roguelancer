@@ -87,7 +87,11 @@ namespace Roguelancer
                 Name = "Basic Countermeasure Dropper",
                 Description = "Launches defensive flares and chaff to confuse hostile targeting.",
                 EquipmentType = EquipmentType.CountermeasureDropper,
-                Price = 1200
+                Price = 1200,
+                CountermeasureLife = 4.5f,
+                CountermeasureAttractionRadius = 1400f,
+                CountermeasureStrength = 3f,
+                CountermeasureCooldown = 6f
             });
 
             Register(new EquipmentDefinition

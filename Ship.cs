@@ -102,6 +102,7 @@ namespace Roguelancer
         private bool _isDocking = false;
         private object _currentTarget = null;
         public bool MissileLaunchRequested { get; private set; }
+        public bool CountermeasureLaunchRequested { get; private set; }
         
         // Docking system
         private Station _nearestStation = null;
@@ -243,7 +244,17 @@ namespace Roguelancer
         private void LaunchMissile() { MissileLaunchRequested = true; }
         private void LaunchTorpedo() { Console.WriteLine("Launch torpedo (stub)"); }
         private void LaunchMine() { Console.WriteLine("Launch mine (stub)"); }
-        private void LaunchCountermeasures() { Console.WriteLine("Launch countermeasures (stub)"); }
+        private void LaunchCountermeasures()
+        {
+            if (!HasMountedCountermeasureDropper())
+            {
+                Console.WriteLine("[COUNTERMEASURE] No countermeasure dropper mounted.");
+                _notificationManager?.ShowMessage("No countermeasure dropper mounted.", 2f);
+                return;
+            }
+
+            CountermeasureLaunchRequested = true;
+        }
         private void TargetClosestEnemy() { Console.WriteLine("Target closest enemy (stub)"); }
         private void PreviousEnemyTarget() { Console.WriteLine("Previous enemy target (stub)"); }
         private void NextEnemyTarget() { Console.WriteLine("Next enemy target (stub)"); }
@@ -978,6 +989,7 @@ namespace Roguelancer
             _throttle = 0f;
             _targetSpeed = 0f;
             MissileLaunchRequested = false;
+            CountermeasureLaunchRequested = false;
         }
 
         public void SetLoadout(ShipLoadout loadout)
@@ -1020,6 +1032,28 @@ namespace Roguelancer
             bool requested = MissileLaunchRequested;
             MissileLaunchRequested = false;
             return requested;
+        }
+
+        public bool ConsumeCountermeasureLaunchRequest()
+        {
+            bool requested = CountermeasureLaunchRequested;
+            CountermeasureLaunchRequested = false;
+            return requested;
+        }
+
+        public IEnumerable<EquipmentDefinition> GetMountedCountermeasureDroppers()
+        {
+            return Loadout?.GetMountedCountermeasureDroppers() ?? Array.Empty<EquipmentDefinition>();
+        }
+
+        public bool HasMountedCountermeasureDropper()
+        {
+            return Loadout?.HasMountedCountermeasureDropper() == true;
+        }
+
+        public EquipmentDefinition GetPrimaryMountedCountermeasureDropper()
+        {
+            return Loadout?.GetPrimaryMountedCountermeasureDropper();
         }
     }
 }

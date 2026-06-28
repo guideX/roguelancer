@@ -22,6 +22,7 @@ namespace Roguelancer
             public float Radius;
             public Color Color;
             public NpcShip Target;
+            public int? SpoofedCountermeasureId;
         }
 
         private readonly List<MissileProjectile> _missiles = new List<MissileProjectile>(64);
@@ -106,6 +107,11 @@ namespace Roguelancer
 
         public List<HitInfo> Update(GameTime gameTime, IReadOnlyList<NpcShip> npcShips)
         {
+            return Update(gameTime, npcShips, null);
+        }
+
+        public List<HitInfo> Update(GameTime gameTime, IReadOnlyList<NpcShip> npcShips, CountermeasureSystem countermeasureSystem)
+        {
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
             List<HitInfo> hits = new List<HitInfo>();
 
@@ -144,6 +150,30 @@ namespace Roguelancer
                     {
                         desiredDirection = Vector3.Normalize(toTarget);
                     }
+
+                    if (countermeasureSystem != null && countermeasureSystem.TryGetBestSpoofTarget(missile.Position, missile.Target, missile.Damage, out CountermeasureSystem.CountermeasureDecoy spoofTarget))
+                    {
+                        Vector3 toCountermeasure = spoofTarget.Position - missile.Position;
+                        if (toCountermeasure.LengthSquared() > 0.0001f)
+                        {
+                            desiredDirection = Vector3.Normalize(toCountermeasure);
+                        }
+
+                        if (missile.SpoofedCountermeasureId != spoofTarget.Id)
+                        {
+                            Console.WriteLine($"[MISSILE] Spoofed toward countermeasure #{spoofTarget.Id} ({spoofTarget.SourceEquipmentName})");
+                        }
+
+                        missile.SpoofedCountermeasureId = spoofTarget.Id;
+                    }
+                    else
+                    {
+                        missile.SpoofedCountermeasureId = null;
+                    }
+                }
+                else
+                {
+                    missile.SpoofedCountermeasureId = null;
                 }
 
                 float blend = MathHelper.Clamp(missile.TurnRate * deltaTime, 0f, 1f);

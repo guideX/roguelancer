@@ -67,6 +67,10 @@ namespace Roguelancer {
         /// </summary>
         private MissileSystem _missileSystem;
         /// <summary>
+        /// Countermeasure System
+        /// </summary>
+        private CountermeasureSystem _countermeasureSystem;
+        /// <summary>
         /// Sun
         /// </summary>
         private Sun _sun;
@@ -902,6 +906,9 @@ namespace Roguelancer {
             // Initialize missile system (mounted launchers)
             _missileSystem = new MissileSystem(GraphicsDevice);
 
+            // Initialize countermeasure system (mounted countermeasure droppers)
+            _countermeasureSystem = new CountermeasureSystem(GraphicsDevice);
+
             // Initialize motion trail
             _motionTrail = new MotionTrail(GraphicsDevice);
 
@@ -1273,6 +1280,8 @@ namespace Roguelancer {
 
             // Update player ship
             _playerShip.Update(gameTime, keyboardState, _camera.IsRearViewActive);
+            HandleCountermeasureLaunchInput();
+            _countermeasureSystem?.Update(gameTime);
 
             // FIX: Update NPC ships
             foreach (var npc in _npcShips) {
@@ -1381,7 +1390,7 @@ namespace Roguelancer {
 
             // Missile system: update mounted missile projectiles against NPC ships
             if (_missileSystem != null) {
-                List<HitInfo> missileHits = _missileSystem.Update(gameTime, _npcShips);
+                List<HitInfo> missileHits = _missileSystem.Update(gameTime, _npcShips, _countermeasureSystem);
                 foreach (var hit in missileHits) {
                     _hitImpactParticles.TriggerImpact(hit.Position, hit.Direction, hit.WeaponColor);
                 }
@@ -1621,6 +1630,42 @@ namespace Roguelancer {
             }
         }
 
+        private void HandleCountermeasureLaunchInput()
+        {
+            if (_playerShip == null || !_playerShip.ConsumeCountermeasureLaunchRequest())
+            {
+                return;
+            }
+
+            EquipmentDefinition dropper = _playerShip.GetPrimaryMountedCountermeasureDropper();
+            if (dropper == null)
+            {
+                Console.WriteLine("[COUNTERMEASURE] No countermeasure dropper mounted.");
+                _notificationManager?.ShowMessage("No countermeasure dropper mounted.", 2f);
+                return;
+            }
+
+            if (_countermeasureSystem == null)
+            {
+                Console.WriteLine("[COUNTERMEASURE] Countermeasure system unavailable.");
+                _notificationManager?.ShowMessage("Countermeasure system unavailable.", 2f);
+                return;
+            }
+
+            if (_countermeasureSystem.TryDeploy(_playerShip, dropper, out string message))
+            {
+                _notificationManager?.ShowMessage(message, 1.5f);
+            }
+            else if (!string.IsNullOrWhiteSpace(message))
+            {
+                _notificationManager?.ShowMessage(message, 2f);
+                if (!message.Contains("cooling down", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"[COUNTERMEASURE] {message}");
+                }
+            }
+        }
+
         private void HandleMissileLaunchInput()
         {
             if (_playerShip == null || !_playerShip.ConsumeMissileLaunchRequest())
@@ -1687,6 +1732,22 @@ namespace Roguelancer {
         private string GetMissileTargetStatus()
         {
             return GetCurrentMissileTarget() != null ? "Locked" : "Dumbfire";
+        }
+
+        private string GetCountermeasureHudStatus()
+        {
+            EquipmentDefinition mountedCountermeasureDropper = _playerShip?.GetPrimaryMountedCountermeasureDropper();
+            if (mountedCountermeasureDropper == null)
+            {
+                return "None Mounted";
+            }
+
+            if (_countermeasureSystem?.IsCoolingDown == true)
+            {
+                return $"Cooldown {_countermeasureSystem.CooldownRemaining:F1}s";
+            }
+
+            return "Ready";
         }
 
         /// <summary>
@@ -2211,6 +2272,14 @@ namespace Roguelancer {
                     mountedMissileLauncher != null ? Color.IndianRed : Color.LightGray);
                 _spriteBatch.DrawString(_font, $"Target: {missileTargetStatus}", new Vector2(leftPanelX + 10, ly += 18),
                     missileTargetStatus == "Locked" ? Color.Cyan : Color.SandyBrown);
+
+                string countermeasureStatus = GetCountermeasureHudStatus();
+                Color countermeasureColor = string.Equals(countermeasureStatus, "Ready", StringComparison.OrdinalIgnoreCase)
+                    ? Color.Lime
+                    : string.Equals(countermeasureStatus, "None Mounted", StringComparison.OrdinalIgnoreCase)
+                        ? Color.LightGray
+                        : Color.Orange;
+                _spriteBatch.DrawString(_font, $"Countermeasure: {countermeasureStatus}", new Vector2(leftPanelX + 10, ly += 18), countermeasureColor);
 
                 if (_playerShip.IsAfterburnerActive)
                     _spriteBatch.DrawString(_font, "AFTERBURNER", new Vector2(leftPanelX + 10, ly += 22), Color.OrangeRed);
@@ -2805,6 +2874,9 @@ namespace Roguelancer {
 
             // Draw missile projectiles
             _missileSystem?.Draw(_camera);
+
+            // Draw countermeasures
+            _countermeasureSystem?.Draw(_camera);
 
             // Draw NPC weapon projectiles
             _npcWeaponSystem?.Draw(_camera);

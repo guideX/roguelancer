@@ -34,6 +34,26 @@ namespace Roguelancer
         public float MissileLifetime { get; set; }
 
         /// <summary>
+        /// Countermeasure lifetime for countermeasure equipment.
+        /// </summary>
+        public float CountermeasureLife { get; set; }
+
+        /// <summary>
+        /// Countermeasure attraction radius for countermeasure equipment.
+        /// </summary>
+        public float CountermeasureAttractionRadius { get; set; }
+
+        /// <summary>
+        /// Countermeasure strength for countermeasure equipment.
+        /// </summary>
+        public float CountermeasureStrength { get; set; }
+
+        /// <summary>
+        /// Countermeasure cooldown for countermeasure equipment.
+        /// </summary>
+        public float CountermeasureCooldown { get; set; }
+
+        /// <summary>
         /// Future-safe ammo cost per missile fired.
         /// </summary>
         public float MissileAmmoCost { get; set; }
@@ -87,7 +107,13 @@ namespace Roguelancer
                 missileStats = $" | MISSILE DMG {MissileDamage:F0} | SPD {MissileSpeed:F0} | TURN {MissileTurnRate:F2} | LIFE {MissileLifetime:F1}s | AMMO {MissileAmmoCost:F0}";
             }
 
-            return $"{EquipmentType} | {Price:N0} CR | {requirement}{missileStats}";
+            string countermeasureStats = string.Empty;
+            if (CountermeasureLife > 0f || CountermeasureAttractionRadius > 0f || CountermeasureStrength > 0f || CountermeasureCooldown > 0f)
+            {
+                countermeasureStats = $" | CM LIFE {CountermeasureLife:F1}s | RAD {CountermeasureAttractionRadius:F0} | STR {CountermeasureStrength:F1} | CD {CountermeasureCooldown:F1}s";
+            }
+
+            return $"{EquipmentType} | {Price:N0} CR | {requirement}{missileStats}{countermeasureStats}";
         }
 
         public override string ToString()

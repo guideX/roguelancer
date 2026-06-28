@@ -121,6 +121,27 @@ namespace Roguelancer
             return GetMountedMissileLaunchers().FirstOrDefault();
         }
 
+        public IEnumerable<EquipmentDefinition> GetMountedCountermeasureDroppers()
+        {
+            foreach (var equipment in GetMountedEquipment())
+            {
+                if (equipment != null && equipment.EquipmentType == EquipmentType.CountermeasureDropper)
+                {
+                    yield return equipment;
+                }
+            }
+        }
+
+        public bool HasMountedCountermeasureDropper()
+        {
+            return GetMountedCountermeasureDroppers().Any();
+        }
+
+        public EquipmentDefinition GetPrimaryMountedCountermeasureDropper()
+        {
+            return GetMountedCountermeasureDroppers().FirstOrDefault();
+        }
+
         public ShipHardpoint GetHardpointById(string hardpointId)
         {
             if (string.IsNullOrWhiteSpace(hardpointId))
