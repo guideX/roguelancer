@@ -63,6 +63,10 @@ namespace Roguelancer {
         /// </summary>
         private WeaponSystem _weaponSystem;
         /// <summary>
+        /// Missile System
+        /// </summary>
+        private MissileSystem _missileSystem;
+        /// <summary>
         /// Sun
         /// </summary>
         private Sun _sun;
@@ -893,6 +897,9 @@ namespace Roguelancer {
             _weaponSystem = new WeaponSystem(GraphicsDevice);
             _weaponSystem.SetEnergySystem(_playerShip.Energy);
 
+            // Initialize missile system (mounted launchers)
+            _missileSystem = new MissileSystem(GraphicsDevice);
+
             // Initialize motion trail
             _motionTrail = new MotionTrail(GraphicsDevice);
 
@@ -1349,6 +1356,14 @@ namespace Roguelancer {
             // NPC weapon system: fire at player and check collisions
             _npcWeaponSystem?.Update(gameTime, _npcShips, _playerShip);
 
+            // Missile system: update mounted missile projectiles against NPC ships
+            if (_missileSystem != null) {
+                List<HitInfo> missileHits = _missileSystem.Update(gameTime, _npcShips);
+                foreach (var hit in missileHits) {
+                    _hitImpactParticles.TriggerImpact(hit.Position, hit.Direction, hit.WeaponColor);
+                }
+            }
+
             // Update mission manager
             _missionManager?.Update(deltaTime, _playerShip.Hull.IsDestroyed);
 
@@ -1440,6 +1455,7 @@ namespace Roguelancer {
             }
 
             HandleTargetingInput(keyboardState);
+            HandleMissileLaunchInput();
 
             base.Update(gameTime);
         }
@@ -1580,6 +1596,74 @@ namespace Roguelancer {
                 var target = _spaceObjects[_selectedSpaceObjectIndex];
                 _playerShip.ActivateGoto(target);
             }
+        }
+
+        private void HandleMissileLaunchInput()
+        {
+            if (_playerShip == null || !_playerShip.ConsumeMissileLaunchRequest())
+            {
+                return;
+            }
+
+            EquipmentDefinition launcher = _playerShip.GetPrimaryMountedMissileLauncher();
+            if (launcher == null)
+            {
+                Console.WriteLine("[MISSILE] No missile launcher mounted.");
+                _notificationManager?.ShowMessage("No missile launcher mounted.", 2f);
+                return;
+            }
+
+            if (_missileSystem == null)
+            {
+                Console.WriteLine("[MISSILE] Missile system unavailable.");
+                _notificationManager?.ShowMessage("Missile system unavailable.", 2f);
+                return;
+            }
+
+            NpcShip target = GetCurrentMissileTarget();
+            Vector3 launchOrigin = GetMissileLaunchOrigin();
+
+            if (_missileSystem.TryFire(_playerShip, launcher, target, launchOrigin, out string message))
+            {
+                _notificationManager?.ShowMessage(message, 1.5f);
+            }
+            else if (!string.IsNullOrWhiteSpace(message))
+            {
+                _notificationManager?.ShowMessage(message, 2f);
+                if (!message.Contains("cooling down", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"[MISSILE] {message}");
+                }
+            }
+        }
+
+        private Vector3 GetMissileLaunchOrigin()
+        {
+            Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
+            Matrix shipTransform = modelCorrection * _playerShip.Orientation * Matrix.CreateTranslation(_playerShip.Position);
+            return Vector3.Transform(new Vector3(0f, 0f, 22f), shipTransform);
+        }
+
+        private NpcShip GetCurrentMissileTarget()
+        {
+            if (_selectedSpaceObjectIndex < 0 || _selectedSpaceObjectIndex >= _spaceObjects.Count)
+            {
+                return null;
+            }
+
+            if (_spaceObjects[_selectedSpaceObjectIndex] is NpcShip npcTarget &&
+                !npcTarget.IsDestroyed &&
+                (_reputationManager == null || _reputationManager.IsHostile(npcTarget.FactionId)))
+            {
+                return npcTarget;
+            }
+
+            return null;
+        }
+
+        private string GetMissileTargetStatus()
+        {
+            return GetCurrentMissileTarget() != null ? "Locked" : "Dumbfire";
         }
 
         /// <summary>
@@ -2075,8 +2159,8 @@ namespace Roguelancer {
 
             // --- LEFT SIDE: weapon & mode indicators ---
             int leftPanelX = 10;
-            int leftPanelY = screenHeight - 240;
-            Rectangle leftPanel = new Rectangle(leftPanelX, leftPanelY, 300, 220);
+            int leftPanelY = screenHeight - 270;
+            Rectangle leftPanel = new Rectangle(leftPanelX, leftPanelY, 300, 250);
             _spriteBatch.Draw(_pixel, leftPanel, Color.Black * 0.6f);
             _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX, leftPanelY, leftPanel.Width, 2), borderColor);
             _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX, leftPanelY, 2, leftPanel.Height), borderColor);
@@ -2096,6 +2180,14 @@ namespace Roguelancer {
                     _spriteBatch.Draw(_pixel, chargeBarFill, Color.Lerp(Color.Yellow, Color.Red, chargeProgress));
                     ly += 16;
                 }
+
+                EquipmentDefinition mountedMissileLauncher = _playerShip?.GetPrimaryMountedMissileLauncher();
+                string missileLauncherName = mountedMissileLauncher?.Name ?? "None Mounted";
+                string missileTargetStatus = GetMissileTargetStatus();
+                _spriteBatch.DrawString(_font, $"Missile: {missileLauncherName}", new Vector2(leftPanelX + 10, ly += 22),
+                    mountedMissileLauncher != null ? Color.IndianRed : Color.LightGray);
+                _spriteBatch.DrawString(_font, $"Target: {missileTargetStatus}", new Vector2(leftPanelX + 10, ly += 18),
+                    missileTargetStatus == "Locked" ? Color.Cyan : Color.SandyBrown);
 
                 if (_playerShip.IsAfterburnerActive)
                     _spriteBatch.DrawString(_font, "AFTERBURNER", new Vector2(leftPanelX + 10, ly += 22), Color.OrangeRed);
@@ -2687,6 +2779,9 @@ namespace Roguelancer {
 
             // Draw weapon projectiles
             _weaponSystem.Draw(_camera);
+
+            // Draw missile projectiles
+            _missileSystem?.Draw(_camera);
 
             // Draw NPC weapon projectiles
             _npcWeaponSystem?.Draw(_camera);

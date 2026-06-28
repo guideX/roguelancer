@@ -101,6 +101,7 @@ namespace Roguelancer
         // Combat & targeting
         private bool _isDocking = false;
         private object _currentTarget = null;
+        public bool MissileLaunchRequested { get; private set; }
         
         // Docking system
         private Station _nearestStation = null;
@@ -239,7 +240,7 @@ namespace Roguelancer
 
         // Stub action methods
         private void FireActiveWeapons() { Console.WriteLine("Fire weapons (stub)"); }
-        private void LaunchMissile() { Console.WriteLine("Launch missile (stub)"); }
+        private void LaunchMissile() { MissileLaunchRequested = true; }
         private void LaunchTorpedo() { Console.WriteLine("Launch torpedo (stub)"); }
         private void LaunchMine() { Console.WriteLine("Launch mine (stub)"); }
         private void LaunchCountermeasures() { Console.WriteLine("Launch countermeasures (stub)"); }
@@ -976,6 +977,7 @@ namespace Roguelancer
             _cruiseChargeTimer = 0f;
             _throttle = 0f;
             _targetSpeed = 0f;
+            MissileLaunchRequested = false;
         }
 
         public void SetLoadout(ShipLoadout loadout)
@@ -996,6 +998,28 @@ namespace Roguelancer
         public WeaponEquipmentDefinition GetPrimaryMountedGun()
         {
             return Loadout?.GetPrimaryMountedGun();
+        }
+
+        public IEnumerable<EquipmentDefinition> GetMountedMissileLaunchers()
+        {
+            return Loadout?.GetMountedMissileLaunchers() ?? Array.Empty<EquipmentDefinition>();
+        }
+
+        public bool HasMountedMissileLauncher()
+        {
+            return Loadout?.HasMountedMissileLauncher() == true;
+        }
+
+        public EquipmentDefinition GetPrimaryMountedMissileLauncher()
+        {
+            return Loadout?.GetPrimaryMountedMissileLauncher();
+        }
+
+        public bool ConsumeMissileLaunchRequest()
+        {
+            bool requested = MissileLaunchRequested;
+            MissileLaunchRequested = false;
+            return requested;
         }
     }
 }

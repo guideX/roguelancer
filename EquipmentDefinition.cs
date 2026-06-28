@@ -14,6 +14,31 @@ namespace Roguelancer
         public int Price { get; set; }
 
         /// <summary>
+        /// Missile damage for launcher equipment.
+        /// </summary>
+        public float MissileDamage { get; set; }
+
+        /// <summary>
+        /// Missile flight speed for launcher equipment.
+        /// </summary>
+        public float MissileSpeed { get; set; }
+
+        /// <summary>
+        /// Missile turn rate for launcher equipment.
+        /// </summary>
+        public float MissileTurnRate { get; set; }
+
+        /// <summary>
+        /// Missile lifetime for launcher equipment.
+        /// </summary>
+        public float MissileLifetime { get; set; }
+
+        /// <summary>
+        /// Future-safe ammo cost per missile fired.
+        /// </summary>
+        public float MissileAmmoCost { get; set; }
+
+        /// <summary>
         /// Optional gating for future progression systems.
         /// </summary>
         public int? RequiredLevel { get; set; }
@@ -56,7 +81,13 @@ namespace Roguelancer
                 requirement = "No restrictions";
             }
 
-            return $"{EquipmentType} | {Price:N0} CR | {requirement}";
+            string missileStats = string.Empty;
+            if (MissileDamage > 0f || MissileSpeed > 0f || MissileTurnRate > 0f || MissileLifetime > 0f || MissileAmmoCost > 0f)
+            {
+                missileStats = $" | MISSILE DMG {MissileDamage:F0} | SPD {MissileSpeed:F0} | TURN {MissileTurnRate:F2} | LIFE {MissileLifetime:F1}s | AMMO {MissileAmmoCost:F0}";
+            }
+
+            return $"{EquipmentType} | {Price:N0} CR | {requirement}{missileStats}";
         }
 
         public override string ToString()

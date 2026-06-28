@@ -53,6 +53,7 @@ namespace Roguelancer
 
             MountStarterEquipment(loadout, "PrimaryGunLeft", "liberty_light_laser", EquipmentType.Gun);
             MountStarterEquipment(loadout, "PrimaryGunRight", "rogue_blaster", EquipmentType.Gun);
+            MountStarterEquipment(loadout, "MissileRack", "basic_missile_launcher", EquipmentType.MissileLauncher);
             MountStarterEquipment(loadout, "ShieldGenerator", "civilian_shield_generator", EquipmentType.ShieldGenerator);
             MountStarterEquipment(loadout, "Thruster", "light_thruster", EquipmentType.Thruster);
             MountStarterEquipment(loadout, "Scanner", "basic_scanner", EquipmentType.Scanner);
@@ -97,6 +98,27 @@ namespace Roguelancer
         public WeaponEquipmentDefinition GetPrimaryMountedGun()
         {
             return GetMountedGuns().FirstOrDefault();
+        }
+
+        public IEnumerable<EquipmentDefinition> GetMountedMissileLaunchers()
+        {
+            foreach (var equipment in GetMountedEquipment())
+            {
+                if (equipment != null && equipment.EquipmentType == EquipmentType.MissileLauncher)
+                {
+                    yield return equipment;
+                }
+            }
+        }
+
+        public bool HasMountedMissileLauncher()
+        {
+            return GetMountedMissileLaunchers().Any();
+        }
+
+        public EquipmentDefinition GetPrimaryMountedMissileLauncher()
+        {
+            return GetMountedMissileLaunchers().FirstOrDefault();
         }
 
         public ShipHardpoint GetHardpointById(string hardpointId)

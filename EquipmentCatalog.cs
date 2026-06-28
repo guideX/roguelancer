@@ -71,9 +71,14 @@ namespace Roguelancer
             {
                 Id = "basic_missile_launcher",
                 Name = "Basic Missile Launcher",
-                Description = "A simple launcher for future missile contracts and ordnance.",
+                Description = "A simple launcher for basic homing missiles.",
                 EquipmentType = EquipmentType.MissileLauncher,
-                Price = 4000
+                Price = 4000,
+                MissileDamage = 48f,
+                MissileSpeed = 900f,
+                MissileTurnRate = 2.2f,
+                MissileLifetime = 5.0f,
+                MissileAmmoCost = 1f
             });
 
             Register(new EquipmentDefinition
