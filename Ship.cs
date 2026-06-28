@@ -83,6 +83,9 @@ namespace Roguelancer
         
         // Cargo hold
         public CargoHold CargoHold { get; private set; }
+
+        // Equipment/loadout backbone
+        public ShipLoadout Loadout { get; private set; }
         
         // Direction vectors
         public Vector3 Forward => Vector3.Transform(Vector3.Forward, _rotation);
@@ -150,6 +153,7 @@ namespace Roguelancer
 
             // Initialize cargo hold with default capacity
             CargoHold = new CargoHold(50);
+            Loadout = ShipLoadout.CreateStarterLoadout();
 
             InitializeEnergy();
             InitializeShields();
@@ -972,6 +976,26 @@ namespace Roguelancer
             _cruiseChargeTimer = 0f;
             _throttle = 0f;
             _targetSpeed = 0f;
+        }
+
+        public void SetLoadout(ShipLoadout loadout)
+        {
+            Loadout = loadout ?? ShipLoadout.CreateStarterLoadout();
+        }
+
+        public IEnumerable<WeaponEquipmentDefinition> GetMountedGuns()
+        {
+            return Loadout?.GetMountedGuns() ?? Array.Empty<WeaponEquipmentDefinition>();
+        }
+
+        public bool HasMountedGun()
+        {
+            return Loadout?.HasMountedGun() == true;
+        }
+
+        public WeaponEquipmentDefinition GetPrimaryMountedGun()
+        {
+            return Loadout?.GetPrimaryMountedGun();
         }
     }
 }

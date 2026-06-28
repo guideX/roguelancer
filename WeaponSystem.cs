@@ -43,6 +43,7 @@ namespace Roguelancer
             public float MaxLife;
             public Color Color;
             public float Size;
+            public float Damage;
             public WeaponType Type;
         }
         
@@ -99,6 +100,8 @@ namespace Roguelancer
         
         // Weapon stats by type
         private readonly Dictionary<WeaponType, WeaponStats> _weaponStats;
+        private WeaponType? _weaponStatsOverrideType;
+        private WeaponStats _weaponStatsOverride;
 
         // Refire tracking
         private float _refireTimer = 0f; // Time until next shot can be fired
@@ -112,6 +115,7 @@ namespace Roguelancer
             public float WeaponDamage;
             public float Speed;
             public float Life;
+            public float Range;
             public float Size;
             public Color Color;
             public float MuzzleFlashSize;
@@ -158,7 +162,8 @@ namespace Roguelancer
                         Color = new Color(100, 200, 255),
                         MuzzleFlashSize = 25f,
                         RefireRate = 0.25f, // 4 shots per second
-                        EnergyCost = 33f // Medium energy cost
+                        EnergyCost = 33f, // Medium energy cost
+                        Range = 4800f
                     }
                 },
                 {
@@ -172,7 +177,8 @@ namespace Roguelancer
                         Color = new Color(255, 150, 50),
                         MuzzleFlashSize = 40f,
                         RefireRate = 0.5f, // 2 shots per second (slower)
-                        EnergyCost = 50f // High energy cost (powerful weapon)
+                        EnergyCost = 50f, // High energy cost (powerful weapon)
+                        Range = 1500f
                     }
                 },
                 {
@@ -186,7 +192,8 @@ namespace Roguelancer
                         Color = new Color(50, 255, 100), // Green energy
                         MuzzleFlashSize = 20f,
                         RefireRate = 0.1f, // 10 shots per second (very fast!)
-                        EnergyCost = 15f // Low energy cost (fast but weak)
+                        EnergyCost = 15f, // Low energy cost (fast but weak)
+                        Range = 1500f
                     }
                 },
                 {
@@ -200,7 +207,8 @@ namespace Roguelancer
                         Color = new Color(255, 255, 100), // Bright yellow beam (was purple)
                         MuzzleFlashSize = 60f,
                         RefireRate = 0f, // Not used for charge beam
-                        EnergyCost = 60f // High energy cost per second of firing
+                        EnergyCost = 60f, // High energy cost per second of firing
+                        Range = 0f
                     }
                 },
                 {
@@ -214,7 +222,8 @@ namespace Roguelancer
                         Color = new Color(255, 255, 220), // Yellowish-white
                         MuzzleFlashSize = 25f,
                         RefireRate = 0.15f, // Fast refire
-                        EnergyCost = 10f
+                        EnergyCost = 10f,
+                        Range = 2400f
                     }
                 },
                 {
@@ -228,7 +237,8 @@ namespace Roguelancer
                         Color = new Color(100, 150, 255), // Electric blue
                         MuzzleFlashSize = 40f,
                         RefireRate = 10f, // Long cooldown (10 seconds)
-                        EnergyCost = 100f // High initial energy cost
+                        EnergyCost = 100f, // High initial energy cost
+                        Range = 0f
                     }
                 }
             };
@@ -236,11 +246,66 @@ namespace Roguelancer
         
         public WeaponStats GetCurrentWeaponStats()
         {
-            if (_weaponStats.TryGetValue(CurrentWeapon, out var stats))
+            return CloneWeaponStats(GetEffectiveWeaponStats(CurrentWeapon));
+        }
+
+        public WeaponStats GetWeaponStats(WeaponType weaponType)
+        {
+            return CloneWeaponStats(GetBaseWeaponStats(weaponType));
+        }
+
+        public void SetWeaponProfileOverride(WeaponType weaponType, WeaponStats stats)
+        {
+            if (!Enum.IsDefined(typeof(WeaponType), weaponType) || stats == null)
             {
-                return stats;
+                ClearWeaponProfileOverride();
+                return;
             }
-            return null;
+
+            _weaponStatsOverrideType = weaponType;
+            _weaponStatsOverride = CloneWeaponStats(stats);
+        }
+
+        public void ClearWeaponProfileOverride()
+        {
+            _weaponStatsOverrideType = null;
+            _weaponStatsOverride = null;
+        }
+
+        private WeaponStats GetEffectiveWeaponStats(WeaponType weaponType)
+        {
+            if (_weaponStatsOverrideType.HasValue && _weaponStatsOverrideType.Value == weaponType && _weaponStatsOverride != null)
+            {
+                return _weaponStatsOverride;
+            }
+
+            return GetBaseWeaponStats(weaponType);
+        }
+
+        private WeaponStats GetBaseWeaponStats(WeaponType weaponType)
+        {
+            return _weaponStats.TryGetValue(weaponType, out var stats) ? stats : null;
+        }
+
+        private static WeaponStats CloneWeaponStats(WeaponStats stats)
+        {
+            if (stats == null)
+            {
+                return null;
+            }
+
+            return new WeaponStats
+            {
+                WeaponDamage = stats.WeaponDamage,
+                Speed = stats.Speed,
+                Life = stats.Life,
+                Range = stats.Range,
+                Size = stats.Size,
+                Color = stats.Color,
+                MuzzleFlashSize = stats.MuzzleFlashSize,
+                RefireRate = stats.RefireRate,
+                EnergyCost = stats.EnergyCost
+            };
         }
 
         private Texture2D CreateDonutTexture(GraphicsDevice device, int size)
@@ -455,6 +520,7 @@ namespace Roguelancer
         public void StartFiring(Vector3 origin, Vector3 direction, Vector3 shipVelocity)
         {
             _isFiring = true;
+            WeaponStats stats = GetCurrentWeaponStats() ?? GetBaseWeaponStats(CurrentWeapon);
             
             // Special handling for Wunderwafffle (chain lightning)
             if (CurrentWeapon == WeaponType.Wunderwafffle)
@@ -462,8 +528,6 @@ namespace Roguelancer
                 // Only fire if refire timer allows it
                 if (_refireTimer <= 0f)
                 {
-                    WeaponStats stats = _weaponStats[CurrentWeapon];
-                    
                     // Check if we have enough energy
                     if (_energy != null && !_energy.TryConsume(stats.EnergyCost))
                     {
@@ -504,7 +568,7 @@ namespace Roguelancer
                         FiringTime = 0f,
                         MaxFiringTime = float.MaxValue, // Fire indefinitely while held
                         IsFiring = false,
-                        BeamColor = _weaponStats[CurrentWeapon].Color
+                        BeamColor = stats?.Color ?? Color.White
                     };
                     _chargeBeams.Add(beam);
                     Console.WriteLine($"⚡ CHARGE BEAM: Started charging...");
@@ -521,8 +585,6 @@ namespace Roguelancer
             // Regular projectile weapons: Check if refire timer allows firing AND we have energy
             if (_refireTimer <= 0f)
             {
-                WeaponStats stats = _weaponStats[CurrentWeapon];
-                
                 // Check if we have enough energy
                 if (_energy != null && !_energy.TryConsume(stats.EnergyCost))
                 {
@@ -563,7 +625,12 @@ namespace Roguelancer
         /// </summary>
         private void FireProjectile(Vector3 origin, Vector3 direction, Vector3 shipVelocity)
         {
-            WeaponStats stats = _weaponStats[CurrentWeapon];
+            WeaponStats stats = GetCurrentWeaponStats() ?? GetBaseWeaponStats(CurrentWeapon);
+            if (stats == null)
+            {
+                Console.WriteLine($"[WEAPONS] Unable to fire {CurrentWeapon}: no weapon stats available.");
+                return;
+            }
 
             // Regular projectile weapons: Create DUAL projectiles from left and right
             // Calculate perpendicular offset vector (perpendicular to firing direction)
@@ -594,9 +661,10 @@ namespace Roguelancer
                     Position = origin + offset,
                     Velocity = direction * stats.Speed + shipVelocity,
                     Life = 0f,
-                    MaxLife = stats.Life,
+                    MaxLife = stats.Range > 0f && stats.Speed > 0f ? stats.Range / stats.Speed : stats.Life,
                     Color = stats.Color,
                     Size = stats.Size,
+                    Damage = stats.WeaponDamage,
                     Type = CurrentWeapon
                 };
                 
@@ -655,7 +723,9 @@ namespace Roguelancer
                 if (distance < shipRadius)
                 {
                     // Hit! Apply damage based on weapon type
-                    float damage = _weaponStats[p.Type].WeaponDamage;
+                    float damage = p.Damage > 0f
+                        ? p.Damage
+                        : (_weaponStats.TryGetValue(p.Type, out var stats) ? stats.WeaponDamage : 0f);
                     float hullBefore = hull.CurrentHull;
                     
                     // Route damage through shields first

@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Roguelancer
 {
@@ -19,6 +20,11 @@ namespace Roguelancer
         // Ship dealer system
         private ShipDealer _shipDealer;
         private int _selectedShipIndex = 0;
+
+        // Equipment dealer system
+        private EquipmentDealer _equipmentDealer;
+        private int _selectedEquipmentIndex = 0;
+        private bool _equipmentDealerMode = true;
         
         // Commodity dealer system
         private CommodityDealer _commodityDealer;
@@ -45,11 +51,12 @@ namespace Roguelancer
         public bool IsDocked => _isDocked;
         public StationArea CurrentArea => _currentArea;
         public Station DockedStation => _dockedStation;
+        public bool IsEquipmentDealerMode => _equipmentDealerMode;
 
         public event Action? OnUndock;
         public event Action<ShipDefinition>? OnShipPurchased;
 
-        public StationDockUI(SpriteFont font, Texture2D pixel, ShipDealer shipDealer, CommodityDealer commodityDealer, MissionManager missionManager, ReputationManager reputationManager = null)
+        public StationDockUI(SpriteFont font, Texture2D pixel, ShipDealer shipDealer, CommodityDealer commodityDealer, MissionManager missionManager, ReputationManager reputationManager = null, EquipmentDealer equipmentDealer = null)
         {
             _font = font;
             _pixel = pixel;
@@ -57,9 +64,11 @@ namespace Roguelancer
             _commodityDealer = commodityDealer;
             _missionManager = missionManager;
             _reputationManager = reputationManager;
+            _equipmentDealer = equipmentDealer ?? new EquipmentDealer();
             _jobBoard = new JobBoard(missionManager);
             _isDocked = false;
             _currentArea = StationArea.Hangar;
+            _equipmentDealerMode = true;
         }
 
         public void SetNotificationManager(NotificationManager? notificationManager)
@@ -95,6 +104,9 @@ namespace Roguelancer
             _purchaseQuantity = 1;
             _buyingMode = true;
             _commodityDealer?.SetDockedStation(station);
+            _equipmentDealer?.SetDockedStation(station);
+            _equipmentDealerMode = true;
+            _selectedEquipmentIndex = 0;
 
             // Spawn bar NPCs and refresh job board
             _barNpcs = BarNpc.GenerateBarNpcs();
@@ -140,6 +152,7 @@ namespace Roguelancer
             Console.WriteLine($"[DOCK] Undocking from {_dockedStation?.Name}");
             _isDocked = false;
             _commodityDealer?.ClearDockedStation();
+            _equipmentDealer?.ClearDockedStation();
             _dockedStation = null;
             OnUndock?.Invoke();
         }
@@ -259,6 +272,15 @@ namespace Roguelancer
             bool transactionMade = false;
             var listings = _commodityDealer.CurrentMarketListings;
             SyncCommoditySelection(listings);
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Tab) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Tab))
+            {
+                _equipmentDealerMode = true;
+                Console.WriteLine("[EQUIPMENT] Switched to equipment dealer mode");
+                return true;
+            }
+
             if (listings.Count == 0)
             {
                 return false;
@@ -334,6 +356,104 @@ namespace Roguelancer
             }
 
             return transactionMade;
+        }
+
+        /// <summary>
+        /// Handle input for the equipment dealer sub-mode.
+        /// </summary>
+        public bool HandleEquipmentDealerInput(Microsoft.Xna.Framework.Input.KeyboardState keyboardState,
+                                               Microsoft.Xna.Framework.Input.KeyboardState prevKeyboardState,
+                                               PlayerCredits credits,
+                                               Ship playerShip)
+        {
+            if (_currentArea != StationArea.Dealer) return false;
+
+            var equipmentList = _equipmentDealer?.AvailableEquipment;
+            SyncEquipmentSelection(equipmentList);
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Tab) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Tab))
+            {
+                _equipmentDealerMode = false;
+                Console.WriteLine("[EQUIPMENT] Switched to commodity market mode");
+                return true;
+            }
+
+            if (equipmentList == null || equipmentList.Count == 0)
+            {
+                return false;
+            }
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Up) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Up))
+            {
+                _selectedEquipmentIndex--;
+                if (_selectedEquipmentIndex < 0) _selectedEquipmentIndex = equipmentList.Count - 1;
+                return true;
+            }
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Down) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Down))
+            {
+                _selectedEquipmentIndex++;
+                if (_selectedEquipmentIndex >= equipmentList.Count) _selectedEquipmentIndex = 0;
+                return true;
+            }
+
+            var selectedEquipment = equipmentList[_selectedEquipmentIndex];
+            var loadout = playerShip?.Loadout;
+            if (loadout == null)
+            {
+                loadout = ShipLoadout.CreateStarterLoadout();
+                playerShip?.SetLoadout(loadout);
+            }
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Enter) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Enter))
+            {
+                bool success;
+                string message;
+
+                if (loadout.GetOwnedCount(selectedEquipment.Id) <= 0)
+                {
+                    success = _equipmentDealer.TryBuyEquipment(selectedEquipment, credits, loadout, out message);
+                }
+                else
+                {
+                    success = _equipmentDealer.TryMountEquipment(selectedEquipment, loadout, out message);
+                }
+
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    _notificationManager?.ShowMessage(message, 3f);
+                }
+
+                return success;
+            }
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.U) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.U))
+            {
+                bool success = _equipmentDealer.TryUnmountEquipment(selectedEquipment, loadout, out string message);
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    _notificationManager?.ShowMessage(message, 3f);
+                }
+                return success;
+            }
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.S) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.S))
+            {
+                bool success = _equipmentDealer.TrySellUnequippedEquipment(selectedEquipment, credits, loadout, out string message);
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    _notificationManager?.ShowMessage(message, 3f);
+                }
+                return success;
+            }
+
+            return false;
         }
 
         private void DrawHeader(SpriteBatch spriteBatch, int screenWidth)
@@ -558,6 +678,12 @@ namespace Roguelancer
 
         private void DrawDealer(SpriteBatch spriteBatch, int screenWidth, int screenHeight, PlayerCredits credits, Ship playerShip)
         {
+            if (_equipmentDealerMode)
+            {
+                DrawEquipmentDealer(spriteBatch, screenWidth, screenHeight, credits, playerShip);
+                return;
+            }
+
             int centerX = screenWidth / 2;
             int centerY = screenHeight / 2;
             var cargoHold = playerShip?.CargoHold;
@@ -712,7 +838,7 @@ namespace Roguelancer
             }
 
             // Instructions at bottom
-            string instructions = "UP/DOWN: Select | +/-: Quantity | B/S: Buy/Sell Mode | ENTER: Confirm";
+            string instructions = "UP/DOWN: Select | +/-: Quantity | B/S: Buy/Sell Mode | ENTER: Confirm | TAB: Equipment";
             Vector2 instructSize = _font.MeasureString(instructions);
             spriteBatch.DrawString(_font, instructions, 
                 new Vector2(centerX - instructSize.X / 2, screenHeight - 150), Color.White);
@@ -733,6 +859,169 @@ namespace Roguelancer
             {
                 _purchaseQuantity = 1;
             }
+        }
+
+        private void SyncEquipmentSelection(IReadOnlyList<EquipmentDefinition> equipment)
+        {
+            int count = equipment?.Count ?? 0;
+            if (count <= 0)
+            {
+                _selectedEquipmentIndex = 0;
+                return;
+            }
+
+            _selectedEquipmentIndex = Math.Clamp(_selectedEquipmentIndex, 0, count - 1);
+        }
+
+        private void DrawEquipmentDealer(SpriteBatch spriteBatch, int screenWidth, int screenHeight, PlayerCredits credits, Ship playerShip)
+        {
+            int centerX = screenWidth / 2;
+            int centerY = screenHeight / 2;
+            var loadout = playerShip?.Loadout;
+            var equipmentList = _equipmentDealer?.AvailableEquipment ?? Array.Empty<EquipmentDefinition>();
+            SyncEquipmentSelection(equipmentList);
+
+            string title = _dockedStation != null
+                ? $"== {_dockedStation.Name.ToUpperInvariant()} EQUIPMENT =="
+                : "== EQUIPMENT DEALER ==";
+            Vector2 titleSize = _font.MeasureString(title);
+            spriteBatch.DrawString(_font, title, new Vector2(centerX - titleSize.X / 2, centerY - 300), Color.Cyan);
+
+            string modeText = "[TAB] Switch to Commodity Market";
+            Vector2 modeSize = _font.MeasureString(modeText);
+            spriteBatch.DrawString(_font, modeText, new Vector2(centerX - modeSize.X / 2, centerY - 265), Color.Yellow);
+
+            string creditsText = $"Credits: {credits.GetFormattedCredits()}";
+            Vector2 creditsSize = _font.MeasureString(creditsText);
+            spriteBatch.DrawString(_font, creditsText, new Vector2(centerX - creditsSize.X / 2, centerY - 235), Color.LightGreen);
+
+            if (equipmentList.Count == 0)
+            {
+                string emptyText = "No equipment catalog is available.";
+                Vector2 emptySize = _font.MeasureString(emptyText);
+                spriteBatch.DrawString(_font, emptyText, new Vector2(centerX - emptySize.X / 2, centerY - 80), Color.Gray);
+                return;
+            }
+
+            int listX = 40;
+            int listY = centerY - 200;
+            int listWidth = Math.Min(760, screenWidth - 420);
+            int rowHeight = 78;
+
+            for (int i = 0; i < equipmentList.Count; i++)
+            {
+                var equipment = equipmentList[i];
+                bool isSelected = i == _selectedEquipmentIndex;
+                int ownedCount = loadout?.GetOwnedCount(equipment.Id) ?? 0;
+                int mountedCount = loadout?.GetMountedCount(equipment.Id) ?? 0;
+                int availableToMount = loadout?.GetAvailableToMountCount(equipment.Id) ?? 0;
+                int availableToSell = loadout?.GetAvailableToSellCount(equipment.Id) ?? 0;
+
+                Rectangle panel = new Rectangle(listX, listY + i * (rowHeight + 8), listWidth, rowHeight);
+                Color panelColor = isSelected ? Color.Cyan * 0.25f : Color.DarkGray * 0.25f;
+                spriteBatch.Draw(_pixel, panel, panelColor);
+
+                Color borderColor = isSelected ? Color.Cyan : Color.Gray * 0.5f;
+                spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 2), borderColor);
+                spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Bottom - 2, panel.Width, 2), borderColor);
+                spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, 2, panel.Height), borderColor);
+                spriteBatch.Draw(_pixel, new Rectangle(panel.Right - 2, panel.Y, 2, panel.Height), borderColor);
+
+                Color typeColor = equipment.EquipmentType switch
+                {
+                    EquipmentType.Gun => Color.Orange,
+                    EquipmentType.ShieldGenerator => Color.LightBlue,
+                    EquipmentType.Thruster => Color.Lime,
+                    EquipmentType.Scanner => Color.Gold,
+                    EquipmentType.CountermeasureDropper => Color.MediumPurple,
+                    EquipmentType.MissileLauncher => Color.IndianRed,
+                    EquipmentType.MineDropper => Color.SandyBrown,
+                    EquipmentType.TractorBeam => Color.Turquoise,
+                    _ => Color.White
+                };
+
+                string nameText = equipment.Name;
+                spriteBatch.DrawString(_font, nameText, new Vector2(panel.X + 12, panel.Y + 8), equipment.IsContraband ? Color.OrangeRed : Color.White);
+                spriteBatch.DrawString(_font, equipment.EquipmentType.ToString(), new Vector2(panel.X + 12, panel.Y + 30), typeColor);
+                spriteBatch.DrawString(_font, $"Price: {equipment.Price:N0} CR", new Vector2(panel.X + 220, panel.Y + 8), Color.Yellow);
+                spriteBatch.DrawString(_font, $"Owned: {ownedCount}  Mounted: {mountedCount}", new Vector2(panel.X + 220, panel.Y + 30), Color.LightGreen);
+
+                if (isSelected)
+                {
+                    string actionHint = ownedCount <= 0
+                        ? "[ENTER] Buy"
+                        : availableToMount > 0
+                            ? "[ENTER] Mount"
+                            : availableToSell > 0
+                                ? "[U] Unmount | [S] Sell spare"
+                                : "[U] Unmount";
+                    spriteBatch.DrawString(_font, actionHint, new Vector2(panel.Right - _font.MeasureString(actionHint).X - 12, panel.Y + 8), Color.Cyan);
+                }
+            }
+
+            var selectedEquipment = equipmentList[_selectedEquipmentIndex];
+            int detailX = listX + listWidth + 20;
+            int detailWidth = Math.Max(320, screenWidth - detailX - 40);
+            Rectangle detailPanel = new Rectangle(detailX, listY, detailWidth, rowHeight * 3 + 24);
+            spriteBatch.Draw(_pixel, detailPanel, Color.Black * 0.5f);
+            spriteBatch.Draw(_pixel, new Rectangle(detailPanel.X, detailPanel.Y, detailPanel.Width, 2), Color.Cyan);
+
+            spriteBatch.DrawString(_font, selectedEquipment.Name, new Vector2(detailPanel.X + 14, detailPanel.Y + 12), Color.White);
+            spriteBatch.DrawString(_font, selectedEquipment.GetStatsSummary(), new Vector2(detailPanel.X + 14, detailPanel.Y + 38), Color.LightGray);
+
+            string desc = selectedEquipment.Description;
+            if (desc.Length > 170)
+            {
+                desc = desc.Substring(0, 167) + "...";
+            }
+            spriteBatch.DrawString(_font, desc, new Vector2(detailPanel.X + 14, detailPanel.Y + 68), Color.LightGray);
+
+            var compatibleHardpoints = loadout?.GetCompatibleHardpoints(selectedEquipment).Select(h => h.Id).ToArray() ?? Array.Empty<string>();
+            string compatibleText = compatibleHardpoints.Length > 0
+                ? $"Compatible hardpoints: {string.Join(", ", compatibleHardpoints)}"
+                : "Compatible hardpoints: none";
+            spriteBatch.DrawString(_font, compatibleText, new Vector2(detailPanel.X + 14, detailPanel.Y + 110), Color.Cyan);
+
+            var mountedHardpoints = loadout?.Hardpoints
+                .Where(h => string.Equals(h.MountedEquipmentId, selectedEquipment.Id, StringComparison.OrdinalIgnoreCase))
+                .Select(h => h.Id)
+                .ToArray() ?? Array.Empty<string>();
+            string mountedText = mountedHardpoints.Length > 0
+                ? $"Mounted on: {string.Join(", ", mountedHardpoints)}"
+                : "Mounted on: none";
+            spriteBatch.DrawString(_font, mountedText, new Vector2(detailPanel.X + 14, detailPanel.Y + 134), Color.LightGreen);
+
+            string ownershipText = $"Owned: {loadout?.GetOwnedCount(selectedEquipment.Id) ?? 0} | Mountable: {loadout?.GetAvailableToMountCount(selectedEquipment.Id) ?? 0} | Sellable: {loadout?.GetAvailableToSellCount(selectedEquipment.Id) ?? 0}";
+            spriteBatch.DrawString(_font, ownershipText, new Vector2(detailPanel.X + 14, detailPanel.Y + 158), Color.Yellow);
+
+            string loadoutHeader = "Current Loadout";
+            spriteBatch.DrawString(_font, loadoutHeader, new Vector2(detailPanel.X + 14, detailPanel.Y + 190), Color.Cyan);
+
+            int loadoutY = detailPanel.Y + 214;
+            if (loadout != null)
+            {
+                foreach (var hardpoint in loadout.Hardpoints)
+                {
+                    string mountedId = string.IsNullOrWhiteSpace(hardpoint.MountedEquipmentId)
+                        ? "(empty)"
+                        : EquipmentCatalog.GetById(hardpoint.MountedEquipmentId)?.Name ?? hardpoint.MountedEquipmentId;
+                    string hardpointText = $"{hardpoint.Id}: {mountedId}";
+                    spriteBatch.DrawString(_font, hardpointText, new Vector2(detailPanel.X + 14, loadoutY), Color.White);
+                    loadoutY += 20;
+                    if (loadoutY > detailPanel.Bottom - 20)
+                    {
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                spriteBatch.DrawString(_font, "(no loadout data)", new Vector2(detailPanel.X + 14, loadoutY), Color.Gray);
+            }
+
+            string instructions = "UP/DOWN: Select | ENTER: Buy/Mount | U: Unmount | S: Sell spare | TAB: Commodities";
+            Vector2 instructSize = _font.MeasureString(instructions);
+            spriteBatch.DrawString(_font, instructions, new Vector2(centerX - instructSize.X / 2, screenHeight - 150), Color.White);
         }
 
         private void DrawShipDealer(SpriteBatch spriteBatch, int screenWidth, int screenHeight)

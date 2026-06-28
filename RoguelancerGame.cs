@@ -136,6 +136,7 @@ namespace Roguelancer {
         private PlayerCredits _playerCredits;
         private ShipDealer _shipDealer;
         private CommodityDealer _commodityDealer;
+        private EquipmentDealer _equipmentDealer;
 
         // Mission system
         private MissionManager _missionManager;
@@ -170,6 +171,10 @@ namespace Roguelancer {
         private Vector3 _lastPlayerPosition;
         private bool _firstFrame = true;
         private readonly bool _runMarketSmoke;
+        private string _activeMountedGunId = string.Empty;
+        private WeaponType? _activeMountedGunWeaponType;
+        private bool _wasUsingMountedGun = false;
+        private bool _loggedNoMountedGun = false;
 
         /// <summary>
         /// Alloc Console
@@ -216,6 +221,144 @@ namespace Roguelancer {
             if (_gameSettings.EnableOnlineMode) {
                 InitializeNetworkManager();
             }
+        }
+
+        private void SyncMountedGunWeaponProfile()
+        {
+            if (_weaponSystem == null || _playerShip?.Loadout == null)
+            {
+                return;
+            }
+
+            WeaponEquipmentDefinition mountedGun = _playerShip.GetPrimaryMountedGun();
+            if (mountedGun == null)
+            {
+                _weaponSystem.ClearWeaponProfileOverride();
+
+                if (_wasUsingMountedGun || !_loggedNoMountedGun)
+                {
+                    Console.WriteLine("[PLAYER WEAPONS] No mounted guns - falling back to WeaponSystem defaults.");
+                    _notificationManager?.ShowMessage("No mounted guns", 2f);
+                }
+
+                _activeMountedGunId = string.Empty;
+                _activeMountedGunWeaponType = null;
+                _wasUsingMountedGun = false;
+                _loggedNoMountedGun = true;
+                return;
+            }
+
+            _loggedNoMountedGun = false;
+
+            WeaponType mappedWeaponType = ResolveMountedGunWeaponType(mountedGun);
+            WeaponSystem.WeaponStats mountedStats = BuildMountedGunWeaponStats(mountedGun, mappedWeaponType);
+
+            bool gunChanged =
+                !_wasUsingMountedGun ||
+                !string.Equals(_activeMountedGunId, mountedGun.Id, StringComparison.OrdinalIgnoreCase) ||
+                !_activeMountedGunWeaponType.HasValue ||
+                _activeMountedGunWeaponType.Value != mappedWeaponType;
+
+            if (gunChanged)
+            {
+                Console.WriteLine($"[PLAYER WEAPONS] Active mounted gun changed: {mountedGun.Name} ({mountedGun.Id}) -> {mappedWeaponType}");
+                _notificationManager?.ShowMessage($"Mounted gun: {mountedGun.Name}", 2f);
+            }
+
+            _activeMountedGunId = mountedGun.Id;
+            _activeMountedGunWeaponType = mappedWeaponType;
+            _wasUsingMountedGun = true;
+
+            _weaponSystem.CurrentWeapon = mappedWeaponType;
+            _weaponSystem.SetWeaponProfileOverride(mappedWeaponType, mountedStats);
+        }
+
+        private WeaponType ResolveMountedGunWeaponType(WeaponEquipmentDefinition mountedGun)
+        {
+            if (mountedGun == null)
+            {
+                return WeaponType.BlueDonut;
+            }
+
+            switch (mountedGun.Id?.Trim().ToLowerInvariant())
+            {
+                case "liberty_light_laser":
+                    return WeaponType.LaserBolt;
+                case "liberty_pulse_cannon":
+                    return WeaponType.BlueDonut;
+                case "rogue_blaster":
+                    return WeaponType.BlueDonut;
+            }
+
+            if (Enum.IsDefined(typeof(WeaponType), mountedGun.WeaponType))
+            {
+                return mountedGun.WeaponType;
+            }
+
+            Console.WriteLine($"[PLAYER WEAPONS] Mounted gun {mountedGun.Name} has no valid weapon mapping; using BlueDonut fallback.");
+            return WeaponType.BlueDonut;
+        }
+
+        private WeaponSystem.WeaponStats BuildMountedGunWeaponStats(WeaponEquipmentDefinition mountedGun, WeaponType mappedWeaponType)
+        {
+            WeaponSystem.WeaponStats fallback = _weaponSystem.GetWeaponStats(mappedWeaponType)
+                ?? new WeaponSystem.WeaponStats
+                {
+                    WeaponDamage = 10f,
+                    Speed = 1200f,
+                    Life = 2f,
+                    Range = 2400f,
+                    Size = 20f,
+                    Color = Color.White,
+                    MuzzleFlashSize = 20f,
+                    RefireRate = 0.25f,
+                    EnergyCost = 10f
+                };
+
+            bool usedFallbackForField = false;
+            bool hasValidDamage = IsValidPositiveStat(mountedGun?.Damage);
+            bool hasValidSpeed = IsValidPositiveStat(mountedGun?.ProjectileSpeed);
+            bool hasValidRefireRate = IsValidPositiveStat(mountedGun?.RefireRate);
+            bool hasValidEnergyCost = IsValidPositiveStat(mountedGun?.EnergyCost);
+            bool hasValidRange = IsValidPositiveStat(mountedGun?.Range);
+
+            float damage = hasValidDamage ? mountedGun.Damage : fallback.WeaponDamage;
+            float speed = hasValidSpeed ? mountedGun.ProjectileSpeed : fallback.Speed;
+            float refireRate = hasValidRefireRate ? mountedGun.RefireRate : fallback.RefireRate;
+            float energyCost = hasValidEnergyCost ? mountedGun.EnergyCost : fallback.EnergyCost;
+            float range = hasValidRange ? mountedGun.Range : fallback.Range;
+
+            usedFallbackForField =
+                !hasValidDamage ||
+                !hasValidSpeed ||
+                !hasValidRefireRate ||
+                !hasValidEnergyCost ||
+                !hasValidRange;
+
+            WeaponSystem.WeaponStats stats = new WeaponSystem.WeaponStats
+            {
+                WeaponDamage = damage,
+                Speed = speed,
+                Range = range,
+                Life = hasValidSpeed && hasValidRange && range > 0f && speed > 0f ? range / speed : fallback.Life,
+                Size = fallback.Size,
+                Color = fallback.Color,
+                MuzzleFlashSize = fallback.MuzzleFlashSize,
+                RefireRate = refireRate,
+                EnergyCost = energyCost
+            };
+
+            if (usedFallbackForField)
+            {
+                Console.WriteLine($"[PLAYER WEAPONS] Mounted gun {mountedGun.Name} used default WeaponSystem values for missing/invalid fields.");
+            }
+
+            return stats;
+        }
+
+        private static bool IsValidPositiveStat(float? candidate)
+        {
+            return candidate.HasValue && !float.IsNaN(candidate.Value) && !float.IsInfinity(candidate.Value) && candidate.Value > 0f;
         }
 
         /// <summary>
@@ -571,6 +714,9 @@ namespace Roguelancer {
             // Initialize commodity dealer
             _commodityDealer = new CommodityDealer();
 
+            // Initialize equipment dealer
+            _equipmentDealer = new EquipmentDealer();
+
             // Initialize mission manager
             _missionManager = new MissionManager(_playerCredits, _notificationManager, _reputationManager);
 
@@ -592,7 +738,7 @@ namespace Roguelancer {
 
             // Initialize station dock UI
             if (_font != null) {
-                _stationDockUI = new StationDockUI(_font, _pixel, _shipDealer, _commodityDealer, _missionManager, _reputationManager);
+                _stationDockUI = new StationDockUI(_font, _pixel, _shipDealer, _commodityDealer, _missionManager, _reputationManager, _equipmentDealer);
                 _stationDockUI.OnUndock += HandleUndock;
                 _stationDockUI.OnShipPurchased += HandleShipPurchased;
             }
@@ -1190,6 +1336,8 @@ namespace Roguelancer {
                 Console.WriteLine("Switched to Wunderwafffle");
             }
 
+            SyncMountedGunWeaponProfile();
+
             // RIGHT MOUSE BUTTON: Fire weapons or charge beam!
             if (mouseState.RightButton == ButtonState.Pressed) {
                 // Calculate ship transform
@@ -1389,11 +1537,12 @@ namespace Roguelancer {
                 }
             }
 
-            // Let commodity dealer handle its own input
+            // Let dealer handle its own input
             if (_stationDockUI?.CurrentArea == StationArea.Dealer) {
-                bool transactionMade = _stationDockUI.HandleCommodityDealerInput(keyboardState, _prevKeys, _playerCredits, _playerShip);
-                if (transactionMade) {
-                    // Transaction completed
+                bool handled = _stationDockUI.IsEquipmentDealerMode
+                    ? _stationDockUI.HandleEquipmentDealerInput(keyboardState, _prevKeys, _playerCredits, _playerShip)
+                    : _stationDockUI.HandleCommodityDealerInput(keyboardState, _prevKeys, _playerCredits, _playerShip);
+                if (handled) {
                     return;
                 }
             }
