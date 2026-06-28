@@ -695,6 +695,7 @@ namespace Roguelancer {
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
             _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
+            _stationDockUI?.SetNotificationManager(_notificationManager);
 
             // Re-initialize JumpHoleManager with font now that it's loaded
             if (_jumpHoleManager != null) {
@@ -2205,7 +2206,6 @@ namespace Roguelancer {
         /// Handle undocking from station
         /// </summary>
         private void HandleUndock() {
-            Console.WriteLine("[DOCK] Player undocked");
             _notificationManager?.ShowMessage("Undocked - Systems online", 2f);
             _playerShip.Reset();
             IsMouseVisible = !_playerShip.IsFreeFlightMode;

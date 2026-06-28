@@ -23,6 +23,11 @@ namespace Roguelancer
         public Station CurrentStation => _currentStation;
 
         /// <summary>
+        /// True when the current station is using the legacy fallback catalog instead of a station-specific config.
+        /// </summary>
+        public bool IsUsingLegacyFallback => _currentStation == null || !_marketManager.HasMarketConfigForStation(_currentStation);
+
+        /// <summary>
         /// Legacy commodity list fallback for callers that still expect a simple inventory.
         /// </summary>
         public IReadOnlyList<Commodity> AvailableCommodities => GetCurrentMarketCommodities();
@@ -34,7 +39,10 @@ namespace Roguelancer
             _currentStation = station;
             if (station != null)
             {
-                Console.WriteLine($"[MARKET] Docked market context set to {station.Name}");
+                string marketMode = _marketManager.HasMarketConfigForStation(station)
+                    ? "station market"
+                    : "legacy fallback catalog";
+                Console.WriteLine($"[MARKET] Docked at {station.Name} using {marketMode}");
             }
         }
 
@@ -42,7 +50,7 @@ namespace Roguelancer
         {
             if (_currentStation != null)
             {
-                Console.WriteLine($"[MARKET] Clearing market context for {_currentStation.Name}");
+                Console.WriteLine($"[MARKET] Undocked from {_currentStation.Name}");
             }
 
             _currentStation = null;
@@ -93,7 +101,7 @@ namespace Roguelancer
         public bool CanAfford(Commodity commodity, int quantity, PlayerCredits credits)
         {
             var listing = ResolveListing(commodity);
-            if (listing == null)
+            if (listing == null || credits == null)
             {
                 return false;
             }
@@ -104,39 +112,52 @@ namespace Roguelancer
 
         public bool HasSpace(Commodity commodity, int quantity, CargoHold cargoHold)
         {
+            if (cargoHold == null)
+            {
+                return false;
+            }
+
             return cargoHold.CanFit(commodity, quantity);
         }
 
         public bool BuyCommodity(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold)
         {
+            return TryBuyCommodity(commodity, quantity, credits, cargoHold, out _);
+        }
+
+        public bool TryBuyCommodity(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold, out string message)
+        {
             if (_currentStation == null || !_marketManager.HasMarketConfigForStation(_currentStation))
             {
-                return BuyWithFallback(commodity, quantity, credits, cargoHold);
+                bool fallbackSuccess = BuyWithFallback(commodity, quantity, credits, cargoHold, out message);
+                LogMarketResult(fallbackSuccess, message);
+                return fallbackSuccess;
             }
 
-            bool success = _marketManager.TryBuy(_currentStation, commodity, quantity, credits, cargoHold, out string message);
-            if (!string.IsNullOrWhiteSpace(message))
-            {
-                Console.WriteLine($"[MARKET] {message}");
-            }
+            bool marketSuccess = _marketManager.TryBuy(_currentStation, commodity, quantity, credits, cargoHold, out message);
+            LogMarketResult(marketSuccess, message);
 
-            return success;
+            return marketSuccess;
         }
 
         public bool SellCommodity(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold)
         {
+            return TrySellCommodity(commodity, quantity, credits, cargoHold, out _);
+        }
+
+        public bool TrySellCommodity(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold, out string message)
+        {
             if (_currentStation == null || !_marketManager.HasMarketConfigForStation(_currentStation))
             {
-                return SellWithFallback(commodity, quantity, credits, cargoHold);
+                bool fallbackSuccess = SellWithFallback(commodity, quantity, credits, cargoHold, out message);
+                LogMarketResult(fallbackSuccess, message);
+                return fallbackSuccess;
             }
 
-            bool success = _marketManager.TrySell(_currentStation, commodity, quantity, credits, cargoHold, out string message);
-            if (!string.IsNullOrWhiteSpace(message))
-            {
-                Console.WriteLine($"[MARKET] {message}");
-            }
+            bool marketSuccess = _marketManager.TrySell(_currentStation, commodity, quantity, credits, cargoHold, out message);
+            LogMarketResult(marketSuccess, message);
 
-            return success;
+            return marketSuccess;
         }
 
         private StationMarketListing ResolveListing(Commodity commodity)
@@ -151,45 +172,105 @@ namespace Roguelancer
                 string.Equals(l.Commodity.Name, commodity.Name, StringComparison.OrdinalIgnoreCase));
         }
 
-        private bool BuyWithFallback(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold)
+        private bool BuyWithFallback(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold, out string message)
         {
-            int totalCost = commodity.BasePrice * quantity;
-            if (!credits.CanAfford(totalCost) || !cargoHold.CanFit(commodity, quantity))
+            message = string.Empty;
+            if (commodity == null)
             {
+                message = "No commodity selected.";
+                return false;
+            }
+
+            if (credits == null || cargoHold == null)
+            {
+                message = "Trading system unavailable.";
+                return false;
+            }
+
+            if (quantity <= 0)
+            {
+                message = "Quantity must be at least 1.";
+                return false;
+            }
+
+            int totalCost = commodity.BasePrice * quantity;
+            if (!credits.CanAfford(totalCost))
+            {
+                message = "Not enough credits.";
+                return false;
+            }
+
+            if (!cargoHold.CanFit(commodity, quantity))
+            {
+                message = "Not enough cargo space.";
                 return false;
             }
 
             if (!credits.RemoveCredits(totalCost))
             {
+                message = "Credit transfer failed.";
                 return false;
             }
 
             if (!cargoHold.AddCommodity(commodity, quantity))
             {
                 credits.AddCredits(totalCost);
+                message = "Cargo transfer failed.";
                 return false;
             }
 
-            Console.WriteLine($"[MARKET] BUY {quantity}x {commodity.Name} @ {commodity.BasePrice:N0} (fallback)");
+            message = $"Bought {quantity}x {commodity.Name} at fallback prices.";
             return true;
         }
 
-        private bool SellWithFallback(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold)
+        private bool SellWithFallback(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold, out string message)
         {
+            message = string.Empty;
+            if (commodity == null)
+            {
+                message = "No commodity selected.";
+                return false;
+            }
+
+            if (credits == null || cargoHold == null)
+            {
+                message = "Trading system unavailable.";
+                return false;
+            }
+
+            if (quantity <= 0)
+            {
+                message = "Quantity must be at least 1.";
+                return false;
+            }
+
             if (cargoHold.GetCommodityQuantity(commodity.Name) < quantity)
             {
+                message = "You do not own enough quantity to sell.";
                 return false;
             }
 
             if (!cargoHold.RemoveCommodity(commodity, quantity))
             {
+                message = "Cargo removal failed.";
                 return false;
             }
 
             int totalValue = commodity.BasePrice * quantity;
             credits.AddCredits(totalValue);
-            Console.WriteLine($"[MARKET] SELL {quantity}x {commodity.Name} @ {commodity.BasePrice:N0} (fallback)");
+            message = $"Sold {quantity}x {commodity.Name} at fallback prices.";
             return true;
+        }
+
+        private static void LogMarketResult(bool success, string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return;
+            }
+
+            string prefix = success ? "[MARKET]" : "[MARKET][FAIL]";
+            Console.WriteLine($"{prefix} {message}");
         }
     }
 }

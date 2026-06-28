@@ -76,6 +76,7 @@ namespace Roguelancer
         public void LoadMarketConfigs()
         {
             _marketConfigs.Clear();
+            _runtimeMarkets.Clear();
 
             Console.WriteLine($"[MARKET] Loading station market configs from {MarketDirectory}");
             if (!Directory.Exists(MarketDirectory))
@@ -125,7 +126,6 @@ namespace Roguelancer
 
             if (!_marketConfigs.TryGetValue(stationKey, out var config))
             {
-                Console.WriteLine($"[MARKET] No config for {station?.Name ?? "unknown station"}; using fallback catalog.");
                 return BuildFallbackListings();
             }
 
@@ -161,17 +161,23 @@ namespace Roguelancer
                 return false;
             }
 
+            if (credits == null || cargoHold == null)
+            {
+                message = "Trading system unavailable.";
+                return false;
+            }
+
             var stationKey = GetStationKey(station.Name, station.Config?.Description);
             var listing = GetMutableListing(stationKey, commodity);
             if (listing == null)
             {
-                message = $"{commodity.Name} is not sold here.";
+                message = "Commodity unavailable at this station.";
                 return false;
             }
 
             if (!listing.IsAvailable || listing.BuyPrice <= 0)
             {
-                message = $"{commodity.Name} is not available for purchase at this station.";
+                message = "Commodity unavailable at this station.";
                 return false;
             }
 
@@ -183,14 +189,16 @@ namespace Roguelancer
 
             if (listing.Stock < quantity)
             {
-                message = $"Only {listing.Stock} units of {commodity.Name} are in stock.";
+                message = listing.Stock <= 0
+                    ? "Out of stock."
+                    : $"Only {listing.Stock} units of {commodity.Name} are in stock.";
                 return false;
             }
 
             int totalCost = listing.BuyPrice * quantity;
             if (!credits.CanAfford(totalCost))
             {
-                message = "Insufficient credits.";
+                message = "Not enough credits.";
                 return false;
             }
 
@@ -214,8 +222,7 @@ namespace Roguelancer
             }
 
             listing.Stock -= quantity;
-            Console.WriteLine($"[MARKET] BUY {quantity}x {commodity.Name} @ {listing.BuyPrice:N0} on {station.Name} | stock={listing.Stock}");
-            message = $"Bought {quantity}x {commodity.Name}.";
+            message = $"Bought {quantity}x {commodity.Name} at {station.Name}.";
             return true;
         }
 
@@ -228,29 +235,29 @@ namespace Roguelancer
                 return false;
             }
 
+            if (credits == null || cargoHold == null)
+            {
+                message = "Trading system unavailable.";
+                return false;
+            }
+
             if (quantity <= 0)
             {
                 message = "Quantity must be at least 1.";
                 return false;
             }
 
-            if (cargoHold.GetCommodityQuantity(commodity.Name) < quantity)
-            {
-                message = $"You do not have enough {commodity.Name}.";
-                return false;
-            }
-
             var stationKey = GetStationKey(station.Name, station.Config?.Description);
             var listing = GetMutableListing(stationKey, commodity);
-            if (listing == null)
+            if (listing == null || !listing.IsAvailable || listing.SellPrice <= 0)
             {
-                message = $"{commodity.Name} is not bought here.";
+                message = "Commodity unavailable at this station.";
                 return false;
             }
 
-            if (listing.SellPrice <= 0)
+            if (cargoHold.GetCommodityQuantity(commodity.Name) < quantity)
             {
-                message = $"{commodity.Name} is not purchased here.";
+                message = "You do not own enough quantity to sell.";
                 return false;
             }
 
@@ -263,8 +270,7 @@ namespace Roguelancer
             int totalValue = listing.SellPrice * quantity;
             credits.AddCredits(totalValue);
             listing.Stock += quantity;
-            Console.WriteLine($"[MARKET] SELL {quantity}x {commodity.Name} @ {listing.SellPrice:N0} on {station.Name} | stock={listing.Stock}");
-            message = $"Sold {quantity}x {commodity.Name}.";
+            message = $"Sold {quantity}x {commodity.Name} at {station.Name}.";
             return true;
         }
 
