@@ -8,6 +8,22 @@ namespace Roguelancer
     /// <summary>
     /// Lightweight missile runtime for mounted launcher ordnance.
     /// </summary>
+    public sealed class MissileSpoofedEventArgs : EventArgs
+    {
+        public MissileSpoofedEventArgs(Vector3 missilePosition, Vector3 countermeasurePosition, int countermeasureId, string countermeasureName)
+        {
+            MissilePosition = missilePosition;
+            CountermeasurePosition = countermeasurePosition;
+            CountermeasureId = countermeasureId;
+            CountermeasureName = countermeasureName ?? string.Empty;
+        }
+
+        public Vector3 MissilePosition { get; }
+        public Vector3 CountermeasurePosition { get; }
+        public int CountermeasureId { get; }
+        public string CountermeasureName { get; }
+    }
+
     public class MissileSystem
     {
         private class MissileProjectile
@@ -29,6 +45,8 @@ namespace Roguelancer
         private readonly GraphicsDevice _graphicsDevice;
         private readonly BasicEffect _effect;
         private float _launchCooldownRemaining;
+
+        public event EventHandler<MissileSpoofedEventArgs> MissileSpoofed;
 
         private const float DefaultMissileDamage = 40f;
         private const float DefaultMissileSpeed = 850f;
@@ -162,6 +180,13 @@ namespace Roguelancer
                         if (missile.SpoofedCountermeasureId != spoofTarget.Id)
                         {
                             Console.WriteLine($"[MISSILE] Spoofed toward countermeasure #{spoofTarget.Id} ({spoofTarget.SourceEquipmentName})");
+                            MissileSpoofed?.Invoke(
+                                this,
+                                new MissileSpoofedEventArgs(
+                                    missile.Position,
+                                    spoofTarget.Position,
+                                    spoofTarget.Id,
+                                    spoofTarget.SourceEquipmentName));
                         }
 
                         missile.SpoofedCountermeasureId = spoofTarget.Id;

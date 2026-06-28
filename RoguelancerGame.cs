@@ -907,6 +907,7 @@ namespace Roguelancer {
 
             // Initialize missile system (mounted launchers)
             _missileSystem = new MissileSystem(GraphicsDevice);
+            _missileSystem.MissileSpoofed += HandleMissileSpoofed;
 
             // Initialize countermeasure system (mounted countermeasure droppers)
             _countermeasureSystem = new CountermeasureSystem(GraphicsDevice);
@@ -1725,6 +1726,26 @@ namespace Roguelancer {
                     Console.WriteLine($"[MISSILE] {message}");
                 }
             }
+        }
+
+        private void HandleMissileSpoofed(object sender, MissileSpoofedEventArgs e)
+        {
+            if (_hitImpactParticles != null)
+            {
+                Vector3 impactDirection = e.CountermeasurePosition - e.MissilePosition;
+                if (impactDirection.LengthSquared() < 0.0001f)
+                {
+                    impactDirection = Vector3.Up;
+                }
+                else
+                {
+                    impactDirection.Normalize();
+                }
+
+                _hitImpactParticles.TriggerImpact(e.CountermeasurePosition, impactDirection, new Color(255, 245, 140));
+            }
+
+            _notificationManager?.ShowMessage("MISSILE SPOOFED", 1.5f);
         }
 
         private Vector3 GetMissileLaunchOrigin()
