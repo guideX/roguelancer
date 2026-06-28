@@ -25,7 +25,10 @@ namespace Roguelancer
         public void RefreshMissions(int count = 6, string factionId = null)
         {
             _availableMissions.Clear();
-            _availableMissions.AddRange(_missionManager.GenerateJobBoardMissions(count, factionId));
+            if (_missionManager != null)
+            {
+                _availableMissions.AddRange(_missionManager.GenerateJobBoardMissions(count, factionId));
+            }
             SelectedIndex = 0;
             Console.WriteLine($"[JOB BOARD] Refreshed with {count} missions");
         }
@@ -35,7 +38,7 @@ namespace Roguelancer
         /// </summary>
         public bool AcceptSelectedMission()
         {
-            if (SelectedIndex < 0 || SelectedIndex >= _availableMissions.Count)
+            if (_missionManager == null || SelectedIndex < 0 || SelectedIndex >= _availableMissions.Count)
                 return false;
 
             var mission = _availableMissions[SelectedIndex];

@@ -471,13 +471,27 @@ namespace Roguelancer {
         /// <param name="currentSystem">The configuration of the current system.</param>
         private void SpawnNpcsFromConfig(SystemConfig currentSystem) {
             var random = new Random();
-            var allShipConfigs = _config.GetAllShipConfigs(); // Assuming this method exists to get all ships
+            var allShipConfigs = _config.GetAllShipConfigs();
 
             Console.WriteLine($"[NPC SPAWN] Starting NPC creation from system config. Patrol groups: {currentSystem.NpcPatrols.Count}");
 
             foreach (var patrolConfig in currentSystem.NpcPatrols) {
+                if (patrolConfig == null)
+                {
+                    Console.WriteLine("[NPC SPAWN] ✗ WARNING: Encountered null patrol config. Skipping.");
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(patrolConfig.ShipDescription))
+                {
+                    Console.WriteLine($"[NPC SPAWN] ✗ WARNING: Patrol '{patrolConfig.Name}' has no ship description. Skipping.");
+                    continue;
+                }
+
                 // Find the ship configuration that matches the description in the patrol config
-                var shipConfig = allShipConfigs.Find(sc => sc.Description == patrolConfig.ShipDescription);
+                var shipConfig = allShipConfigs.Find(sc =>
+                    sc != null &&
+                    string.Equals(sc.Description, patrolConfig.ShipDescription, StringComparison.OrdinalIgnoreCase));
 
                 if (shipConfig == null) {
                     Console.WriteLine($"[NPC SPAWN] ✗ ERROR: Ship configuration '{patrolConfig.ShipDescription}' not found for patrol '{patrolConfig.Name}'. Skipping.");
@@ -723,7 +737,12 @@ namespace Roguelancer {
                 {
                     if (_stationDockUI?.DockAtStation(station) != true)
                     {
-                        _notificationManager?.ShowMessage("Docking denied by station security", 3f);
+                        string dockDeniedReason = _stationDockUI?.LastDockingDeniedReason;
+                        _notificationManager?.ShowMessage(
+                            string.IsNullOrWhiteSpace(dockDeniedReason)
+                                ? "Docking denied by station security"
+                                : dockDeniedReason,
+                            3f);
                     }
                 }
             };
@@ -837,7 +856,12 @@ namespace Roguelancer {
                     if (_stationDockUI?.DockAtStation(_playerShip.NearestStation) == true) {
                         _notificationManager?.ShowMessage($"Docked at {_playerShip.NearestStation?.Name}", 3f);
                     } else {
-                        _notificationManager?.ShowMessage("Docking denied by station security", 3f);
+                        string dockDeniedReason = _stationDockUI?.LastDockingDeniedReason;
+                        _notificationManager?.ShowMessage(
+                            string.IsNullOrWhiteSpace(dockDeniedReason)
+                                ? "Docking denied by station security"
+                                : dockDeniedReason,
+                            3f);
                     }
                 }
             }

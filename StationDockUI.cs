@@ -39,6 +39,7 @@ namespace Roguelancer
         private JobBoard _jobBoard;
         private MissionManager _missionManager;
         private ReputationManager _reputationManager;
+        public string LastDockingDeniedReason { get; private set; } = string.Empty;
 
         public bool IsDocked => _isDocked;
         public StationArea CurrentArea => _currentArea;
@@ -65,11 +66,19 @@ namespace Roguelancer
         /// </summary>
         public bool DockAtStation(Station station)
         {
-            if (station == null) return false;
+            LastDockingDeniedReason = string.Empty;
 
-            if (_reputationManager != null && _reputationManager.IsHostile(station.FactionId))
+            if (station == null)
             {
-                Console.WriteLine($"[DOCK] Docking denied at {station.Name} because faction '{station.FactionId}' is hostile.");
+                LastDockingDeniedReason = "Docking denied: no station selected.";
+                return false;
+            }
+
+            string stationFactionId = FactionManager.NormalizeFactionId(station.FactionId);
+            if (_reputationManager != null && _reputationManager.IsHostile(stationFactionId))
+            {
+                LastDockingDeniedReason = $"Docking denied: {station.Name} is hostile ({stationFactionId}).";
+                Console.WriteLine($"[DOCK] Docking denied at {station.Name} because faction '{stationFactionId}' is hostile.");
                 return false;
             }
             
@@ -86,16 +95,26 @@ namespace Roguelancer
             _dialogueState = 0;
 
             // Generate a random mission for each NPC
-            foreach (var npc in _barNpcs)
+            if (_missionManager != null)
             {
-                npc.CurrentMission = _missionManager.GenerateRandomMission(npc.FactionId);
-                npc.CurrentMission.OfferedBy = npc.Name;
+                foreach (var npc in _barNpcs)
+                {
+                    npc.CurrentMission = _missionManager.GenerateRandomMission(npc.FactionId);
+                    npc.CurrentMission.OfferedBy = npc.Name;
+                }
+            }
+            else
+            {
+                foreach (var npc in _barNpcs)
+                {
+                    npc.CurrentMission = null;
+                }
             }
 
-            _jobBoard.RefreshMissions(6, _dockedStation?.FactionId);
+            _jobBoard?.RefreshMissions(6, _dockedStation?.FactionId);
 
             // Notify mission manager we docked (for delivery missions)
-            _missionManager.NotifyArrivedAtStation(station.Name);
+            _missionManager?.NotifyArrivedAtStation(station.Name);
 
             Console.WriteLine($"[DOCK] Docked at {station.Name}");
             return true;
@@ -768,6 +787,11 @@ namespace Roguelancer
 
         private void DrawActiveMissions(SpriteBatch spriteBatch, int screenWidth)
         {
+            if (_missionManager == null)
+            {
+                return;
+            }
+
             var activeMissions = _missionManager.ActiveMissions;
             if (activeMissions.Count == 0) return;
 
@@ -858,15 +882,16 @@ namespace Roguelancer
                     {
                         // Accept mission
                         _offeredMission.OfferedBy = _currentTalkNpc.Name;
-                        bool accepted = _missionManager.AcceptMission(_offeredMission);
-                        if (accepted)
+                        if (_missionManager != null && _missionManager.AcceptMission(_offeredMission))
                         {
                             _currentTalkNpc.CurrentMission = null;
                             _dialogueLine = "Good luck out there, pilot.";
                         }
                         else
                         {
-                            _dialogueLine = "Looks like you already have that mission.";
+                            _dialogueLine = _missionManager == null
+                                ? "The mission board is offline right now."
+                                : "Looks like you already have that mission.";
                         }
                         _dialogueState = 2;
                     }

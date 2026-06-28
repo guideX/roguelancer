@@ -138,7 +138,7 @@ namespace Roguelancer
         /// </summary>
         public bool AcceptMission(Mission mission)
         {
-            if (mission.Status != MissionStatus.Available) return false;
+            if (mission == null || mission.Status != MissionStatus.Available) return false;
 
             mission.FactionId = FactionManager.NormalizeFactionId(mission.FactionId);
             mission.Status = MissionStatus.Active;
@@ -154,14 +154,14 @@ namespace Roguelancer
         /// </summary>
         public void CompleteMission(Mission mission)
         {
-            if (mission.Status != MissionStatus.Active) return;
+            if (mission == null || mission.Status != MissionStatus.Active) return;
 
             mission.Status = MissionStatus.Completed;
             _activeMissions.Remove(mission);
             _completedMissions.Add(mission);
             _waypointSystem?.UnregisterMission(mission);
 
-            _playerCredits.AddCredits(mission.Reward);
+            _playerCredits?.AddCredits(mission.Reward);
             _notificationManager?.ShowMessage($"Mission complete! +{mission.Reward:N0} CR", 4f);
             Console.WriteLine($"[MISSION] Completed: {mission.Description} | Reward: {mission.Reward:N0} CR");
 
@@ -177,7 +177,7 @@ namespace Roguelancer
         /// </summary>
         public void FailMission(Mission mission, string reason)
         {
-            if (mission.Status != MissionStatus.Active) return;
+            if (mission == null || mission.Status != MissionStatus.Active) return;
 
             mission.Status = MissionStatus.Failed;
             _activeMissions.Remove(mission);
@@ -239,11 +239,17 @@ namespace Roguelancer
         /// </summary>
         public void NotifyTargetDestroyed(string targetName)
         {
+            if (string.IsNullOrWhiteSpace(targetName))
+            {
+                return;
+            }
+
             foreach (var mission in _activeMissions)
             {
                 if (mission.Type == MissionType.Bounty && mission.Status == MissionStatus.Active)
                 {
-                    if (targetName.Contains(mission.Target, StringComparison.OrdinalIgnoreCase))
+                    if (!string.IsNullOrWhiteSpace(mission.Target) &&
+                        targetName.Contains(mission.Target, StringComparison.OrdinalIgnoreCase))
                     {
                         mission.ObjectiveComplete = true;
                         Console.WriteLine($"[MISSION] Bounty target destroyed: {targetName}");
@@ -257,11 +263,17 @@ namespace Roguelancer
         /// </summary>
         public void NotifyArrivedAtStation(string stationName)
         {
+            if (string.IsNullOrWhiteSpace(stationName))
+            {
+                return;
+            }
+
             foreach (var mission in _activeMissions)
             {
                 if (mission.Type == MissionType.Delivery && mission.Status == MissionStatus.Active)
                 {
-                    if (stationName.Contains(mission.Destination, StringComparison.OrdinalIgnoreCase))
+                    if (!string.IsNullOrWhiteSpace(mission.Destination) &&
+                        stationName.Contains(mission.Destination, StringComparison.OrdinalIgnoreCase))
                     {
                         mission.ObjectiveComplete = true;
                         Console.WriteLine($"[MISSION] Delivery arrived at: {stationName}");

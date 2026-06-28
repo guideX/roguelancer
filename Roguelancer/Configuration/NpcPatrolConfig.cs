@@ -25,7 +25,7 @@ namespace Roguelancer.Configuration
         /// The faction id assigned to ships spawned by this patrol.
         /// </summary>
         [JsonPropertyName("faction_id")]
-        public string FactionId { get; set; } = string.Empty;
+        public string FactionId { get; set; } = FactionManager.NeutralCivilians;
 
         /// <summary>
         /// The number of ships to spawn in this patrol group.

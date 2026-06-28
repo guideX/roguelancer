@@ -23,7 +23,7 @@ namespace Roguelancer.Configuration {
         public int SystemIndex { get; set; } = 0;
 
         [JsonPropertyName("faction_id")]
-        public string FactionId { get; set; } = string.Empty;
+        public string FactionId { get; set; } = FactionManager.NeutralCivilians;
 
         [JsonPropertyName("startup_position_x")]
         public float StartupPositionX { get; set; } = 0f;

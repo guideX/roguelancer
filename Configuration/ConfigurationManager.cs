@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using Roguelancer;
 
 namespace Roguelancer.Configuration {
     /// <summary>
@@ -84,6 +85,7 @@ namespace Roguelancer.Configuration {
                     string json = File.ReadAllText(file);
                     var system = JsonSerializer.Deserialize<SystemConfig>(json, JsonOptions);
                     if (system != null) {
+                        NormalizeSystemConfig(system);
                         Systems.Add(system);
                         Console.WriteLine($"[CONFIG] Loaded system: {system.Description} from {Path.GetFileName(file)}");
                     }
@@ -108,6 +110,7 @@ namespace Roguelancer.Configuration {
                     string json = File.ReadAllText(file);
                     var ship = JsonSerializer.Deserialize<ShipConfig>(json, JsonOptions);
                     if (ship != null) {
+                        NormalizeShipConfig(ship);
                         Ships.Add(ship);
                         Console.WriteLine($"[CONFIG] Loaded ship: {ship.Description} from {Path.GetFileName(file)}");
                     }
@@ -132,6 +135,7 @@ namespace Roguelancer.Configuration {
                     string json = File.ReadAllText(file);
                     var station = JsonSerializer.Deserialize<StationConfig>(json, JsonOptions);
                     if (station != null) {
+                        NormalizeStationConfig(station);
                         Stations.Add(station);
                         Console.WriteLine($"[CONFIG] Loaded station: {station.Description} from {Path.GetFileName(file)}");
                     }
@@ -215,6 +219,35 @@ namespace Roguelancer.Configuration {
         /// </summary>
         public List<JumpHoleConfig> GetJumpHolesForSystem(int systemIndex) {
             return JumpHoles.FindAll(j => j.SystemIndex == systemIndex);
+        }
+
+        private static void NormalizeShipConfig(ShipConfig ship)
+        {
+            ship.FactionId = FactionManager.NormalizeFactionId(ship.FactionId);
+        }
+
+        private static void NormalizeStationConfig(StationConfig station)
+        {
+            station.FactionId = FactionManager.NormalizeFactionId(station.FactionId);
+        }
+
+        private static void NormalizeSystemConfig(SystemConfig system)
+        {
+            if (system.NpcPatrols == null)
+            {
+                system.NpcPatrols = new List<NpcPatrolConfig>();
+                return;
+            }
+
+            foreach (var patrol in system.NpcPatrols)
+            {
+                if (patrol == null)
+                {
+                    continue;
+                }
+
+                patrol.FactionId = FactionManager.NormalizeFactionId(patrol.FactionId);
+            }
         }
     }
 }
