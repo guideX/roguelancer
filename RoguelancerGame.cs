@@ -175,6 +175,11 @@ namespace Roguelancer {
         private WeaponType? _activeMountedGunWeaponType;
         private bool _wasUsingMountedGun = false;
         private bool _loggedNoMountedGun = false;
+        private string _mountedWeaponHudName = "None Mounted";
+        private string _mountedWeaponHudType = "Default: BlueDonut";
+        private string _mountedWeaponHudStats = "ROF -- | EN --";
+        private string _mountedWeaponHudFallback = "Fallback: WeaponSystem defaults";
+        private string _mountedWeaponHudLogSignature = string.Empty;
 
         /// <summary>
         /// Alloc Console
@@ -234,10 +239,17 @@ namespace Roguelancer {
             if (mountedGun == null)
             {
                 _weaponSystem.ClearWeaponProfileOverride();
+                WeaponType defaultWeaponType = _weaponSystem.CurrentWeapon;
+                WeaponSystem.WeaponStats defaultStats = _weaponSystem.GetCurrentWeaponStats();
+
+                _mountedWeaponHudName = "None Mounted";
+                _mountedWeaponHudType = $"Default: {defaultWeaponType}";
+                _mountedWeaponHudStats = FormatWeaponStatsSummary(defaultStats);
+                _mountedWeaponHudFallback = "Fallback: WeaponSystem defaults";
 
                 if (_wasUsingMountedGun || !_loggedNoMountedGun)
                 {
-                    Console.WriteLine("[PLAYER WEAPONS] No mounted guns - falling back to WeaponSystem defaults.");
+                    Console.WriteLine($"[PLAYER WEAPONS] No mounted gun installed; WeaponSystem defaults active ({defaultWeaponType}).");
                     _notificationManager?.ShowMessage("No mounted guns", 2f);
                 }
 
@@ -245,13 +257,16 @@ namespace Roguelancer {
                 _activeMountedGunWeaponType = null;
                 _wasUsingMountedGun = false;
                 _loggedNoMountedGun = true;
+                _mountedWeaponHudLogSignature = "NONE";
                 return;
             }
 
             _loggedNoMountedGun = false;
 
-            WeaponType mappedWeaponType = ResolveMountedGunWeaponType(mountedGun);
-            WeaponSystem.WeaponStats mountedStats = BuildMountedGunWeaponStats(mountedGun, mappedWeaponType);
+            WeaponType mappedWeaponType = ResolveMountedGunWeaponType(mountedGun, out string mappingFallbackReason);
+            WeaponSystem.WeaponStats mountedStats = BuildMountedGunWeaponStats(mountedGun, mappedWeaponType, out string statsFallbackReason);
+            string fallbackReason = CombineFallbackReasons(mappingFallbackReason, statsFallbackReason);
+            string mountedStatsSummary = FormatWeaponStatsSummary(mountedStats);
 
             bool gunChanged =
                 !_wasUsingMountedGun ||
@@ -259,22 +274,36 @@ namespace Roguelancer {
                 !_activeMountedGunWeaponType.HasValue ||
                 _activeMountedGunWeaponType.Value != mappedWeaponType;
 
+            _mountedWeaponHudName = mountedGun.Name;
+            _mountedWeaponHudType = $"Mapped: {mappedWeaponType}";
+            _mountedWeaponHudStats = mountedStatsSummary;
+            _mountedWeaponHudFallback = string.IsNullOrWhiteSpace(fallbackReason) ? string.Empty : $"Fallback: {fallbackReason}";
+
+            string logSignature = $"{mountedGun.Id}|{mappedWeaponType}|{fallbackReason}|{mountedStatsSummary}";
+            if (!string.Equals(_mountedWeaponHudLogSignature, logSignature, StringComparison.Ordinal))
+            {
+                string fallbackSuffix = string.IsNullOrWhiteSpace(fallbackReason) ? string.Empty : $" | {fallbackReason}";
+                Console.WriteLine($"[PLAYER WEAPONS] Active mounted gun changed: {mountedGun.Name} ({mountedGun.Id}) -> {mappedWeaponType} | {mountedStatsSummary}{fallbackSuffix}");
+            }
+
             if (gunChanged)
             {
-                Console.WriteLine($"[PLAYER WEAPONS] Active mounted gun changed: {mountedGun.Name} ({mountedGun.Id}) -> {mappedWeaponType}");
                 _notificationManager?.ShowMessage($"Mounted gun: {mountedGun.Name}", 2f);
             }
 
             _activeMountedGunId = mountedGun.Id;
             _activeMountedGunWeaponType = mappedWeaponType;
             _wasUsingMountedGun = true;
+            _mountedWeaponHudLogSignature = logSignature;
 
             _weaponSystem.CurrentWeapon = mappedWeaponType;
             _weaponSystem.SetWeaponProfileOverride(mappedWeaponType, mountedStats);
         }
 
-        private WeaponType ResolveMountedGunWeaponType(WeaponEquipmentDefinition mountedGun)
+        private WeaponType ResolveMountedGunWeaponType(WeaponEquipmentDefinition mountedGun, out string fallbackReason)
         {
+            fallbackReason = string.Empty;
+
             if (mountedGun == null)
             {
                 return WeaponType.BlueDonut;
@@ -295,12 +324,13 @@ namespace Roguelancer {
                 return mountedGun.WeaponType;
             }
 
-            Console.WriteLine($"[PLAYER WEAPONS] Mounted gun {mountedGun.Name} has no valid weapon mapping; using BlueDonut fallback.");
+            fallbackReason = $"invalid weapon mapping, using BlueDonut fallback";
             return WeaponType.BlueDonut;
         }
 
-        private WeaponSystem.WeaponStats BuildMountedGunWeaponStats(WeaponEquipmentDefinition mountedGun, WeaponType mappedWeaponType)
+        private WeaponSystem.WeaponStats BuildMountedGunWeaponStats(WeaponEquipmentDefinition mountedGun, WeaponType mappedWeaponType, out string fallbackReason)
         {
+            fallbackReason = string.Empty;
             WeaponSystem.WeaponStats fallback = _weaponSystem.GetWeaponStats(mappedWeaponType)
                 ?? new WeaponSystem.WeaponStats
                 {
@@ -322,18 +352,20 @@ namespace Roguelancer {
             bool hasValidEnergyCost = IsValidPositiveStat(mountedGun?.EnergyCost);
             bool hasValidRange = IsValidPositiveStat(mountedGun?.Range);
 
+            List<string> missingFields = new List<string>();
+            if (!hasValidDamage) missingFields.Add("Damage");
+            if (!hasValidSpeed) missingFields.Add("ProjectileSpeed");
+            if (!hasValidRefireRate) missingFields.Add("RefireRate");
+            if (!hasValidEnergyCost) missingFields.Add("EnergyCost");
+            if (!hasValidRange) missingFields.Add("Range");
+
             float damage = hasValidDamage ? mountedGun.Damage : fallback.WeaponDamage;
             float speed = hasValidSpeed ? mountedGun.ProjectileSpeed : fallback.Speed;
             float refireRate = hasValidRefireRate ? mountedGun.RefireRate : fallback.RefireRate;
             float energyCost = hasValidEnergyCost ? mountedGun.EnergyCost : fallback.EnergyCost;
             float range = hasValidRange ? mountedGun.Range : fallback.Range;
 
-            usedFallbackForField =
-                !hasValidDamage ||
-                !hasValidSpeed ||
-                !hasValidRefireRate ||
-                !hasValidEnergyCost ||
-                !hasValidRange;
+            usedFallbackForField = missingFields.Count > 0;
 
             WeaponSystem.WeaponStats stats = new WeaponSystem.WeaponStats
             {
@@ -350,10 +382,36 @@ namespace Roguelancer {
 
             if (usedFallbackForField)
             {
-                Console.WriteLine($"[PLAYER WEAPONS] Mounted gun {mountedGun.Name} used default WeaponSystem values for missing/invalid fields.");
+                fallbackReason = $"used WeaponSystem defaults for missing fields: {string.Join(", ", missingFields)}";
             }
 
             return stats;
+        }
+
+        private static string CombineFallbackReasons(params string[] reasons)
+        {
+            List<string> parts = new List<string>();
+            foreach (string reason in reasons)
+            {
+                if (!string.IsNullOrWhiteSpace(reason))
+                {
+                    parts.Add(reason);
+                }
+            }
+
+            return string.Join("; ", parts);
+        }
+
+        private static string FormatWeaponStatsSummary(WeaponSystem.WeaponStats stats)
+        {
+            if (stats == null)
+            {
+                return "ROF -- | EN --";
+            }
+
+            string refireText = stats.RefireRate > 0f ? $"{stats.RefireRate:F2}s" : "--";
+            string energyText = stats.EnergyCost > 0f ? $"{stats.EnergyCost:F0}" : "--";
+            return $"ROF {refireText} | EN {energyText}";
         }
 
         private static bool IsValidPositiveStat(float? candidate)
@@ -2017,20 +2075,18 @@ namespace Roguelancer {
 
             // --- LEFT SIDE: weapon & mode indicators ---
             int leftPanelX = 10;
-            int leftPanelY = screenHeight - 200;
-            Rectangle leftPanel = new Rectangle(leftPanelX, leftPanelY, 220, 180);
+            int leftPanelY = screenHeight - 240;
+            Rectangle leftPanel = new Rectangle(leftPanelX, leftPanelY, 300, 220);
             _spriteBatch.Draw(_pixel, leftPanel, Color.Black * 0.6f);
-            _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX, leftPanelY, 220, 2), borderColor);
-            _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX, leftPanelY, 2, 180), borderColor);
-            _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX + 218, leftPanelY, 2, 180), borderColor);
-            _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX, leftPanelY + 178, 220, 2), borderColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX, leftPanelY, leftPanel.Width, 2), borderColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX, leftPanelY, 2, leftPanel.Height), borderColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(leftPanel.Right - 2, leftPanelY, 2, leftPanel.Height), borderColor);
+            _spriteBatch.Draw(_pixel, new Rectangle(leftPanelX, leftPanel.Bottom - 2, leftPanel.Width, 2), borderColor);
 
             if (_font != null) {
-                int ly = leftPanelY + 8;
-                _spriteBatch.DrawString(_font, $"Weapon: {_weaponSystem.CurrentWeapon}", new Vector2(leftPanelX + 10, ly), Color.Orange);
-                ly += 22;
+                int ly = DrawMountedWeaponIndicator(leftPanelX, leftPanelY);
 
-                if (_weaponSystem.IsCharging()) {
+                if (_weaponSystem != null && _weaponSystem.IsCharging()) {
                     float chargeProgress = _weaponSystem.GetChargeProgress();
                     _spriteBatch.DrawString(_font, $"CHARGING: {chargeProgress * 100:F0}%", new Vector2(leftPanelX + 10, ly), Color.Yellow);
                     ly += 18;
@@ -2052,6 +2108,36 @@ namespace Roguelancer {
                 if (_playerShip.IsGotoActive && _playerShip.CurrentGotoTarget != null)
                     _spriteBatch.DrawString(_font, $"GOTO: {_playerShip.CurrentGotoTarget.Name}", new Vector2(leftPanelX + 10, ly += 22), Color.Orange);
             }
+        }
+
+        private int DrawMountedWeaponIndicator(int leftPanelX, int leftPanelY)
+        {
+            if (_font == null)
+            {
+                return leftPanelY + 8;
+            }
+
+            int ly = leftPanelY + 8;
+            bool hasMountedGun = !string.Equals(_mountedWeaponHudName, "None Mounted", StringComparison.OrdinalIgnoreCase);
+            Color nameColor = hasMountedGun ? Color.Orange : Color.LightGray;
+            _spriteBatch.DrawString(_font, $"Weapon: {_mountedWeaponHudName}", new Vector2(leftPanelX + 10, ly), nameColor);
+            ly += 18;
+            _spriteBatch.DrawString(_font, _mountedWeaponHudType, new Vector2(leftPanelX + 10, ly), hasMountedGun ? Color.Cyan : Color.White);
+            ly += 18;
+
+            if (!string.IsNullOrWhiteSpace(_mountedWeaponHudStats))
+            {
+                _spriteBatch.DrawString(_font, _mountedWeaponHudStats, new Vector2(leftPanelX + 10, ly), Color.White * 0.9f);
+                ly += 18;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_mountedWeaponHudFallback))
+            {
+                _spriteBatch.DrawString(_font, _mountedWeaponHudFallback, new Vector2(leftPanelX + 10, ly), Color.Yellow * 0.85f);
+                ly += 18;
+            }
+
+            return ly;
         }
 
         /// <summary>
