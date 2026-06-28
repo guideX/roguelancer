@@ -169,6 +169,7 @@ namespace Roguelancer {
         private float _debugTimer = 0f;
         private Vector3 _lastPlayerPosition;
         private bool _firstFrame = true;
+        private readonly bool _runMarketSmoke;
 
         /// <summary>
         /// Alloc Console
@@ -181,7 +182,7 @@ namespace Roguelancer {
         /// <summary>
         /// Roguelancer Game
         /// </summary>
-        public RoguelancerGame() {
+        public RoguelancerGame(string[]? args = null) {
             _graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
             IsMouseVisible = false;
@@ -197,6 +198,7 @@ namespace Roguelancer {
             _config = new ConfigurationManager();
             _factionManager = new FactionManager();
             _reputationManager = new ReputationManager(_factionManager);
+            _runMarketSmoke = args?.Any(arg => string.Equals(arg, "--market-smoke", StringComparison.OrdinalIgnoreCase)) == true;
 
             // Load game settings
             _gameSettings = GameSettings.Load();
@@ -748,6 +750,31 @@ namespace Roguelancer {
                 }
             };
             _playerShip.SetGotoAutopilot(_gotoAutopilot);
+
+            if (_runMarketSmoke)
+            {
+                RunMarketSmokeTest();
+                Exit();
+            }
+        }
+
+        private void RunMarketSmokeTest()
+        {
+            if (_stationManager == null)
+            {
+                Console.WriteLine("[MARKET SMOKE] Skipped: station manager not ready.");
+                return;
+            }
+
+            try
+            {
+                var harness = new MarketSmokeTest(_stationManager.GetStations(), _font, _pixel);
+                harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MARKET SMOKE] FAILED TO RUN: {ex.Message}");
+            }
         }
 
         protected override void Update(GameTime gameTime) {
