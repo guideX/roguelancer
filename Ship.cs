@@ -102,6 +102,7 @@ namespace Roguelancer
         private bool _isDocking = false;
         private object _currentTarget = null;
         public bool MissileLaunchRequested { get; private set; }
+        public bool MineLaunchRequested { get; private set; }
         public bool CountermeasureLaunchRequested { get; private set; }
         
         // Docking system
@@ -243,7 +244,7 @@ namespace Roguelancer
         private void FireActiveWeapons() { Console.WriteLine("Fire weapons (stub)"); }
         private void LaunchMissile() { MissileLaunchRequested = true; }
         private void LaunchTorpedo() { Console.WriteLine("Launch torpedo (stub)"); }
-        private void LaunchMine() { Console.WriteLine("Launch mine (stub)"); }
+        private void LaunchMine() { MineLaunchRequested = true; }
         private void LaunchCountermeasures()
         {
             if (!HasMountedCountermeasureDropper())
@@ -989,6 +990,7 @@ namespace Roguelancer
             _throttle = 0f;
             _targetSpeed = 0f;
             MissileLaunchRequested = false;
+            MineLaunchRequested = false;
             CountermeasureLaunchRequested = false;
         }
 
@@ -1027,10 +1029,32 @@ namespace Roguelancer
             return Loadout?.GetPrimaryMountedMissileLauncher();
         }
 
+        public IEnumerable<EquipmentDefinition> GetMountedMineDroppers()
+        {
+            return Loadout?.GetMountedMineDroppers() ?? Array.Empty<EquipmentDefinition>();
+        }
+
+        public bool HasMountedMineDropper()
+        {
+            return Loadout?.HasMountedMineDropper() == true;
+        }
+
+        public EquipmentDefinition GetPrimaryMountedMineDropper()
+        {
+            return Loadout?.GetPrimaryMountedMineDropper();
+        }
+
         public bool ConsumeMissileLaunchRequest()
         {
             bool requested = MissileLaunchRequested;
             MissileLaunchRequested = false;
+            return requested;
+        }
+
+        public bool ConsumeMineLaunchRequest()
+        {
+            bool requested = MineLaunchRequested;
+            MineLaunchRequested = false;
             return requested;
         }
 

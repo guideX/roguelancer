@@ -14,6 +14,7 @@ namespace Roguelancer
         {
             { EquipmentType.Gun, "liberty_light_laser" },
             { EquipmentType.MissileLauncher, "basic_missile_launcher" },
+            { EquipmentType.MineDropper, "basic_mine_dropper" },
             { EquipmentType.CountermeasureDropper, "basic_countermeasure_dropper" },
             { EquipmentType.ShieldGenerator, "civilian_shield_generator" },
             { EquipmentType.Thruster, "light_thruster" },
@@ -79,6 +80,21 @@ namespace Roguelancer
                 MissileTurnRate = 2.2f,
                 MissileLifetime = 5.0f,
                 MissileAmmoCost = 1f
+            });
+
+            Register(new EquipmentDefinition
+            {
+                Id = "basic_mine_dropper",
+                Name = "Basic Mine Dropper",
+                Description = "Drops a compact proximity mine that detonates on nearby hostiles.",
+                EquipmentType = EquipmentType.MineDropper,
+                Price = 1800,
+                MineDamage = 110f,
+                MineTriggerRadius = 90f,
+                MineBlastRadius = 240f,
+                MineLifetime = 18f,
+                MineCooldown = 6f,
+                MineArmDelay = 0.8f
             });
 
             Register(new EquipmentDefinition

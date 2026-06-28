@@ -71,6 +71,10 @@ namespace Roguelancer {
         /// </summary>
         private CountermeasureSystem _countermeasureSystem;
         /// <summary>
+        /// Mine System
+        /// </summary>
+        private MineSystem _mineSystem;
+        /// <summary>
         /// Sun
         /// </summary>
         private Sun _sun;
@@ -912,6 +916,9 @@ namespace Roguelancer {
             // Initialize countermeasure system (mounted countermeasure droppers)
             _countermeasureSystem = new CountermeasureSystem(GraphicsDevice);
 
+            // Initialize mine system (mounted mine droppers)
+            _mineSystem = new MineSystem(GraphicsDevice);
+
             // Initialize motion trail
             _motionTrail = new MotionTrail(GraphicsDevice);
 
@@ -1304,11 +1311,27 @@ namespace Roguelancer {
             // Update player ship
             _playerShip.Update(gameTime, keyboardState, _camera.IsRearViewActive);
             HandleCountermeasureLaunchInput();
+            HandleMineLaunchInput();
             _countermeasureSystem?.Update(gameTime);
 
             // FIX: Update NPC ships
             foreach (var npc in _npcShips) {
                 npc.Update(gameTime, _damageSmokeParticles);
+            }
+
+            // Mine system: update mounted proximity mines against NPC ships
+            if (_mineSystem != null) {
+                List<MineSystem.MineDetonation> mineDetonations = _mineSystem.Update(
+                    gameTime,
+                    _npcShips,
+                    npc => npc != null && !npc.IsDestroyed && (_reputationManager == null || _reputationManager.IsHostile(npc.FactionId)));
+
+                foreach (MineSystem.MineDetonation detonation in mineDetonations) {
+                    _explosionParticles?.TriggerExplosion(detonation.Position, Vector3.Zero, intensity: 0.5f);
+                    foreach (HitInfo hit in detonation.Hits) {
+                        _hitImpactParticles.TriggerImpact(hit.Position, hit.Direction, hit.WeaponColor);
+                    }
+                }
             }
 
             // Update wrecks
@@ -1689,6 +1712,38 @@ namespace Roguelancer {
             }
         }
 
+        private void HandleMineLaunchInput()
+        {
+            if (_playerShip == null || !_playerShip.ConsumeMineLaunchRequest())
+            {
+                return;
+            }
+
+            EquipmentDefinition dropper = _playerShip.GetPrimaryMountedMineDropper();
+            if (dropper == null)
+            {
+                Console.WriteLine("[MINE] No mine dropper mounted.");
+                _notificationManager?.ShowMessage("No mine dropper mounted.", 2f);
+                return;
+            }
+
+            if (_mineSystem == null)
+            {
+                Console.WriteLine("[MINE] Mine system unavailable.");
+                _notificationManager?.ShowMessage("Mine system unavailable.", 2f);
+                return;
+            }
+
+            if (_mineSystem.TryDeploy(_playerShip, dropper, out string message))
+            {
+                _notificationManager?.ShowMessage(message, 1.5f);
+            }
+            else if (!string.IsNullOrWhiteSpace(message))
+            {
+                _notificationManager?.ShowMessage(message, 2f);
+            }
+        }
+
         private void HandleMissileLaunchInput()
         {
             if (_playerShip == null || !_playerShip.ConsumeMissileLaunchRequest())
@@ -1788,6 +1843,22 @@ namespace Roguelancer {
             if (_countermeasureSystem?.IsCoolingDown == true)
             {
                 return $"Cooldown {_countermeasureSystem.CooldownRemaining:F1}s";
+            }
+
+            return "Ready";
+        }
+
+        private string GetMineHudStatus()
+        {
+            EquipmentDefinition mountedMineDropper = _playerShip?.GetPrimaryMountedMineDropper();
+            if (mountedMineDropper == null)
+            {
+                return "None Mounted";
+            }
+
+            if (_mineSystem?.IsCoolingDown == true)
+            {
+                return $"Cooldown {_mineSystem.CooldownRemaining:F1}s";
             }
 
             return "Ready";
@@ -2315,6 +2386,14 @@ namespace Roguelancer {
                     mountedMissileLauncher != null ? Color.IndianRed : Color.LightGray);
                 _spriteBatch.DrawString(_font, $"Target: {missileTargetStatus}", new Vector2(leftPanelX + 10, ly += 18),
                     missileTargetStatus == "Locked" ? Color.Cyan : Color.SandyBrown);
+
+                string mineStatus = GetMineHudStatus();
+                Color mineColor = string.Equals(mineStatus, "Ready", StringComparison.OrdinalIgnoreCase)
+                    ? Color.Lime
+                    : string.Equals(mineStatus, "None Mounted", StringComparison.OrdinalIgnoreCase)
+                        ? Color.LightGray
+                        : Color.Orange;
+                _spriteBatch.DrawString(_font, $"Mine: {mineStatus}", new Vector2(leftPanelX + 10, ly += 18), mineColor);
 
                 string countermeasureStatus = GetCountermeasureHudStatus();
                 Color countermeasureColor = string.Equals(countermeasureStatus, "Ready", StringComparison.OrdinalIgnoreCase)
@@ -2917,6 +2996,9 @@ namespace Roguelancer {
 
             // Draw missile projectiles
             _missileSystem?.Draw(_camera);
+
+            // Draw mines
+            _mineSystem?.Draw(_camera);
 
             // Draw countermeasures
             _countermeasureSystem?.Draw(_camera);

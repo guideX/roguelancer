@@ -54,6 +54,36 @@ namespace Roguelancer
         public float CountermeasureCooldown { get; set; }
 
         /// <summary>
+        /// Mine damage for mine dropper equipment.
+        /// </summary>
+        public float MineDamage { get; set; }
+
+        /// <summary>
+        /// Mine trigger radius for mine dropper equipment.
+        /// </summary>
+        public float MineTriggerRadius { get; set; }
+
+        /// <summary>
+        /// Mine blast radius for mine dropper equipment.
+        /// </summary>
+        public float MineBlastRadius { get; set; }
+
+        /// <summary>
+        /// Mine lifetime for mine dropper equipment.
+        /// </summary>
+        public float MineLifetime { get; set; }
+
+        /// <summary>
+        /// Mine cooldown for mine dropper equipment.
+        /// </summary>
+        public float MineCooldown { get; set; }
+
+        /// <summary>
+        /// Mine arm delay for mine dropper equipment.
+        /// </summary>
+        public float MineArmDelay { get; set; }
+
+        /// <summary>
         /// Future-safe ammo cost per missile fired.
         /// </summary>
         public float MissileAmmoCost { get; set; }
@@ -113,7 +143,13 @@ namespace Roguelancer
                 countermeasureStats = $" | CM LIFE {CountermeasureLife:F1}s | RAD {CountermeasureAttractionRadius:F0} | STR {CountermeasureStrength:F1} | CD {CountermeasureCooldown:F1}s";
             }
 
-            return $"{EquipmentType} | {Price:N0} CR | {requirement}{missileStats}{countermeasureStats}";
+            string mineStats = string.Empty;
+            if (MineDamage > 0f || MineTriggerRadius > 0f || MineBlastRadius > 0f || MineLifetime > 0f || MineCooldown > 0f || MineArmDelay > 0f)
+            {
+                mineStats = $" | MINE DMG {MineDamage:F0} | TRIG {MineTriggerRadius:F0} | BLAST {MineBlastRadius:F0} | LIFE {MineLifetime:F1}s | ARM {MineArmDelay:F1}s | CD {MineCooldown:F1}s";
+            }
+
+            return $"{EquipmentType} | {Price:N0} CR | {requirement}{missileStats}{countermeasureStats}{mineStats}";
         }
 
         public override string ToString()

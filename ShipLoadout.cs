@@ -121,6 +121,27 @@ namespace Roguelancer
             return GetMountedMissileLaunchers().FirstOrDefault();
         }
 
+        public IEnumerable<EquipmentDefinition> GetMountedMineDroppers()
+        {
+            foreach (var equipment in GetMountedEquipment())
+            {
+                if (equipment != null && equipment.EquipmentType == EquipmentType.MineDropper)
+                {
+                    yield return equipment;
+                }
+            }
+        }
+
+        public bool HasMountedMineDropper()
+        {
+            return GetMountedMineDroppers().Any();
+        }
+
+        public EquipmentDefinition GetPrimaryMountedMineDropper()
+        {
+            return GetMountedMineDroppers().FirstOrDefault();
+        }
+
         public IEnumerable<EquipmentDefinition> GetMountedCountermeasureDroppers()
         {
             foreach (var equipment in GetMountedEquipment())
