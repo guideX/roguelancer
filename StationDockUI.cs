@@ -85,6 +85,10 @@ namespace Roguelancer
             _dockedStation = station;
             _isDocked = true;
             _currentArea = StationArea.Hangar;
+            _selectedCommodityIndex = 0;
+            _purchaseQuantity = 1;
+            _buyingMode = true;
+            _commodityDealer?.SetDockedStation(station);
 
             // Spawn bar NPCs and refresh job board
             _barNpcs = BarNpc.GenerateBarNpcs();
@@ -129,6 +133,7 @@ namespace Roguelancer
             
             Console.WriteLine($"[DOCK] Undocking from {_dockedStation?.Name}");
             _isDocked = false;
+            _commodityDealer?.ClearDockedStation();
             _dockedStation = null;
             OnUndock?.Invoke();
         }
@@ -176,7 +181,7 @@ namespace Roguelancer
                     DrawBar(spriteBatch, screenWidth, screenHeight);
                     break;
                 case StationArea.Dealer:
-                    DrawDealer(spriteBatch, screenWidth, screenHeight);
+                    DrawDealer(spriteBatch, screenWidth, screenHeight, credits, playerShip);
                     break;
                 case StationArea.ShipDealer:
                     DrawShipDealer(spriteBatch, screenWidth, screenHeight);
@@ -247,20 +252,25 @@ namespace Roguelancer
             if (_currentArea != StationArea.Dealer) return false;
 
             bool transactionMade = false;
+            var listings = _commodityDealer.CurrentMarketListings;
+            if (listings.Count == 0)
+            {
+                return false;
+            }
 
             // Navigate up/down through commodities
             if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Up) && 
                 prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Up))
             {
                 _selectedCommodityIndex--;
-                if (_selectedCommodityIndex < 0) _selectedCommodityIndex = _commodityDealer.AvailableCommodities.Count - 1;
+                if (_selectedCommodityIndex < 0) _selectedCommodityIndex = listings.Count - 1;
                 _purchaseQuantity = 1; // Reset quantity when changing selection
             }
             else if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Down) && 
                      prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Down))
             {
                 _selectedCommodityIndex++;
-                if (_selectedCommodityIndex >= _commodityDealer.AvailableCommodities.Count) _selectedCommodityIndex = 0;
+                if (_selectedCommodityIndex >= listings.Count) _selectedCommodityIndex = 0;
                 _purchaseQuantity = 1; // Reset quantity when changing selection
             }
 
@@ -293,7 +303,8 @@ namespace Roguelancer
             if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Enter) && 
                 prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Enter))
             {
-                var selectedCommodity = _commodityDealer.AvailableCommodities[_selectedCommodityIndex];
+                var selectedListing = listings[_selectedCommodityIndex];
+                var selectedCommodity = selectedListing.Commodity;
                 if (selectedCommodity != null)
                 {
                     if (_buyingMode)
@@ -540,13 +551,17 @@ namespace Roguelancer
             }
         }
 
-        private void DrawDealer(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
+        private void DrawDealer(SpriteBatch spriteBatch, int screenWidth, int screenHeight, PlayerCredits credits, Ship playerShip)
         {
             int centerX = screenWidth / 2;
             int centerY = screenHeight / 2;
+            var cargoHold = playerShip?.CargoHold;
+            var listings = _commodityDealer.CurrentMarketListings;
 
             // Title
-            string title = "== COMMODITIES DEALER ==";
+            string title = _dockedStation != null
+                ? $"== {_dockedStation.Name.ToUpperInvariant()} MARKET =="
+                : "== COMMODITIES DEALER ==";
             Vector2 titleSize = _font.MeasureString(title);
             spriteBatch.DrawString(_font, title, new Vector2(centerX - titleSize.X / 2, centerY - 300), Color.Yellow);
 
@@ -556,25 +571,41 @@ namespace Roguelancer
             Vector2 modeSize = _font.MeasureString(modeText);
             spriteBatch.DrawString(_font, modeText, new Vector2(centerX - modeSize.X / 2, centerY - 260), modeColor);
 
-            // Cargo status (will be provided by playerShip later)
-            // For now, show placeholder
+            string marketHint = _commodityDealer.CurrentStation != null
+                ? $"Station faction: {_dockedStation?.FactionId ?? "unknown"} | Credits: {credits.GetFormattedCredits()}"
+                : "Legacy fallback market";
+            spriteBatch.DrawString(_font, marketHint, new Vector2(centerX - _font.MeasureString(marketHint).X / 2, centerY - 230), Color.LightGray);
 
             // Draw commodity list
             int yOffset = centerY - 200;
-            var commodities = _commodityDealer.AvailableCommodities;
-
-            for (int i = 0; i < commodities.Count; i++)
+            if (listings.Count == 0)
             {
-                var commodity = commodities[i];
+                string emptyText = "No station market data available.";
+                Vector2 emptySize = _font.MeasureString(emptyText);
+                spriteBatch.DrawString(_font, emptyText, new Vector2(centerX - emptySize.X / 2, centerY - 100), Color.Gray);
+                return;
+            }
+
+            for (int i = 0; i < listings.Count; i++)
+            {
+                var listing = listings[i];
+                var commodity = listing.Commodity;
                 bool isSelected = (i == _selectedCommodityIndex);
+                int playerQty = cargoHold?.GetCommodityQuantity(commodity.Name) ?? 0;
+                bool canBuy = listing.IsAvailable && listing.BuyPrice > 0 && listing.Stock > 0;
+                bool canSell = listing.SellPrice > 0 && playerQty > 0;
 
                 // Commodity panel background
-                Rectangle commodityPanel = new Rectangle(centerX - 400, yOffset - 10, 800, 140);
+                Rectangle commodityPanel = new Rectangle(centerX - 420, yOffset - 10, 840, 160);
                 Color panelColor = isSelected ? commodity.DisplayColor * 0.3f : Color.DarkGray * 0.3f;
+                if (!listing.IsAvailable && !canSell)
+                {
+                    panelColor = Color.Black * 0.35f;
+                }
                 spriteBatch.Draw(_pixel, commodityPanel, panelColor);
 
                 // Border
-                Color borderColor = isSelected ? commodity.DisplayColor : Color.Gray;
+                Color borderColor = isSelected ? commodity.DisplayColor : (listing.IsAvailable ? Color.Gray : Color.DimGray);
                 spriteBatch.Draw(_pixel, new Rectangle(commodityPanel.X, commodityPanel.Y, commodityPanel.Width, 3), borderColor);
                 spriteBatch.Draw(_pixel, new Rectangle(commodityPanel.X, commodityPanel.Bottom - 3, commodityPanel.Width, 3), borderColor);
                 spriteBatch.Draw(_pixel, new Rectangle(commodityPanel.X, commodityPanel.Y, 3, commodityPanel.Height), borderColor);
@@ -582,35 +613,68 @@ namespace Roguelancer
 
                 // Commodity name
                 string nameText = $"{commodity.Name}";
+                if (commodity.IsContraband)
+                {
+                    nameText += " [CONTRABAND]";
+                }
                 spriteBatch.DrawString(_font, nameText, new Vector2(commodityPanel.X + 15, yOffset), commodity.DisplayColor);
 
+                string categoryText = $"{commodity.Category} | Demand {listing.DemandLevel}";
+                spriteBatch.DrawString(_font, categoryText, new Vector2(commodityPanel.X + 15, yOffset + 20), Color.LightGray);
+
                 // Description (short version)
-                string descText = commodity.Description.Length > 80 ? commodity.Description.Substring(0, 77) + "..." : commodity.Description;
+                string descText = commodity.Description.Length > 84 ? commodity.Description.Substring(0, 81) + "..." : commodity.Description;
                 spriteBatch.DrawString(_font, descText, 
-                    new Vector2(commodityPanel.X + 15, yOffset + 25), Color.LightGray);
+                    new Vector2(commodityPanel.X + 15, yOffset + 40), Color.LightGray);
 
                 // Price and cargo info
-                string priceText = $"Price: {commodity.BasePrice:N0} CR/unit  |  Cargo Space: {commodity.VolumePerUnit}/unit";
+                string availabilityText = listing.IsAvailable ? "Available" : "Unavailable";
+                string priceText = $"Buy: {(listing.BuyPrice > 0 ? $"{listing.BuyPrice:N0}" : "N/A")} CR  |  Sell: {(listing.SellPrice > 0 ? $"{listing.SellPrice:N0}" : "N/A")} CR  |  Stock: {listing.Stock:N0}  |  Cargo: {commodity.VolumePerUnit}/unit  |  {availabilityText}";
                 spriteBatch.DrawString(_font, priceText, 
-                    new Vector2(commodityPanel.X + 15, yOffset + 70), Color.Yellow);
+                    new Vector2(commodityPanel.X + 15, yOffset + 68), Color.Yellow);
 
                 // Transaction controls (only show for selected)
                 if (isSelected)
                 {
-                    string quantityText = $"Quantity: {_purchaseQuantity} units  [+/-] to adjust";
+                    string quantityText = $"Quantity: {_purchaseQuantity} units  [+/-] to adjust  |  You have: {playerQty}";
                     spriteBatch.DrawString(_font, quantityText, 
-                        new Vector2(commodityPanel.X + 15, yOffset + 95), Color.White);
+                        new Vector2(commodityPanel.X + 15, yOffset + 92), Color.White);
 
-                    int totalCost = commodity.BasePrice * _purchaseQuantity;
+                    int totalCost = listing.BuyPrice * _purchaseQuantity;
+                    int totalValue = listing.SellPrice * _purchaseQuantity;
                     int totalSpace = commodity.VolumePerUnit * _purchaseQuantity;
-                    string totalText = _buyingMode 
+                    int spread = listing.SellPrice - listing.BuyPrice;
+                    string spreadText = spread >= 0
+                        ? $"Local spread: +{spread:N0} CR"
+                        : $"Local spread: {spread:N0} CR";
+
+                    string totalText = _buyingMode
                         ? $"Total Cost: {totalCost:N0} CR  |  Space Required: {totalSpace}"
-                        : $"Total Value: {totalCost:N0} CR  |  Space Freed: {totalSpace}";
+                        : $"Total Value: {totalValue:N0} CR  |  Space Freed: {totalSpace}";
                     spriteBatch.DrawString(_font, totalText, 
-                        new Vector2(commodityPanel.X + 15, yOffset + 115), Color.Cyan);
+                        new Vector2(commodityPanel.X + 15, yOffset + 114), Color.Cyan);
+                    spriteBatch.DrawString(_font, spreadText,
+                        new Vector2(commodityPanel.X + 15, yOffset + 136), spread >= 0 ? Color.Lime : Color.OrangeRed);
+
+                    string actionText;
+                    Color actionColor;
+                    if (_buyingMode)
+                    {
+                        actionText = canBuy ? "[ENTER] Buy" : "[ENTER] Cannot buy here";
+                        actionColor = canBuy ? Color.Lime : Color.Gray;
+                    }
+                    else
+                    {
+                        actionText = canSell ? "[ENTER] Sell" : "[ENTER] No buyer here";
+                        actionColor = canSell ? Color.Orange : Color.Gray;
+                    }
+
+                    Vector2 actionSize = _font.MeasureString(actionText);
+                    spriteBatch.DrawString(_font, actionText,
+                        new Vector2(commodityPanel.Right - actionSize.X - 15, yOffset + 114), actionColor);
                 }
 
-                yOffset += 150;
+                yOffset += 170;
             }
 
             // Instructions at bottom

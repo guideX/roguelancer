@@ -1,0 +1,19 @@
+{
+  "station_id": "buffalo_base",
+  "station_name": "Buffalo Base",
+  "faction_id": "liberty_rogues",
+  "goods": [
+    { "commodity_id": "side-arms", "buy_price": 1600, "sell_price": 1200, "stock": 120, "demand_level": 9, "is_available": true },
+    { "commodity_id": "alien-organisms", "buy_price": 3500, "sell_price": 2200, "stock": 25, "demand_level": 10, "is_available": true },
+    { "commodity_id": "diamonds", "buy_price": 5400, "sell_price": 3800, "stock": 18, "demand_level": 9, "is_available": true },
+    { "commodity_id": "luxury-goods", "buy_price": 1400, "sell_price": 1000, "stock": 90, "demand_level": 8, "is_available": true },
+    { "commodity_id": "h-fuel", "buy_price": 260, "sell_price": 180, "stock": 60, "demand_level": 4, "is_available": true },
+    { "commodity_id": "consumer-goods", "buy_price": 380, "sell_price": 250, "stock": 140, "demand_level": 6, "is_available": true },
+    { "commodity_id": "food-rations", "buy_price": 180, "sell_price": 110, "stock": 200, "demand_level": 5, "is_available": true },
+    { "commodity_id": "water", "buy_price": 140, "sell_price": 80, "stock": 180, "demand_level": 4, "is_available": true },
+    { "commodity_id": "medical-supplies", "buy_price": 900, "sell_price": 620, "stock": 20, "demand_level": 4, "is_available": true },
+    { "commodity_id": "construction-materials", "buy_price": 700, "sell_price": 450, "stock": 10, "demand_level": 2, "is_available": false },
+    { "commodity_id": "engine-components", "buy_price": 1500, "sell_price": 900, "stock": 5, "demand_level": 2, "is_available": false },
+    { "commodity_id": "boron", "buy_price": 300, "sell_price": 180, "stock": 25, "demand_level": 5, "is_available": true }
+  ]
+}

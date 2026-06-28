@@ -1,122 +1,195 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Roguelancer
 {
     /// <summary>
-    /// Manages commodity trading at stations
+    /// Manages commodity trading at stations.
     /// </summary>
     public class CommodityDealer
     {
-        private List<Commodity> _availableCommodities = new List<Commodity>();
-        
-        public IReadOnlyList<Commodity> AvailableCommodities => _availableCommodities;
+        private readonly MarketManager _marketManager;
+        private Station _currentStation;
 
         public CommodityDealer()
         {
-            InitializeCommodityInventory();
+            _marketManager = new MarketManager();
         }
 
         /// <summary>
-        /// Initialize the available commodities for trade
+        /// Station currently hosting the market UI.
         /// </summary>
-        private void InitializeCommodityInventory()
+        public Station CurrentStation => _currentStation;
+
+        /// <summary>
+        /// Legacy commodity list fallback for callers that still expect a simple inventory.
+        /// </summary>
+        public IReadOnlyList<Commodity> AvailableCommodities => GetCurrentMarketCommodities();
+
+        public IReadOnlyList<StationMarketListing> CurrentMarketListings => GetCurrentListings();
+
+        public void SetDockedStation(Station station)
         {
-            _availableCommodities.Add(Commodity.CreateDiamonds());
-            _availableCommodities.Add(Commodity.CreateAlienOrganisms());
+            _currentStation = station;
+            if (station != null)
+            {
+                Console.WriteLine($"[MARKET] Docked market context set to {station.Name}");
+            }
         }
 
-        /// <summary>
-        /// Check if player can afford to buy a commodity
-        /// </summary>
+        public void ClearDockedStation()
+        {
+            if (_currentStation != null)
+            {
+                Console.WriteLine($"[MARKET] Clearing market context for {_currentStation.Name}");
+            }
+
+            _currentStation = null;
+        }
+
+        public IReadOnlyList<Commodity> GetCurrentMarketCommodities()
+        {
+            return GetCurrentListings().Select(listing => listing.Commodity).ToList();
+        }
+
+        public IReadOnlyList<StationMarketListing> GetCurrentListings()
+        {
+            if (_currentStation == null)
+            {
+                return _marketManager.GetListingsForStation(null);
+            }
+
+            return _marketManager.GetListingsForStation(_currentStation);
+        }
+
+        public StationMarketListing GetListingByIndex(int index)
+        {
+            var listings = GetCurrentListings();
+            if (index < 0 || index >= listings.Count)
+            {
+                return null;
+            }
+
+            return listings[index];
+        }
+
+        public Commodity GetCommodityByName(string name)
+        {
+            return CommodityCatalog.GetByName(name);
+        }
+
+        public Commodity GetCommodityByIndex(int index)
+        {
+            var listing = GetListingByIndex(index);
+            return listing?.Commodity;
+        }
+
+        public Dictionary<Commodity, int> GetCommodityRegistry()
+        {
+            return _marketManager.GetCommodityRegistry();
+        }
+
         public bool CanAfford(Commodity commodity, int quantity, PlayerCredits credits)
         {
-            int totalCost = commodity.BasePrice * quantity;
+            var listing = ResolveListing(commodity);
+            if (listing == null)
+            {
+                return false;
+            }
+
+            int totalCost = listing.BuyPrice * quantity;
             return credits.CanAfford(totalCost);
         }
 
-        /// <summary>
-        /// Check if cargo hold has space for commodity
-        /// </summary>
         public bool HasSpace(Commodity commodity, int quantity, CargoHold cargoHold)
         {
             return cargoHold.CanFit(commodity, quantity);
         }
 
-        /// <summary>
-        /// Purchase commodity
-        /// </summary>
         public bool BuyCommodity(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold)
         {
-            int totalCost = commodity.BasePrice * quantity;
-            
-            // Check if player can afford it
-            if (!credits.CanAfford(totalCost))
-                return false;
-
-            // Check if cargo hold has space
-            if (!cargoHold.CanFit(commodity, quantity))
-                return false;
-
-            // Process transaction
-            if (credits.RemoveCredits(totalCost))
+            if (_currentStation == null || !_marketManager.HasMarketConfigForStation(_currentStation))
             {
-                cargoHold.AddCommodity(commodity, quantity);
-                return true;
+                return BuyWithFallback(commodity, quantity, credits, cargoHold);
             }
 
-            return false;
+            bool success = _marketManager.TryBuy(_currentStation, commodity, quantity, credits, cargoHold, out string message);
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                Console.WriteLine($"[MARKET] {message}");
+            }
+
+            return success;
         }
 
-        /// <summary>
-        /// Sell commodity
-        /// </summary>
         public bool SellCommodity(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold)
         {
-            // Check if player has enough of the commodity
-            if (cargoHold.GetCommodityQuantity(commodity.Name) < quantity)
-                return false;
-
-            // Process transaction
-            if (cargoHold.RemoveCommodity(commodity, quantity))
+            if (_currentStation == null || !_marketManager.HasMarketConfigForStation(_currentStation))
             {
-                int totalValue = commodity.BasePrice * quantity;
-                credits.AddCredits(totalValue);
-                return true;
+                return SellWithFallback(commodity, quantity, credits, cargoHold);
             }
 
-            return false;
+            bool success = _marketManager.TrySell(_currentStation, commodity, quantity, credits, cargoHold, out string message);
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                Console.WriteLine($"[MARKET] {message}");
+            }
+
+            return success;
         }
 
-        /// <summary>
-        /// Get commodity by name
-        /// </summary>
-        public Commodity GetCommodityByName(string name)
+        private StationMarketListing ResolveListing(Commodity commodity)
         {
-            return _availableCommodities.FirstOrDefault(c => c.Name == name);
-        }
-
-        /// <summary>
-        /// Get commodity by index
-        /// </summary>
-        public Commodity GetCommodityByIndex(int index)
-        {
-            if (index < 0 || index >= _availableCommodities.Count)
+            if (commodity == null)
+            {
                 return null;
-            return _availableCommodities[index];
+            }
+
+            return GetCurrentListings().FirstOrDefault(l =>
+                string.Equals(l.Commodity.Id, commodity.Id, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(l.Commodity.Name, commodity.Name, StringComparison.OrdinalIgnoreCase));
         }
 
-        /// <summary>
-        /// Get all commodities as a dictionary (for cargo transfer lookups)
-        /// </summary>
-        public Dictionary<Commodity, int> GetCommodityRegistry()
+        private bool BuyWithFallback(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold)
         {
-            var registry = new Dictionary<Commodity, int>();
-            for (int i = 0; i < _availableCommodities.Count; i++)
+            int totalCost = commodity.BasePrice * quantity;
+            if (!credits.CanAfford(totalCost) || !cargoHold.CanFit(commodity, quantity))
             {
-                registry[_availableCommodities[i]] = i;
+                return false;
             }
-            return registry;
+
+            if (!credits.RemoveCredits(totalCost))
+            {
+                return false;
+            }
+
+            if (!cargoHold.AddCommodity(commodity, quantity))
+            {
+                credits.AddCredits(totalCost);
+                return false;
+            }
+
+            Console.WriteLine($"[MARKET] BUY {quantity}x {commodity.Name} @ {commodity.BasePrice:N0} (fallback)");
+            return true;
+        }
+
+        private bool SellWithFallback(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold)
+        {
+            if (cargoHold.GetCommodityQuantity(commodity.Name) < quantity)
+            {
+                return false;
+            }
+
+            if (!cargoHold.RemoveCommodity(commodity, quantity))
+            {
+                return false;
+            }
+
+            int totalValue = commodity.BasePrice * quantity;
+            credits.AddCredits(totalValue);
+            Console.WriteLine($"[MARKET] SELL {quantity}x {commodity.Name} @ {commodity.BasePrice:N0} (fallback)");
+            return true;
         }
     }
 }
