@@ -172,6 +172,9 @@ namespace Roguelancer {
         // Ambient traffic system
         private TrafficManager _trafficManager;
 
+        // Cargo pod loot system
+        private LootManager _lootManager;
+
         // Full-route GOTO autopilot
         private GotoAutopilot _gotoAutopilot;
 
@@ -193,6 +196,7 @@ namespace Roguelancer {
         private readonly bool _runSaveSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runTrafficSmoke;
+        private readonly bool _runLootSmoke;
         private readonly bool _runAllSmoke;
         private SaveGameManager _saveGameManager;
         private string _activeMountedGunId = string.Empty;
@@ -239,6 +243,7 @@ namespace Roguelancer {
             _runSaveSmoke = args?.Any(arg => string.Equals(arg, "--save-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
 
             // Load game settings
@@ -945,6 +950,7 @@ namespace Roguelancer {
 
             // Initialize notification manager
             _notificationManager = new NotificationManager(_font, GraphicsDevice.Viewport);
+            _lootManager = new LootManager(GraphicsDevice, null, _font, _pixel);
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
             _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
@@ -1015,6 +1021,11 @@ namespace Roguelancer {
                 var result = RunSaveSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runLootSmoke)
+            {
+                var result = RunLootSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else
             {
                 TryAutoLoadSavedGame();
@@ -1069,6 +1080,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("mine smoke", RunMineSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("contraband smoke", RunContrabandSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("traffic smoke", RunTrafficSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("loot smoke", RunLootSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1190,6 +1202,20 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[TRAFFIC SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunLootSmokeTest()
+        {
+            try
+            {
+                var harness = new LootSmokeTest();
+                return harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[LOOT SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -1830,6 +1856,9 @@ namespace Roguelancer {
             // Update mission manager
             _missionManager?.Update(deltaTime, _playerShip.Hull.IsDestroyed);
 
+            // Cargo pods: tractor pull and pickup.
+            _lootManager?.Update(gameTime, _playerShip, keyboardState.IsKeyDown(Keys.P), _notificationManager, Console.WriteLine);
+
             // Update mission waypoint system (resolve targets, build paths, check proximity)
             _missionWaypointSystem?.Update(
                 _playerShip.Position,
@@ -2004,6 +2033,8 @@ namespace Roguelancer {
                 _notificationManager?.ShowMessage("Pirate destroyed");
                 Console.WriteLine($"[TRAFFIC] Pirate destroyed: {destroyedShip.Name}");
             }
+
+            _lootManager?.SpawnLootForDestroyedNpc(destroyedShip, Console.WriteLine);
 
             // Create a wreck where the NPC ship was destroyed
             if (_wreckModel != null) {
@@ -3369,6 +3400,9 @@ namespace Roguelancer {
                 wreck.Draw(_camera.View, _camera.Projection, _lightDirection);
             }
 
+            // Draw cargo pods
+            _lootManager?.Draw(_camera.View, _camera.Projection);
+
             // Draw reference markers
             var oldDepth = GraphicsDevice.DepthStencilState;
             GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
@@ -3480,6 +3514,9 @@ namespace Roguelancer {
 
                     // Draw tradelane HUD (proximity prompt / transit status)
                     _tradelaneManager?.DrawHUD(_spriteBatch);
+
+                    // Draw cargo pod tractor hint when nearby
+                    _lootManager?.DrawHUD(_spriteBatch);
 
                     // Draw current system name
                     DrawSystemName();
