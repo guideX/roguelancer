@@ -10,25 +10,16 @@ namespace Roguelancer
     /// </summary>
     internal sealed class ContrabandSmokeTest
     {
-        private readonly PoliceScanSystem _scanSystem = new();
-        private readonly FactionManager _factionManager = new();
-        private readonly ReputationManager _reputationManager;
-
-        public ContrabandSmokeTest()
-        {
-            _reputationManager = new ReputationManager(_factionManager);
-        }
-
         public (int Passed, int Failed) Run()
         {
             int passed = 0;
             int failed = 0;
 
             RunCase(ValidateCleanCargoScan, "clean cargo scan", ref passed, ref failed);
-            RunCase(ValidateContrabandDetectedAndFine, "contraband detected", ref passed, ref failed);
+            RunCase(ValidateContrabandDetected, "contraband detected", ref passed, ref failed);
+            RunCase(ValidateFineReputationPenalty, "fine/reputation penalty", ref passed, ref failed);
             RunCase(ValidateScanCancelOutOfRange, "scan cancel out of range", ref passed, ref failed);
             RunCase(ValidateNonLawfulIgnored, "non-lawful ignored", ref passed, ref failed);
-            RunCase(ValidateMissingCommoditySafety, "missing commodity safety", ref passed, ref failed);
 
             Console.WriteLine($"[CONTRABAND SMOKE] RESULT: {passed} passed, {failed} failed");
             return (passed, failed);
@@ -58,19 +49,21 @@ namespace Roguelancer
 
         private (bool Success, string FailureReason) ValidateCleanCargoScan()
         {
+            PoliceScanSystem scanSystem = new PoliceScanSystem();
+            ReputationManager reputationManager = CreateReputationManager();
             Ship player = CreatePlayer();
             PlayerCredits credits = new PlayerCredits(10_000);
-            float reputationBefore = _reputationManager.GetStanding(FactionManager.LibertyPolice);
+            float reputationBefore = reputationManager.GetStanding(FactionManager.LibertyPolice);
             NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, player.Position + new Vector3(1800f, 0f, 0f));
 
-            StepScan(player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 1);
-            if (_scanSystem.State != PoliceScanState.Scanning)
+            StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 1);
+            if (scanSystem.State != PoliceScanState.Scanning)
             {
                 return Fail("scan did not initiate");
             }
 
-            StepScan(player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 6);
-            if (_scanSystem.State != PoliceScanState.Cleared)
+            StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 6);
+            if (scanSystem.State != PoliceScanState.Cleared)
             {
                 return Fail("clean scan did not complete");
             }
@@ -80,7 +73,7 @@ namespace Roguelancer
                 return Fail("clean scan changed credits");
             }
 
-            if (Math.Abs(_reputationManager.GetStanding(FactionManager.LibertyPolice) - reputationBefore) > 0.0001f)
+            if (Math.Abs(reputationManager.GetStanding(FactionManager.LibertyPolice) - reputationBefore) > 0.0001f)
             {
                 return Fail("clean scan changed reputation");
             }
@@ -88,11 +81,13 @@ namespace Roguelancer
             return Pass();
         }
 
-        private (bool Success, string FailureReason) ValidateContrabandDetectedAndFine()
+        private (bool Success, string FailureReason) ValidateContrabandDetected()
         {
+            PoliceScanSystem scanSystem = new PoliceScanSystem();
+            ReputationManager reputationManager = CreateReputationManager();
             Ship player = CreatePlayer();
-            PlayerCredits credits = new PlayerCredits(10_000);
-            float reputationBefore = _reputationManager.GetStanding(FactionManager.LibertyPolice);
+            PlayerCredits credits = new PlayerCredits(1_000);
+            float reputationBefore = reputationManager.GetStanding(FactionManager.LibertyPolice);
             NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, player.Position + new Vector3(1600f, 0f, 0f));
 
             Commodity contraband = CommodityCatalog.GetById("side-arms");
@@ -108,10 +103,49 @@ namespace Roguelancer
 
             InjectMissingCommodity(player.CargoHold, "missing-commodity", 3);
 
-            StepScan(player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 7);
-            if (_scanSystem.State != PoliceScanState.Cleared)
+            StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 7);
+            if (scanSystem.State != PoliceScanState.Enforcement)
             {
-                return Fail("contraband scan did not complete cleanly after fine");
+                return Fail("contraband scan did not trigger enforcement");
+            }
+
+            if (credits.Credits != 1_000)
+            {
+                return Fail("contraband scan changed credits without enough funds");
+            }
+
+            if (reputationManager.GetStanding(FactionManager.LibertyPolice) >= reputationBefore)
+            {
+                return Fail("contraband scan did not reduce reputation");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateFineReputationPenalty()
+        {
+            PoliceScanSystem scanSystem = new PoliceScanSystem();
+            ReputationManager reputationManager = CreateReputationManager();
+            Ship player = CreatePlayer();
+            PlayerCredits credits = new PlayerCredits(10_000);
+            float reputationBefore = reputationManager.GetStanding(FactionManager.LibertyPolice);
+            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, player.Position + new Vector3(1600f, 0f, 0f));
+
+            Commodity contraband = CommodityCatalog.GetById("alien-organisms");
+            if (contraband == null)
+            {
+                return Fail("contraband commodity was not found");
+            }
+
+            if (!player.CargoHold.AddCommodity(contraband, 1))
+            {
+                return Fail("failed to seed contraband cargo");
+            }
+
+            StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 7);
+            if (scanSystem.State != PoliceScanState.Cleared)
+            {
+                return Fail("fine scan did not complete cleanly");
             }
 
             int expectedCredits = 10_000 - PoliceScanSystem.FineAmount;
@@ -120,9 +154,9 @@ namespace Roguelancer
                 return Fail($"fine was not deducted (expected {expectedCredits}, got {credits.Credits})");
             }
 
-            if (_reputationManager.GetStanding(FactionManager.LibertyPolice) >= reputationBefore)
+            if (reputationManager.GetStanding(FactionManager.LibertyPolice) >= reputationBefore)
             {
-                return Fail("reputation did not decrease after fine");
+                return Fail("fine scan did not reduce reputation");
             }
 
             return Pass();
@@ -130,21 +164,23 @@ namespace Roguelancer
 
         private (bool Success, string FailureReason) ValidateScanCancelOutOfRange()
         {
+            PoliceScanSystem scanSystem = new PoliceScanSystem();
+            ReputationManager reputationManager = CreateReputationManager();
             Ship player = CreatePlayer();
             PlayerCredits credits = new PlayerCredits(10_000);
-            float reputationBefore = _reputationManager.GetStanding(FactionManager.LibertyPolice);
+            float reputationBefore = reputationManager.GetStanding(FactionManager.LibertyPolice);
             NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, player.Position + new Vector3(1700f, 0f, 0f));
 
-            StepScan(player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 1);
-            if (_scanSystem.State != PoliceScanState.Scanning)
+            StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 1);
+            if (scanSystem.State != PoliceScanState.Scanning)
             {
                 return Fail("scan did not start");
             }
 
             player.Position = new Vector3(10000f, 0f, 0f);
-            StepScan(player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 5);
+            StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 5);
 
-            if (_scanSystem.State != PoliceScanState.Idle)
+            if (scanSystem.State != PoliceScanState.Idle)
             {
                 return Fail("scan did not cancel after moving out of range");
             }
@@ -154,7 +190,7 @@ namespace Roguelancer
                 return Fail("out-of-range cancel changed credits");
             }
 
-            if (Math.Abs(_reputationManager.GetStanding(FactionManager.LibertyPolice) - reputationBefore) > 0.0001f)
+            if (Math.Abs(reputationManager.GetStanding(FactionManager.LibertyPolice) - reputationBefore) > 0.0001f)
             {
                 return Fail("out-of-range cancel changed reputation");
             }
@@ -164,9 +200,11 @@ namespace Roguelancer
 
         private (bool Success, string FailureReason) ValidateNonLawfulIgnored()
         {
+            PoliceScanSystem scanSystem = new PoliceScanSystem();
+            ReputationManager reputationManager = CreateReputationManager();
             Ship player = CreatePlayer();
             PlayerCredits credits = new PlayerCredits(10_000);
-            float reputationBefore = _reputationManager.GetStanding(FactionManager.LibertyPolice);
+            float reputationBefore = reputationManager.GetStanding(FactionManager.LibertyPolice);
             NpcShip scanner = CreateScanner(FactionManager.LibertyRogues, player.Position + new Vector3(1600f, 0f, 0f));
 
             Commodity contraband = CommodityCatalog.GetById("alien-organisms");
@@ -180,8 +218,8 @@ namespace Roguelancer
                 return Fail("failed to seed contraband cargo");
             }
 
-            StepScan(player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 8);
-            if (_scanSystem.State != PoliceScanState.Idle)
+            StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 8);
+            if (scanSystem.State != PoliceScanState.Idle)
             {
                 return Fail("non-lawful faction initiated a scan");
             }
@@ -191,7 +229,7 @@ namespace Roguelancer
                 return Fail("non-lawful scanner changed credits");
             }
 
-            if (Math.Abs(_reputationManager.GetStanding(FactionManager.LibertyPolice) - reputationBefore) > 0.0001f)
+            if (Math.Abs(reputationManager.GetStanding(FactionManager.LibertyPolice) - reputationBefore) > 0.0001f)
             {
                 return Fail("non-lawful scanner changed reputation");
             }
@@ -199,40 +237,12 @@ namespace Roguelancer
             return Pass();
         }
 
-        private (bool Success, string FailureReason) ValidateMissingCommoditySafety()
+        private static ReputationManager CreateReputationManager()
         {
-            Ship player = CreatePlayer();
-            PlayerCredits credits = new PlayerCredits(10_000);
-            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, player.Position + new Vector3(1500f, 0f, 0f));
-
-            Commodity contraband = CommodityCatalog.GetById("side-arms");
-            if (contraband == null)
-            {
-                return Fail("contraband commodity was not found");
-            }
-
-            if (!player.CargoHold.AddCommodity(contraband, 1))
-            {
-                return Fail("failed to seed contraband cargo");
-            }
-
-            InjectMissingCommodity(player.CargoHold, "corrupt-id", 2);
-            StepScan(player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 7);
-
-            if (_scanSystem.State != PoliceScanState.Cleared)
-            {
-                return Fail("scan did not complete with missing commodity data");
-            }
-
-            if (credits.Credits != 10_000 - PoliceScanSystem.FineAmount)
-            {
-                return Fail("missing commodity path changed the fine outcome");
-            }
-
-            return Pass();
+            return new ReputationManager(new FactionManager());
         }
 
-        private void StepScan(Ship player, PlayerCredits credits, List<NpcShip> npcs, float seconds, int frameCount)
+        private static void StepScan(PoliceScanSystem scanSystem, ReputationManager reputationManager, Ship player, PlayerCredits credits, List<NpcShip> npcs, float seconds, int frameCount)
         {
             TimeSpan elapsed = TimeSpan.Zero;
             for (int i = 0; i < frameCount; i++)
@@ -240,7 +250,7 @@ namespace Roguelancer
                 TimeSpan previous = elapsed;
                 elapsed = elapsed.Add(TimeSpan.FromSeconds(seconds));
                 GameTime gameTime = new GameTime(previous, TimeSpan.FromSeconds(seconds));
-                _scanSystem.Update(gameTime, player, npcs, credits, _reputationManager);
+                scanSystem.Update(gameTime, player, npcs, credits, reputationManager);
             }
         }
 
