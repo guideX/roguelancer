@@ -74,6 +74,7 @@ namespace Roguelancer {
         /// Mine System
         /// </summary>
         private MineSystem _mineSystem;
+        private PoliceScanSystem _policeScanSystem;
         /// <summary>
         /// Sun
         /// </summary>
@@ -187,6 +188,7 @@ namespace Roguelancer {
         private readonly bool _runCountermeasureSmoke;
         private readonly bool _runMineSmoke;
         private readonly bool _runSaveSmoke;
+        private readonly bool _runContrabandSmoke;
         private readonly bool _runAllSmoke;
         private SaveGameManager _saveGameManager;
         private string _activeMountedGunId = string.Empty;
@@ -231,6 +233,7 @@ namespace Roguelancer {
             _runCountermeasureSmoke = args?.Any(arg => string.Equals(arg, "--countermeasure-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMineSmoke = args?.Any(arg => string.Equals(arg, "--mine-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runSaveSmoke = args?.Any(arg => string.Equals(arg, "--save-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
 
             // Load game settings
@@ -926,6 +929,9 @@ namespace Roguelancer {
             // Initialize mine system (mounted mine droppers)
             _mineSystem = new MineSystem(GraphicsDevice);
 
+            // Initialize police scan system
+            _policeScanSystem = new PoliceScanSystem();
+
             // Initialize motion trail
             _motionTrail = new MotionTrail(GraphicsDevice);
 
@@ -1028,6 +1034,12 @@ namespace Roguelancer {
                 var result = RunMineSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+
+            if (_runContrabandSmoke)
+            {
+                var result = RunContrabandSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
         }
 
         private (int Passed, int Failed) RunAllSmokeTests()
@@ -1040,6 +1052,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("missile smoke", RunMissileSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("countermeasure smoke", RunCountermeasureSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("mine smoke", RunMineSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("contraband smoke", RunContrabandSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1133,6 +1146,20 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[SAVE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunContrabandSmokeTest()
+        {
+            try
+            {
+                var harness = new ContrabandSmokeTest();
+                return harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CONTRABAND SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -1635,6 +1662,9 @@ namespace Roguelancer {
             foreach (var npc in _npcShips) {
                 npc.Update(gameTime, _damageSmokeParticles);
             }
+
+            // Update lawful patrol scan loop
+            _policeScanSystem?.Update(gameTime, _playerShip, _npcShips, _playerCredits, _reputationManager, _notificationManager);
 
             // Mine system: update mounted proximity mines against NPC ships
             if (_mineSystem != null) {
@@ -2684,6 +2714,7 @@ namespace Roguelancer {
 
             if (_font != null) {
                 int ly = DrawMountedWeaponIndicator(leftPanelX, leftPanelY);
+                DrawPoliceScanStatus(leftPanelX, ref ly);
 
                 if (_weaponSystem != null && _weaponSystem.IsCharging()) {
                     float chargeProgress = _weaponSystem.GetChargeProgress();
@@ -2761,6 +2792,16 @@ namespace Roguelancer {
             }
 
             return ly;
+        }
+
+        private void DrawPoliceScanStatus(int leftPanelX, ref int ly)
+        {
+            if (_font == null || _policeScanSystem == null || _policeScanSystem.State != PoliceScanState.Scanning)
+            {
+                return;
+            }
+
+            _spriteBatch.DrawString(_font, _policeScanSystem.StatusText, new Vector2(leftPanelX + 10, ly += 18), Color.LightSkyBlue);
         }
 
         /// <summary>
