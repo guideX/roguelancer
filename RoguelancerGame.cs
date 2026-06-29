@@ -187,6 +187,7 @@ namespace Roguelancer {
         private readonly bool _runCountermeasureSmoke;
         private readonly bool _runMineSmoke;
         private readonly bool _runSaveSmoke;
+        private readonly bool _runAllSmoke;
         private SaveGameManager _saveGameManager;
         private string _activeMountedGunId = string.Empty;
         private WeaponType? _activeMountedGunWeaponType;
@@ -230,6 +231,7 @@ namespace Roguelancer {
             _runCountermeasureSmoke = args?.Any(arg => string.Equals(arg, "--countermeasure-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMineSmoke = args?.Any(arg => string.Equals(arg, "--mine-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runSaveSmoke = args?.Any(arg => string.Equals(arg, "--save-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
 
             // Load game settings
             _gameSettings = GameSettings.Load();
@@ -987,6 +989,12 @@ namespace Roguelancer {
             _playerShip.SetGotoAutopilot(_gotoAutopilot);
 
             _saveGameManager = new SaveGameManager();
+            if (_runAllSmoke)
+            {
+                var result = RunAllSmokeTests();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+
             if (_runSaveSmoke)
             {
                 var result = RunSaveSmokeTest();
@@ -1020,6 +1028,37 @@ namespace Roguelancer {
                 var result = RunMineSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+        }
+
+        private (int Passed, int Failed) RunAllSmokeTests()
+        {
+            int suitesPassed = 0;
+            int suitesFailed = 0;
+
+            RunAllSmokeSuite("save smoke", RunSaveSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("missile smoke", RunMissileSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("countermeasure smoke", RunCountermeasureSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("mine smoke", RunMineSmokeTest, ref suitesPassed, ref suitesFailed);
+
+            Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
+            return (suitesPassed, suitesFailed);
+        }
+
+        private static void RunAllSmokeSuite(string suiteName, Func<(int Passed, int Failed)> suiteRunner, ref int suitesPassed, ref int suitesFailed)
+        {
+            Console.WriteLine($"[ALL SMOKE] Running {suiteName}...");
+            var result = suiteRunner();
+
+            if (result.Failed == 0)
+            {
+                suitesPassed++;
+                Console.WriteLine($"[ALL SMOKE] PASS {suiteName}");
+                return;
+            }
+
+            suitesFailed++;
+            Console.WriteLine($"[ALL SMOKE] FAIL {suiteName}: {result.Passed} passed, {result.Failed} failed");
         }
 
         private (int Passed, int Failed) RunMarketSmokeTest()
