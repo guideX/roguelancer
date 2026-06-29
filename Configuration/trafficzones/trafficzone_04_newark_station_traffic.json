@@ -1,0 +1,15 @@
+{
+  "id": "newark_station_traffic",
+  "name": "Newark Station Traffic",
+  "system_index": 1,
+  "center_x": -7500.0,
+  "center_y": -900.0,
+  "center_z": 6000.0,
+  "radius": 4000.0,
+  "faction_id": "neutral_civilians",
+  "ship_description": "Transport Ship Alpha",
+  "min_ships": 1,
+  "max_ships": 2,
+  "spawn_interval": 14.0,
+  "behavior_type": "StationTraffic"
+}

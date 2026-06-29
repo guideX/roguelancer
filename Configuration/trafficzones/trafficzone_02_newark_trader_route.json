@@ -1,0 +1,21 @@
+{
+  "id": "newark_trader_route",
+  "name": "Newark Trade Route",
+  "system_index": 1,
+  "center_x": -4350.0,
+  "center_y": -600.0,
+  "center_z": 3450.0,
+  "radius": 8000.0,
+  "faction_id": "neutral_civilians",
+  "ship_description": "Transport Ship Alpha",
+  "min_ships": 1,
+  "max_ships": 3,
+  "spawn_interval": 22.0,
+  "behavior_type": "TraderRoute",
+  "route_start_x": -1200.0,
+  "route_start_y": -300.0,
+  "route_start_z": 900.0,
+  "route_end_x": -7500.0,
+  "route_end_y": -900.0,
+  "route_end_z": 6000.0
+}

@@ -169,6 +169,9 @@ namespace Roguelancer {
         // Tradelane system
         private TradelaneManager _tradelaneManager;
 
+        // Ambient traffic system
+        private TrafficManager _trafficManager;
+
         // Full-route GOTO autopilot
         private GotoAutopilot _gotoAutopilot;
 
@@ -189,6 +192,7 @@ namespace Roguelancer {
         private readonly bool _runMineSmoke;
         private readonly bool _runSaveSmoke;
         private readonly bool _runContrabandSmoke;
+        private readonly bool _runTrafficSmoke;
         private readonly bool _runAllSmoke;
         private SaveGameManager _saveGameManager;
         private string _activeMountedGunId = string.Empty;
@@ -234,6 +238,7 @@ namespace Roguelancer {
             _runMineSmoke = args?.Any(arg => string.Equals(arg, "--mine-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runSaveSmoke = args?.Any(arg => string.Equals(arg, "--save-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
 
             // Load game settings
@@ -645,6 +650,9 @@ namespace Roguelancer {
                 SpawnNpcsFromConfig(currentSystem);
             }
 
+            _trafficManager = new TrafficManager(_config, _npcShips, _spaceObjects, HandleNpcDestroyed);
+            _trafficManager.LoadZonesForSystem(_currentSystemIndex, Console.WriteLine);
+
             Console.WriteLine($"[NPC SPAWN] COMPLETE: Created {_npcShips.Count} NPC ships total");
             Console.WriteLine($"[NPC SPAWN] Space objects count: {_spaceObjects.Count}");
 
@@ -941,6 +949,7 @@ namespace Roguelancer {
             _playerShip.SetExplosionSystem(_explosionParticles);
             _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
             _stationDockUI?.SetNotificationManager(_notificationManager);
+            _trafficManager?.SetContent(Content);
 
             // Re-initialize JumpHoleManager with font now that it's loaded
             if (_jumpHoleManager != null) {
@@ -1040,6 +1049,12 @@ namespace Roguelancer {
                 var result = RunContrabandSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+
+            if (_runTrafficSmoke)
+            {
+                var result = RunTrafficSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
         }
 
         private (int Passed, int Failed) RunAllSmokeTests()
@@ -1053,6 +1068,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("countermeasure smoke", RunCountermeasureSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("mine smoke", RunMineSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("contraband smoke", RunContrabandSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("traffic smoke", RunTrafficSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1160,6 +1176,20 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[CONTRABAND SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunTrafficSmokeTest()
+        {
+            try
+            {
+                var harness = new TrafficSmokeTest();
+                return harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TRAFFIC SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -1666,8 +1696,10 @@ namespace Roguelancer {
 
             // FIX: Update NPC ships
             foreach (var npc in _npcShips) {
-                npc.Update(gameTime, _damageSmokeParticles);
+                npc.Update(gameTime, _damageSmokeParticles, _playerShip, _reputationManager);
             }
+
+            _trafficManager?.Update(gameTime, _playerShip, _reputationManager, Console.WriteLine);
 
             // Update lawful patrol scan loop
             _policeScanSystem?.Update(gameTime, _playerShip, _npcShips, _playerCredits, _reputationManager, _notificationManager);
@@ -1978,6 +2010,7 @@ namespace Roguelancer {
 
             // Clean up NPC weapon system tracking
             _npcWeaponSystem?.RemoveNpc(destroyedShip);
+            _trafficManager?.NotifyNpcDestroyed(destroyedShip);
         }
 
         /// <summary>
@@ -3597,6 +3630,8 @@ namespace Roguelancer {
                 if (newSystem.NpcPatrols != null) {
                     SpawnNpcsFromConfig(newSystem);
                 }
+
+                _trafficManager?.LoadZonesForSystem(newSystemIndex, Console.WriteLine);
 
                 // Load NPC models
                 foreach (var npc in _npcShips) {

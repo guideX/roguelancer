@@ -1,0 +1,15 @@
+{
+  "id": "liberty_fort_bush_patrol",
+  "name": "Fort Bush Patrol",
+  "system_index": 1,
+  "center_x": 6000.0,
+  "center_y": 600.0,
+  "center_z": -4500.0,
+  "radius": 6500.0,
+  "faction_id": "liberty_police",
+  "ship_description": "Patrol Fighter 1",
+  "min_ships": 2,
+  "max_ships": 4,
+  "spawn_interval": 18.0,
+  "behavior_type": "LawfulPatrol"
+}

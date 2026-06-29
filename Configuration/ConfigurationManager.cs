@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Roguelancer;
 
 namespace Roguelancer.Configuration {
@@ -15,12 +16,14 @@ namespace Roguelancer.Configuration {
         private const string SystemsPath = "systems";
         private const string StationsPath = "stations";
         private const string JumpHolesPath = "jumpholes";
+        private const string TrafficZonesPath = "trafficzones";
 
         public List<ModelConfig> Models { get; private set; } = new();
         public List<ShipConfig> Ships { get; private set; } = new();
         public List<SystemConfig> Systems { get; private set; } = new();
         public List<StationConfig> Stations { get; private set; } = new();
         public List<JumpHoleConfig> JumpHoles { get; private set; } = new();
+        public List<TrafficZoneConfig> TrafficZones { get; private set; } = new();
 
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions {
             WriteIndented = true,
@@ -28,6 +31,11 @@ namespace Roguelancer.Configuration {
             AllowTrailingCommas = true,
             ReadCommentHandling = JsonCommentHandling.Skip
         };
+
+        static ConfigurationManager()
+        {
+            JsonOptions.Converters.Add(new JsonStringEnumConverter());
+        }
 
         /// <summary>
         /// Load all configuration files
@@ -42,8 +50,9 @@ namespace Roguelancer.Configuration {
             LoadShips();
             LoadStations();
             LoadJumpHoles();
+            LoadTrafficZones();
 
-            Console.WriteLine($"[CONFIG] Loaded {Models.Count} models, {Systems.Count} systems, {Ships.Count} ships, {Stations.Count} stations, {JumpHoles.Count} jump holes");
+            Console.WriteLine($"[CONFIG] Loaded {Models.Count} models, {Systems.Count} systems, {Ships.Count} ships, {Stations.Count} stations, {JumpHoles.Count} jump holes, {TrafficZones.Count} traffic zones");
         }
 
         /// <summary>
@@ -170,6 +179,38 @@ namespace Roguelancer.Configuration {
         }
 
         /// <summary>
+        /// Load all traffic zone configurations.
+        /// </summary>
+        private void LoadTrafficZones()
+        {
+            string trafficZonesDir = Path.Combine(ConfigurationPath, TrafficZonesPath);
+            if (!Directory.Exists(trafficZonesDir))
+            {
+                Console.WriteLine($"[CONFIG] Traffic zones directory not found: {trafficZonesDir}");
+                return;
+            }
+
+            foreach (string file in Directory.GetFiles(trafficZonesDir, "*.json"))
+            {
+                try
+                {
+                    string json = File.ReadAllText(file);
+                    var zone = JsonSerializer.Deserialize<TrafficZoneConfig>(json, JsonOptions);
+                    if (zone != null)
+                    {
+                        NormalizeTrafficZoneConfig(zone);
+                        TrafficZones.Add(zone);
+                        Console.WriteLine($"[CONFIG] Loaded traffic zone: {zone.Name} from {Path.GetFileName(file)}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[CONFIG] Error loading traffic zone {file}: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
         /// Get a model by index (1-based)
         /// </summary>
         public ModelConfig GetModel(int index) {
@@ -221,6 +262,14 @@ namespace Roguelancer.Configuration {
             return JumpHoles.FindAll(j => j.SystemIndex == systemIndex);
         }
 
+        /// <summary>
+        /// Get all traffic zones for a specific system.
+        /// </summary>
+        public List<TrafficZoneConfig> GetTrafficZonesForSystem(int systemIndex)
+        {
+            return TrafficZones.FindAll(zone => zone.SystemIndex == systemIndex);
+        }
+
         private static void NormalizeShipConfig(ShipConfig ship)
         {
             ship.FactionId = FactionManager.NormalizeFactionId(ship.FactionId);
@@ -229,6 +278,17 @@ namespace Roguelancer.Configuration {
         private static void NormalizeStationConfig(StationConfig station)
         {
             station.FactionId = FactionManager.NormalizeFactionId(station.FactionId);
+        }
+
+        private static void NormalizeTrafficZoneConfig(TrafficZoneConfig zone)
+        {
+            zone.FactionId = FactionManager.NormalizeFactionId(zone.FactionId);
+            zone.Id = string.IsNullOrWhiteSpace(zone.Id) ? zone.Name : zone.Id.Trim();
+            zone.Name = string.IsNullOrWhiteSpace(zone.Name) ? zone.Id : zone.Name.Trim();
+            zone.MinShips = Math.Max(0, zone.MinShips);
+            zone.MaxShips = Math.Max(zone.MinShips, zone.MaxShips);
+            zone.SpawnInterval = Math.Max(1f, zone.SpawnInterval);
+            zone.Radius = Math.Max(100f, zone.Radius);
         }
 
         private static void NormalizeSystemConfig(SystemConfig system)
