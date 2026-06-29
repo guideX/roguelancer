@@ -18,7 +18,8 @@ namespace Roguelancer
             RunCase(ValidateCleanCargoScan, "clean cargo scan", ref passed, ref failed);
             RunCase(ValidateContrabandDetected, "contraband detected", ref passed, ref failed);
             RunCase(ValidateFineReputationPenalty, "fine/reputation penalty", ref passed, ref failed);
-            RunCase(ValidateScanCancelOutOfRange, "scan cancel out of range", ref passed, ref failed);
+            RunCase(ValidateJettisonClearsContraband, "jettison clears contraband", ref passed, ref failed);
+            RunCase(ValidateFleeCancelAndEscalation, "flee/cancel/escalation", ref passed, ref failed);
             RunCase(ValidateNonLawfulIgnored, "non-lawful ignored", ref passed, ref failed);
 
             Console.WriteLine($"[CONTRABAND SMOKE] RESULT: {passed} passed, {failed} failed");
@@ -104,19 +105,19 @@ namespace Roguelancer
             InjectMissingCommodity(player.CargoHold, "missing-commodity", 3);
 
             StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 7);
-            if (scanSystem.State != PoliceScanState.Enforcement)
+            if (scanSystem.State != PoliceScanState.ContrabandDetected)
             {
-                return Fail("contraband scan did not trigger enforcement");
+                return Fail("contraband scan did not enter grace state");
             }
 
             if (credits.Credits != 1_000)
             {
-                return Fail("contraband scan changed credits without enough funds");
+                return Fail("contraband scan changed credits before grace expired");
             }
 
-            if (reputationManager.GetStanding(FactionManager.LibertyPolice) >= reputationBefore)
+            if (reputationManager.GetStanding(FactionManager.LibertyPolice) < reputationBefore)
             {
-                return Fail("contraband scan did not reduce reputation");
+                return Fail("contraband scan changed reputation before grace expired");
             }
 
             return Pass();
@@ -142,10 +143,10 @@ namespace Roguelancer
                 return Fail("failed to seed contraband cargo");
             }
 
-            StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 7);
+            StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 12);
             if (scanSystem.State != PoliceScanState.Cleared)
             {
-                return Fail("fine scan did not complete cleanly");
+                return Fail("fine scan did not complete");
             }
 
             int expectedCredits = 10_000 - PoliceScanSystem.FineAmount;
@@ -162,8 +163,58 @@ namespace Roguelancer
             return Pass();
         }
 
-        private (bool Success, string FailureReason) ValidateScanCancelOutOfRange()
+        private (bool Success, string FailureReason) ValidateJettisonClearsContraband()
         {
+            PoliceScanSystem scanSystem = new PoliceScanSystem();
+            ReputationManager reputationManager = CreateReputationManager();
+            Ship player = CreatePlayer();
+            PlayerCredits credits = new PlayerCredits(10_000);
+            float reputationBefore = reputationManager.GetStanding(FactionManager.LibertyPolice);
+            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, player.Position + new Vector3(1700f, 0f, 0f));
+
+            Commodity contraband = CommodityCatalog.GetById("alien-organisms");
+            if (contraband == null)
+            {
+                return Fail("contraband commodity was not found");
+            }
+
+            if (!player.CargoHold.AddCommodity(contraband, 1))
+            {
+                return Fail("failed to seed contraband cargo");
+            }
+
+            StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 7);
+            if (scanSystem.State != PoliceScanState.ContrabandDetected)
+            {
+                return Fail("scan did not reach contraband grace");
+            }
+
+            if (!scanSystem.TryJettisonContraband(player))
+            {
+                return Fail("jettison did not remove cargo");
+            }
+
+            if (scanSystem.State != PoliceScanState.Cleared)
+            {
+                return Fail("jettison did not clear the scan");
+            }
+
+            if (credits.Credits != 10_000)
+            {
+                return Fail("jettison changed credits");
+            }
+
+            if (Math.Abs(reputationManager.GetStanding(FactionManager.LibertyPolice) - reputationBefore) > 0.0001f)
+            {
+                return Fail("jettison changed reputation");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateFleeCancelAndEscalation()
+        {
+            // Normal scan cancel while still in the scanning phase.
             PoliceScanSystem scanSystem = new PoliceScanSystem();
             ReputationManager reputationManager = CreateReputationManager();
             Ship player = CreatePlayer();
@@ -193,6 +244,49 @@ namespace Roguelancer
             if (Math.Abs(reputationManager.GetStanding(FactionManager.LibertyPolice) - reputationBefore) > 0.0001f)
             {
                 return Fail("out-of-range cancel changed reputation");
+            }
+
+            // Fleeing after contraband detection should escalate instead of silently canceling.
+            scanSystem = new PoliceScanSystem();
+            reputationManager = CreateReputationManager();
+            player = CreatePlayer();
+            credits = new PlayerCredits(10_000);
+            reputationBefore = reputationManager.GetStanding(FactionManager.LibertyPolice);
+            scanner = CreateScanner(FactionManager.LibertyPolice, player.Position + new Vector3(1600f, 0f, 0f));
+
+            Commodity contraband = CommodityCatalog.GetById("side-arms");
+            if (contraband == null)
+            {
+                return Fail("contraband commodity was not found");
+            }
+
+            if (!player.CargoHold.AddCommodity(contraband, 1))
+            {
+                return Fail("failed to seed contraband cargo");
+            }
+
+            StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 7);
+            if (scanSystem.State != PoliceScanState.ContrabandDetected)
+            {
+                return Fail("contraband scan did not enter grace");
+            }
+
+            player.Position = new Vector3(10000f, 0f, 0f);
+            StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 1);
+
+            if (scanSystem.State != PoliceScanState.Enforcement)
+            {
+                return Fail("flee after detection did not escalate");
+            }
+
+            if (reputationManager.GetStanding(FactionManager.LibertyPolice) >= reputationBefore)
+            {
+                return Fail("flee after detection did not reduce reputation");
+            }
+
+            if (credits.Credits != 10_000)
+            {
+                return Fail("flee after detection changed credits");
             }
 
             return Pass();

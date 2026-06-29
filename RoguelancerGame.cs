@@ -1654,6 +1654,12 @@ namespace Roguelancer {
 
             // Update player ship
             _playerShip.Update(gameTime, keyboardState, _camera.IsRearViewActive);
+
+            if (keyboardState.IsKeyDown(Keys.J) && _prevKeys.IsKeyUp(Keys.J))
+            {
+                _policeScanSystem?.TryJettisonContraband(_playerShip, _notificationManager, Console.WriteLine);
+            }
+
             HandleCountermeasureLaunchInput();
             HandleMineLaunchInput();
             _countermeasureSystem?.Update(gameTime);
@@ -2796,12 +2802,21 @@ namespace Roguelancer {
 
         private void DrawPoliceScanStatus(int leftPanelX, ref int ly)
         {
-            if (_font == null || _policeScanSystem == null || _policeScanSystem.State != PoliceScanState.Scanning)
+            if (_font == null || _policeScanSystem == null || string.IsNullOrWhiteSpace(_policeScanSystem.StatusText))
             {
                 return;
             }
 
-            _spriteBatch.DrawString(_font, _policeScanSystem.StatusText, new Vector2(leftPanelX + 10, ly += 18), Color.LightSkyBlue);
+            Color statusColor = _policeScanSystem.State switch
+            {
+                PoliceScanState.Scanning => Color.LightSkyBlue,
+                PoliceScanState.ContrabandDetected => Color.Orange,
+                PoliceScanState.Cleared => Color.Lime,
+                PoliceScanState.Enforcement => Color.OrangeRed,
+                _ => Color.LightSkyBlue
+            };
+
+            _spriteBatch.DrawString(_font, _policeScanSystem.StatusText, new Vector2(leftPanelX + 10, ly += 18), statusColor);
         }
 
         /// <summary>

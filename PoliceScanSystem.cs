@@ -24,11 +24,13 @@ namespace Roguelancer
         public const int FineAmount = 1500;
 
         private const float ScanDurationSeconds = 3f;
+        private const float GracePeriodSeconds = 2.5f;
         private const float ScanRange = 2800f;
         private const float CancelRange = 3400f;
         private const float ResultHoldSeconds = 1.5f;
         private const float RetryCooldownSeconds = 8f;
         private const float PaidReputationPenalty = -0.08f;
+        private const float FleeAfterDetectionReputationPenalty = -0.50f;
         private const float EnforcementReputationPenalty = -1.0f;
 
         private static readonly HashSet<string> LawfulScannerFactions = new(StringComparer.OrdinalIgnoreCase)
@@ -44,7 +46,22 @@ namespace Roguelancer
 
         public PoliceScanState State { get; private set; } = PoliceScanState.Idle;
         public float ScanProgress => State == PoliceScanState.Scanning ? MathHelper.Clamp(_scanTimer / ScanDurationSeconds, 0f, 1f) : 0f;
-        public string StatusText => State == PoliceScanState.Scanning ? $"Police Scan: {ScanProgress * 100f:F0}%" : string.Empty;
+        public string StatusText
+        {
+            get
+            {
+                return State switch
+                {
+                    PoliceScanState.Scanning => $"Police Scan: {ScanProgress * 100f:F0}%",
+                    PoliceScanState.ContrabandDetected => _resultTimer > 0f
+                        ? $"Contraband detected - jettison or pay fine ({_resultTimer:F1}s)"
+                        : "Contraband detected - jettison or pay fine",
+                    PoliceScanState.Cleared => "Scan cleared",
+                    PoliceScanState.Enforcement => "Police hostile",
+                    _ => string.Empty,
+                };
+            }
+        }
         public string ActiveScannerFactionId => _activeScanner?.FactionId ?? string.Empty;
 
         public bool IsLawfulScannerFaction(string? factionId)
@@ -85,6 +102,12 @@ namespace Roguelancer
                     Reset();
                 }
 
+                return;
+            }
+
+            if (State == PoliceScanState.ContrabandDetected)
+            {
+                UpdateContrabandDetected(playerShip, playerCredits, reputationManager, notificationManager, log, deltaTime);
                 return;
             }
 
@@ -131,6 +154,32 @@ namespace Roguelancer
             _resultTimer = 0f;
         }
 
+        public bool TryJettisonContraband(Ship playerShip, NotificationManager notificationManager = null, Action<string> log = null)
+        {
+            if (playerShip?.CargoHold == null)
+            {
+                return false;
+            }
+
+            Dictionary<string, int> removedCargo = playerShip.CargoHold.RemoveContraband();
+            if (removedCargo.Count == 0)
+            {
+                return false;
+            }
+
+            string removedSummary = BuildRemovedCargoSummary(removedCargo);
+            log?.Invoke($"[POLICE SCAN] Jettisoned contraband: {removedSummary}.");
+
+            if (State == PoliceScanState.ContrabandDetected && !HasContraband(playerShip.CargoHold))
+            {
+                ClearByJettison(notificationManager, log);
+                return true;
+            }
+
+            notificationManager?.ShowMessage("Contraband jettisoned", 2f);
+            return true;
+        }
+
         private void StartScan(NpcShip scanner, NotificationManager notificationManager, Action<string> log)
         {
             _activeScanner = scanner;
@@ -143,37 +192,65 @@ namespace Roguelancer
         private void CompleteScan(Ship playerShip, PlayerCredits playerCredits, ReputationManager reputationManager, NotificationManager notificationManager, Action<string> log)
         {
             bool hasContraband = HasContraband(playerShip.CargoHold);
-            string scannerFactionId = ActiveScannerFactionId;
             _scanTimer = 0f;
-            _activeScanner = null;
             _cooldownTimer = RetryCooldownSeconds;
-            _resultTimer = ResultHoldSeconds;
 
             if (!hasContraband)
             {
                 State = PoliceScanState.Cleared;
+                _resultTimer = ResultHoldSeconds;
                 notificationManager?.ShowMessage("Scan complete: cargo clean", 2f);
                 log?.Invoke("[POLICE SCAN] Scan complete: cargo clean.");
                 return;
             }
 
             State = PoliceScanState.ContrabandDetected;
-            notificationManager?.ShowMessage("Contraband detected", 2f);
+            _resultTimer = GracePeriodSeconds;
+            notificationManager?.ShowMessage("Contraband detected - jettison illegal cargo or pay fine", 2f);
             log?.Invoke("[POLICE SCAN] Contraband detected.");
+            log?.Invoke($"[POLICE SCAN] Grace period started: {GracePeriodSeconds:F1}s.");
+        }
+
+        private void UpdateContrabandDetected(
+            Ship playerShip,
+            PlayerCredits playerCredits,
+            ReputationManager reputationManager,
+            NotificationManager notificationManager,
+            Action<string> log,
+            float deltaTime)
+        {
+            if (!HasContraband(playerShip.CargoHold))
+            {
+                ClearByJettison(notificationManager, log);
+                return;
+            }
+
+            if (!IsScannerValid(playerShip))
+            {
+                EscalateAfterDetection(reputationManager, notificationManager, log);
+                return;
+            }
+
+            if (_resultTimer > 0f)
+            {
+                _resultTimer = Math.Max(0f, _resultTimer - deltaTime);
+                if (_resultTimer > 0f)
+                {
+                    return;
+                }
+            }
 
             if (playerCredits.CanAfford(FineAmount) && playerCredits.RemoveCredits(FineAmount))
             {
-                reputationManager.AddReputation(scannerFactionId, PaidReputationPenalty, "police scan fine");
+                reputationManager.AddReputation(ActiveScannerFactionId, PaidReputationPenalty, "police scan fine");
                 State = PoliceScanState.Cleared;
+                _resultTimer = ResultHoldSeconds;
                 notificationManager?.ShowMessage("Fine paid", 2f);
                 log?.Invoke($"[POLICE SCAN] Fine paid: {FineAmount:N0} credits.");
                 return;
             }
 
-            reputationManager.AddReputation(scannerFactionId, EnforcementReputationPenalty, "police scan enforcement");
-            State = PoliceScanState.Enforcement;
-            notificationManager?.ShowMessage("Police hostile", 2f);
-            log?.Invoke("[POLICE SCAN] Enforcement triggered: police hostile.");
+            EscalateToEnforcement(reputationManager, notificationManager, log);
         }
 
         private void CancelScan(Action<string> log)
@@ -183,6 +260,65 @@ namespace Roguelancer
             _activeScanner = null;
             State = PoliceScanState.Idle;
             _cooldownTimer = 1f;
+        }
+
+        private void ClearByJettison(NotificationManager notificationManager, Action<string> log)
+        {
+            _scanTimer = 0f;
+            _resultTimer = ResultHoldSeconds;
+            _cooldownTimer = RetryCooldownSeconds;
+            State = PoliceScanState.Cleared;
+            notificationManager?.ShowMessage("Contraband jettisoned - scan cleared", 2f);
+            log?.Invoke("[POLICE SCAN] Scan cleared by jettison.");
+        }
+
+        private void EscalateAfterDetection(ReputationManager reputationManager, NotificationManager notificationManager, Action<string> log)
+        {
+            if (reputationManager != null)
+            {
+                reputationManager.AddReputation(ActiveScannerFactionId, FleeAfterDetectionReputationPenalty, "police scan flee");
+            }
+
+            EscalateToEnforcementState(notificationManager, log, "[POLICE SCAN] Fled after contraband detection: enforcement escalated.");
+        }
+
+        private void EscalateToEnforcement(ReputationManager reputationManager, NotificationManager notificationManager, Action<string> log)
+        {
+            if (reputationManager != null)
+            {
+                reputationManager.AddReputation(ActiveScannerFactionId, EnforcementReputationPenalty, "police scan enforcement");
+            }
+
+            EscalateToEnforcementState(notificationManager, log, "[POLICE SCAN] Enforcement triggered: police hostile.");
+        }
+
+        private void EscalateToEnforcementState(NotificationManager notificationManager, Action<string> log, string logMessage)
+        {
+            State = PoliceScanState.Enforcement;
+            _resultTimer = ResultHoldSeconds;
+            notificationManager?.ShowMessage("Police hostile", 2f);
+            log?.Invoke(logMessage);
+        }
+
+        private static string BuildRemovedCargoSummary(Dictionary<string, int> removedCargo)
+        {
+            if (removedCargo == null || removedCargo.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            List<string> parts = new List<string>();
+            foreach (var entry in removedCargo)
+            {
+                if (entry.Value <= 0)
+                {
+                    continue;
+                }
+
+                parts.Add($"{entry.Key} x{entry.Value}");
+            }
+
+            return string.Join(", ", parts);
         }
 
         private bool IsScannerValid(Ship playerShip)

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -86,6 +87,30 @@ namespace Roguelancer
 
             UsedCapacity -= commodity.VolumePerUnit * quantity;
             return true;
+        }
+
+        /// <summary>
+        /// Remove every contraband commodity stack from the hold.
+        /// Returns the removed stacks keyed by commodity id/name for logging.
+        /// </summary>
+        public Dictionary<string, int> RemoveContraband()
+        {
+            var removed = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in GetAllCommodities())
+            {
+                Commodity commodity = CommodityCatalog.GetByName(entry.Key) ?? CommodityCatalog.GetById(entry.Key);
+                if (commodity?.IsContraband != true || entry.Value <= 0)
+                {
+                    continue;
+                }
+
+                if (RemoveCommodity(commodity, entry.Value))
+                {
+                    removed[commodity.Id ?? commodity.Name] = entry.Value;
+                }
+            }
+
+            return removed;
         }
 
         /// <summary>
