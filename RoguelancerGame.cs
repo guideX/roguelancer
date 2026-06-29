@@ -1694,12 +1694,12 @@ namespace Roguelancer {
             HandleMineLaunchInput();
             _countermeasureSystem?.Update(gameTime);
 
+            _trafficManager?.Update(gameTime, _playerShip, _reputationManager, Console.WriteLine);
+
             // FIX: Update NPC ships
             foreach (var npc in _npcShips) {
                 npc.Update(gameTime, _damageSmokeParticles, _playerShip, _reputationManager);
             }
-
-            _trafficManager?.Update(gameTime, _playerShip, _reputationManager, Console.WriteLine);
 
             // Update lawful patrol scan loop
             _policeScanSystem?.Update(gameTime, _playerShip, _npcShips, _playerCredits, _reputationManager, _notificationManager);
@@ -1994,6 +1994,16 @@ namespace Roguelancer {
         private void HandleNpcDestroyed(NpcShip destroyedShip) {
             // Trigger explosion effect
             _explosionParticles.TriggerExplosion(destroyedShip.Position, destroyedShip.Velocity, intensity: 1.0f);
+
+            if (destroyedShip.TrafficBehavior == TrafficZoneBehaviorType.PirateAmbush &&
+                destroyedShip.EncounterState == TrafficEncounterState.AttackingTrader)
+            {
+                _reputationManager?.AddReputation(FactionManager.NeutralCivilians, 0.04f, "pirate ambush defense");
+                _reputationManager?.AddReputation(FactionManager.LibertyPolice, 0.02f, "pirate ambush defense");
+                _playerCredits?.AddCredits(100);
+                _notificationManager?.ShowMessage("Pirate destroyed");
+                Console.WriteLine($"[TRAFFIC] Pirate destroyed: {destroyedShip.Name}");
+            }
 
             // Create a wreck where the NPC ship was destroyed
             if (_wreckModel != null) {

@@ -16,6 +16,18 @@ namespace Roguelancer
     }
 
     /// <summary>
+    /// Compact encounter states layered on top of the ambient traffic behavior.
+    /// </summary>
+    public enum TrafficEncounterState
+    {
+        Cruising,
+        Fleeing,
+        AttackingTrader,
+        AttackingPlayer,
+        InterceptingPirate
+    }
+
+    /// <summary>
     /// NPC ship with simple patrol behavior
     /// </summary>
     public class NpcShip : SpaceObject
@@ -35,6 +47,10 @@ namespace Roguelancer
         public float TrafficLoiterRadius { get; private set; } = 900f;
         public Vector3? TrafficRouteStart { get; private set; }
         public Vector3? TrafficRouteEnd { get; private set; }
+        public TrafficEncounterState EncounterState { get; private set; } = TrafficEncounterState.Cruising;
+        public Vector3? EncounterTargetPosition { get; private set; }
+        public Vector3? EncounterEscapePosition { get; private set; }
+        public bool IsTrafficEngaged => EncounterState != TrafficEncounterState.Cruising;
 
         // Hull integrity
         public HullIntegrity Hull { get; private set; }
@@ -122,6 +138,7 @@ namespace Roguelancer
             TrafficRouteStart = routeStart;
             TrafficRouteEnd = routeEnd;
             _trafficRouteHoldTimer = 0f;
+            ClearEncounterState();
 
             if (routeStart.HasValue && routeEnd.HasValue)
             {
@@ -135,6 +152,20 @@ namespace Roguelancer
                     _trafficRouteTowardEnd = false;
                 }
             }
+        }
+
+        public void SetEncounterState(TrafficEncounterState encounterState, Vector3? targetPosition = null, Vector3? escapePosition = null)
+        {
+            EncounterState = encounterState;
+            EncounterTargetPosition = targetPosition;
+            EncounterEscapePosition = escapePosition;
+        }
+
+        public void ClearEncounterState()
+        {
+            EncounterState = TrafficEncounterState.Cruising;
+            EncounterTargetPosition = null;
+            EncounterEscapePosition = null;
         }
         
         public void Update(GameTime gameTime, DamageSmokeParticles damageSmoke, Ship playerShip = null, ReputationManager reputationManager = null)
@@ -170,7 +201,19 @@ namespace Roguelancer
             {
                 damageSmoke?.Emit(Position - Forward * 15, Velocity, damageStage);
             }
-            
+
+            switch (EncounterState)
+            {
+                case TrafficEncounterState.Fleeing:
+                    UpdateFleeBehavior(deltaTime);
+                    return;
+                case TrafficEncounterState.AttackingTrader:
+                case TrafficEncounterState.AttackingPlayer:
+                case TrafficEncounterState.InterceptingPirate:
+                    UpdateEngagementBehavior(deltaTime);
+                    return;
+            }
+
             switch (TrafficBehavior)
             {
                 case TrafficZoneBehaviorType.TraderRoute:
@@ -281,6 +324,59 @@ namespace Roguelancer
 
             Velocity = Forward * Speed;
             Position += Velocity * deltaTime;
+        }
+
+        private void UpdateFleeBehavior(float deltaTime)
+        {
+            Vector3 fleeTarget;
+            if (EncounterEscapePosition.HasValue)
+            {
+                fleeTarget = EncounterEscapePosition.Value;
+            }
+            else if (TrafficRouteStart.HasValue && TrafficRouteEnd.HasValue)
+            {
+                if (EncounterTargetPosition.HasValue)
+                {
+                    fleeTarget = Vector3.DistanceSquared(EncounterTargetPosition.Value, TrafficRouteStart.Value) >= Vector3.DistanceSquared(EncounterTargetPosition.Value, TrafficRouteEnd.Value)
+                        ? TrafficRouteStart.Value
+                        : TrafficRouteEnd.Value;
+                }
+                else
+                {
+                    fleeTarget = Vector3.DistanceSquared(Position, TrafficRouteStart.Value) >= Vector3.DistanceSquared(Position, TrafficRouteEnd.Value)
+                        ? TrafficRouteStart.Value
+                        : TrafficRouteEnd.Value;
+                }
+            }
+            else
+            {
+                Vector3 awayDirection = EncounterTargetPosition.HasValue ? Position - EncounterTargetPosition.Value : Forward;
+                if (awayDirection.LengthSquared() < 0.0001f)
+                {
+                    awayDirection = Vector3.Forward;
+                }
+                else
+                {
+                    awayDirection = Vector3.Normalize(awayDirection);
+                }
+
+                fleeTarget = Position + awayDirection * Math.Max(1800f, TrafficCruiseSpeed * 8f);
+            }
+
+            MoveTowardTarget(fleeTarget, TrafficCruiseSpeed * 1.45f, deltaTime, 2.35f);
+        }
+
+        private void UpdateEngagementBehavior(float deltaTime)
+        {
+            Vector3 targetPosition = EncounterTargetPosition ?? TrafficRouteEnd ?? TrafficRouteStart ?? _patrolCenter;
+            float speed = Math.Max(TrafficCruiseSpeed * 1.2f, 160f);
+
+            if (EncounterState == TrafficEncounterState.InterceptingPirate)
+            {
+                speed = Math.Max(speed, 220f);
+            }
+
+            MoveTowardTarget(targetPosition, speed, deltaTime, 2.0f);
         }
 
         private void UpdatePirateAmbushBehavior(float deltaTime, Ship playerShip, ReputationManager reputationManager)

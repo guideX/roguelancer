@@ -33,6 +33,9 @@ namespace Roguelancer
             RunCase(ValidateLawfulPatrolSpawn, "lawful patrol spawn", ref passed, ref failed);
             RunCase(ValidateTraderRouteSpawn, "trader route spawn", ref passed, ref failed);
             RunCase(ValidatePirateAmbushSpawn, "pirate ambush spawn", ref passed, ref failed);
+            RunCase(ValidatePirateAttacksTrader, "pirate attacks trader", ref passed, ref failed);
+            RunCase(ValidateTraderFlees, "trader flees", ref passed, ref failed);
+            RunCase(ValidatePatrolInterceptsPirate, "patrol intercepts pirate", ref passed, ref failed);
             RunCase(ValidateSpawnCapsAndDespawnSafety, "spawn caps/despawn", ref passed, ref failed);
 
             Console.WriteLine($"[TRAFFIC SMOKE] RESULT: {passed} passed, {failed} failed");
@@ -147,6 +150,11 @@ namespace Roguelancer
                 return Fail("trader route ship behavior was not configured correctly");
             }
 
+            if (ship.EncounterState != TrafficEncounterState.Cruising)
+            {
+                return Fail("trader route ship did not start cruising");
+            }
+
             return Pass();
         }
 
@@ -176,6 +184,11 @@ namespace Roguelancer
                 return Fail("pirate ambush ship behavior was not configured correctly");
             }
 
+            if (ship.EncounterState != TrafficEncounterState.Cruising)
+            {
+                return Fail("pirate ambush ship did not start cruising");
+            }
+
             PoliceScanSystem scanSystem = new PoliceScanSystem();
             Ship player = new Ship(Vector3.Zero);
             PlayerCredits credits = new PlayerCredits(10_000);
@@ -191,6 +204,90 @@ namespace Roguelancer
             if (scanSystem.State != PoliceScanState.Idle)
             {
                 return Fail("non-lawful pirate traffic triggered a police scan");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidatePirateAttacksTrader()
+        {
+            var traffic = CreateTrafficManager(out Ship player, out ReputationManager reputationManager, out _);
+            NpcShip trader = GetFirstActiveShip(traffic, TrafficZoneBehaviorType.TraderRoute);
+            NpcShip pirate = GetFirstActiveShip(traffic, TrafficZoneBehaviorType.PirateAmbush);
+            NpcShip patrol = GetFirstActiveShip(traffic, TrafficZoneBehaviorType.LawfulPatrol);
+
+            if (trader == null || pirate == null || patrol == null)
+            {
+                return Fail("missing traffic ships for interaction scene");
+            }
+
+            ArrangePirateTraderScene(player, trader, pirate, patrol);
+
+            RunSilenced(() => AdvanceTrafficFrame(traffic, player, reputationManager, new List<NpcShip> { trader, pirate, patrol }, 0.5f, 2));
+
+            if (pirate.EncounterState != TrafficEncounterState.AttackingTrader)
+            {
+                return Fail("pirate did not select a trader target");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateTraderFlees()
+        {
+            var traffic = CreateTrafficManager(out Ship player, out ReputationManager reputationManager, out _);
+            NpcShip trader = GetFirstActiveShip(traffic, TrafficZoneBehaviorType.TraderRoute);
+            NpcShip pirate = GetFirstActiveShip(traffic, TrafficZoneBehaviorType.PirateAmbush);
+            NpcShip patrol = GetFirstActiveShip(traffic, TrafficZoneBehaviorType.LawfulPatrol);
+
+            if (trader == null || pirate == null || patrol == null)
+            {
+                return Fail("missing traffic ships for trader flee scene");
+            }
+
+            ArrangePirateTraderScene(player, trader, pirate, patrol);
+
+            RunSilenced(() => AdvanceTrafficFrame(traffic, player, reputationManager, new List<NpcShip> { trader, pirate, patrol }, 0.5f, 2));
+
+            if (trader.EncounterState != TrafficEncounterState.Fleeing)
+            {
+                return Fail("trader did not enter flee behavior");
+            }
+
+            if (trader.EncounterEscapePosition == null)
+            {
+                return Fail("trader flee behavior did not pick an escape destination");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidatePatrolInterceptsPirate()
+        {
+            var traffic = CreateTrafficManager(out Ship player, out ReputationManager reputationManager, out _);
+            NpcShip trader = GetFirstActiveShip(traffic, TrafficZoneBehaviorType.TraderRoute);
+            NpcShip pirate = GetFirstActiveShip(traffic, TrafficZoneBehaviorType.PirateAmbush);
+            NpcShip patrol = GetFirstActiveShip(traffic, TrafficZoneBehaviorType.LawfulPatrol);
+
+            if (trader == null || pirate == null || patrol == null)
+            {
+                return Fail("missing traffic ships for patrol intercept scene");
+            }
+
+            player.Position = new Vector3(100000f, 0f, 0f);
+            player.Velocity = Vector3.Zero;
+            trader.Position = new Vector3(60000f, 0f, 0f);
+            trader.Velocity = Vector3.Zero;
+            pirate.Position = Vector3.Zero;
+            pirate.Velocity = Vector3.Zero;
+            patrol.Position = new Vector3(900f, 0f, 0f);
+            patrol.Velocity = Vector3.Zero;
+
+            RunSilenced(() => AdvanceTrafficFrame(traffic, player, reputationManager, new List<NpcShip> { trader, pirate, patrol }, 0.5f, 2));
+
+            if (patrol.EncounterState != TrafficEncounterState.InterceptingPirate)
+            {
+                return Fail("lawful patrol did not intercept the pirate");
             }
 
             return Pass();
@@ -257,6 +354,46 @@ namespace Roguelancer
             });
 
             return traffic;
+        }
+
+        private static NpcShip GetFirstActiveShip(TrafficManager traffic, TrafficZoneBehaviorType behaviorType)
+        {
+            TrafficZoneConfig zone = traffic.LoadedZones.FirstOrDefault(z => z.BehaviorType == behaviorType);
+            if (zone == null)
+            {
+                return null;
+            }
+
+            return traffic.GetActiveShipsForZone(zone.Id).FirstOrDefault();
+        }
+
+        private static void ArrangePirateTraderScene(Ship player, NpcShip trader, NpcShip pirate, NpcShip patrol)
+        {
+            player.Position = new Vector3(100000f, 0f, 0f);
+            player.Velocity = Vector3.Zero;
+
+            trader.Position = Vector3.Zero;
+            trader.Velocity = Vector3.Zero;
+
+            pirate.Position = new Vector3(1100f, 0f, 0f);
+            pirate.Velocity = Vector3.Zero;
+
+            patrol.Position = new Vector3(-100000f, 0f, 0f);
+            patrol.Velocity = Vector3.Zero;
+        }
+
+        private static void AdvanceTrafficFrame(TrafficManager traffic, Ship player, ReputationManager reputationManager, IReadOnlyList<NpcShip> ships, float deltaSeconds, int frameCount)
+        {
+            GameTime frameTime = CreateGameTime(deltaSeconds);
+            for (int i = 0; i < frameCount; i++)
+            {
+                traffic.Update(frameTime, player, reputationManager);
+
+                foreach (NpcShip ship in ships)
+                {
+                    ship?.Update(frameTime, null, player, reputationManager);
+                }
+            }
         }
 
         private static GameTime CreateGameTime(float deltaSeconds)

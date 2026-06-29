@@ -27,6 +27,10 @@ namespace Roguelancer
             public float CombatHoldTimer { get; set; }
         }
 
+        private const float TraderFleeHoldSeconds = 8f;
+        private const float PirateAttackHoldSeconds = 12f;
+        private const float PatrolInterceptHoldSeconds = 10f;
+
         private readonly ConfigurationManager _config;
         private readonly List<NpcShip> _npcShips;
         private readonly List<SpaceObject> _spaceObjects;
@@ -106,6 +110,9 @@ namespace Roguelancer
             }
 
             float deltaTime = Math.Max(0f, (float)gameTime.ElapsedGameTime.TotalSeconds);
+
+            UpdateTrafficInteractions(playerShip, reputationManager, log, deltaTime);
+
             foreach (TrafficZoneRuntime runtime in _zonesById.Values)
             {
                 if (runtime.Zone == null)
@@ -114,7 +121,6 @@ namespace Roguelancer
                 }
 
                 CleanupRuntime(runtime, log);
-                UpdateCombatHolds(runtime, playerShip, reputationManager, deltaTime);
                 DespawnInactiveTraffic(runtime, playerShip, reputationManager, log);
                 SpawnTrafficIfNeeded(runtime, log, deltaTime);
             }
@@ -197,6 +203,303 @@ namespace Roguelancer
             }
         }
 
+        private void UpdateTrafficInteractions(Ship playerShip, ReputationManager reputationManager, Action<string> log, float deltaTime)
+        {
+            if (_npcShips.Count == 0)
+            {
+                return;
+            }
+
+            List<NpcShip> traderShips = new();
+            List<NpcShip> pirateShips = new();
+            List<NpcShip> patrolShips = new();
+
+            for (int i = 0; i < _npcShips.Count; i++)
+            {
+                NpcShip ship = _npcShips[i];
+                if (ship == null || ship.IsDestroyed)
+                {
+                    continue;
+                }
+
+                if (ship.TrafficBehavior == TrafficZoneBehaviorType.TraderRoute)
+                {
+                    traderShips.Add(ship);
+                }
+                else if (ship.TrafficBehavior == TrafficZoneBehaviorType.PirateAmbush)
+                {
+                    pirateShips.Add(ship);
+                }
+                else if (ship.TrafficBehavior == TrafficZoneBehaviorType.LawfulPatrol)
+                {
+                    patrolShips.Add(ship);
+                }
+            }
+
+            UpdatePirateEngagements(pirateShips, traderShips, playerShip, reputationManager, log, deltaTime);
+            UpdateTraderEscapes(traderShips, pirateShips, log, deltaTime);
+            UpdatePatrolIntercepts(patrolShips, pirateShips, log, deltaTime);
+        }
+
+        private void UpdateTrafficInteractions(TrafficZoneRuntime runtime, Ship playerShip, ReputationManager reputationManager, Action<string> log, float deltaTime)
+        {
+            if (runtime?.Zone == null)
+            {
+                return;
+            }
+
+            UpdateTrafficInteractions(playerShip, reputationManager, log, deltaTime);
+        }
+
+        private void UpdatePirateEngagements(
+            List<NpcShip> pirateShips,
+            List<NpcShip> traderShips,
+            Ship playerShip,
+            ReputationManager reputationManager,
+            Action<string> log,
+            float deltaTime)
+        {
+            foreach (NpcShip pirate in pirateShips)
+            {
+                if (pirate == null || pirate.IsDestroyed)
+                {
+                    continue;
+                }
+
+                if (!TryGetTrafficRuntime(pirate, out TrafficShipRuntime pirateRuntime, out TrafficZoneRuntime pirateZoneRuntime))
+                {
+                    continue;
+                }
+
+                float pirateRange = Math.Max(6500f, pirateZoneRuntime.Zone.Radius * 1.1f);
+                float pirateRangeSq = pirateRange * pirateRange;
+
+                NpcShip traderTarget = FindNearestTrafficTarget(pirate, traderShips, pirateRangeSq);
+                bool canAttackPlayer = playerShip != null && (reputationManager == null || reputationManager.IsHostile(pirate.FactionId));
+                float playerDistanceSq = canAttackPlayer ? Vector3.DistanceSquared(pirate.Position, playerShip.Position) : float.MaxValue;
+                bool playerInRange = playerDistanceSq <= pirateRangeSq;
+
+                bool shouldTargetTrader = traderTarget != null && (!playerInRange || Vector3.DistanceSquared(pirate.Position, traderTarget.Position) <= playerDistanceSq);
+                if (playerInRange && canAttackPlayer && !shouldTargetTrader)
+                {
+                    SetEncounterState(pirate, TrafficEncounterState.AttackingPlayer, playerShip.Position, null, log,
+                        $"[TRAFFIC] Pirate ambush started: {pirate.Name} targeting player.");
+                    RefreshHold(pirateRuntime, PirateAttackHoldSeconds);
+                    continue;
+                }
+
+                if (traderTarget != null)
+                {
+                    Vector3 escapePosition = GetTraderEscapePosition(pirateZoneRuntime.Zone, traderTarget, pirate.Position);
+                    SetEncounterState(traderTarget, TrafficEncounterState.Fleeing, pirate.Position, escapePosition, log,
+                        $"[TRAFFIC] Trader under attack: {traderTarget.Name} fleeing {pirate.Name}.");
+                    if (TryGetTrafficRuntime(traderTarget, out TrafficShipRuntime traderRuntime, out TrafficZoneRuntime traderZoneRuntime))
+                    {
+                        RefreshHold(traderRuntime, TraderFleeHoldSeconds);
+                    }
+
+                    SetEncounterState(pirate, TrafficEncounterState.AttackingTrader, traderTarget.Position, null, log,
+                        $"[TRAFFIC] Pirate ambush started: {pirate.Name} targeting trader {traderTarget.Name}.");
+                    RefreshHold(pirateRuntime, PirateAttackHoldSeconds);
+                    continue;
+                }
+
+                TickEncounterHold(pirateRuntime, pirate, deltaTime, log, $"[TRAFFIC] Pirate broke off pursuit: {pirate.Name}.");
+            }
+        }
+
+        private void UpdateTraderEscapes(
+            List<NpcShip> traderShips,
+            List<NpcShip> pirateShips,
+            Action<string> log,
+            float deltaTime)
+        {
+            foreach (NpcShip trader in traderShips)
+            {
+                if (trader == null || trader.IsDestroyed)
+                {
+                    continue;
+                }
+
+                if (!TryGetTrafficRuntime(trader, out TrafficShipRuntime traderRuntime, out TrafficZoneRuntime traderZoneRuntime))
+                {
+                    continue;
+                }
+
+                float traderThreatRange = Math.Max(5000f, traderZoneRuntime.Zone.Radius * 1.0f);
+                float traderThreatRangeSq = traderThreatRange * traderThreatRange;
+
+                NpcShip nearestPirate = FindNearestTrafficTarget(trader, pirateShips, traderThreatRangeSq);
+                if (nearestPirate != null)
+                {
+                    Vector3 escapePosition = GetTraderEscapePosition(traderZoneRuntime.Zone, trader, nearestPirate.Position);
+                    SetEncounterState(trader, TrafficEncounterState.Fleeing, nearestPirate.Position, escapePosition, log,
+                        $"[TRAFFIC] Trader under attack: {trader.Name} fleeing {nearestPirate.Name}.");
+                    RefreshHold(traderRuntime, TraderFleeHoldSeconds);
+                    continue;
+                }
+
+                if (trader.EncounterState == TrafficEncounterState.Fleeing)
+                {
+                    TickEncounterHold(traderRuntime, trader, deltaTime, log, $"[TRAFFIC] Trader escaped: {trader.Name}.");
+                }
+            }
+        }
+
+        private void UpdatePatrolIntercepts(
+            List<NpcShip> patrolShips,
+            List<NpcShip> pirateShips,
+            Action<string> log,
+            float deltaTime)
+        {
+            foreach (NpcShip patrol in patrolShips)
+            {
+                if (patrol == null || patrol.IsDestroyed)
+                {
+                    continue;
+                }
+
+                if (!TryGetTrafficRuntime(patrol, out TrafficShipRuntime patrolRuntime, out TrafficZoneRuntime patrolZoneRuntime))
+                {
+                    continue;
+                }
+
+                float interceptRange = Math.Max(7000f, patrolZoneRuntime.Zone.Radius * 1.15f);
+                float interceptRangeSq = interceptRange * interceptRange;
+
+                NpcShip pirateTarget = FindNearestTrafficTarget(patrol, pirateShips, interceptRangeSq);
+                if (pirateTarget != null)
+                {
+                    SetEncounterState(patrol, TrafficEncounterState.InterceptingPirate, pirateTarget.Position, null, log,
+                        $"[TRAFFIC] Police engaging pirate: {patrol.Name} intercepting {pirateTarget.Name}.");
+                    RefreshHold(patrolRuntime, PatrolInterceptHoldSeconds);
+                    continue;
+                }
+
+                if (patrol.EncounterState == TrafficEncounterState.InterceptingPirate)
+                {
+                    TickEncounterHold(patrolRuntime, patrol, deltaTime, log, $"[TRAFFIC] Police disengaged: {patrol.Name}.");
+                }
+            }
+        }
+
+        private static NpcShip FindNearestTrafficTarget(NpcShip source, IReadOnlyList<NpcShip> candidates, float maxDistanceSq)
+        {
+            if (source == null || candidates == null || candidates.Count == 0)
+            {
+                return null;
+            }
+
+            NpcShip nearest = null;
+            float nearestDistanceSq = maxDistanceSq;
+
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                NpcShip candidate = candidates[i];
+                if (candidate == null || candidate == source || candidate.IsDestroyed)
+                {
+                    continue;
+                }
+
+                float distanceSq = Vector3.DistanceSquared(source.Position, candidate.Position);
+                if (distanceSq <= nearestDistanceSq)
+                {
+                    nearestDistanceSq = distanceSq;
+                    nearest = candidate;
+                }
+            }
+
+            return nearest;
+        }
+
+        private static Vector3 GetTraderEscapePosition(TrafficZoneConfig zone, NpcShip trader, Vector3 attackerPosition)
+        {
+            if (zone?.RouteStart.HasValue == true && zone.RouteEnd.HasValue)
+            {
+                Vector3 routeStart = zone.RouteStart.Value;
+                Vector3 routeEnd = zone.RouteEnd.Value;
+                return Vector3.DistanceSquared(attackerPosition, routeStart) >= Vector3.DistanceSquared(attackerPosition, routeEnd)
+                    ? routeStart
+                    : routeEnd;
+            }
+
+            Vector3 awayDirection = trader != null ? trader.Position - attackerPosition : Vector3.Zero;
+            if (awayDirection.LengthSquared() < 0.0001f)
+            {
+                awayDirection = Vector3.Forward;
+            }
+            else
+            {
+                awayDirection.Normalize();
+            }
+
+            Vector3 zoneCenter = zone != null ? zone.Center : Vector3.Zero;
+            float escapeDistance = Math.Max(2000f, zone?.Radius > 0f ? zone.Radius : 2000f);
+            return zoneCenter + awayDirection * escapeDistance;
+        }
+
+        private void SetEncounterState(NpcShip ship, TrafficEncounterState state, Vector3? targetPosition, Vector3? escapePosition, Action<string> log, string message)
+        {
+            if (ship == null || ship.IsDestroyed)
+            {
+                return;
+            }
+
+            TrafficEncounterState previousState = ship.EncounterState;
+            ship.SetEncounterState(state, targetPosition, escapePosition);
+            if (previousState != state && !string.IsNullOrWhiteSpace(message))
+            {
+                log?.Invoke(message);
+            }
+        }
+
+        private bool TryGetTrafficRuntime(NpcShip ship, out TrafficShipRuntime shipRuntime, out TrafficZoneRuntime zoneRuntime)
+        {
+            shipRuntime = null;
+            zoneRuntime = null;
+
+            if (ship == null || ship.IsDestroyed || !_shipRuntimes.TryGetValue(ship, out shipRuntime))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(shipRuntime.ZoneId) || !_zonesById.TryGetValue(shipRuntime.ZoneId, out zoneRuntime))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private void RefreshHold(TrafficShipRuntime shipRuntime, float holdSeconds)
+        {
+            if (shipRuntime == null)
+            {
+                return;
+            }
+
+            shipRuntime.CombatHoldTimer = Math.Max(shipRuntime.CombatHoldTimer, holdSeconds);
+        }
+
+        private void TickEncounterHold(TrafficShipRuntime shipRuntime, NpcShip ship, float deltaTime, Action<string> log, string escapeMessage)
+        {
+            if (shipRuntime == null || ship == null || ship.IsDestroyed)
+            {
+                return;
+            }
+
+            shipRuntime.CombatHoldTimer = Math.Max(0f, shipRuntime.CombatHoldTimer - deltaTime);
+            if (shipRuntime.CombatHoldTimer <= 0f && ship.EncounterState != TrafficEncounterState.Cruising)
+            {
+                TrafficEncounterState previousState = ship.EncounterState;
+                ship.ClearEncounterState();
+                if (previousState == TrafficEncounterState.Fleeing || previousState == TrafficEncounterState.InterceptingPirate)
+                {
+                    log?.Invoke(escapeMessage);
+                }
+            }
+        }
+
         private void UpdateCombatHolds(TrafficZoneRuntime runtime, Ship playerShip, ReputationManager reputationManager, float deltaTime)
         {
             if (playerShip == null)
@@ -256,7 +559,7 @@ namespace Roguelancer
                 }
 
                 bool hostile = reputationManager?.IsHostile(ship.FactionId) == true;
-                if (ship.TrafficLifetimeSeconds > 0f && ship.TrafficAgeSeconds >= ship.TrafficLifetimeSeconds && shipRuntime.CombatHoldTimer <= 0f)
+                if (ship.TrafficLifetimeSeconds > 0f && ship.TrafficAgeSeconds >= ship.TrafficLifetimeSeconds && shipRuntime.CombatHoldTimer <= 0f && !ship.IsTrafficEngaged)
                 {
                     ReleaseShip(runtime, ship, log, "lifetime");
                     continue;
@@ -268,7 +571,7 @@ namespace Roguelancer
                 }
 
                 float distanceToPlayer = Vector3.Distance(ship.Position, playerShip.Position);
-                if (distanceToPlayer >= despawnDistance && shipRuntime.CombatHoldTimer <= 0f && (!hostile || distanceToPlayer > despawnDistance * 0.5f))
+                if (distanceToPlayer >= despawnDistance && shipRuntime.CombatHoldTimer <= 0f && !ship.IsTrafficEngaged && (!hostile || distanceToPlayer > despawnDistance * 0.5f))
                 {
                     ReleaseShip(runtime, ship, log, "far");
                 }
