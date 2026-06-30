@@ -32,6 +32,12 @@ namespace Roguelancer
             return string.IsNullOrWhiteSpace(factionId) ? NeutralCivilians : factionId.Trim();
         }
 
+        public static string GetFactionDisplayName(string? factionId)
+        {
+            string normalized = NormalizeFactionId(factionId);
+            return PrettyDisplayName(normalized);
+        }
+
         public static string CoalesceFactionId(params string?[] factionIds)
         {
             foreach (string? factionId in factionIds)

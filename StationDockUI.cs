@@ -45,6 +45,7 @@ namespace Roguelancer
         // Job board system
         private JobBoard _jobBoard;
         private MissionManager _missionManager;
+        private MissionWorldManager _missionWorldManager;
         private ReputationManager _reputationManager;
         public string LastDockingDeniedReason { get; private set; } = string.Empty;
 
@@ -74,6 +75,11 @@ namespace Roguelancer
         public void SetNotificationManager(NotificationManager? notificationManager)
         {
             _notificationManager = notificationManager;
+        }
+
+        public void SetMissionWorldManager(MissionWorldManager missionWorldManager)
+        {
+            _missionWorldManager = missionWorldManager;
         }
 
         /// <summary>
@@ -121,7 +127,7 @@ namespace Roguelancer
             {
                 foreach (var npc in _barNpcs)
                 {
-                    npc.CurrentMission = _missionManager.GenerateRandomMission(npc.FactionId);
+                    npc.CurrentMission = _missionManager.GenerateRandomMission(npc.FactionId, station);
                     npc.CurrentMission.OfferedBy = npc.Name;
                 }
             }
@@ -133,9 +139,10 @@ namespace Roguelancer
                 }
             }
 
-            _jobBoard?.RefreshMissions(6, _dockedStation?.FactionId);
+            _jobBoard?.RefreshMissions(6, _dockedStation?.FactionId, _dockedStation);
 
             // Notify mission manager we docked (for delivery missions)
+            _missionWorldManager?.NotifyStationDocked(station);
             _missionManager?.NotifyArrivedAtStation(station.Name);
 
             Console.WriteLine($"[DOCK] Docked at {station.Name}");
@@ -1141,13 +1148,13 @@ namespace Roguelancer
             }
             else
             {
-                int yOffset = 150;
+                int yOffset = 145;
                 for (int i = 0; i < missions.Count; i++)
                 {
                     var mission = missions[i];
                     bool isSelected = (i == _jobBoard.SelectedIndex);
 
-                    Rectangle mPanel = new Rectangle(centerX - 420, yOffset - 5, 840, 70);
+                    Rectangle mPanel = new Rectangle(centerX - 440, yOffset - 5, 880, 98);
                     Color pColor = isSelected ? Color.Lime * 0.2f : Color.DarkGray * 0.2f;
                     spriteBatch.Draw(_pixel, mPanel, pColor);
 
@@ -1165,22 +1172,28 @@ namespace Roguelancer
 
                     string typeTag = $"[{mission.Type.ToString().ToUpper()}]";
                     spriteBatch.DrawString(_font, typeTag, new Vector2(mPanel.X + 10, yOffset), typeColor);
-                    spriteBatch.DrawString(_font, mission.Description, new Vector2(mPanel.X + 120, yOffset), isSelected ? Color.White : Color.LightGray);
+                    spriteBatch.DrawString(_font, mission.GetObjectiveText(), new Vector2(mPanel.X + 120, yOffset), isSelected ? Color.White : Color.LightGray);
 
-                    string diffStr = mission.Difficulty.ToString();
-                    string rewardStr = $"{mission.Reward:N0} CR";
-                    string timeStr = mission.TimeLimit > 0 ? $"  Time: {mission.TimeLimit:F0}s" : "";
-                    spriteBatch.DrawString(_font, $"{diffStr} | {rewardStr}{timeStr}",
-                        new Vector2(mPanel.X + 120, yOffset + 25), Color.Yellow * 0.8f);
+                    string clientLine = $"Client: {mission.GetClientLabel()} | Faction: {FactionManager.GetFactionDisplayName(mission.FactionId)}";
+                    string rewardLine = $"Reward: {mission.Reward:N0} CR | Risk: {mission.GetRiskLabel()}";
+                    string detailLine = mission.Type == MissionType.Delivery
+                        ? $"Destination: {mission.GetDestinationLabel()}"
+                        : mission.Type == MissionType.Bounty
+                            ? $"Target: {mission.GetTargetLabel()}"
+                            : $"Route: {mission.GetTargetLabel()} -> {mission.GetDestinationLabel()}";
+
+                    spriteBatch.DrawString(_font, detailLine, new Vector2(mPanel.X + 120, yOffset + 26), Color.LightGreen * 0.95f);
+                    spriteBatch.DrawString(_font, $"{clientLine}", new Vector2(mPanel.X + 120, yOffset + 48), Color.Cyan * 0.9f);
+                    spriteBatch.DrawString(_font, rewardLine, new Vector2(mPanel.X + 120, yOffset + 70), Color.Yellow * 0.85f);
 
                     if (isSelected)
                     {
                         string acceptText = "[ENTER] Accept";
                         Vector2 accSize = _font.MeasureString(acceptText);
-                        spriteBatch.DrawString(_font, acceptText, new Vector2(mPanel.Right - accSize.X - 10, yOffset + 20), Color.Lime);
+                        spriteBatch.DrawString(_font, acceptText, new Vector2(mPanel.Right - accSize.X - 10, yOffset + 36), Color.Lime);
                     }
 
-                    yOffset += 80;
+                    yOffset += 108;
                 }
             }
 
@@ -1203,7 +1216,7 @@ namespace Roguelancer
             int panelY = 110;
             int panelWidth = 350;
             int lineHeight = 22;
-            int panelHeight = 30 + activeMissions.Count * (lineHeight * 2 + 10);
+            int panelHeight = 30 + activeMissions.Count * (lineHeight * 3 + 12);
 
             Rectangle panel = new Rectangle(panelX, panelY, panelWidth, panelHeight);
             spriteBatch.Draw(_pixel, panel, Color.Black * 0.7f);
@@ -1222,13 +1235,19 @@ namespace Roguelancer
                     _ => Color.White
                 };
 
-                spriteBatch.DrawString(_font, $"[{m.Type}] {m.Description}", new Vector2(panelX + 10, yOff), typeColor);
+                spriteBatch.DrawString(_font, $"[{m.GetTypeLabel()}] {m.GetObjectiveText()}", new Vector2(panelX + 10, yOff), typeColor);
                 yOff += lineHeight;
 
-                string detailStr = $"  Reward: {m.Reward:N0} CR";
-                if (m.TimeLimit > 0)
-                    detailStr += $" | Time: {m.TimeRemaining:F0}s";
+                string detailStr = $"  Client: {m.GetClientLabel()} | Faction: {FactionManager.GetFactionDisplayName(m.FactionId)}";
                 spriteBatch.DrawString(_font, detailStr, new Vector2(panelX + 10, yOff), Color.LightGray * 0.8f);
+                yOff += lineHeight;
+
+                string rewardStr = $"  Reward: {m.Reward:N0} CR | Risk: {m.GetRiskLabel()}";
+                if (m.TimeLimit > 0)
+                {
+                    rewardStr += $" | Time: {m.TimeRemaining:F0}s";
+                }
+                spriteBatch.DrawString(_font, rewardStr, new Vector2(panelX + 10, yOff), Color.LightGray * 0.8f);
                 yOff += lineHeight + 10;
             }
         }

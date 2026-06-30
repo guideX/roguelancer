@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Microsoft.Xna.Framework;
 
 namespace Roguelancer
 {
@@ -15,6 +17,7 @@ namespace Roguelancer
         private NotificationManager _notificationManager;
         private MissionWaypointSystem _waypointSystem;
         private ReputationManager _reputationManager;
+        private MissionWorldManager _worldManager;
 
         // Mission generation data
         private static readonly string[] DeliveryTargets = {
@@ -24,8 +27,8 @@ namespace Roguelancer
         };
 
         private static readonly string[] DeliveryDestinations = {
-            "Manhattan", "Rotor Nexus", "P887 Station",
-            "Rochester Base", "Norfolk Shipyard", "West Point",
+            "Fort Bush", "Trenton Outpost", "Newark Station",
+            "Rochester Base", "Norfolk Shipyard", "West Point Military Academy",
             "Detroit Munitions", "Battleship Missouri", "Buffalo Base"
         };
 
@@ -63,6 +66,11 @@ namespace Roguelancer
             _waypointSystem = waypointSystem;
         }
 
+        public void SetWorldManager(MissionWorldManager worldManager)
+        {
+            _worldManager = worldManager;
+        }
+
         /// <summary>
         /// Clear all mission state and unregister any active waypoints.
         /// </summary>
@@ -75,6 +83,7 @@ namespace Roguelancer
 
             _activeMissions.Clear();
             _completedMissions.Clear();
+            _worldManager?.ClearState();
         }
 
         /// <summary>
@@ -123,11 +132,12 @@ namespace Roguelancer
         /// <summary>
         /// Generate a single random mission
         /// </summary>
-        public Mission GenerateRandomMission(string factionId = null)
+        public Mission GenerateRandomMission(string factionId = null, Station originStation = null)
         {
-            MissionType type = (MissionType)_random.Next(3);
             MissionDifficulty difficulty = (MissionDifficulty)_random.Next(4);
-
+            IReadOnlyList<Station> loadedStations = _worldManager?.GetKnownStations() ?? Array.Empty<Station>();
+            bool canGenerateDelivery = loadedStations.Count > 0;
+            MissionType type = PickMissionType(canGenerateDelivery);
             int baseReward = difficulty switch
             {
                 MissionDifficulty.Easy => _random.Next(500, 2000),
@@ -149,23 +159,38 @@ namespace Roguelancer
             string target;
             string destination;
             string description;
+            int reward = baseReward;
+            string offeredBy = originStation?.Name ?? FactionManager.GetFactionDisplayName(factionId);
 
             switch (type)
             {
                 case MissionType.Delivery:
-                    target = DeliveryTargets[_random.Next(DeliveryTargets.Length)];
-                    destination = DeliveryDestinations[_random.Next(DeliveryDestinations.Length)];
+                    target = PickDeliveryCargo(difficulty);
+                    Station deliveryOrigin = originStation ?? loadedStations[_random.Next(loadedStations.Count)];
+                    Station deliveryDestination = PickDeliveryDestination(deliveryOrigin, loadedStations);
+                    destination = deliveryDestination?.Name ?? "Destination unavailable";
                     description = $"Deliver {target} to {destination}";
+                    reward += CalculateDeliveryRewardBonus(difficulty, deliveryOrigin, deliveryDestination);
                     break;
                 case MissionType.Bounty:
-                    target = BountyTargets[_random.Next(BountyTargets.Length)];
-                    destination = "Last seen near " + DeliveryDestinations[_random.Next(DeliveryDestinations.Length)];
+                    target = PickBountyTarget(difficulty);
+                    Station bountyLocation = loadedStations.Count > 0
+                        ? loadedStations[_random.Next(loadedStations.Count)]
+                        : null;
+                    destination = bountyLocation != null
+                        ? $"Last seen near {bountyLocation.Name}"
+                        : "Last seen near local traffic lanes";
                     description = $"Destroy {target}";
+                    reward += CalculateBountyRewardBonus(difficulty, target);
                     break;
                 case MissionType.Escort:
                     target = EscortTargets[_random.Next(EscortTargets.Length)];
-                    destination = DeliveryDestinations[_random.Next(DeliveryDestinations.Length)];
-                    description = $"Escort {target} to {destination}";
+                    Station escortDestination = loadedStations.Count > 0
+                        ? loadedStations[_random.Next(loadedStations.Count)]
+                        : null;
+                    destination = escortDestination?.Name ?? "Destination unavailable";
+                    description = $"Escort {target} to {destination} (experimental)";
+                    reward += CalculateEscortRewardBonus(difficulty, escortDestination);
                     break;
                 default:
                     target = "Unknown";
@@ -174,20 +199,156 @@ namespace Roguelancer
                     break;
             }
 
-            return new Mission(type, difficulty, target, destination, baseReward, timeLimit, description, factionId);
+            Mission mission = new Mission(type, difficulty, target, destination, reward, timeLimit, description, factionId)
+            {
+                OfferedBy = offeredBy
+            };
+
+            if (mission.Type == MissionType.Bounty)
+            {
+                mission.BountyTargetFactionId = FactionManager.LibertyRogues;
+            }
+
+            return mission;
         }
 
         /// <summary>
         /// Generate multiple random missions for a job board
         /// </summary>
-        public List<Mission> GenerateJobBoardMissions(int count, string factionId = null)
+        public List<Mission> GenerateJobBoardMissions(int count, string factionId = null, Station originStation = null)
         {
             var missions = new List<Mission>();
             for (int i = 0; i < count; i++)
             {
-                missions.Add(GenerateRandomMission(factionId));
+                missions.Add(GenerateRandomMission(factionId, originStation));
             }
             return missions;
+        }
+
+        private MissionType PickMissionType(bool canGenerateDelivery)
+        {
+            List<MissionType> allowedTypes = new();
+            if (canGenerateDelivery)
+            {
+                allowedTypes.Add(MissionType.Delivery);
+            }
+
+            allowedTypes.Add(MissionType.Bounty);
+            allowedTypes.Add(MissionType.Escort);
+
+            return allowedTypes[_random.Next(allowedTypes.Count)];
+        }
+
+        private string PickDeliveryCargo(MissionDifficulty difficulty)
+        {
+            string[] cargoPool = difficulty switch
+            {
+                MissionDifficulty.Easy => new[] { "Medical Supplies", "Food Rations", "H-Fuel Cells" },
+                MissionDifficulty.Medium => new[] { "Construction Materials", "Engine Components", "Luxury Goods" },
+                MissionDifficulty.Hard => new[] { "Military Hardware", "Side Arms", "Diamonds" },
+                MissionDifficulty.Deadly => new[] { "Military Hardware", "Side Arms", "Diamonds" },
+                _ => DeliveryTargets
+            };
+
+            return cargoPool[_random.Next(cargoPool.Length)];
+        }
+
+        private Station PickDeliveryDestination(Station originStation, IReadOnlyList<Station> stations)
+        {
+            if (stations == null || stations.Count == 0)
+            {
+                return null;
+            }
+
+            List<Station> candidates = stations.Where(station => station != null && !ReferenceEquals(station, originStation)).ToList();
+            if (candidates.Count == 0)
+            {
+                candidates = stations.Where(station => station != null).ToList();
+            }
+
+            if (candidates.Count == 0)
+            {
+                return null;
+            }
+
+            return candidates[_random.Next(candidates.Count)];
+        }
+
+        private string PickBountyTarget(MissionDifficulty difficulty)
+        {
+            string[] targetPool = difficulty switch
+            {
+                MissionDifficulty.Easy => new[] { "Rogue Pilot", "Lane Hacker Scout", "Junker Scavenger" },
+                MissionDifficulty.Medium => new[] { "Pirate Commander", "Outcast Smuggler", "Corsair Raider" },
+                MissionDifficulty.Hard => new[] { "Rogue Wingman", "Nomad Drone", "Xeno Operative" },
+                MissionDifficulty.Deadly => new[] { "Pirate Warlord", "Rogue Enforcer", "Corsair Marauder" },
+                _ => BountyTargets
+            };
+
+            return targetPool[_random.Next(targetPool.Length)];
+        }
+
+        private int CalculateDeliveryRewardBonus(MissionDifficulty difficulty, Station origin, Station destination)
+        {
+            int difficultyBonus = difficulty switch
+            {
+                MissionDifficulty.Easy => 0,
+                MissionDifficulty.Medium => 100,
+                MissionDifficulty.Hard => 250,
+                MissionDifficulty.Deadly => 550,
+                _ => 0
+            };
+
+            if (origin == null || destination == null)
+            {
+                return difficultyBonus;
+            }
+
+            float distance = Vector3.Distance(origin.Position, destination.Position);
+            int distanceBonus = (int)Math.Clamp(distance / 1800f * 120f, 100f, 1800f);
+            return difficultyBonus + distanceBonus;
+        }
+
+        private int CalculateBountyRewardBonus(MissionDifficulty difficulty, string target)
+        {
+            int difficultyBonus = difficulty switch
+            {
+                MissionDifficulty.Easy => 75,
+                MissionDifficulty.Medium => 200,
+                MissionDifficulty.Hard => 500,
+                MissionDifficulty.Deadly => 1100,
+                _ => 100
+            };
+
+            int targetBonus = 0;
+            if (!string.IsNullOrWhiteSpace(target))
+            {
+                string lower = target.ToLowerInvariant();
+                if (lower.Contains("warlord") || lower.Contains("marauder") || lower.Contains("enforcer"))
+                {
+                    targetBonus = 300;
+                }
+                else if (lower.Contains("commander") || lower.Contains("raider"))
+                {
+                    targetBonus = 150;
+                }
+            }
+
+            return difficultyBonus + targetBonus;
+        }
+
+        private int CalculateEscortRewardBonus(MissionDifficulty difficulty, Station destination)
+        {
+            int difficultyBonus = difficulty switch
+            {
+                MissionDifficulty.Easy => 0,
+                MissionDifficulty.Medium => 90,
+                MissionDifficulty.Hard => 220,
+                MissionDifficulty.Deadly => 500,
+                _ => 0
+            };
+
+            return destination != null ? difficultyBonus + 75 : difficultyBonus;
         }
 
         /// <summary>
@@ -201,6 +362,18 @@ namespace Roguelancer
             mission.Status = MissionStatus.Active;
             _activeMissions.Add(mission);
             _waypointSystem?.RegisterMission(mission);
+
+            if (_worldManager != null && !_worldManager.TryAcceptMission(mission, out string failureReason))
+            {
+                _waypointSystem?.UnregisterMission(mission);
+                _activeMissions.Remove(mission);
+                mission.Status = MissionStatus.Available;
+                _worldManager?.OnMissionFinished(mission);
+                _notificationManager?.ShowMessage($"Mission unavailable: {failureReason}", 3f);
+                Console.WriteLine($"[MISSION] Rejected: {mission.GetSummary()} | Reason: {failureReason}");
+                return false;
+            }
+
             _notificationManager?.ShowMessage($"Mission accepted: {mission.Description}", 3f);
             Console.WriteLine($"[MISSION] Accepted: {mission.GetSummary()}");
             return true;
@@ -221,6 +394,7 @@ namespace Roguelancer
             _playerCredits?.AddCredits(mission.Reward);
             _notificationManager?.ShowMessage($"Mission complete! +{mission.Reward:N0} CR", 4f);
             Console.WriteLine($"[MISSION] Completed: {mission.Description} | Reward: {mission.Reward:N0} CR");
+            _worldManager?.OnMissionFinished(mission);
 
             if (_reputationManager != null)
             {
@@ -240,6 +414,7 @@ namespace Roguelancer
             _activeMissions.Remove(mission);
             _completedMissions.Add(mission);
             _waypointSystem?.UnregisterMission(mission);
+            _worldManager?.OnMissionFinished(mission);
 
             _notificationManager?.ShowMessage($"Mission failed: {reason}", 4f);
             Console.WriteLine($"[MISSION] Failed: {mission.Description} | Reason: {reason}");

@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Linq;
 
 namespace Roguelancer
 {
@@ -33,6 +34,7 @@ namespace Roguelancer
             if (waypointSystem == null || _font == null) return;
 
             Viewport viewport = graphicsDevice.Viewport;
+            DrawActiveMissionPanel(spriteBatch, viewport, waypointSystem);
 
             foreach (var kvp in waypointSystem.GuidanceData)
             {
@@ -87,6 +89,60 @@ namespace Roguelancer
                 }
                 break; // Only show for first active mission
             }
+        }
+
+        private void DrawActiveMissionPanel(SpriteBatch spriteBatch, Viewport viewport, MissionWaypointSystem waypointSystem)
+        {
+            var data = waypointSystem.GuidanceData.Values
+                .FirstOrDefault(entry => entry?.Mission != null && entry.Mission.Status == MissionStatus.Active);
+
+            if (data?.Mission == null)
+            {
+                return;
+            }
+
+            string title = "ACTIVE MISSION";
+            string objective = data.Mission.GetObjectiveText();
+            string targetLine = data.Mission.Type switch
+            {
+                MissionType.Bounty => $"Target: {data.Mission.GetTargetLabel()}",
+                MissionType.Delivery => $"Destination: {data.Mission.GetDestinationLabel()}",
+                MissionType.Escort => $"Route: {data.Mission.GetTargetLabel()} -> {data.Mission.GetDestinationLabel()}",
+                _ => data.Mission.GetObjectiveText()
+            };
+            string sourceLine = $"Client: {data.Mission.GetClientLabel()} | Faction: {FactionManager.GetFactionDisplayName(data.Mission.FactionId)}";
+            string rewardLine = $"Reward: {data.Mission.Reward:N0} CR | Risk: {data.Mission.GetRiskLabel()}";
+            string distanceLine = data.ResolvedTarget != null
+                ? $"Distance: {FormatDistance(data.DistanceToTarget)}"
+                : data.Mission.GetHudFallbackLine();
+
+            Vector2 titleSize = _font.MeasureString(title);
+            Vector2 objectiveSize = _font.MeasureString(objective);
+            Vector2 targetSize = _font.MeasureString(targetLine);
+            Vector2 sourceSize = _font.MeasureString(sourceLine);
+            Vector2 rewardSize = _font.MeasureString(rewardLine);
+            Vector2 distanceSize = _font.MeasureString(distanceLine);
+
+            float panelWidth = Math.Max(Math.Max(Math.Max(titleSize.X, objectiveSize.X), Math.Max(targetSize.X, sourceSize.X)), Math.Max(rewardSize.X, distanceSize.X)) + 28f;
+            float panelHeight = titleSize.Y + objectiveSize.Y + targetSize.Y + sourceSize.Y + rewardSize.Y + distanceSize.Y + 24f;
+
+            Rectangle panel = new Rectangle(18, 18, (int)panelWidth, (int)panelHeight);
+            spriteBatch.Draw(_pixel, panel, Color.Black * 0.65f);
+            spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 2), Color.LimeGreen * 0.85f);
+            spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y + panel.Height - 2, panel.Width, 2), Color.LimeGreen * 0.45f);
+
+            Vector2 cursor = new Vector2(panel.X + 12, panel.Y + 8);
+            spriteBatch.DrawString(_font, title, cursor, Color.LimeGreen);
+            cursor.Y += titleSize.Y + 2f;
+            spriteBatch.DrawString(_font, objective, cursor, Color.White);
+            cursor.Y += objectiveSize.Y + 2f;
+            spriteBatch.DrawString(_font, targetLine, cursor, Color.LightGreen);
+            cursor.Y += targetSize.Y + 2f;
+            spriteBatch.DrawString(_font, sourceLine, cursor, Color.Cyan);
+            cursor.Y += sourceSize.Y + 2f;
+            spriteBatch.DrawString(_font, rewardLine, cursor, Color.Yellow);
+            cursor.Y += rewardSize.Y + 2f;
+            spriteBatch.DrawString(_font, distanceLine, cursor, data.ResolvedTarget != null ? Color.Lime : Color.Orange);
         }
 
         private void DrawOnScreenMarker(SpriteBatch spriteBatch, Vector2 screenPos,
@@ -394,11 +450,11 @@ namespace Roguelancer
 
             // Draw label below compass
             string label = data.Mission.Type == MissionType.Bounty
-                ? data.Mission.Target
-                : data.Mission.Destination;
+                ? data.Mission.GetTargetLabel()
+                : data.Mission.GetDestinationLabel();
             if (label.Length > 20) label = label.Substring(0, 17) + "...";
             string distStr = FormatDistance(data.DistanceToTarget);
-            string compassText = $"? {label} - {distStr}";
+            string compassText = $"{data.Mission.GetTypeLabel()} {label} - {distStr}";
 
             Vector2 textSize = _font.MeasureString(compassText);
             Vector2 textPos = new Vector2(viewport.Width / 2f - textSize.X / 2f, compassY + 28f);

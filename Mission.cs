@@ -56,6 +56,7 @@ namespace Roguelancer
         public string Description { get; }
         public string OfferedBy { get; set; }
         public string FactionId { get; set; }
+        public string BountyTargetFactionId { get; set; }
 
         // Progress tracking
         public bool ObjectiveComplete { get; set; }
@@ -81,6 +82,7 @@ namespace Roguelancer
             Description = description;
             OfferedBy = "";
             FactionId = FactionManager.NormalizeFactionId(factionId);
+            BountyTargetFactionId = string.Empty;
             ObjectiveComplete = false;
         }
 
@@ -98,6 +100,7 @@ namespace Roguelancer
             Description = description ?? string.Empty;
             OfferedBy = offeredBy ?? string.Empty;
             FactionId = FactionManager.NormalizeFactionId(factionId);
+            BountyTargetFactionId = string.Empty;
             ObjectiveComplete = objectiveComplete;
 
             if (_nextId <= Id)
@@ -119,24 +122,7 @@ namespace Roguelancer
         /// </summary>
         public string GetSummary()
         {
-            string diffStr = Difficulty switch
-            {
-                MissionDifficulty.Easy => "LOW RISK",
-                MissionDifficulty.Medium => "MODERATE RISK",
-                MissionDifficulty.Hard => "HIGH RISK",
-                MissionDifficulty.Deadly => "EXTREME RISK",
-                _ => "UNKNOWN"
-            };
-
-            string typeStr = Type switch
-            {
-                MissionType.Delivery => "DELIVERY",
-                MissionType.Bounty => "BOUNTY",
-                MissionType.Escort => "ESCORT",
-                _ => "MISSION"
-            };
-
-            return $"[{typeStr}] {Description} | {diffStr} | {Reward:N0} CR";
+            return $"[{GetTypeLabel()}] {GetObjectiveText()} | {GetRiskLabel()} | Reward: {Reward:N0} CR | Client: {GetClientLabel()}";
         }
 
         /// <summary>
@@ -144,8 +130,115 @@ namespace Roguelancer
         /// </summary>
         public string GetDetailedDescription()
         {
-            string timeStr = TimeLimit > 0 ? $"Time Limit: {TimeLimit:F0}s" : "No Time Limit";
-            return $"{Description}\nTarget: {Target}\nDestination: {Destination}\nFaction: {FactionId}\nReward: {Reward:N0} CR\nDifficulty: {Difficulty}\n{timeStr}";
+            string timeStr = TimeLimit > 0 ? $"Time Limit: {TimeLimit:F0}s" : "Time Limit: None";
+            string targetFaction = Type == MissionType.Bounty
+                ? GetTargetFactionLabel()
+                : "Target Faction: N/A";
+
+            return
+                $"Objective: {GetObjectiveText()}\n" +
+                $"Target: {GetTargetLabel()}\n" +
+                $"Destination: {GetDestinationLabel()}\n" +
+                $"{targetFaction}\n" +
+                $"Reward: {Reward:N0} CR\n" +
+                $"Risk: {GetRiskLabel()}\n" +
+                $"Client: {GetClientLabel()}\n" +
+                $"{timeStr}";
+        }
+
+        public string GetTypeLabel()
+        {
+            return Type switch
+            {
+                MissionType.Delivery => "DELIVERY",
+                MissionType.Bounty => "BOUNTY",
+                MissionType.Escort => "ESCORT",
+                _ => "MISSION"
+            };
+        }
+
+        public string GetRiskLabel()
+        {
+            return Difficulty switch
+            {
+                MissionDifficulty.Easy => "LOW RISK",
+                MissionDifficulty.Medium => "MODERATE RISK",
+                MissionDifficulty.Hard => "HIGH RISK",
+                MissionDifficulty.Deadly => "EXTREME RISK",
+                _ => "UNKNOWN"
+            };
+        }
+
+        public string GetClientLabel()
+        {
+            if (!string.IsNullOrWhiteSpace(OfferedBy))
+            {
+                return OfferedBy.Trim();
+            }
+
+            return FactionManager.GetFactionDisplayName(FactionId);
+        }
+
+        public string GetTargetLabel()
+        {
+            if (!string.IsNullOrWhiteSpace(Target))
+            {
+                return Target.Trim();
+            }
+
+            return Type == MissionType.Bounty ? "Target signal unresolved" : "Cargo unavailable";
+        }
+
+        public string GetDestinationLabel()
+        {
+            if (!string.IsNullOrWhiteSpace(Destination))
+            {
+                return Destination.Trim();
+            }
+
+            return Type == MissionType.Delivery ? "Destination unavailable" : "Location unavailable";
+        }
+
+        public string GetTargetFactionLabel()
+        {
+            string factionId = !string.IsNullOrWhiteSpace(BountyTargetFactionId)
+                ? BountyTargetFactionId
+                : FactionManager.LibertyRogues;
+
+            return FactionManager.GetFactionDisplayName(factionId);
+        }
+
+        public string GetObjectiveText()
+        {
+            return Type switch
+            {
+                MissionType.Delivery => $"Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
+                MissionType.Bounty => $"Destroy {GetTargetLabel()}",
+                MissionType.Escort => $"Escort {GetTargetLabel()} to {GetDestinationLabel()} (experimental)",
+                _ => Description
+            };
+        }
+
+        public string GetHudHeadline()
+        {
+            return Type switch
+            {
+                MissionType.Bounty => $"Bounty: Destroy {GetTargetLabel()}",
+                MissionType.Delivery => $"Delivery: Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
+                MissionType.Escort => $"Escort: Escort {GetTargetLabel()} to {GetDestinationLabel()} (experimental)",
+                _ => GetObjectiveText()
+            };
+        }
+
+        public string GetHudFallbackLine()
+        {
+            return Type switch
+            {
+                MissionType.Bounty => string.IsNullOrWhiteSpace(Target) ? "Target signal unresolved" : string.Empty,
+                MissionType.Delivery => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty,
+                MissionType.Escort => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty,
+                _ => string.Empty
+            };
         }
     }
 }

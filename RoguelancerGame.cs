@@ -161,6 +161,7 @@ namespace Roguelancer {
         private MissionWaypointSystem _missionWaypointSystem;
         private MissionMarkerRenderer _missionMarkerRenderer;
         private MissionGuidanceHUD _missionGuidanceHUD;
+        private MissionWorldManager _missionWorldManager;
 
         // Jump hole system
         private JumpHoleManager _jumpHoleManager;
@@ -197,6 +198,7 @@ namespace Roguelancer {
         private readonly bool _runContrabandSmoke;
         private readonly bool _runTrafficSmoke;
         private readonly bool _runLootSmoke;
+        private readonly bool _runMissionSmoke;
         private readonly bool _runAllSmoke;
         private SaveGameManager _saveGameManager;
         private string _activeMountedGunId = string.Empty;
@@ -244,6 +246,7 @@ namespace Roguelancer {
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runMissionSmoke = args?.Any(arg => string.Equals(arg, "--mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
 
             // Load game settings
@@ -955,6 +958,16 @@ namespace Roguelancer {
             _playerShip.SetExplosionSystem(_explosionParticles);
             _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
             _stationDockUI?.SetNotificationManager(_notificationManager);
+            _missionWorldManager = new MissionWorldManager(
+                _missionManager,
+                _missionWaypointSystem,
+                _playerShip,
+                _npcShips,
+                _spaceObjects,
+                () => _stationManager?.GetStations() ?? new List<Station>(),
+                HandleNpcDestroyed);
+            _missionManager?.SetWorldManager(_missionWorldManager);
+            _stationDockUI?.SetMissionWorldManager(_missionWorldManager);
             _trafficManager?.SetContent(Content);
 
             // Re-initialize JumpHoleManager with font now that it's loaded
@@ -1026,6 +1039,11 @@ namespace Roguelancer {
                 var result = RunLootSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runMissionSmoke)
+            {
+                var result = RunMissionSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else
             {
                 TryAutoLoadSavedGame();
@@ -1081,6 +1099,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("contraband smoke", RunContrabandSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("traffic smoke", RunTrafficSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("loot smoke", RunLootSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("mission smoke", RunMissionSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1216,6 +1235,20 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[LOOT SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunMissionSmokeTest()
+        {
+            try
+            {
+                var harness = new MissionSmokeTest();
+                return harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MISSION SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -1389,6 +1422,8 @@ namespace Roguelancer {
                 saveData.PlayerPosition.ToVector3(_playerShip.Position),
                 saveData.PlayerVelocity.ToVector3(Vector3.Zero),
                 saveData.PlayerForward.ToVector3(_playerShip.Forward));
+
+            _missionWorldManager?.RebindActiveMissions(_missionManager?.ActiveMissions ?? Array.Empty<Mission>());
 
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
@@ -2046,6 +2081,7 @@ namespace Roguelancer {
             // Remove the destroyed ship from the list of targetable space objects
             _spaceObjects.Remove(destroyedShip);
 
+            _missionWorldManager?.NotifyNpcDestroyed(destroyedShip);
             // Notify mission manager of bounty kill
             _missionManager?.NotifyTargetDestroyed(destroyedShip.Name);
 
@@ -3733,6 +3769,8 @@ namespace Roguelancer {
             _playerShip.Position = arrivalPos;
             _playerShip.Velocity = Vector3.Zero;
             _selectedSpaceObjectIndex = -1;
+
+            _missionWorldManager?.RebindActiveMissions(_missionManager?.ActiveMissions ?? Array.Empty<Mission>());
 
             Console.WriteLine($"[SYSTEM CHANGE] Player positioned at {arrivalPos}");
         }

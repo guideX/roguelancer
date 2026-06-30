@@ -161,7 +161,7 @@ namespace Roguelancer
                     else
                     {
                         // Bounty target not found as NPC - use destination hint from "Last seen near ..."
-                        string locationHint = mission.Destination.Replace("Last seen near ", "");
+                        string locationHint = (mission.Destination ?? string.Empty).Replace("Last seen near ", string.Empty);
                         var nearObj = FindSpaceObjectByName(spaceObjects, locationHint);
                         if (nearObj != null)
                         {
