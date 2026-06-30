@@ -17,6 +17,7 @@ namespace Roguelancer
 
             RunCase(ValidateBountyTargetSelection, "bounty target selection", ref passed, ref failed);
             RunCase(ValidateDeliveryDestinationSelection, "delivery destination selection", ref passed, ref failed);
+            RunCase(ValidateEscortObjectiveSelection, "escort objective selection", ref passed, ref failed);
             RunCase(ValidateUnresolvedObjectiveSafety, "unresolved objective safety", ref passed, ref failed);
             RunCase(ValidateTargetHudData, "target HUD data", ref passed, ref failed);
             RunCase(ValidateObjectivePanelText, "objective panel text", ref passed, ref failed);
@@ -115,6 +116,55 @@ namespace Roguelancer
                 return Fail("resolved delivery destination was not present in the active station list");
             }
 
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateEscortObjectiveSelection()
+        {
+            NavSmokeContext ctx = CreateContext();
+            Mission mission = CreateEscortMission("Smoke Escort", "Newark Station", 1_450);
+
+            if (!ctx.MissionManager.AcceptMission(mission))
+            {
+                return Fail("escort mission was not accepted");
+            }
+
+            if (!NavTargeting.TryResolveMissionObjective(mission, ctx.SpaceObjects, ctx.NpcShips, out SpaceObject resolvedTarget, out string reason) || resolvedTarget == null)
+            {
+                return Fail(string.IsNullOrWhiteSpace(reason)
+                    ? "escort objective could not be resolved"
+                    : reason);
+            }
+
+            if (resolvedTarget is not NpcShip && resolvedTarget is not Station)
+            {
+                return Fail("escort objective resolved to an unsupported object");
+            }
+
+            if (resolvedTarget is NpcShip npcTarget &&
+                !ReferenceEquals(mission.TargetSpaceObject, npcTarget))
+            {
+                return Fail("escort mission target was not bound to the resolved NPC");
+            }
+
+            if (!NavTargeting.TryStartGotoToMissionObjective(ctx.Player, mission, ctx.SpaceObjects, ctx.NpcShips, out string gotoReason))
+            {
+                return Fail(string.IsNullOrWhiteSpace(gotoReason)
+                    ? "escort goto request was rejected without a reason"
+                    : gotoReason);
+            }
+
+            if (!ctx.Player.IsGotoActive || ctx.Player.CurrentGotoTarget == null)
+            {
+                return Fail("escort goto request did not activate the ship");
+            }
+
+            if (!ReferenceEquals(ctx.Player.CurrentGotoTarget, resolvedTarget))
+            {
+                return Fail("escort goto request did not select the resolved escort objective");
+            }
+
+            ctx.Player.CancelGoto();
             return Pass();
         }
 
@@ -400,6 +450,19 @@ namespace Roguelancer
                 reward,
                 0f,
                 $"Deliver {cargoName} to {destination}",
+                FactionManager.LibertyCorporations);
+        }
+
+        private static Mission CreateEscortMission(string escortName, string destination, int reward)
+        {
+            return new Mission(
+                MissionType.Escort,
+                MissionDifficulty.Medium,
+                escortName,
+                destination,
+                reward,
+                0f,
+                $"Escort {escortName} to {destination}",
                 FactionManager.LibertyCorporations);
         }
 

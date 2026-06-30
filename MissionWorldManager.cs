@@ -15,6 +15,9 @@ namespace Roguelancer
         public Station DeliveryDestination { get; set; }
         public Commodity DeliveryCommodity { get; set; }
         public int DeliveryQuantity { get; set; }
+        public NpcShip EscortTarget { get; set; }
+        public Station EscortDestination { get; set; }
+        public bool EscortUnderAttackLogged { get; set; }
     }
 
     public sealed class MissionWorldManager
@@ -65,7 +68,7 @@ namespace Roguelancer
                 case MissionType.Delivery:
                     return TryBindDeliveryMission(state, out failureReason);
                 case MissionType.Escort:
-                    return true;
+                    return TryBindEscortMission(state, out failureReason);
                 default:
                     failureReason = "unsupported mission type";
                     return false;
@@ -146,6 +149,37 @@ namespace Roguelancer
                     mission.TargetPosition = state.DeliveryDestination.Position;
                 }
             }
+            else if (mission.Type == MissionType.Escort)
+            {
+                if (state.EscortTarget != null &&
+                    (state.EscortTarget.IsDestroyed || !_npcShips.Contains(state.EscortTarget)))
+                {
+                    state.EscortTarget = null;
+                }
+
+                state.EscortDestination ??= ResolveEscortDestination(mission);
+
+                if (state.EscortDestination == null)
+                {
+                    FailMission(mission, "destination unavailable");
+                    return;
+                }
+
+                if (state.EscortTarget == null)
+                {
+                    if (!TryBindEscortMission(state, out string failureReason))
+                    {
+                        FailMission(mission, string.IsNullOrWhiteSpace(failureReason) ? "escort binding unavailable" : failureReason);
+                        return;
+                    }
+                }
+
+                if (state.EscortTarget != null)
+                {
+                    mission.TargetSpaceObject = state.EscortTarget;
+                    mission.TargetPosition = state.EscortTarget.Position;
+                }
+            }
         }
 
         public void OnMissionFinished(Mission mission)
@@ -168,20 +202,25 @@ namespace Roguelancer
             foreach (MissionRuntimeState state in _runtimeStates.Values)
             {
                 Mission mission = state.Mission;
-                if (mission == null || mission.Status != MissionStatus.Active || mission.Type != MissionType.Bounty)
+                if (mission == null || mission.Status != MissionStatus.Active)
                 {
                     continue;
                 }
 
-                if (!IsTargetMatch(mission, destroyedShip, state.BountyTarget))
+                if (mission.Type == MissionType.Bounty && IsTargetMatch(mission, destroyedShip, state.BountyTarget))
                 {
-                    continue;
+                    Console.WriteLine($"[MISSION] Target destroyed: {destroyedShip.Name} (mission #{mission.Id})");
+                    mission.ObjectiveComplete = true;
+                    _missionManager?.CompleteMission(mission);
+                    return;
                 }
 
-                Console.WriteLine($"[MISSION] Target destroyed: {destroyedShip.Name} (mission #{mission.Id})");
-                mission.ObjectiveComplete = true;
-                _missionManager?.CompleteMission(mission);
-                return;
+                if (mission.Type == MissionType.Escort && IsEscortMatch(mission, destroyedShip, state.EscortTarget))
+                {
+                    Console.WriteLine($"[MISSION] Escort destroyed: {destroyedShip.Name} (mission #{mission.Id})");
+                    FailMission(mission, "escort destroyed");
+                    return;
+                }
             }
         }
 
@@ -226,7 +265,113 @@ namespace Roguelancer
                 completedAny = true;
             }
 
+            foreach (MissionRuntimeState state in _runtimeStates.Values.ToList())
+            {
+                Mission mission = state.Mission;
+                if (mission == null || mission.Status != MissionStatus.Active || mission.Type != MissionType.Escort)
+                {
+                    continue;
+                }
+
+                Station destination = state.EscortDestination ?? ResolveEscortDestination(mission);
+                if (destination == null)
+                {
+                    FailMission(mission, "destination unavailable");
+                    completedAny = true;
+                    continue;
+                }
+
+                NpcShip escort = ResolveEscortTarget(mission, state);
+                if (escort == null)
+                {
+                    continue;
+                }
+
+                if (!IsEscortAtDestination(escort, destination))
+                {
+                    continue;
+                }
+
+                Console.WriteLine($"[MISSION] Escort reached destination: {escort.Name} -> {destination.Name} (mission #{mission.Id})");
+                mission.ObjectiveComplete = true;
+                _missionManager?.CompleteMission(mission);
+                completedAny = true;
+            }
+
             return completedAny;
+        }
+
+        public void Update(float deltaTime, Action<string> log = null)
+        {
+            if (_runtimeStates.Count == 0)
+            {
+                return;
+            }
+
+            foreach (MissionRuntimeState state in _runtimeStates.Values.ToList())
+            {
+                Mission mission = state.Mission;
+                if (mission == null || mission.Status != MissionStatus.Active || mission.Type != MissionType.Escort)
+                {
+                    continue;
+                }
+
+                Station destination = state.EscortDestination ?? ResolveEscortDestination(mission);
+                if (destination == null)
+                {
+                    FailMission(mission, "destination unavailable");
+                    continue;
+                }
+
+                state.EscortDestination = destination;
+
+                if (state.EscortTarget != null && state.EscortTarget.IsDestroyed)
+                {
+                    FailMission(mission, "escort destroyed");
+                    continue;
+                }
+
+                NpcShip escort = ResolveEscortTarget(mission, state);
+                if (escort == null)
+                {
+                    if (!TryBindEscortMission(state, out string failureReason))
+                    {
+                        if (!string.IsNullOrWhiteSpace(failureReason))
+                        {
+                            FailMission(mission, failureReason);
+                        }
+
+                        continue;
+                    }
+
+                    escort = state.EscortTarget;
+                }
+
+                if (escort == null)
+                {
+                    continue;
+                }
+
+                if (escort.IsTrafficEngaged)
+                {
+                    if (!state.EscortUnderAttackLogged)
+                    {
+                        state.EscortUnderAttackLogged = true;
+                        log?.Invoke($"[MISSION] Escort under attack: {escort.Name} (mission #{mission.Id})");
+                    }
+                }
+                else
+                {
+                    state.EscortUnderAttackLogged = false;
+                }
+
+                if (IsEscortAtDestination(escort, destination))
+                {
+                    Console.WriteLine($"[MISSION] Escort reached destination: {escort.Name} -> {destination.Name} (mission #{mission.Id})");
+                    mission.ObjectiveComplete = true;
+                    _missionManager?.CompleteMission(mission);
+                }
+            }
         }
 
         private bool TryBindBountyMission(MissionRuntimeState state, out string failureReason)
@@ -339,6 +484,105 @@ namespace Roguelancer
             mission.TargetPosition = destination.Position;
 
             Console.WriteLine($"[MISSION] Delivery cargo assigned: {commodity.Name} x{quantity} -> {destination.Name} (mission #{mission.Id})");
+            return true;
+        }
+
+        private bool TryBindEscortMission(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+
+            Mission mission = state.Mission;
+            if (mission == null)
+            {
+                failureReason = "mission was null";
+                return false;
+            }
+
+            Station destination = ResolveEscortDestination(mission);
+            if (destination == null)
+            {
+                failureReason = $"destination '{mission.Destination}' could not be resolved";
+                return false;
+            }
+
+            state.EscortDestination = destination;
+
+            NpcShip escort = ResolveEscortTarget(mission, state);
+            if (escort == null)
+            {
+                if (_playerShip == null)
+                {
+                    failureReason = "player ship not available";
+                    return false;
+                }
+
+                Vector3 spawnPosition = GetEscortSpawnPosition(destination);
+                string escortName = GetEscortDisplayName(mission);
+                string factionId = DetermineEscortFaction(mission);
+
+                escort = new NpcShip(
+                    $"[ESCORT] {escortName}",
+                    spawnPosition,
+                    spawnPosition,
+                    1f,
+                    0f,
+                    factionId);
+
+                escort.ConfigureTrafficBehavior(
+                    TrafficZoneBehaviorType.TraderRoute,
+                    $"mission-escort-{mission.Id}",
+                    spawnPosition,
+                    900f,
+                    Math.Max(120f, mission.Difficulty switch
+                    {
+                        MissionDifficulty.Easy => 150f,
+                        MissionDifficulty.Medium => 165f,
+                        MissionDifficulty.Hard => 180f,
+                        MissionDifficulty.Deadly => 200f,
+                        _ => 150f
+                    }),
+                    22000f,
+                    spawnPosition,
+                    destination.Position);
+                escort.OnDestroyed += npc => _spawnedNpcDestroyedCallback?.Invoke(npc);
+                escort.Model = _playerShip?.Model;
+                _npcShips.Add(escort);
+                _spaceObjects.Add(escort);
+                Console.WriteLine($"[MISSION] Escort spawned: {escort.Name} -> {destination.Name} (mission #{mission.Id})");
+            }
+            else
+            {
+                Console.WriteLine($"[MISSION] Escort resolved: {escort.Name} -> {destination.Name} (mission #{mission.Id})");
+                if (escort.Model == null && _playerShip?.Model != null)
+                {
+                    escort.Model = _playerShip.Model;
+                }
+
+                if (escort.TrafficBehavior != TrafficZoneBehaviorType.TraderRoute)
+                {
+                    escort.ConfigureTrafficBehavior(
+                        TrafficZoneBehaviorType.TraderRoute,
+                        $"mission-escort-{mission.Id}",
+                        escort.Position,
+                        900f,
+                        Math.Max(120f, mission.Difficulty switch
+                        {
+                            MissionDifficulty.Easy => 150f,
+                            MissionDifficulty.Medium => 165f,
+                            MissionDifficulty.Hard => 180f,
+                            MissionDifficulty.Deadly => 200f,
+                            _ => 150f
+                        }),
+                        22000f,
+                        escort.Position,
+                        destination.Position);
+                }
+            }
+
+            state.EscortTarget = escort;
+            state.EscortUnderAttackLogged = false;
+            mission.TargetSpaceObject = escort;
+            mission.TargetPosition = escort.Position;
             return true;
         }
 
@@ -483,6 +727,139 @@ namespace Roguelancer
             }
 
             return CommodityCatalog.GetByName(missionTarget);
+        }
+
+        private Station ResolveEscortDestination(Mission mission)
+        {
+            return ResolveDeliveryDestination(mission?.Destination);
+        }
+
+        private NpcShip ResolveEscortTarget(Mission mission, MissionRuntimeState state)
+        {
+            if (state?.EscortTarget != null &&
+                !state.EscortTarget.IsDestroyed &&
+                _npcShips.Contains(state.EscortTarget))
+            {
+                return state.EscortTarget;
+            }
+
+            if (mission?.TargetSpaceObject is NpcShip boundEscort &&
+                !boundEscort.IsDestroyed &&
+                _npcShips.Contains(boundEscort))
+            {
+                state.EscortTarget = boundEscort;
+                return boundEscort;
+            }
+
+            NpcShip existingEscort = ResolveExistingEscortTarget(mission);
+            if (existingEscort != null)
+            {
+                state.EscortTarget = existingEscort;
+                mission.TargetSpaceObject = existingEscort;
+                mission.TargetPosition = existingEscort.Position;
+            }
+
+            return existingEscort;
+        }
+
+        private NpcShip ResolveExistingEscortTarget(Mission mission)
+        {
+            if (mission == null || string.IsNullOrWhiteSpace(mission.Target))
+            {
+                return null;
+            }
+
+            string escortName = mission.Target.Trim();
+            return _npcShips.FirstOrDefault(npc =>
+                npc != null &&
+                !npc.IsDestroyed &&
+                npc.Name != null &&
+                npc.Name.IndexOf(escortName, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private static bool IsEscortMatch(Mission mission, NpcShip destroyedShip, NpcShip boundEscort)
+        {
+            if (mission == null || destroyedShip == null)
+            {
+                return false;
+            }
+
+            if (boundEscort != null && ReferenceEquals(boundEscort, destroyedShip))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(mission.Target) &&
+                destroyedShip.Name != null &&
+                destroyedShip.Name.IndexOf(mission.Target, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsEscortAtDestination(NpcShip escort, Station destination)
+        {
+            if (escort == null || destination == null)
+            {
+                return false;
+            }
+
+            float completionRange = Math.Max(1500f, destination.DockingRange * 1.5f);
+            return Vector3.DistanceSquared(escort.Position, destination.Position) <= completionRange * completionRange;
+        }
+
+        private Vector3 GetEscortSpawnPosition(Station destination)
+        {
+            Vector3 forward = _playerShip?.Forward ?? Vector3.Forward;
+            Vector3 right = _playerShip?.Right ?? Vector3.Right;
+            Vector3 playerPosition = _playerShip?.Position ?? Vector3.Zero;
+
+            if (forward.LengthSquared() < 0.0001f)
+            {
+                forward = Vector3.Forward;
+            }
+
+            if (right.LengthSquared() < 0.0001f)
+            {
+                right = Vector3.Right;
+            }
+
+            Vector3 spawn = playerPosition + forward * 2500f + right * 600f;
+            if (destination != null)
+            {
+                Vector3 toDestination = destination.Position - spawn;
+                if (toDestination.LengthSquared() > 0.0001f)
+                {
+                    toDestination.Normalize();
+                    spawn += Vector3.Cross(toDestination, Vector3.Up) * 250f;
+                }
+            }
+
+            return spawn;
+        }
+
+        private string GetEscortDisplayName(Mission mission)
+        {
+            if (mission == null)
+            {
+                return "Escort Convoy";
+            }
+
+            return string.IsNullOrWhiteSpace(mission.Target)
+                ? mission.GetEscortShipName()
+                : $"{mission.Target.Trim()} {mission.Id}";
+        }
+
+        private static string DetermineEscortFaction(Mission mission)
+        {
+            if (mission != null && !string.IsNullOrWhiteSpace(mission.FactionId))
+            {
+                return FactionManager.NormalizeFactionId(mission.FactionId);
+            }
+
+            return FactionManager.LibertyCorporations;
         }
 
         private static bool IsTargetMatch(Mission mission, NpcShip destroyedShip, NpcShip boundTarget)

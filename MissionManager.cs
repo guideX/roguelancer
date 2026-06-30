@@ -189,7 +189,7 @@ namespace Roguelancer
                         ? loadedStations[_random.Next(loadedStations.Count)]
                         : null;
                     destination = escortDestination?.Name ?? "Destination unavailable";
-                    description = $"Escort {target} to {destination} (experimental)";
+                    description = $"Escort {target} to {destination}";
                     reward += CalculateEscortRewardBonus(difficulty, escortDestination);
                     break;
                 default:

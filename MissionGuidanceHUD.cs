@@ -126,24 +126,54 @@ namespace Roguelancer
             string title = "ACTIVE OBJECTIVE";
             string typeLine = $"Type: {data.Mission.GetTypeLabel()}";
             string objective = data.Mission.GetObjectiveText();
+            bool escortMission = data.Mission.Type == MissionType.Escort;
             string targetLine = data.Mission.Type switch
             {
                 MissionType.Bounty => $"Target: {data.Mission.GetTargetLabel()}",
                 MissionType.Delivery => $"Destination: {data.Mission.GetDestinationLabel()}",
-                MissionType.Escort => $"Route: {data.Mission.GetTargetLabel()} -> {data.Mission.GetDestinationLabel()}",
+                MissionType.Escort => data.TargetObject is NpcShip
+                    ? $"Escort: {data.Mission.GetTargetLabel()}"
+                    : $"Destination: {data.Mission.GetDestinationLabel()}",
                 _ => data.Mission.GetObjectiveText()
             };
             string statusLine = data.ResolvedTarget != null
-                ? "Status: Objective resolved"
+                ? escortMission && data.TargetObject is NpcShip && data.DestinationObject != null
+                    ? $"Status: Escort en route to {data.Mission.GetDestinationLabel()}"
+                    : "Status: Objective resolved"
                 : $"Status: {data.Mission.GetHudFallbackLine()}".Trim();
             if (string.Equals(statusLine, "Status:", StringComparison.OrdinalIgnoreCase))
             {
                 statusLine = "Status: Awaiting resolution";
             }
 
-            string distanceLine = data.ResolvedTarget != null
-                ? $"Distance: {FormatDistance(data.DistanceToTarget)}"
-                : "Distance: unresolved";
+            string distanceLine;
+            if (escortMission)
+            {
+                if (playerPosition.HasValue)
+                {
+                    string escortDistance = data.TargetObject != null
+                        ? FormatDistance(Vector3.Distance(playerPosition.Value, data.TargetObject.Position))
+                        : "unresolved";
+                    string destinationDistance = data.DestinationObject != null
+                        ? FormatDistance(Vector3.Distance(playerPosition.Value, data.DestinationObject.Position))
+                        : "unresolved";
+                    distanceLine = data.TargetObject is NpcShip
+                        ? $"Distance: Escort {escortDistance} | Destination {destinationDistance}"
+                        : $"Distance: Destination {destinationDistance}";
+                }
+                else
+                {
+                    distanceLine = data.TargetObject is NpcShip
+                        ? "Distance: Escort unresolved | Destination unresolved"
+                        : "Distance: Destination unresolved";
+                }
+            }
+            else
+            {
+                distanceLine = data.ResolvedTarget != null
+                    ? $"Distance: {FormatDistance(data.DistanceToTarget)}"
+                    : "Distance: unresolved";
+            }
 
             string rewardLine = $"Reward: {data.Mission.Reward:N0} CR | Risk: {data.Mission.GetRiskLabel()}";
             string clientLine = $"Client: {data.Mission.GetClientLabel()} | Faction: {FactionManager.GetFactionDisplayName(data.Mission.FactionId)}";
@@ -221,9 +251,13 @@ namespace Roguelancer
                 _ => "[MISSION]"
             };
 
-            string label = data.Mission.Type == MissionType.Bounty
-                ? data.Mission.Target
-                : data.Mission.Destination;
+            string label = data.Mission.Type switch
+            {
+                MissionType.Bounty => data.Mission.Target,
+                MissionType.Escort when data.TargetObject is NpcShip => data.Mission.GetTargetLabel(),
+                MissionType.Escort => data.Mission.GetDestinationLabel(),
+                _ => data.Mission.Destination
+            };
 
             // Flashing green pulse
             float flash = (float)Math.Abs(Math.Sin(_animationTime * 5.0));
@@ -513,9 +547,13 @@ namespace Roguelancer
             DrawLine(spriteBatch, left, right, 2, arrowColor * 0.7f);
 
             // Draw label below compass
-            string label = data.Mission.Type == MissionType.Bounty
-                ? data.Mission.GetTargetLabel()
-                : data.Mission.GetDestinationLabel();
+            string label = data.Mission.Type switch
+            {
+                MissionType.Bounty => data.Mission.GetTargetLabel(),
+                MissionType.Escort when data.TargetObject is NpcShip => data.Mission.GetTargetLabel(),
+                MissionType.Escort => data.Mission.GetDestinationLabel(),
+                _ => data.Mission.GetDestinationLabel()
+            };
             if (label.Length > 20) label = label.Substring(0, 17) + "...";
             string distStr = FormatDistance(data.DistanceToTarget);
             string compassText = $"{data.Mission.GetTypeLabel()} {label} - {distStr}";

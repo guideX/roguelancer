@@ -72,6 +72,22 @@ namespace Roguelancer
                         return true;
                     }
                 }
+                else if (mission.Type == MissionType.Escort)
+                {
+                    if (mission.TargetSpaceObject is NpcShip escortNpc && !escortNpc.IsDestroyed)
+                    {
+                        resolvedTarget = escortNpc;
+                        statusText = "escort target resolved";
+                        return true;
+                    }
+
+                    if (mission.TargetSpaceObject is Station escortDestination)
+                    {
+                        resolvedTarget = escortDestination;
+                        statusText = "escort destination resolved";
+                        return true;
+                    }
+                }
                 else
                 {
                     resolvedTarget = mission.TargetSpaceObject;
@@ -102,6 +118,26 @@ namespace Roguelancer
                 if (resolvedTarget != null)
                 {
                     statusText = "delivery destination resolved";
+                    return true;
+                }
+
+                statusText = mission.GetHudFallbackLine();
+                return false;
+            }
+
+            if (mission.Type == MissionType.Escort)
+            {
+                resolvedTarget = ResolveNpcTarget(mission.Target, safeNpcShips, safeSpaceObjects);
+                if (resolvedTarget != null)
+                {
+                    statusText = "escort target resolved";
+                    return true;
+                }
+
+                resolvedTarget = ResolveStationTarget(mission.Destination, safeSpaceObjects);
+                if (resolvedTarget != null)
+                {
+                    statusText = "escort destination resolved";
                     return true;
                 }
 

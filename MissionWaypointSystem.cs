@@ -32,6 +32,7 @@ namespace Roguelancer
         public Mission Mission { get; set; }
         public Vector3? ResolvedTarget { get; set; }
         public SpaceObject TargetObject { get; set; }
+        public SpaceObject DestinationObject { get; set; }
         public List<MissionWaypoint> Waypoints { get; set; } = new();
         public float DistanceToTarget { get; set; } = float.MaxValue;
         public bool IsNearTarget { get; set; }
@@ -115,6 +116,11 @@ namespace Roguelancer
                     data.ResolvedTarget = data.TargetObject.Position;
                     mission.TargetPosition = data.ResolvedTarget;
                 }
+                else if (mission.Type == MissionType.Escort && data.TargetObject is NpcShip escortNpc && !escortNpc.IsDestroyed)
+                {
+                    data.ResolvedTarget = escortNpc.Position;
+                    mission.TargetPosition = data.ResolvedTarget;
+                }
 
                 if (data.ResolvedTarget == null) continue;
 
@@ -137,13 +143,13 @@ namespace Roguelancer
             switch (mission.Type)
             {
                 case MissionType.Delivery:
-                case MissionType.Escort:
                     // Find station/space object matching destination name
                     var destObj = FindSpaceObjectByName(spaceObjects, mission.Destination);
                     if (destObj != null)
                     {
                         data.ResolvedTarget = destObj.Position;
                         data.TargetObject = destObj;
+                        data.DestinationObject = destObj;
                         Console.WriteLine($"[WAYPOINT] Resolved delivery target '{mission.Destination}' -> {destObj.Name} at {destObj.Position}");
                     }
                     break;
@@ -170,6 +176,39 @@ namespace Roguelancer
                             Console.WriteLine($"[WAYPOINT] Resolved bounty area '{locationHint}' -> {nearObj.Name}");
                         }
                     }
+                    break;
+
+                case MissionType.Escort:
+                    var escortNpc = mission.TargetSpaceObject as NpcShip;
+                    if (escortNpc == null)
+                    {
+                        escortNpc = npcShips.FirstOrDefault(n =>
+                            n != null &&
+                            !n.IsDestroyed &&
+                            n.Name != null &&
+                            n.Name.IndexOf(mission.Target, StringComparison.OrdinalIgnoreCase) >= 0);
+                    }
+
+                    if (escortNpc != null && !escortNpc.IsDestroyed)
+                    {
+                        data.ResolvedTarget = escortNpc.Position;
+                        data.TargetObject = escortNpc;
+                        Console.WriteLine($"[WAYPOINT] Resolved escort target '{mission.Target}' -> {escortNpc.Name} at {escortNpc.Position}");
+                    }
+
+                    var escortDestination = FindSpaceObjectByName(spaceObjects, mission.Destination);
+                    if (escortDestination != null)
+                    {
+                        data.DestinationObject = escortDestination;
+                        Console.WriteLine($"[WAYPOINT] Resolved escort destination '{mission.Destination}' -> {escortDestination.Name}");
+                    }
+
+                    if (data.ResolvedTarget == null && data.DestinationObject != null)
+                    {
+                        data.ResolvedTarget = data.DestinationObject.Position;
+                        data.TargetObject = data.DestinationObject;
+                    }
+
                     break;
             }
         }
@@ -240,10 +279,18 @@ namespace Roguelancer
             }
 
             // Final waypoint: destination
+            string waypointLabel = data.Mission.Type switch
+            {
+                MissionType.Escort when data.TargetObject is NpcShip => data.Mission.GetTargetLabel(),
+                MissionType.Escort => data.Mission.GetDestinationLabel(),
+                MissionType.Bounty => data.Mission.Target,
+                _ => data.Mission.Destination
+            };
+
             data.Waypoints.Add(new MissionWaypoint
             {
                 Position = targetPos,
-                Label = data.Mission.Type == MissionType.Bounty ? data.Mission.Target : data.Mission.Destination,
+                Label = waypointLabel,
                 Type = MissionWaypointType.Destination
             });
         }

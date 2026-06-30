@@ -1532,7 +1532,8 @@ namespace Roguelancer {
                 string sysName = _config.GetSystem(_currentSystemIndex)?.Description ?? $"System {_currentSystemIndex}";
                 List<SpaceObject> missionHighlights = _missionWaypointSystem?.GuidanceData.Values
                     .Where(data => data?.Mission?.Status == MissionStatus.Active && data.TargetObject != null)
-                    .Select(data => data.TargetObject)
+                    .SelectMany(data => new[] { data.TargetObject, data.DestinationObject })
+                    .Where(obj => obj != null)
                     .Distinct()
                     .ToList() ?? new List<SpaceObject>();
                 _systemMap.UpdateData(_spaceObjects, _jumpHoleManager?.GetJumpHoles(), _tradelaneManager?.GetTradeLanes(), _playerShip.Position, sysName, missionHighlights);
@@ -1784,6 +1785,8 @@ namespace Roguelancer {
             foreach (var npc in _npcShips) {
                 npc.Update(gameTime, _damageSmokeParticles, _playerShip, _reputationManager);
             }
+
+            _missionWorldManager?.Update(deltaTime, Console.WriteLine);
 
             // Update lawful patrol scan loop
             _policeScanSystem?.Update(gameTime, _playerShip, _npcShips, _playerCredits, _reputationManager, _notificationManager);
