@@ -105,6 +105,7 @@ namespace Roguelancer {
         /// Selected Space Object Index
         /// </summary>
         private int _selectedSpaceObjectIndex = -1;
+        private object _selectedNavTarget;
         /// <summary>
         /// Npc Ships
         /// </summary>
@@ -199,6 +200,7 @@ namespace Roguelancer {
         private readonly bool _runTrafficSmoke;
         private readonly bool _runLootSmoke;
         private readonly bool _runMissionSmoke;
+        private readonly bool _runNavSmoke;
         private readonly bool _runAllSmoke;
         private SaveGameManager _saveGameManager;
         private string _activeMountedGunId = string.Empty;
@@ -247,6 +249,7 @@ namespace Roguelancer {
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMissionSmoke = args?.Any(arg => string.Equals(arg, "--mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runNavSmoke = args?.Any(arg => string.Equals(arg, "--nav-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
 
             // Load game settings
@@ -1044,6 +1047,11 @@ namespace Roguelancer {
                 var result = RunMissionSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runNavSmoke)
+            {
+                var result = RunNavSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else
             {
                 TryAutoLoadSavedGame();
@@ -1100,6 +1108,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("traffic smoke", RunTrafficSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("loot smoke", RunLootSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("mission smoke", RunMissionSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("nav smoke", RunNavSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1249,6 +1258,20 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[MISSION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunNavSmokeTest()
+        {
+            try
+            {
+                var harness = new NavSmokeTest();
+                return harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NAV SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -1507,7 +1530,12 @@ namespace Roguelancer {
             // Update system map data and animation
             if (_systemMap != null) {
                 string sysName = _config.GetSystem(_currentSystemIndex)?.Description ?? $"System {_currentSystemIndex}";
-                _systemMap.UpdateData(_spaceObjects, _jumpHoleManager?.GetJumpHoles(), _tradelaneManager?.GetTradeLanes(), _playerShip.Position, sysName);
+                List<SpaceObject> missionHighlights = _missionWaypointSystem?.GuidanceData.Values
+                    .Where(data => data?.Mission?.Status == MissionStatus.Active && data.TargetObject != null)
+                    .Select(data => data.TargetObject)
+                    .Distinct()
+                    .ToList() ?? new List<SpaceObject>();
+                _systemMap.UpdateData(_spaceObjects, _jumpHoleManager?.GetJumpHoles(), _tradelaneManager?.GetTradeLanes(), _playerShip.Position, sysName, missionHighlights);
                 _systemMap.Update(gameTime);
             }
 
@@ -1519,12 +1547,7 @@ namespace Roguelancer {
                     var clickPos = new Vector2(mouseState.X, mouseState.Y);
                     var clicked = _systemMap.HandleClick(clickPos, _spaceObjects);
                     if (clicked != null) {
-                        int idx = _spaceObjects.IndexOf(clicked);
-                        if (idx >= 0) {
-                            _selectedSpaceObjectIndex = idx;
-                            _notificationManager?.ShowMessage($"Target: {clicked.Name}");
-                            Console.WriteLine($"[MAP] Map-click targeted: {clicked.Name}");
-                        }
+                        SelectSpaceObjectTarget(clicked, "Map click");
                     }
                 }
                 // ESC closes the map
@@ -1893,6 +1916,7 @@ namespace Roguelancer {
 
             // Cargo pods: tractor pull and pickup.
             _lootManager?.Update(gameTime, _playerShip, keyboardState.IsKeyDown(Keys.P), _notificationManager, Console.WriteLine);
+            PruneInvalidNavSelection();
 
             // Update mission waypoint system (resolve targets, build paths, check proximity)
             _missionWaypointSystem?.Update(
@@ -2046,12 +2070,8 @@ namespace Roguelancer {
 
             // Update selection and show feedback
             if (closestObjectIndex >= 0) {
-                _selectedSpaceObjectIndex = closestObjectIndex;
                 SpaceObject selectedObject = _spaceObjects[closestObjectIndex];
-                float distance = Vector3.Distance(_playerShip.Position, selectedObject.Position);
-                
-                _notificationManager?.ShowMessage($"Target: {selectedObject.Name}");
-                Console.WriteLine($"[TARGETING] Left-click selected: {selectedObject.Name} at {distance / 1000f:F2}km");
+                SelectSpaceObjectTarget(selectedObject, "Left-click");
             }
         }
 
@@ -2080,6 +2100,11 @@ namespace Roguelancer {
 
             // Remove the destroyed ship from the list of targetable space objects
             _spaceObjects.Remove(destroyedShip);
+            if (ReferenceEquals(GetSelectedSpaceObjectTarget(), destroyedShip) || ReferenceEquals(_selectedNavTarget, destroyedShip))
+            {
+                _selectedNavTarget = null;
+                _selectedSpaceObjectIndex = -1;
+            }
 
             _missionWorldManager?.NotifyNpcDestroyed(destroyedShip);
             // Notify mission manager of bounty kill
@@ -2091,52 +2116,286 @@ namespace Roguelancer {
         }
 
         /// <summary>
-        /// Handle targeting input (T, Shift+T, Ctrl+T for cycling targets, H for hostile-only targeting, G for GOTO)
+        /// Handle targeting input (T for all targets, function-key groups for target categories, G for GOTO)
         /// </summary>
         private void HandleTargetingInput(KeyboardState keyboardState) {
             bool tPressed = keyboardState.IsKeyDown(Keys.T) && _prevKeys.IsKeyUp(Keys.T);
             bool shiftT = tPressed && (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift));
             bool ctrlT = tPressed && (keyboardState.IsKeyDown(Keys.LeftControl) || keyboardState.IsKeyDown(Keys.RightControl));
-            bool hPressed = keyboardState.IsKeyDown(Keys.H) && _prevKeys.IsKeyUp(Keys.H);
+            bool shiftHeld = keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift);
+            bool f1Pressed = keyboardState.IsKeyDown(Keys.F1) && _prevKeys.IsKeyUp(Keys.F1);
+            bool f2Pressed = keyboardState.IsKeyDown(Keys.F2) && _prevKeys.IsKeyUp(Keys.F2);
+            bool f4Pressed = keyboardState.IsKeyDown(Keys.F4) && _prevKeys.IsKeyUp(Keys.F4);
+            bool f5Pressed = keyboardState.IsKeyDown(Keys.F5) && _prevKeys.IsKeyUp(Keys.F5);
+            bool f7Pressed = keyboardState.IsKeyDown(Keys.F7) && _prevKeys.IsKeyUp(Keys.F7);
             bool gPressed = keyboardState.IsKeyDown(Keys.G) && _prevKeys.IsKeyUp(Keys.G);
 
             // T key: Cycle to next target
             if (tPressed && !shiftT && !ctrlT && _spaceObjects.Count > 0) {
-                _selectedSpaceObjectIndex = (_selectedSpaceObjectIndex + 1) % _spaceObjects.Count;
-                var selectedObject = _spaceObjects[_selectedSpaceObjectIndex];
-                _notificationManager?.ShowMessage($"Target: {selectedObject.Name}");
-                Console.WriteLine($"[TARGETING] Selected: {selectedObject.Name}");
+                CycleSpaceObjectTargets(obj => obj != null, forward: true, "Target");
             }
 
-            // H key: Cycle to next hostile target (NPC ships only)
-            if (hPressed && _spaceObjects.Count > 0) {
-                int startIndex = _selectedSpaceObjectIndex;
-                int current = startIndex;
-                bool found = false;
-                for (int i = 0; i < _spaceObjects.Count; i++) {
-                    current = (startIndex + 1 + i) % _spaceObjects.Count;
-                    if (_spaceObjects[current] is NpcShip npcTarget && !npcTarget.IsDestroyed) {
-                        if (_reputationManager == null || _reputationManager.IsHostile(npcTarget.FactionId)) {
-                            _selectedSpaceObjectIndex = current;
-                            string factionName = _factionManager.GetFaction(npcTarget.FactionId).DisplayName;
-                            _notificationManager?.ShowMessage($"Hostile Target: {npcTarget.Name}");
-                            Console.WriteLine($"[TARGETING] Hostile Selected: {npcTarget.Name} | Faction: {factionName}");
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-                if (!found) {
-                    _notificationManager?.ShowMessage("No hostile targets");
-                    Console.WriteLine("[TARGETING] No hostile targets found");
-                }
+            if (f1Pressed) {
+                CycleSpaceObjectTargets(obj => obj is NpcShip npc && !npc.IsDestroyed && IsHostile(npc.FactionId), forward: !shiftHeld, "Hostile target");
+            }
+
+            if (f2Pressed) {
+                CycleSpaceObjectTargets(obj => obj is Station, forward: !shiftHeld, "Station target");
+            }
+
+            if (f4Pressed) {
+                CycleCargoPodTargets(forward: !shiftHeld);
+            }
+
+            if (f5Pressed) {
+                CycleMissionObjectiveTargets(forward: !shiftHeld);
+            }
+
+            if (f7Pressed) {
+                SelectFirstMissionObjectiveTarget();
             }
 
             // G key: GOTO selected target
-            if (gPressed && _selectedSpaceObjectIndex >= 0 && _selectedSpaceObjectIndex < _spaceObjects.Count) {
-                var target = _spaceObjects[_selectedSpaceObjectIndex];
-                _playerShip.ActivateGoto(target);
+            if (gPressed) {
+                TryGotoSelectedTarget();
             }
+        }
+
+        private object GetSelectedNavTarget()
+        {
+            if (_selectedNavTarget != null)
+            {
+                return _selectedNavTarget;
+            }
+
+            if (_selectedSpaceObjectIndex >= 0 && _selectedSpaceObjectIndex < _spaceObjects.Count)
+            {
+                return _spaceObjects[_selectedSpaceObjectIndex];
+            }
+
+            return null;
+        }
+
+        private SpaceObject GetSelectedSpaceObjectTarget()
+        {
+            return GetSelectedNavTarget() as SpaceObject;
+        }
+
+        private CargoPod GetSelectedCargoPodTarget()
+        {
+            return GetSelectedNavTarget() as CargoPod;
+        }
+
+        private bool IsHostile(string factionId)
+        {
+            return _reputationManager == null || _reputationManager.IsHostile(factionId);
+        }
+
+        private void PruneInvalidNavSelection()
+        {
+            if (_selectedNavTarget is CargoPod cargoPod)
+            {
+                if (_lootManager == null || !_lootManager.ActivePods.Contains(cargoPod))
+                {
+                    _selectedNavTarget = null;
+                    _selectedSpaceObjectIndex = -1;
+                }
+                return;
+            }
+
+            if (_selectedNavTarget is SpaceObject spaceTarget && !_spaceObjects.Contains(spaceTarget))
+            {
+                _selectedNavTarget = null;
+                _selectedSpaceObjectIndex = -1;
+            }
+        }
+
+        private void SelectSpaceObjectTarget(SpaceObject target, string sourceLabel)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            _selectedNavTarget = target;
+            _selectedSpaceObjectIndex = _spaceObjects.IndexOf(target);
+
+            float distance = Vector3.Distance(_playerShip.Position, target.Position);
+            _notificationManager?.ShowMessage($"Target: {target.Name}");
+            Console.WriteLine($"[TARGETING] {sourceLabel} selected: {target.Name} at {distance / 1000f:F2}km");
+        }
+
+        private void SelectCargoPodTarget(CargoPod target, string sourceLabel)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            Commodity commodity = target.GetCommodity();
+            string label = commodity != null ? $"{commodity.Name} x{target.Quantity}" : "Cargo Pod";
+            _selectedNavTarget = target;
+            _selectedSpaceObjectIndex = -1;
+
+            float distance = Vector3.Distance(_playerShip.Position, target.Position);
+            _notificationManager?.ShowMessage($"Target: {label}");
+            Console.WriteLine($"[TARGETING] {sourceLabel} selected: {label} at {distance / 1000f:F2}km");
+        }
+
+        private bool CycleSpaceObjectTargets(Func<SpaceObject, bool> predicate, bool forward, string selectionLabel)
+        {
+            if (_spaceObjects.Count == 0)
+            {
+                _notificationManager?.ShowMessage($"No {selectionLabel.ToLowerInvariant()}s");
+                Console.WriteLine($"[TARGETING] No {selectionLabel.ToLowerInvariant()}s found");
+                return false;
+            }
+
+            List<SpaceObject> candidates = _spaceObjects.Where(obj => obj != null && predicate(obj)).ToList();
+            if (candidates.Count == 0)
+            {
+                _notificationManager?.ShowMessage($"No {selectionLabel.ToLowerInvariant()}s");
+                Console.WriteLine($"[TARGETING] No {selectionLabel.ToLowerInvariant()}s found");
+                return false;
+            }
+
+            SpaceObject currentTarget = GetSelectedSpaceObjectTarget();
+            int currentIndex = candidates.FindIndex(candidate => ReferenceEquals(candidate, currentTarget));
+            int nextIndex;
+
+            if (forward)
+            {
+                nextIndex = currentIndex >= 0 ? (currentIndex + 1) % candidates.Count : 0;
+            }
+            else
+            {
+                nextIndex = currentIndex >= 0 ? (currentIndex - 1 + candidates.Count) % candidates.Count : candidates.Count - 1;
+            }
+
+            SelectSpaceObjectTarget(candidates[nextIndex], selectionLabel);
+            return true;
+        }
+
+        private bool CycleCargoPodTargets(bool forward)
+        {
+            if (_lootManager == null || _lootManager.ActivePods.Count == 0)
+            {
+                _notificationManager?.ShowMessage("No loot pods");
+                Console.WriteLine("[TARGETING] No loot pods found");
+                return false;
+            }
+
+            List<CargoPod> candidates = _lootManager.ActivePods
+                .Where(pod => pod != null && !pod.IsExpired)
+                .ToList();
+            if (candidates.Count == 0)
+            {
+                _notificationManager?.ShowMessage("No loot pods");
+                Console.WriteLine("[TARGETING] No loot pods found");
+                return false;
+            }
+
+            CargoPod currentTarget = GetSelectedCargoPodTarget();
+            int currentIndex = candidates.FindIndex(candidate => ReferenceEquals(candidate, currentTarget));
+            int nextIndex = forward
+                ? (currentIndex >= 0 ? (currentIndex + 1) % candidates.Count : 0)
+                : (currentIndex >= 0 ? (currentIndex - 1 + candidates.Count) % candidates.Count : candidates.Count - 1);
+
+            SelectCargoPodTarget(candidates[nextIndex], forward ? "Loot pod" : "Loot pod");
+            return true;
+        }
+
+        private bool CycleMissionObjectiveTargets(bool forward)
+        {
+            if (_missionManager == null || _missionManager.ActiveMissions.Count == 0)
+            {
+                _notificationManager?.ShowMessage("No mission objectives");
+                Console.WriteLine("[TARGETING] No mission objectives found");
+                return false;
+            }
+
+            List<SpaceObject> candidates = GetResolvedMissionObjectiveTargets();
+            if (candidates.Count == 0)
+            {
+                _notificationManager?.ShowMessage("No mission objectives");
+                Console.WriteLine("[TARGETING] No resolved mission objectives found");
+                return false;
+            }
+
+            SpaceObject currentTarget = GetSelectedSpaceObjectTarget();
+            int currentIndex = candidates.FindIndex(candidate => ReferenceEquals(candidate, currentTarget));
+            int nextIndex = forward
+                ? (currentIndex >= 0 ? (currentIndex + 1) % candidates.Count : 0)
+                : (currentIndex >= 0 ? (currentIndex - 1 + candidates.Count) % candidates.Count : candidates.Count - 1);
+
+            SelectSpaceObjectTarget(candidates[nextIndex], "Mission objective");
+            return true;
+        }
+
+        private void SelectFirstMissionObjectiveTarget()
+        {
+            List<SpaceObject> candidates = GetResolvedMissionObjectiveTargets();
+            if (candidates.Count == 0)
+            {
+                _notificationManager?.ShowMessage("No mission objective target");
+                Console.WriteLine("[TARGETING] No mission objective target could be resolved");
+                return;
+            }
+
+            SelectSpaceObjectTarget(candidates[0], "Mission objective");
+        }
+
+        private List<SpaceObject> GetResolvedMissionObjectiveTargets()
+        {
+            var candidates = new List<SpaceObject>();
+            if (_missionManager?.ActiveMissions == null)
+            {
+                return candidates;
+            }
+
+            foreach (Mission mission in _missionManager.ActiveMissions)
+            {
+                if (mission == null || mission.Status != MissionStatus.Active)
+                {
+                    continue;
+                }
+
+                if (NavTargeting.TryResolveMissionObjective(mission, _spaceObjects, _npcShips, out SpaceObject resolvedTarget, out _)
+                    && resolvedTarget != null &&
+                    !candidates.Any(candidate => ReferenceEquals(candidate, resolvedTarget)))
+                {
+                    candidates.Add(resolvedTarget);
+                }
+            }
+
+            return candidates;
+        }
+
+        private bool TryGotoSelectedTarget()
+        {
+            object target = GetSelectedNavTarget();
+            if (target is SpaceObject spaceTarget)
+            {
+                _selectedNavTarget = spaceTarget;
+                _selectedSpaceObjectIndex = _spaceObjects.IndexOf(spaceTarget);
+                float distance = Vector3.Distance(_playerShip.Position, spaceTarget.Position);
+                Console.WriteLine($"[TARGETING] GOTO requested: {spaceTarget.Name} at {distance / 1000f:F2}km");
+                _playerShip.ActivateGoto(spaceTarget);
+                return true;
+            }
+
+            if (target is CargoPod cargoPod)
+            {
+                Commodity commodity = cargoPod.GetCommodity();
+                string label = commodity != null ? commodity.Name : "cargo pod";
+                _notificationManager?.ShowMessage($"GOTO unavailable for {label}");
+                Console.WriteLine($"[TARGETING] GOTO unavailable for cargo pod: {label}");
+                return false;
+            }
+
+            _notificationManager?.ShowMessage("No target selected");
+            Console.WriteLine("[TARGETING] GOTO requested with no target selected");
+            return false;
         }
 
         private void HandleCountermeasureLaunchInput()
@@ -2275,19 +2534,14 @@ namespace Roguelancer {
 
         private NpcShip GetCurrentMissileTarget()
         {
-            if (_selectedSpaceObjectIndex < 0 || _selectedSpaceObjectIndex >= _spaceObjects.Count)
+            if (GetSelectedSpaceObjectTarget() is not NpcShip npcTarget ||
+                npcTarget.IsDestroyed ||
+                (_reputationManager != null && !_reputationManager.IsHostile(npcTarget.FactionId)))
             {
                 return null;
             }
 
-            if (_spaceObjects[_selectedSpaceObjectIndex] is NpcShip npcTarget &&
-                !npcTarget.IsDestroyed &&
-                (_reputationManager == null || _reputationManager.IsHostile(npcTarget.FactionId)))
-            {
-                return npcTarget;
-            }
-
-            return null;
+            return npcTarget;
         }
 
         private string GetMissileTargetStatus()
@@ -2454,58 +2708,125 @@ namespace Roguelancer {
         }
 
         private void DrawCurrentTargetDisplay() {
-            // Only draw if we have a target selected
-            if (_selectedSpaceObjectIndex < 0 || _selectedSpaceObjectIndex >= _spaceObjects.Count)
+            object selectedTarget = GetSelectedNavTarget();
+            if (selectedTarget == null || _playerShip == null)
                 return;
 
-            SpaceObject target = _spaceObjects[_selectedSpaceObjectIndex];
-            float distance = Vector3.Distance(_playerShip.Position, target.Position);
-            string factionId = GetTargetFactionId(target);
-            Faction faction = _factionManager.GetFaction(factionId);
-            string standingLabel = _reputationManager?.GetStandingSummary(factionId) ?? "Neutral (0.00)";
-            Color factionColor = faction.Color;
+            Mission missionContext = NavTargeting.FindMissionForTarget(_missionManager, selectedTarget);
+            if (!NavTargeting.TryBuildHudData(selectedTarget, _playerShip.Position, _reputationManager, _factionManager, missionContext, out NavTargetHudData hud, out string hudFailureReason))
+            {
+                if (!string.IsNullOrWhiteSpace(hudFailureReason))
+                {
+                    Console.WriteLine($"[TARGETING] HUD data unavailable: {hudFailureReason}");
+                }
+                return;
+            }
+
+            if (_font == null)
+            {
+                return;
+            }
 
             // Draw target info at top center of screen
             int screenCenterX = GraphicsDevice.Viewport.Width / 2;
             int topY = 20;
 
-            // Background panel
-            Rectangle panel = new Rectangle(screenCenterX - 220, topY, 440, 112);
+            List<string> textLines = new List<string>();
+            textLines.Add(hud.Name);
+            textLines.Add($"Type: {hud.TypeLabel}");
+            if (!string.IsNullOrWhiteSpace(hud.MissionLabel))
+            {
+                textLines.Add(hud.MissionLabel);
+            }
+            if (!string.IsNullOrWhiteSpace(hud.FactionLabel))
+            {
+                textLines.Add($"Faction: {hud.FactionLabel}");
+            }
+            if (!string.IsNullOrWhiteSpace(hud.StandingLabel))
+            {
+                textLines.Add($"Standing: {hud.StandingLabel}");
+            }
+            if (!string.IsNullOrWhiteSpace(hud.StatusLabel))
+            {
+                textLines.Add($"Status: {hud.StatusLabel}");
+            }
+            if (!string.IsNullOrWhiteSpace(hud.IntegrityLabel))
+            {
+                textLines.Add(hud.IntegrityLabel);
+            }
+            textLines.Add($"Distance: {hud.DistanceLabel}");
+
+            float panelWidth = 0f;
+            float panelHeight = 0f;
+            foreach (string line in textLines)
+            {
+                Vector2 size = _font.MeasureString(line);
+                panelWidth = Math.Max(panelWidth, size.X);
+                panelHeight += size.Y + 2f;
+            }
+
+            panelWidth += 28f;
+            panelHeight += 16f;
+
+            Rectangle panel = new Rectangle(screenCenterX - (int)(panelWidth / 2f), topY, (int)panelWidth, (int)panelHeight);
+            Color factionColor = hud.AccentColor;
             _spriteBatch.Draw(_pixel, panel, Color.Black * 0.8f);
             _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 3), factionColor);
             _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, 3, panel.Height), factionColor);
             _spriteBatch.Draw(_pixel, new Rectangle(panel.X + panel.Width - 3, panel.Y, 3, panel.Height), factionColor);
             _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y + panel.Height - 3, panel.Width, 3), factionColor);
 
-            if (_font != null) {
-                // Target label
-                _spriteBatch.DrawString(_font, "TARGET", new Vector2(20, 20), factionColor);
+            // Target label
+            _spriteBatch.DrawString(_font, "TARGET", new Vector2(20, 20), factionColor);
 
-                // Target name (large)
-                Vector2 nameSize = _font.MeasureString(target.Name);
-                _spriteBatch.DrawString(_font, target.Name, new Vector2(screenCenterX - nameSize.X / 2, panel.Y + 28), Color.White);
+            Vector2 cursor = new Vector2(panel.X + 12, panel.Y + 8);
+            _spriteBatch.DrawString(_font, hud.Name, cursor, Color.White);
+            cursor.Y += _font.MeasureString(hud.Name).Y + 2f;
+            _spriteBatch.DrawString(_font, $"Type: {hud.TypeLabel}", cursor, Color.LightGreen);
+            cursor.Y += _font.MeasureString($"Type: {hud.TypeLabel}").Y + 2f;
 
-                string factionText = $"Faction: {faction.DisplayName}";
-                Vector2 factionSize = _font.MeasureString(factionText);
-                _spriteBatch.DrawString(_font, factionText, new Vector2(screenCenterX - factionSize.X / 2, panel.Y + 53), factionColor);
-
-                string standingText = $"Standing: {standingLabel}";
-                Vector2 standingSize = _font.MeasureString(standingText);
-                Color standingColor = _reputationManager != null && _reputationManager.IsHostile(factionId) ? Color.IndianRed :
-                    _reputationManager != null && _reputationManager.IsFriendly(factionId) ? Color.LightGreen : Color.LightGray;
-                _spriteBatch.DrawString(_font, standingText, new Vector2(screenCenterX - standingSize.X / 2, panel.Y + 74), standingColor);
-
-                // Distance
-                string distText = $"{distance / 1000f:F2} km";
-                Vector2 distSize = _font.MeasureString(distText);
-                _spriteBatch.DrawString(_font, distText, new Vector2(screenCenterX - distSize.X / 2, panel.Y + 95), Color.Cyan);
-            } else {
-                // Fallback: Just draw colored bars to indicate target is selected
-                _spriteBatch.Draw(_pixel, new Rectangle(panel.X + 10, panel.Y + 30, (int)(420 * MathHelper.Clamp(distance / 10000f, 0f, 1f)), 30), factionColor * 0.8f);
+            if (!string.IsNullOrWhiteSpace(hud.MissionLabel))
+            {
+                _spriteBatch.DrawString(_font, hud.MissionLabel, cursor, Color.Yellow);
+                cursor.Y += _font.MeasureString(hud.MissionLabel).Y + 2f;
             }
 
+            if (!string.IsNullOrWhiteSpace(hud.FactionLabel))
+            {
+                _spriteBatch.DrawString(_font, $"Faction: {hud.FactionLabel}", cursor, factionColor);
+                cursor.Y += _font.MeasureString($"Faction: {hud.FactionLabel}").Y + 2f;
+            }
+
+            if (!string.IsNullOrWhiteSpace(hud.StandingLabel))
+            {
+                Color standingColor = _reputationManager != null && _reputationManager.IsHostile(hud.FactionId) ? Color.IndianRed :
+                    _reputationManager != null && _reputationManager.IsFriendly(hud.FactionId) ? Color.LightGreen : Color.LightGray;
+                _spriteBatch.DrawString(_font, $"Standing: {hud.StandingLabel}", cursor, standingColor);
+                cursor.Y += _font.MeasureString($"Standing: {hud.StandingLabel}").Y + 2f;
+            }
+
+            if (!string.IsNullOrWhiteSpace(hud.StatusLabel))
+            {
+                _spriteBatch.DrawString(_font, $"Status: {hud.StatusLabel}", cursor, Color.Orange);
+                cursor.Y += _font.MeasureString($"Status: {hud.StatusLabel}").Y + 2f;
+            }
+
+            if (!string.IsNullOrWhiteSpace(hud.IntegrityLabel))
+            {
+                _spriteBatch.DrawString(_font, hud.IntegrityLabel, cursor, Color.White);
+                cursor.Y += _font.MeasureString(hud.IntegrityLabel).Y + 2f;
+            }
+
+            _spriteBatch.DrawString(_font, $"Distance: {hud.DistanceLabel}", cursor, Color.Cyan);
+
             // Draw targeting reticle on the actual target or off-screen indicator
-            Vector3 screenPos3D = GraphicsDevice.Viewport.Project(target.Position, _camera.Projection, _camera.View, Matrix.Identity);
+            Vector3 targetPosition = selectedTarget is SpaceObject targetSpaceObject
+                ? targetSpaceObject.Position
+                : selectedTarget is CargoPod cargoPod
+                    ? cargoPod.Position
+                    : Vector3.Zero;
+            float distance = Vector3.Distance(_playerShip.Position, targetPosition);
+            Vector3 screenPos3D = GraphicsDevice.Viewport.Project(targetPosition, _camera.Projection, _camera.View, Matrix.Identity);
 
             // Check if target is on screen
             bool isOnScreen = screenPos3D.Z >= 0 && screenPos3D.Z <= 1 &&
@@ -2518,30 +2839,8 @@ namespace Roguelancer {
                 DrawTargetingReticle(targetScreenPos, distance);
             } else {
                 // Target is off-screen - draw directional arrow at screen edge
-                DrawOffScreenTargetIndicator(target.Position, distance);
+                DrawOffScreenTargetIndicator(targetPosition, distance);
             }
-        }
-
-        private string GetTargetFactionId(SpaceObject target) {
-            if (target is NpcShip npcTarget) {
-                return FactionManager.NormalizeFactionId(npcTarget.FactionId);
-            }
-
-            if (target is Station stationTarget) {
-                return FactionManager.NormalizeFactionId(stationTarget.FactionId);
-            }
-
-            Station matchingStation = null;
-            if (_stationManager != null)
-            {
-                matchingStation = _stationManager.GetStations().FirstOrDefault(s =>
-                    s.Name.Equals(target.Name, StringComparison.OrdinalIgnoreCase));
-            }
-            if (matchingStation != null) {
-                return FactionManager.NormalizeFactionId(matchingStation.FactionId);
-            }
-
-            return FactionManager.NeutralCivilians;
         }
 
         /// <summary>
@@ -3769,6 +4068,7 @@ namespace Roguelancer {
             _playerShip.Position = arrivalPos;
             _playerShip.Velocity = Vector3.Zero;
             _selectedSpaceObjectIndex = -1;
+            _selectedNavTarget = null;
 
             _missionWorldManager?.RebindActiveMissions(_missionManager?.ActiveMissions ?? Array.Empty<Mission>());
 

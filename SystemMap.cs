@@ -22,6 +22,7 @@ namespace Roguelancer {
         private List<SpaceObject> _spaceObjects;
         private List<JumpHole> _jumpHoles;
         private List<TradeLane> _tradeLanes;
+        private IReadOnlyCollection<SpaceObject> _highlightObjects;
         private Vector3 _playerPosition;
         private string _systemName;
 
@@ -69,12 +70,14 @@ namespace Roguelancer {
             List<JumpHole> jumpHoles,
             List<TradeLane> tradeLanes,
             Vector3 playerPosition,
-            string systemName) {
+            string systemName,
+            IReadOnlyCollection<SpaceObject> highlightObjects = null) {
             _spaceObjects = spaceObjects;
             _jumpHoles = jumpHoles;
             _tradeLanes = tradeLanes;
             _playerPosition = playerPosition;
             _systemName = systemName;
+            _highlightObjects = highlightObjects;
         }
 
         public void Update(GameTime gameTime) {
@@ -143,6 +146,10 @@ namespace Roguelancer {
 
                 // Draw icon
                 DrawIcon(spriteBatch, mapPos, objColor, iconSize, obj);
+                if (IsHighlighted(obj))
+                {
+                    DrawHighlight(spriteBatch, mapPos, iconSize, objColor);
+                }
 
                 // Draw label
                 if (_font != null && !string.IsNullOrEmpty(label)) {
@@ -294,6 +301,32 @@ namespace Roguelancer {
                 // Small square default
                 DrawFilledSquare(spriteBatch, pos, size, color);
             }
+        }
+
+        private bool IsHighlighted(SpaceObject obj)
+        {
+            if (obj == null || _highlightObjects == null || _highlightObjects.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (SpaceObject highlighted in _highlightObjects)
+            {
+                if (ReferenceEquals(highlighted, obj))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void DrawHighlight(SpriteBatch spriteBatch, Vector2 pos, int size, Color color)
+        {
+            Color highlight = Color.Gold * 0.95f;
+            int ringSize = size + 8;
+            DrawCircleOutline(spriteBatch, pos, ringSize, highlight);
+            DrawCircleOutline(spriteBatch, pos, ringSize + 4, highlight * 0.5f);
         }
 
         /// <summary>

@@ -5,6 +5,21 @@ using System.Linq;
 
 namespace Roguelancer
 {
+    public sealed class MissionObjectivePanelInfo
+    {
+        public Mission Mission { get; set; }
+        public bool IsResolved { get; set; }
+        public string TitleLine { get; set; } = string.Empty;
+        public string TypeLine { get; set; } = string.Empty;
+        public string ObjectiveLine { get; set; } = string.Empty;
+        public string TargetLine { get; set; } = string.Empty;
+        public string StatusLine { get; set; } = string.Empty;
+        public string DistanceLine { get; set; } = string.Empty;
+        public string RewardLine { get; set; } = string.Empty;
+        public string ClientLine { get; set; } = string.Empty;
+        public Color AccentColor { get; set; } = Color.LimeGreen;
+    }
+
     /// <summary>
     /// 2D HUD overlay for mission guidance: distance display, off-screen arrows, proximity alerts
     /// </summary>
@@ -34,7 +49,7 @@ namespace Roguelancer
             if (waypointSystem == null || _font == null) return;
 
             Viewport viewport = graphicsDevice.Viewport;
-            DrawActiveMissionPanel(spriteBatch, viewport, waypointSystem);
+            DrawActiveMissionPanel(spriteBatch, viewport, waypointSystem, playerPosition);
 
             foreach (var kvp in waypointSystem.GuidanceData)
             {
@@ -91,17 +106,25 @@ namespace Roguelancer
             }
         }
 
-        private void DrawActiveMissionPanel(SpriteBatch spriteBatch, Viewport viewport, MissionWaypointSystem waypointSystem)
+        public MissionObjectivePanelInfo GetActiveMissionPanelInfo(
+            MissionWaypointSystem waypointSystem,
+            Vector3? playerPosition = null)
         {
+            if (waypointSystem == null)
+            {
+                return null;
+            }
+
             var data = waypointSystem.GuidanceData.Values
                 .FirstOrDefault(entry => entry?.Mission != null && entry.Mission.Status == MissionStatus.Active);
 
             if (data?.Mission == null)
             {
-                return;
+                return null;
             }
 
-            string title = "ACTIVE MISSION";
+            string title = "ACTIVE OBJECTIVE";
+            string typeLine = $"Type: {data.Mission.GetTypeLabel()}";
             string objective = data.Mission.GetObjectiveText();
             string targetLine = data.Mission.Type switch
             {
@@ -110,39 +133,80 @@ namespace Roguelancer
                 MissionType.Escort => $"Route: {data.Mission.GetTargetLabel()} -> {data.Mission.GetDestinationLabel()}",
                 _ => data.Mission.GetObjectiveText()
             };
-            string sourceLine = $"Client: {data.Mission.GetClientLabel()} | Faction: {FactionManager.GetFactionDisplayName(data.Mission.FactionId)}";
-            string rewardLine = $"Reward: {data.Mission.Reward:N0} CR | Risk: {data.Mission.GetRiskLabel()}";
+            string statusLine = data.ResolvedTarget != null
+                ? "Status: Objective resolved"
+                : $"Status: {data.Mission.GetHudFallbackLine()}".Trim();
+            if (string.Equals(statusLine, "Status:", StringComparison.OrdinalIgnoreCase))
+            {
+                statusLine = "Status: Awaiting resolution";
+            }
+
             string distanceLine = data.ResolvedTarget != null
                 ? $"Distance: {FormatDistance(data.DistanceToTarget)}"
-                : data.Mission.GetHudFallbackLine();
+                : "Distance: unresolved";
 
-            Vector2 titleSize = _font.MeasureString(title);
-            Vector2 objectiveSize = _font.MeasureString(objective);
-            Vector2 targetSize = _font.MeasureString(targetLine);
-            Vector2 sourceSize = _font.MeasureString(sourceLine);
-            Vector2 rewardSize = _font.MeasureString(rewardLine);
-            Vector2 distanceSize = _font.MeasureString(distanceLine);
+            string rewardLine = $"Reward: {data.Mission.Reward:N0} CR | Risk: {data.Mission.GetRiskLabel()}";
+            string clientLine = $"Client: {data.Mission.GetClientLabel()} | Faction: {FactionManager.GetFactionDisplayName(data.Mission.FactionId)}";
 
-            float panelWidth = Math.Max(Math.Max(Math.Max(titleSize.X, objectiveSize.X), Math.Max(targetSize.X, sourceSize.X)), Math.Max(rewardSize.X, distanceSize.X)) + 28f;
-            float panelHeight = titleSize.Y + objectiveSize.Y + targetSize.Y + sourceSize.Y + rewardSize.Y + distanceSize.Y + 24f;
+            return new MissionObjectivePanelInfo
+            {
+                Mission = data.Mission,
+                IsResolved = data.ResolvedTarget != null,
+                TitleLine = title,
+                TypeLine = typeLine,
+                ObjectiveLine = objective,
+                TargetLine = targetLine,
+                StatusLine = statusLine,
+                DistanceLine = distanceLine,
+                RewardLine = rewardLine,
+                ClientLine = clientLine,
+                AccentColor = GetMissionColor(data.Mission.Type)
+            };
+        }
+
+        private void DrawActiveMissionPanel(SpriteBatch spriteBatch, Viewport viewport, MissionWaypointSystem waypointSystem, Vector3 playerPosition)
+        {
+            MissionObjectivePanelInfo info = GetActiveMissionPanelInfo(waypointSystem, playerPosition);
+            if (info == null || _font == null)
+            {
+                return;
+            }
+
+            Vector2 titleSize = _font.MeasureString(info.TitleLine);
+            Vector2 typeSize = _font.MeasureString(info.TypeLine);
+            Vector2 objectiveSize = _font.MeasureString(info.ObjectiveLine);
+            Vector2 targetSize = _font.MeasureString(info.TargetLine);
+            Vector2 statusSize = _font.MeasureString(info.StatusLine);
+            Vector2 distanceSize = _font.MeasureString(info.DistanceLine);
+            Vector2 rewardSize = _font.MeasureString(info.RewardLine);
+            Vector2 clientSize = _font.MeasureString(info.ClientLine);
+
+            float panelWidth = Math.Max(
+                Math.Max(Math.Max(titleSize.X, typeSize.X), Math.Max(objectiveSize.X, targetSize.X)),
+                Math.Max(Math.Max(statusSize.X, distanceSize.X), Math.Max(rewardSize.X, clientSize.X))) + 28f;
+            float panelHeight = titleSize.Y + typeSize.Y + objectiveSize.Y + targetSize.Y + statusSize.Y + distanceSize.Y + rewardSize.Y + clientSize.Y + 28f;
 
             Rectangle panel = new Rectangle(18, 18, (int)panelWidth, (int)panelHeight);
             spriteBatch.Draw(_pixel, panel, Color.Black * 0.65f);
-            spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 2), Color.LimeGreen * 0.85f);
-            spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y + panel.Height - 2, panel.Width, 2), Color.LimeGreen * 0.45f);
+            spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 2), info.AccentColor * 0.85f);
+            spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y + panel.Height - 2, panel.Width, 2), info.AccentColor * 0.45f);
 
             Vector2 cursor = new Vector2(panel.X + 12, panel.Y + 8);
-            spriteBatch.DrawString(_font, title, cursor, Color.LimeGreen);
+            spriteBatch.DrawString(_font, info.TitleLine, cursor, info.AccentColor);
             cursor.Y += titleSize.Y + 2f;
-            spriteBatch.DrawString(_font, objective, cursor, Color.White);
+            spriteBatch.DrawString(_font, info.TypeLine, cursor, Color.LightGreen);
+            cursor.Y += typeSize.Y + 2f;
+            spriteBatch.DrawString(_font, info.ObjectiveLine, cursor, Color.White);
             cursor.Y += objectiveSize.Y + 2f;
-            spriteBatch.DrawString(_font, targetLine, cursor, Color.LightGreen);
+            spriteBatch.DrawString(_font, info.TargetLine, cursor, Color.LightGreen);
             cursor.Y += targetSize.Y + 2f;
-            spriteBatch.DrawString(_font, sourceLine, cursor, Color.Cyan);
-            cursor.Y += sourceSize.Y + 2f;
-            spriteBatch.DrawString(_font, rewardLine, cursor, Color.Yellow);
+            spriteBatch.DrawString(_font, info.StatusLine, cursor, Color.Orange);
+            cursor.Y += statusSize.Y + 2f;
+            spriteBatch.DrawString(_font, info.DistanceLine, cursor, info.IsResolved ? Color.Lime : Color.Orange);
+            cursor.Y += distanceSize.Y + 2f;
+            spriteBatch.DrawString(_font, info.RewardLine, cursor, Color.Yellow);
             cursor.Y += rewardSize.Y + 2f;
-            spriteBatch.DrawString(_font, distanceLine, cursor, data.ResolvedTarget != null ? Color.Lime : Color.Orange);
+            spriteBatch.DrawString(_font, info.ClientLine, cursor, Color.Cyan);
         }
 
         private void DrawOnScreenMarker(SpriteBatch spriteBatch, Vector2 screenPos,
