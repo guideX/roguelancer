@@ -136,6 +136,20 @@ namespace Roguelancer
                 ? GetTargetFactionLabel()
                 : "Target Faction: N/A";
 
+            if (Type == MissionType.Escort)
+            {
+                return
+                    $"Type: {GetTypeLabel()}\n" +
+                    $"Objective: Protect {GetTargetLabel()}\n" +
+                    $"Destination: {GetDestinationLabel()}\n" +
+                    $"Status: {GetEscortStatusLabel()}\n" +
+                    $"Reward: {Reward:N0} CR\n" +
+                    $"Risk: {GetRiskLabel()}\n" +
+                    $"Client: {GetClientLabel()}\n" +
+                    $"Faction: {FactionManager.GetFactionDisplayName(FactionId)}\n" +
+                    $"{timeStr}";
+            }
+
             return
                 $"Objective: {GetObjectiveText()}\n" +
                 $"Target: {GetTargetLabel()}\n" +
@@ -180,6 +194,18 @@ namespace Roguelancer
             return FactionManager.GetFactionDisplayName(FactionId);
         }
 
+        public string GetEscortStatusLabel()
+        {
+            return Status switch
+            {
+                MissionStatus.Available => "Available",
+                MissionStatus.Active => "In Progress",
+                MissionStatus.Completed => "Arrived",
+                MissionStatus.Failed => "Failed",
+                _ => "Unknown"
+            };
+        }
+
         public string GetEscortShipName()
         {
             string baseName = !string.IsNullOrWhiteSpace(Target)
@@ -209,7 +235,7 @@ namespace Roguelancer
             return Type switch
             {
                 MissionType.Bounty => "Target signal unresolved",
-                MissionType.Escort => "Escort ship unavailable",
+                MissionType.Escort => "Escort signal unresolved",
                 _ => "Cargo unavailable"
             };
         }
@@ -221,7 +247,9 @@ namespace Roguelancer
                 return Destination.Trim();
             }
 
-            return Type == MissionType.Delivery ? "Destination unavailable" : "Location unavailable";
+            return Type == MissionType.Escort || Type == MissionType.Delivery
+                ? "Destination unavailable"
+                : "Location unavailable";
         }
 
         public string GetTargetFactionLabel()
@@ -265,7 +293,7 @@ namespace Roguelancer
                 {
                     TargetSpaceObject is NpcShip escortShip && !escortShip.IsDestroyed
                         ? string.Empty
-                        : "Escort ship unavailable",
+                        : "Escort signal unresolved",
                     string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty
                 }.Where(text => !string.IsNullOrWhiteSpace(text))),
                 _ => string.Empty

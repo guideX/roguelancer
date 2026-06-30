@@ -204,6 +204,16 @@ namespace Roguelancer
             string deliveryDetail = delivery.GetDetailedDescription();
             string escortSummary = escort.GetSummary();
             string escortDetail = escort.GetDetailedDescription();
+            string escortJobBoardLine = string.Join(" | ", new[]
+            {
+                $"Type: {escort.GetTypeLabel()}",
+                $"Objective: Protect {escort.GetTargetLabel()}",
+                $"Destination: {escort.GetDestinationLabel()}",
+                $"Reward: {escort.Reward:N0} CR",
+                $"Risk: {escort.GetRiskLabel()}",
+                $"Client: {escort.GetClientLabel()}",
+                $"Faction: {FactionManager.GetFactionDisplayName(escort.FactionId)}"
+            });
 
             if (string.IsNullOrWhiteSpace(bountySummary) || string.IsNullOrWhiteSpace(bountyDetail))
             {
@@ -220,6 +230,11 @@ namespace Roguelancer
                 return Fail("escort mission UI strings were empty");
             }
 
+            if (string.IsNullOrWhiteSpace(escortJobBoardLine))
+            {
+                return Fail("escort job board display string was empty");
+            }
+
             if (!bountySummary.Contains("Reward:", StringComparison.OrdinalIgnoreCase) ||
                 !bountySummary.Contains("Destroy", StringComparison.OrdinalIgnoreCase))
             {
@@ -233,9 +248,22 @@ namespace Roguelancer
             }
 
             if (!escortSummary.Contains("Escort", StringComparison.OrdinalIgnoreCase) ||
-                !escortDetail.Contains("Objective:", StringComparison.OrdinalIgnoreCase))
+                !escortDetail.Contains("Protect", StringComparison.OrdinalIgnoreCase) ||
+                !escortDetail.Contains("Destination:", StringComparison.OrdinalIgnoreCase) ||
+                !escortDetail.Contains("Reward:", StringComparison.OrdinalIgnoreCase))
             {
                 return Fail("escort UI text did not include escort objective data");
+            }
+
+            if (!escortJobBoardLine.Contains("Type: ESCORT", StringComparison.OrdinalIgnoreCase) ||
+                !escortJobBoardLine.Contains("Objective: Protect", StringComparison.OrdinalIgnoreCase) ||
+                !escortJobBoardLine.Contains("Destination:", StringComparison.OrdinalIgnoreCase) ||
+                !escortJobBoardLine.Contains("Reward:", StringComparison.OrdinalIgnoreCase) ||
+                !escortJobBoardLine.Contains("Risk:", StringComparison.OrdinalIgnoreCase) ||
+                !escortJobBoardLine.Contains("Client:", StringComparison.OrdinalIgnoreCase) ||
+                !escortJobBoardLine.Contains("Faction:", StringComparison.OrdinalIgnoreCase))
+            {
+                return Fail("escort job board display string was not shaped correctly");
             }
 
             return Pass();
@@ -431,6 +459,15 @@ namespace Roguelancer
                 0f,
                 string.Empty,
                 FactionManager.LibertyCorporations);
+            Mission escort = new Mission(
+                MissionType.Escort,
+                MissionDifficulty.Medium,
+                string.Empty,
+                string.Empty,
+                1_000,
+                0f,
+                string.Empty,
+                FactionManager.LibertyCorporations);
 
             if (bounty.GetTargetLabel() != "Target signal unresolved")
             {
@@ -450,6 +487,22 @@ namespace Roguelancer
             if (!delivery.GetHudFallbackLine().Contains("Destination unavailable", StringComparison.OrdinalIgnoreCase))
             {
                 return Fail("delivery HUD fallback text did not mention unavailable destination");
+            }
+
+            if (escort.GetTargetLabel() != "Escort signal unresolved")
+            {
+                return Fail("escort unresolved target text was not safe");
+            }
+
+            if (escort.GetDestinationLabel() != "Destination unavailable")
+            {
+                return Fail("escort unresolved destination text was not safe");
+            }
+
+            if (!escort.GetHudFallbackLine().Contains("Escort signal unresolved", StringComparison.OrdinalIgnoreCase) ||
+                !escort.GetHudFallbackLine().Contains("Destination unavailable", StringComparison.OrdinalIgnoreCase))
+            {
+                return Fail("escort HUD fallback text did not mention unresolved target and destination");
             }
 
             return Pass();

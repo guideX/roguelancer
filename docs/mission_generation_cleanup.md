@@ -6,7 +6,7 @@ Phase 1H.1 tightened the mission-world binding layer so generated jobs stay grou
 
 - Delivery missions now pick destinations from the active station list provided by the world manager.
 - Bounty missions now default to clearly hostile or criminal targets, with spawned targets bound to the mission at acceptance time.
-- Escort missions remain experimental and are labeled as such in mission text and UI.
+- Escort missions are now world-bound contracts and their dock UI copy now shows the escort target, destination, risk, reward, and client/faction clearly.
 
 ## Player-facing text
 
