@@ -179,14 +179,38 @@ namespace Roguelancer
             return FactionManager.GetFactionDisplayName(FactionId);
         }
 
+        public string GetEscortShipName()
+        {
+            string baseName = !string.IsNullOrWhiteSpace(Target)
+                ? Target.Trim()
+                : "Escort Convoy";
+
+            return $"{baseName} {Id}";
+        }
+
         public string GetTargetLabel()
         {
             if (!string.IsNullOrWhiteSpace(Target))
             {
+                if (Type == MissionType.Escort)
+                {
+                    if (TargetSpaceObject is NpcShip escortShip && !escortShip.IsDestroyed && !string.IsNullOrWhiteSpace(escortShip.Name))
+                    {
+                        return escortShip.Name.Trim();
+                    }
+
+                    return GetEscortShipName();
+                }
+
                 return Target.Trim();
             }
 
-            return Type == MissionType.Bounty ? "Target signal unresolved" : "Cargo unavailable";
+            return Type switch
+            {
+                MissionType.Bounty => "Target signal unresolved",
+                MissionType.Escort => "Escort ship unavailable",
+                _ => "Cargo unavailable"
+            };
         }
 
         public string GetDestinationLabel()
@@ -214,7 +238,7 @@ namespace Roguelancer
             {
                 MissionType.Delivery => $"Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
                 MissionType.Bounty => $"Destroy {GetTargetLabel()}",
-                MissionType.Escort => $"Escort {GetTargetLabel()} to {GetDestinationLabel()} (experimental)",
+                MissionType.Escort => $"Escort {GetTargetLabel()} to {GetDestinationLabel()}",
                 _ => Description
             };
         }
@@ -225,7 +249,7 @@ namespace Roguelancer
             {
                 MissionType.Bounty => $"Bounty: Destroy {GetTargetLabel()}",
                 MissionType.Delivery => $"Delivery: Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
-                MissionType.Escort => $"Escort: Escort {GetTargetLabel()} to {GetDestinationLabel()} (experimental)",
+                MissionType.Escort => $"Escort: Protect {GetTargetLabel()}",
                 _ => GetObjectiveText()
             };
         }
@@ -236,7 +260,13 @@ namespace Roguelancer
             {
                 MissionType.Bounty => string.IsNullOrWhiteSpace(Target) ? "Target signal unresolved" : string.Empty,
                 MissionType.Delivery => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty,
-                MissionType.Escort => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty,
+                MissionType.Escort => string.Join(" | ", new[]
+                {
+                    TargetSpaceObject is NpcShip escortShip && !escortShip.IsDestroyed
+                        ? string.Empty
+                        : "Escort ship unavailable",
+                    string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty
+                }.Where(text => !string.IsNullOrWhiteSpace(text))),
                 _ => string.Empty
             };
         }
