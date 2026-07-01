@@ -8,8 +8,8 @@
   "radius": 6500.0,
   "faction_id": "liberty_police",
   "ship_description": "Patrol Fighter 1",
-  "min_ships": 2,
-  "max_ships": 4,
-  "spawn_interval": 18.0,
+  "min_ships": 1,
+  "max_ships": 3,
+  "spawn_interval": 22.0,
   "behavior_type": "LawfulPatrol"
 }

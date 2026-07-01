@@ -138,14 +138,7 @@ namespace Roguelancer
             IReadOnlyList<Station> loadedStations = _worldManager?.GetKnownStations() ?? Array.Empty<Station>();
             bool canGenerateDelivery = loadedStations.Count > 0;
             MissionType type = PickMissionType(canGenerateDelivery);
-            int baseReward = difficulty switch
-            {
-                MissionDifficulty.Easy => _random.Next(500, 2000),
-                MissionDifficulty.Medium => _random.Next(2000, 5000),
-                MissionDifficulty.Hard => _random.Next(5000, 15000),
-                MissionDifficulty.Deadly => _random.Next(15000, 50000),
-                _ => 1000
-            };
+            int baseReward = GetBaseReward(type, difficulty);
 
             float timeLimit = difficulty switch
             {
@@ -293,9 +286,9 @@ namespace Roguelancer
             int difficultyBonus = difficulty switch
             {
                 MissionDifficulty.Easy => 0,
-                MissionDifficulty.Medium => 100,
-                MissionDifficulty.Hard => 250,
-                MissionDifficulty.Deadly => 550,
+                MissionDifficulty.Medium => 75,
+                MissionDifficulty.Hard => 180,
+                MissionDifficulty.Deadly => 350,
                 _ => 0
             };
 
@@ -305,7 +298,7 @@ namespace Roguelancer
             }
 
             float distance = Vector3.Distance(origin.Position, destination.Position);
-            int distanceBonus = (int)Math.Clamp(distance / 1800f * 120f, 100f, 1800f);
+            int distanceBonus = (int)Math.Clamp(distance / 2400f * 90f, 75f, 900f);
             return difficultyBonus + distanceBonus;
         }
 
@@ -313,11 +306,11 @@ namespace Roguelancer
         {
             int difficultyBonus = difficulty switch
             {
-                MissionDifficulty.Easy => 75,
-                MissionDifficulty.Medium => 200,
-                MissionDifficulty.Hard => 500,
+                MissionDifficulty.Easy => 150,
+                MissionDifficulty.Medium => 300,
+                MissionDifficulty.Hard => 600,
                 MissionDifficulty.Deadly => 1100,
-                _ => 100
+                _ => 150
             };
 
             int targetBonus = 0;
@@ -326,11 +319,15 @@ namespace Roguelancer
                 string lower = target.ToLowerInvariant();
                 if (lower.Contains("warlord") || lower.Contains("marauder") || lower.Contains("enforcer"))
                 {
-                    targetBonus = 300;
+                    targetBonus = 400;
                 }
                 else if (lower.Contains("commander") || lower.Contains("raider"))
                 {
-                    targetBonus = 150;
+                    targetBonus = 200;
+                }
+                else if (lower.Contains("smuggler") || lower.Contains("scout") || lower.Contains("wingman"))
+                {
+                    targetBonus = 100;
                 }
             }
 
@@ -341,14 +338,46 @@ namespace Roguelancer
         {
             int difficultyBonus = difficulty switch
             {
-                MissionDifficulty.Easy => 0,
-                MissionDifficulty.Medium => 90,
-                MissionDifficulty.Hard => 220,
-                MissionDifficulty.Deadly => 500,
-                _ => 0
+                MissionDifficulty.Easy => 100,
+                MissionDifficulty.Medium => 225,
+                MissionDifficulty.Hard => 450,
+                MissionDifficulty.Deadly => 850,
+                _ => 100
             };
 
-            return destination != null ? difficultyBonus + 75 : difficultyBonus;
+            return destination != null ? difficultyBonus + 100 : difficultyBonus;
+        }
+
+        private int GetBaseReward(MissionType type, MissionDifficulty difficulty)
+        {
+            return type switch
+            {
+                MissionType.Delivery => difficulty switch
+                {
+                    MissionDifficulty.Easy => _random.Next(500, 1100),
+                    MissionDifficulty.Medium => _random.Next(1100, 2200),
+                    MissionDifficulty.Hard => _random.Next(2200, 4200),
+                    MissionDifficulty.Deadly => _random.Next(4200, 8000),
+                    _ => _random.Next(500, 1200)
+                },
+                MissionType.Bounty => difficulty switch
+                {
+                    MissionDifficulty.Easy => _random.Next(900, 1700),
+                    MissionDifficulty.Medium => _random.Next(1800, 3300),
+                    MissionDifficulty.Hard => _random.Next(3300, 6200),
+                    MissionDifficulty.Deadly => _random.Next(6200, 12000),
+                    _ => _random.Next(1000, 2000)
+                },
+                MissionType.Escort => difficulty switch
+                {
+                    MissionDifficulty.Easy => _random.Next(1000, 1900),
+                    MissionDifficulty.Medium => _random.Next(2000, 3600),
+                    MissionDifficulty.Hard => _random.Next(3600, 6800),
+                    MissionDifficulty.Deadly => _random.Next(6800, 13000),
+                    _ => _random.Next(1000, 2000)
+                },
+                _ => _random.Next(500, 1500)
+            };
         }
 
         /// <summary>

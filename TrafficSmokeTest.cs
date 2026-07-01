@@ -36,6 +36,7 @@ namespace Roguelancer
             RunCase(ValidatePirateAttacksTrader, "pirate attacks trader", ref passed, ref failed);
             RunCase(ValidateTraderFlees, "trader flees", ref passed, ref failed);
             RunCase(ValidatePatrolInterceptsPirate, "patrol intercepts pirate", ref passed, ref failed);
+            RunCase(ValidateEarlyZonePressure, "early zone pressure", ref passed, ref failed);
             RunCase(ValidateSpawnCapsAndDespawnSafety, "spawn caps/despawn", ref passed, ref failed);
 
             Console.WriteLine($"[TRAFFIC SMOKE] RESULT: {passed} passed, {failed} failed");
@@ -333,6 +334,41 @@ namespace Roguelancer
             if (traffic.GetActiveShipsForZone(zone.Id).Contains(farShip))
             {
                 return Fail("far traffic ship was not safely despawned");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateEarlyZonePressure()
+        {
+            TrafficZoneConfig patrol = _config.GetTrafficZonesForSystem(1).FirstOrDefault(zone => zone.BehaviorType == TrafficZoneBehaviorType.LawfulPatrol);
+            TrafficZoneConfig trader = _config.GetTrafficZonesForSystem(1).FirstOrDefault(zone => zone.BehaviorType == TrafficZoneBehaviorType.TraderRoute);
+            TrafficZoneConfig pirate = _config.GetTrafficZonesForSystem(1).FirstOrDefault(zone => zone.BehaviorType == TrafficZoneBehaviorType.PirateAmbush);
+            TrafficZoneConfig station = _config.GetTrafficZonesForSystem(1).FirstOrDefault(zone => zone.BehaviorType == TrafficZoneBehaviorType.StationTraffic);
+
+            if (patrol == null || trader == null || pirate == null || station == null)
+            {
+                return Fail("one or more early traffic zones were missing");
+            }
+
+            if (patrol.MinShips < 1 || patrol.MaxShips > 3 || patrol.SpawnInterval < 20f)
+            {
+                return Fail("Fort Bush patrol pressure was outside the intended lawful range");
+            }
+
+            if (trader.MinShips < 2 || trader.MaxShips > 4 || trader.SpawnInterval > 20f)
+            {
+                return Fail("Newark trader pressure was outside the intended lively range");
+            }
+
+            if (pirate.MinShips < 1 || pirate.MaxShips > 2 || pirate.SpawnInterval < 28f)
+            {
+                return Fail("Buffalo pirate pressure was outside the intended risky range");
+            }
+
+            if (station.MinShips < 1 || station.MaxShips > 2 || station.SpawnInterval < 16f)
+            {
+                return Fail("Newark station traffic pressure was outside the intended background range");
             }
 
             return Pass();

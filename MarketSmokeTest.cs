@@ -79,6 +79,18 @@ namespace Roguelancer
                 Console.WriteLine($"[MARKET SMOKE] FAIL fallback station: {fallbackResult.FailureReason}");
             }
 
+            var balanceResult = RunSilenced(ValidateEarlyRouteBalance);
+            if (balanceResult.Success)
+            {
+                passed++;
+                Console.WriteLine("[MARKET SMOKE] PASS early route balance");
+            }
+            else
+            {
+                failed++;
+                Console.WriteLine($"[MARKET SMOKE] FAIL early route balance: {balanceResult.FailureReason}");
+            }
+
             Console.WriteLine($"[MARKET SMOKE] RESULT: {passed} passed, {failed} failed");
             return (passed, failed);
         }
@@ -226,6 +238,78 @@ namespace Roguelancer
             }
         }
 
+        private (bool Success, string FailureReason) ValidateEarlyRouteBalance()
+        {
+            Station fortBush = ResolveStation("Fort Bush");
+            Station newark = ResolveStation("Newark Station");
+            Station rochester = ResolveStation("Rochester Base");
+            Station buffalo = ResolveStation("Buffalo Base");
+
+            if (fortBush == null || newark == null || rochester == null || buffalo == null)
+            {
+                return Fail("one or more early-route stations were not found");
+            }
+
+            if (!TryGetListings(fortBush, out var fortListings, out string fortFailure))
+            {
+                return Fail(fortFailure);
+            }
+
+            if (!TryGetListings(newark, out var newarkListings, out string newarkFailure))
+            {
+                return Fail(newarkFailure);
+            }
+
+            if (!TryGetListings(rochester, out var rochesterListings, out string rochesterFailure))
+            {
+                return Fail(rochesterFailure);
+            }
+
+            if (!TryGetListings(buffalo, out var buffaloListings, out string buffaloFailure))
+            {
+                return Fail(buffaloFailure);
+            }
+
+            if (!ValidateNoSameStationArbitrage(fortBush.Name, fortListings, out string fortArbFailure))
+            {
+                return Fail(fortArbFailure);
+            }
+
+            if (!ValidateNoSameStationArbitrage(newark.Name, newarkListings, out string newarkArbFailure))
+            {
+                return Fail(newarkArbFailure);
+            }
+
+            if (!ValidateNoSameStationArbitrage(rochester.Name, rochesterListings, out string rochesterArbFailure))
+            {
+                return Fail(rochesterArbFailure);
+            }
+
+            if (!ValidateNoSameStationArbitrage(buffalo.Name, buffaloListings, out string buffaloArbFailure))
+            {
+                return Fail(buffaloArbFailure);
+            }
+
+            int legalMargin = GetBestRouteMargin(fortListings, newarkListings, requireContraband: false);
+            if (legalMargin <= 0 || legalMargin > 200)
+            {
+                return Fail($"Fort Bush to Newark legal route margin was {legalMargin}, expected a modest positive spread");
+            }
+
+            int contrabandMargin = GetBestRouteMargin(buffaloListings, rochesterListings, requireContraband: true);
+            if (contrabandMargin <= legalMargin)
+            {
+                return Fail($"Buffalo to Rochester contraband route margin {contrabandMargin} did not exceed legal route margin {legalMargin}");
+            }
+
+            if (contrabandMargin < 100)
+            {
+                return Fail($"Buffalo to Rochester contraband route margin was too small: {contrabandMargin}");
+            }
+
+            return Pass();
+        }
+
         private Station ResolveStation(string stationName)
         {
             string target = NormalizeKey(stationName);
@@ -280,6 +364,113 @@ namespace Roguelancer
             }
 
             return true;
+        }
+
+        private bool TryGetListings(Station station, out IReadOnlyList<StationMarketListing> listings, out string failureReason)
+        {
+            listings = Array.Empty<StationMarketListing>();
+            failureReason = string.Empty;
+
+            if (station == null)
+            {
+                failureReason = "station was null";
+                return false;
+            }
+
+            int creditsBefore = _tempCredits.Credits;
+            Dictionary<string, int> cargoSnapshot = _tempShip.CargoHold.GetAllCommodities();
+
+            try
+            {
+                if (!_stationDockUi.DockAtStation(station))
+                {
+                    failureReason = string.IsNullOrWhiteSpace(_stationDockUi.LastDockingDeniedReason)
+                        ? $"failed to dock at {station.Name}"
+                        : _stationDockUi.LastDockingDeniedReason;
+                    return false;
+                }
+
+                _stationDockUi.NavigateToArea(StationArea.Dealer);
+                listings = _commodityDealer.CurrentMarketListings;
+                if (listings == null || listings.Count == 0)
+                {
+                    failureReason = $"no market listings were returned for {station.Name}";
+                    return false;
+                }
+
+                return true;
+            }
+            finally
+            {
+                RestoreTemporaryState(creditsBefore, cargoSnapshot);
+
+                if (_stationDockUi.IsDocked)
+                {
+                    _stationDockUi.Undock();
+                }
+            }
+        }
+
+        private bool ValidateNoSameStationArbitrage(string stationName, IReadOnlyList<StationMarketListing> listings, out string failureReason)
+        {
+            failureReason = string.Empty;
+
+            foreach (var listing in listings ?? Array.Empty<StationMarketListing>())
+            {
+                if (listing == null || listing.Commodity == null)
+                {
+                    continue;
+                }
+
+                if (!listing.IsAvailable || listing.BuyPrice <= 0 || listing.SellPrice <= 0)
+                {
+                    continue;
+                }
+
+                if (listing.BuyPrice < listing.SellPrice)
+                {
+                    failureReason = $"{stationName} allows same-station arbitrage on {listing.Commodity.Name}";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private int GetBestRouteMargin(IReadOnlyList<StationMarketListing> originListings, IReadOnlyList<StationMarketListing> destinationListings, bool requireContraband)
+        {
+            int bestMargin = int.MinValue;
+
+            foreach (var origin in originListings ?? Array.Empty<StationMarketListing>())
+            {
+                if (origin == null || origin.Commodity == null || !origin.IsAvailable || origin.BuyPrice <= 0)
+                {
+                    continue;
+                }
+
+                if (requireContraband && !origin.Commodity.IsContraband)
+                {
+                    continue;
+                }
+
+                var destination = destinationListings?.FirstOrDefault(listing =>
+                    listing != null &&
+                    listing.Commodity != null &&
+                    string.Equals(listing.Commodity.Id, origin.Commodity.Id, StringComparison.OrdinalIgnoreCase));
+
+                if (destination == null || !destination.IsAvailable || destination.SellPrice <= 0)
+                {
+                    continue;
+                }
+
+                int margin = destination.SellPrice - origin.BuyPrice;
+                if (margin > bestMargin)
+                {
+                    bestMargin = margin;
+                }
+            }
+
+            return bestMargin == int.MinValue ? 0 : bestMargin;
         }
 
         private bool ExerciseSelectionSafety(int selectionSeed, int listingCount, out string failureReason)
@@ -447,6 +638,16 @@ namespace Roguelancer
                 .Where(ch => char.IsLetterOrDigit(ch))
                 .ToArray();
             return new string(buffer);
+        }
+
+        private static (bool Success, string FailureReason) Pass()
+        {
+            return (true, string.Empty);
+        }
+
+        private static (bool Success, string FailureReason) Fail(string reason)
+        {
+            return (false, reason);
         }
 
         private static T RunSilenced<T>(Func<T> action)

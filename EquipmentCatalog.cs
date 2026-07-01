@@ -29,7 +29,7 @@ namespace Roguelancer
                 Name = "Liberty Light Laser",
                 Description = "A dependable light laser for civilian and militia craft.",
                 EquipmentType = EquipmentType.Gun,
-                Price = 2500,
+                Price = 3200,
                 WeaponType = WeaponType.LaserBolt,
                 Damage = 16f,
                 ProjectileSpeed = 2200f,
@@ -44,7 +44,7 @@ namespace Roguelancer
                 Name = "Liberty Pulse Cannon",
                 Description = "A heavier pulse cannon with stronger impact and a slower cadence.",
                 EquipmentType = EquipmentType.Gun,
-                Price = 5000,
+                Price = 6500,
                 WeaponType = WeaponType.BlueDonut,
                 Damage = 24f,
                 ProjectileSpeed = 1500f,
@@ -59,7 +59,7 @@ namespace Roguelancer
                 Name = "Rogue Blaster",
                 Description = "A pirate-friendly blaster tuned for fast, dirty fights.",
                 EquipmentType = EquipmentType.Gun,
-                Price = 1800,
+                Price = 2400,
                 WeaponType = WeaponType.BlueDonut,
                 Damage = 8f,
                 ProjectileSpeed = 1500f,
@@ -74,7 +74,7 @@ namespace Roguelancer
                 Name = "Basic Missile Launcher",
                 Description = "A simple launcher for basic homing missiles.",
                 EquipmentType = EquipmentType.MissileLauncher,
-                Price = 4000,
+                Price = 5500,
                 MissileDamage = 48f,
                 MissileSpeed = 900f,
                 MissileTurnRate = 2.2f,
@@ -88,7 +88,7 @@ namespace Roguelancer
                 Name = "Basic Mine Dropper",
                 Description = "Drops a compact proximity mine that detonates on nearby hostiles.",
                 EquipmentType = EquipmentType.MineDropper,
-                Price = 1800,
+                Price = 2600,
                 MineDamage = 110f,
                 MineTriggerRadius = 90f,
                 MineBlastRadius = 240f,
@@ -103,7 +103,7 @@ namespace Roguelancer
                 Name = "Basic Countermeasure Dropper",
                 Description = "Launches defensive flares and chaff to confuse hostile targeting.",
                 EquipmentType = EquipmentType.CountermeasureDropper,
-                Price = 1200,
+                Price = 1800,
                 CountermeasureLife = 4.5f,
                 CountermeasureAttractionRadius = 1400f,
                 CountermeasureStrength = 3f,
@@ -116,7 +116,7 @@ namespace Roguelancer
                 Name = "Civilian Shield Generator",
                 Description = "A modest shield generator suitable for standard patrol and trade runs.",
                 EquipmentType = EquipmentType.ShieldGenerator,
-                Price = 3000
+                Price = 4200
             });
 
             Register(new EquipmentDefinition
@@ -125,7 +125,7 @@ namespace Roguelancer
                 Name = "Light Thruster",
                 Description = "A lightweight thruster package for improved responsiveness.",
                 EquipmentType = EquipmentType.Thruster,
-                Price = 4500
+                Price = 6000
             });
 
             Register(new EquipmentDefinition
@@ -134,7 +134,7 @@ namespace Roguelancer
                 Name = "Basic Scanner",
                 Description = "A compact scanner for identifying ships, cargo, and contacts.",
                 EquipmentType = EquipmentType.Scanner,
-                Price = 800
+                Price = 1200
             });
         }
 

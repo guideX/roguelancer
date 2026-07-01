@@ -135,6 +135,23 @@ namespace Roguelancer
                 return Fail("pirate pod commodity was invalid");
             }
 
+            if (traderCommodity.BasePrice <= 0 || pirateCommodity.BasePrice <= 0)
+            {
+                return Fail("spawned loot commodity had a non-positive base value");
+            }
+
+            int traderValue = traderCommodity.BasePrice * traderPod.Quantity;
+            int pirateValue = pirateCommodity.BasePrice * piratePod.Quantity;
+            if (traderValue <= 0 || pirateValue <= 0)
+            {
+                return Fail("spawned loot pod value should always be positive");
+            }
+
+            if (traderPod.Quantity < 1 || traderPod.Quantity > 2 || piratePod.Quantity < 1 || piratePod.Quantity > 2)
+            {
+                return Fail("loot pod quantity was outside the early-game range");
+            }
+
             bool pirateLootLooksCriminal = pirateCommodity.IsContraband ||
                                            string.Equals(pirateCommodity.Id, "diamonds", StringComparison.OrdinalIgnoreCase);
             if (!pirateLootLooksCriminal)

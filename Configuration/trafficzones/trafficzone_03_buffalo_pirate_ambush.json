@@ -9,7 +9,7 @@
   "faction_id": "liberty_rogues",
   "ship_description": "Warthog Heavy Fighter",
   "min_ships": 1,
-  "max_ships": 3,
-  "spawn_interval": 24.0,
+  "max_ships": 2,
+  "spawn_interval": 30.0,
   "behavior_type": "PirateAmbush"
 }

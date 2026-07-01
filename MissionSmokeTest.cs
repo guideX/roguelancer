@@ -29,6 +29,7 @@ namespace Roguelancer
             RunCase(ValidateMissionUiStrings, "mission UI strings", ref passed, ref failed);
             RunCase(ValidateHudFallbackText, "HUD fallback text", ref passed, ref failed);
             RunCase(ValidateLegacyDestinationAlias, "legacy destination alias", ref passed, ref failed);
+            RunCase(ValidateRewardSanity, "reward sanity", ref passed, ref failed);
             RunCase(ValidateSaveLoadMissionState, "save/load mission state", ref passed, ref failed);
 
             Console.WriteLine($"[MISSION SMOKE] RESULT: {passed} passed, {failed} failed");
@@ -520,6 +521,59 @@ namespace Roguelancer
             if (!destination.Name.Contains("Fort Bush", StringComparison.OrdinalIgnoreCase))
             {
                 return Fail("legacy alias did not resolve to the expected station");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateRewardSanity()
+        {
+            MissionSmokeContext ctx = CreateContext();
+
+            Mission delivery = null;
+            Mission bounty = null;
+            Mission escort = null;
+
+            for (int i = 0; i < 24 && (delivery == null || bounty == null || escort == null); i++)
+            {
+                Mission mission = ctx.MissionManager.GenerateRandomMission(FactionManager.LibertyCorporations, ctx.Stations.FirstOrDefault());
+                if (mission == null)
+                {
+                    continue;
+                }
+
+                if (mission.Type == MissionType.Delivery && delivery == null)
+                {
+                    delivery = mission;
+                }
+                else if (mission.Type == MissionType.Bounty && bounty == null)
+                {
+                    bounty = mission;
+                }
+                else if (mission.Type == MissionType.Escort && escort == null)
+                {
+                    escort = mission;
+                }
+            }
+
+            if (delivery == null || bounty == null || escort == null)
+            {
+                return Fail("could not generate one of each mission type for reward sanity checks");
+            }
+
+            if (delivery.Reward < 500 || delivery.Reward > 10_000)
+            {
+                return Fail($"delivery reward {delivery.Reward} was outside the early-game sanity range");
+            }
+
+            if (bounty.Reward < 1_000 || bounty.Reward > 15_000)
+            {
+                return Fail($"bounty reward {bounty.Reward} was outside the early-game sanity range");
+            }
+
+            if (escort.Reward < 1_000 || escort.Reward > 15_000)
+            {
+                return Fail($"escort reward {escort.Reward} was outside the early-game sanity range");
             }
 
             return Pass();

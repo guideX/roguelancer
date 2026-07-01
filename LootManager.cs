@@ -28,20 +28,28 @@ namespace Roguelancer
         private static readonly string[] LegalCargoPool =
         {
             "food-rations",
+            "food-rations",
+            "water",
             "water",
             "h-fuel",
-            "engine-components",
+            "h-fuel",
             "construction-materials",
-            "luxury-goods",
-            "medical-supplies",
-            "diamonds",
+            "construction-materials",
+            "consumer-goods",
+            "consumer-goods",
             "boron",
-            "consumer-goods"
+            "medical-supplies",
+            "luxury-goods",
+            "engine-components",
+            "diamonds"
         };
 
         private static readonly string[] ContrabandCargoPool =
         {
             "side-arms",
+            "side-arms",
+            "side-arms",
+            "alien-organisms",
             "alien-organisms",
             "diamonds"
         };
@@ -97,7 +105,7 @@ namespace Roguelancer
                 return 0;
             }
 
-            int quantity = 1 + _random.Next(3);
+            int quantity = profile == LootDropProfile.Contraband ? 1 + _random.Next(2) : 1 + _random.Next(2);
             Vector3 position = destroyedShip.Position + RandomScatter(18f, 60f);
             Vector3 velocity = destroyedShip.Velocity * 0.2f + RandomScatter(0f, 28f);
             float lifetimeSeconds = MinLifetimeSeconds + (float)_random.NextDouble() * MaxLifetimeBonusSeconds;
