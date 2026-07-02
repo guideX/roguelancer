@@ -28,3 +28,10 @@
 - Contraband scan pressure and police response timing.
 - Cargo pod pool weighting and quantity ranges.
 - Starter equipment prices and ship dealer trade-in pacing.
+
+## Ship progression pacing
+
+- Intended starter credits: 3,000 CR.
+- Intended first equipment upgrade: a small 1,800 to 2,400 CR purchase after a few legal routes or one to two missions.
+- Intended first ship upgrade: the Pirate Transport at 24,000 CR, with a typical net upgrade cost of about 18,000 CR after trade-in.
+- Rough pacing target: 4 to 6 early missions or 6 to 8 good trade legs before the first ship change feels comfortable.

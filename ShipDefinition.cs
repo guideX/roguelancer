@@ -12,7 +12,7 @@ namespace Roguelancer
         public string Description { get; set; }
         public string ModelPath { get; set; }
         public int Price { get; set; }
-        public int TradeInValue { get; set; } // 60% of purchase price
+        public int TradeInValue { get; set; } // 50% of purchase price
         
         // Ship Stats
         public float MaxSpeed { get; set; } = 250f;
@@ -41,7 +41,7 @@ namespace Roguelancer
             Description = description;
             ModelPath = modelPath;
             Price = price;
-            TradeInValue = (int)(price * 0.6f); // 60% trade-in value
+            TradeInValue = (int)(price * 0.5f); // 50% trade-in value keeps trade-ins fair without enabling abuse
         }
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace Roguelancer
                 "Scimitar",
                 "Light Fighter - Fast and agile",
                 "SHIPS/scimitar/Scimitar2",
-                15000
+                12000
             )
             {
                 MaxSpeed = 250f,
@@ -79,7 +79,7 @@ namespace Roguelancer
                 "Pirate Transport",
                 "Heavy Transport - High cargo, slow",
                 "SHIPS/PI_TRANSPORT/PI_TRANSPORT",
-                45000
+                24000
             )
             {
                 MaxSpeed = 180f,
@@ -93,7 +93,7 @@ namespace Roguelancer
                 MaxShields = 100f,
                 CargoCapacity = 200,
                 DisplayColor = Color.Yellow,
-                ModelCorrectionRotation = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi) // Fix orientation: -90° pitch + 180° yaw
+                ModelCorrectionRotation = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi) // Fix orientation: -90 deg pitch + 180 deg yaw
             };
         }
 
@@ -137,3 +137,4 @@ namespace Roguelancer
         }
     }
 }
+

@@ -10,6 +10,8 @@ namespace Roguelancer {
     /// Roguelancer Game Class
     /// </summary>
     public class RoguelancerGame : Game {
+        public const int StartingPlayerCredits = 3000;
+
         /// <summary>
         /// Graphics
         /// </summary>
@@ -201,6 +203,7 @@ namespace Roguelancer {
         private readonly bool _runLootSmoke;
         private readonly bool _runMissionSmoke;
         private readonly bool _runNavSmoke;
+        private readonly bool _runShipSmoke;
         private readonly bool _runAllSmoke;
         private SaveGameManager _saveGameManager;
         private string _activeMountedGunId = string.Empty;
@@ -250,6 +253,7 @@ namespace Roguelancer {
             _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMissionSmoke = args?.Any(arg => string.Equals(arg, "--mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runNavSmoke = args?.Any(arg => string.Equals(arg, "--nav-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runShipSmoke = args?.Any(arg => string.Equals(arg, "--ship-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
 
             // Load game settings
@@ -808,7 +812,7 @@ namespace Roguelancer {
             _pixel.SetData(new[] { Color.White });
 
             // Initialize player credits with enough to buy any ship
-            _playerCredits = new PlayerCredits(50000); // Start with 50,000 credits
+            _playerCredits = new PlayerCredits(StartingPlayerCredits); // Start with the tuned early-game bankroll
 
             // Initialize ship dealer
             _shipDealer = new ShipDealer();
@@ -1052,6 +1056,11 @@ namespace Roguelancer {
                 var result = RunNavSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runShipSmoke)
+            {
+                var result = RunShipSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else
             {
                 TryAutoLoadSavedGame();
@@ -1109,6 +1118,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("loot smoke", RunLootSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("mission smoke", RunMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("nav smoke", RunNavSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("ship smoke", RunShipSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1272,6 +1282,20 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[NAV SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunShipSmokeTest()
+        {
+            try
+            {
+                var harness = new ShipDealerSmokeTest();
+                return harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SHIP SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
