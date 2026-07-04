@@ -17,6 +17,9 @@ namespace Roguelancer
 
             RunCase(ValidateNearestStationResolution, "nearest station resolved", ref passed, ref failed);
             RunCase(ValidateNearestStationSelectionSafety, "nearest station target selected", ref passed, ref failed);
+            RunCase(ValidateFirstDockHintText, "fresh-start dock hint text", ref passed, ref failed);
+            RunCase(ValidateStationSelectedDockPrompt, "station-selected dock prompt", ref passed, ref failed);
+            RunCase(ValidateDockAssistActivePrompt, "dock-assist-active prompt", ref passed, ref failed);
             RunCase(ValidateDockAssistApproach, "dock assist approach", ref passed, ref failed);
             RunCase(ValidateDockRangePrompt, "dock range prompt", ref passed, ref failed);
             RunCase(ValidateNoTargetDockFallback, "no-target dock fallback", ref passed, ref failed);
@@ -100,6 +103,86 @@ namespace Roguelancer
             return Pass();
         }
 
+        private (bool Success, string FailureReason) ValidateFirstDockHintText()
+        {
+            if (!DockNavigation.TryBuildFirstDockHintData(out DockOnboardingHudData dockHint, out string failureReason))
+            {
+                return Fail(string.IsNullOrWhiteSpace(failureReason)
+                    ? "fresh-start dock hint could not be built"
+                    : failureReason);
+            }
+
+            if (dockHint == null ||
+                string.IsNullOrWhiteSpace(dockHint.HeaderLabel) ||
+                string.IsNullOrWhiteSpace(dockHint.PrimaryLine) ||
+                string.IsNullOrWhiteSpace(dockHint.SecondaryLine))
+            {
+                return Fail("fresh-start dock hint text was incomplete");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateStationSelectedDockPrompt()
+        {
+            DockSmokeContext ctx = CreateContext();
+            Station station = ctx.Stations[0];
+            Vector3 outsidePosition = station.Position + new Vector3(station.DockingRange + 400f, 0f, 0f);
+
+            if (!DockNavigation.TryBuildDockAssistHudData(station, outsidePosition, dockAssistActive: false, out DockAssistHudData dockHud, out string failureReason))
+            {
+                return Fail(string.IsNullOrWhiteSpace(failureReason)
+                    ? "station-selected dock HUD could not be built"
+                    : failureReason);
+            }
+
+            if (dockHud == null ||
+                string.IsNullOrWhiteSpace(dockHud.StationLabel) ||
+                string.IsNullOrWhiteSpace(dockHud.RangeDeltaLabel) ||
+                string.IsNullOrWhiteSpace(dockHud.GuidanceLabel))
+            {
+                return Fail("station-selected dock prompt text was incomplete");
+            }
+
+            if (!dockHud.StationLabel.StartsWith("Press F3: Approach/Dock", StringComparison.OrdinalIgnoreCase) ||
+                !dockHud.RangeDeltaLabel.StartsWith("Distance to dock range:", StringComparison.OrdinalIgnoreCase))
+            {
+                return Fail("station-selected dock prompt did not use the expected wording");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateDockAssistActivePrompt()
+        {
+            DockSmokeContext ctx = CreateContext();
+            Station station = ctx.Stations[0];
+            Vector3 outsidePosition = station.Position + new Vector3(station.DockingRange + 400f, 0f, 0f);
+
+            if (!DockNavigation.TryBuildDockAssistHudData(station, outsidePosition, dockAssistActive: true, out DockAssistHudData dockHud, out string failureReason))
+            {
+                return Fail(string.IsNullOrWhiteSpace(failureReason)
+                    ? "dock-assist-active HUD could not be built"
+                    : failureReason);
+            }
+
+            if (dockHud == null ||
+                string.IsNullOrWhiteSpace(dockHud.StationLabel) ||
+                string.IsNullOrWhiteSpace(dockHud.RangeDeltaLabel) ||
+                string.IsNullOrWhiteSpace(dockHud.GuidanceLabel))
+            {
+                return Fail("dock-assist-active prompt text was incomplete");
+            }
+
+            if (!dockHud.StationLabel.StartsWith("Dock Assist: Approaching", StringComparison.OrdinalIgnoreCase) ||
+                !dockHud.RangeDeltaLabel.StartsWith("Dock range in", StringComparison.OrdinalIgnoreCase))
+            {
+                return Fail("dock-assist-active prompt did not use the expected wording");
+            }
+
+            return Pass();
+        }
+
         private (bool Success, string FailureReason) ValidateDockAssistApproach()
         {
             DockSmokeContext ctx = CreateContext();
@@ -145,6 +228,7 @@ namespace Roguelancer
 
             if (!dockHud.InRange ||
                 !string.Equals(dockHud.GuidanceLabel, "Press F3 to dock", StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(dockHud.RangeDeltaLabel, "Within dock range", StringComparison.OrdinalIgnoreCase) ||
                 string.IsNullOrWhiteSpace(dockHud.DistanceLabel) ||
                 string.IsNullOrWhiteSpace(dockHud.DockRangeLabel))
             {

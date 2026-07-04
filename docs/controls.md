@@ -7,6 +7,9 @@
 - `Shift+F2`: cycle stations in reverse distance order
 - `Ctrl+F2`: target the nearest dockable station
 - `G`: start normal GOTO on the selected target
+- On a fresh undocked start with no active mission, the HUD briefly shows:
+  - `Press Ctrl+F2 to target nearest station`
+  - `Press F3 for dock assist`
 
 ## Docking
 
@@ -14,7 +17,12 @@
 - If a dockable station is selected and the ship is already in range, `F3` docks immediately.
 - If a dockable station is selected but the ship is out of range, `F3` starts a direct dock-assist approach to that station.
 - If no station is selected, `F3` resolves and targets the nearest dockable station first, then starts dock assist.
-- Dock assist HUD text shows the station name, distance, dock range, and either `Press F3 to dock` or `Too far: approach to within ...`.
+- Dock assist HUD text now calls out the action more clearly:
+  - `Press F3: Approach/Dock [Station Name]`
+  - `Distance to dock range: X`
+  - `Dock Assist: Approaching [Station Name]`
+  - `Dock range in X`
+  - `Press F3 to dock` when you are in range
 
 ## Targeting Notes
 

@@ -208,6 +208,10 @@ namespace Roguelancer {
         private readonly bool _runShipSmoke;
         private readonly bool _runAllSmoke;
         private SaveGameManager _saveGameManager;
+        private const float FirstDockHintAutoSelectDelaySeconds = 4f;
+        private float _firstDockHintElapsedSeconds = 0f;
+        private bool _firstDockHintAutoSelectAttempted = false;
+        private bool _firstDockHintCompleted = false;
         private string _activeMountedGunId = string.Empty;
         private WeaponType? _activeMountedGunWeaponType;
         private bool _wasUsingMountedGun = false;
@@ -1028,6 +1032,10 @@ namespace Roguelancer {
                                 : dockDeniedReason,
                             3f);
                     }
+                    else
+                    {
+                        MarkFirstDockHintCompleted();
+                    }
                 }
             };
             _playerShip.SetGotoAutopilot(_gotoAutopilot);
@@ -1516,6 +1524,7 @@ namespace Roguelancer {
                 _font);
 
             SyncMountedGunWeaponProfile();
+            MarkFirstDockHintCompleted();
 
             _currentSystemIndex = targetSystemIndex;
             failureReason = string.Empty;
@@ -1967,6 +1976,7 @@ namespace Roguelancer {
             // Cargo pods: tractor pull and pickup.
             _lootManager?.Update(gameTime, _playerShip, keyboardState.IsKeyDown(Keys.P), _notificationManager, Console.WriteLine);
             PruneInvalidNavSelection();
+            UpdateFirstDockOnboarding((float)gameTime.ElapsedGameTime.TotalSeconds);
 
             // Update mission waypoint system (resolve targets, build paths, check proximity)
             _missionWaypointSystem?.Update(
@@ -2256,7 +2266,7 @@ namespace Roguelancer {
             return _stationManager?.GetStations() ?? _spaceObjects.OfType<Station>().ToList();
         }
 
-        private bool TrySelectNearestDockableStation(string sourceLabel = "Nearest Dockable Station")
+        private bool TrySelectNearestDockableStation(string sourceLabel = "Nearest Dockable Station", bool showNotification = true)
         {
             if (_playerShip == null)
             {
@@ -2271,7 +2281,7 @@ namespace Roguelancer {
                 return false;
             }
 
-            SelectSpaceObjectTarget(nearestStation, sourceLabel, sourceLabel);
+            SelectSpaceObjectTarget(nearestStation, sourceLabel, sourceLabel, showNotification);
             Console.WriteLine($"[TARGETING] {sourceLabel} selected: {nearestStation.Name} at {distance / 1000f:F2}km");
             return true;
         }
@@ -2335,7 +2345,12 @@ namespace Roguelancer {
                 _playerShip.CancelGoto();
                 _notificationManager?.ShowMessage($"Docking at {station.Name}");
                 Console.WriteLine($"[DOCK ASSIST] Docking at {station.Name} ({distance:F0}m)");
-                return _stationDockUI?.DockAtStation(station) == true;
+                bool docked = _stationDockUI?.DockAtStation(station) == true;
+                if (docked)
+                {
+                    MarkFirstDockHintCompleted();
+                }
+                return docked;
             }
 
             string contextLabel = useNearestLabel ? "Nearest Dockable Station" : "Dock Assist Target";
@@ -2352,6 +2367,66 @@ namespace Roguelancer {
             _notificationManager?.ShowMessage($"Approaching {station.Name}", 2f);
             Console.WriteLine($"[DOCK ASSIST] Approaching {station.Name} at {distance / 1000f:F2}km");
             return true;
+        }
+
+        private bool HasActiveMissionObjective()
+        {
+            return _missionManager?.ActiveMissions?.Any(mission => mission != null && mission.Status == MissionStatus.Active) == true;
+        }
+
+        private bool ShouldShowFirstDockOnboarding()
+        {
+            if (_firstDockHintCompleted || _playerShip == null)
+            {
+                return false;
+            }
+
+            if (_stationDockUI?.IsDocked == true || _playerShip.IsGotoActive || _playerShip.IsDockAssistActive)
+            {
+                return false;
+            }
+
+            if (_systemMap?.IsVisible == true || _jumpHoleManager?.IsInTransit == true)
+            {
+                return false;
+            }
+
+            if (HasActiveMissionObjective())
+            {
+                return false;
+            }
+
+            return GetSelectedNavTarget() == null;
+        }
+
+        private void UpdateFirstDockOnboarding(float deltaSeconds)
+        {
+            if (!ShouldShowFirstDockOnboarding())
+            {
+                _firstDockHintElapsedSeconds = 0f;
+                return;
+            }
+
+            if (_firstDockHintAutoSelectAttempted)
+            {
+                return;
+            }
+
+            _firstDockHintElapsedSeconds += Math.Max(0f, deltaSeconds);
+            if (_firstDockHintElapsedSeconds < FirstDockHintAutoSelectDelaySeconds)
+            {
+                return;
+            }
+
+            _firstDockHintAutoSelectAttempted = true;
+            TrySelectNearestDockableStation("First Dock", showNotification: false);
+        }
+
+        private void MarkFirstDockHintCompleted()
+        {
+            _firstDockHintCompleted = true;
+            _firstDockHintElapsedSeconds = 0f;
+            _firstDockHintAutoSelectAttempted = true;
         }
 
         private void PruneInvalidNavSelection()
@@ -2375,7 +2450,7 @@ namespace Roguelancer {
             }
         }
 
-        private void SelectSpaceObjectTarget(SpaceObject target, string sourceLabel, string contextLabel = null)
+        private void SelectSpaceObjectTarget(SpaceObject target, string sourceLabel, string contextLabel = null, bool showNotification = true)
         {
             if (target == null)
             {
@@ -2387,7 +2462,10 @@ namespace Roguelancer {
             _selectedNavTargetContextLabel = contextLabel ?? sourceLabel;
 
             float distance = Vector3.Distance(_playerShip.Position, target.Position);
-            _notificationManager?.ShowMessage($"Target: {target.Name}");
+            if (showNotification)
+            {
+                _notificationManager?.ShowMessage($"Target: {target.Name}");
+            }
             Console.WriteLine($"[TARGETING] {sourceLabel} selected: {target.Name} at {distance / 1000f:F2}km");
         }
 
@@ -2919,7 +2997,12 @@ namespace Roguelancer {
                 textLines.Add($"Status: {hud.StatusLabel}");
             }
 
-            if (selectedTarget is Station stationTarget && DockNavigation.TryBuildDockAssistHudData(stationTarget, _playerShip.Position, out DockAssistHudData dockHud, out _))
+            Station stationTarget = selectedTarget as Station;
+            bool isDockAssistTarget = stationTarget != null &&
+                _playerShip.IsDockAssistActive &&
+                ReferenceEquals(_playerShip.CurrentDockAssistTarget, stationTarget);
+
+            if (stationTarget != null && DockNavigation.TryBuildDockAssistHudData(stationTarget, _playerShip.Position, isDockAssistTarget, out DockAssistHudData dockHud, out _))
             {
                 textLines.Add(dockHud.StationLabel);
                 textLines.Add(dockHud.DistanceLabel);
@@ -3583,17 +3666,61 @@ namespace Roguelancer {
 
             if (_playerShip.IsDockAssistActive && _playerShip.CurrentDockAssistTarget != null)
             {
-                if (!DockNavigation.TryBuildDockAssistHudData(_playerShip.CurrentDockAssistTarget, _playerShip.Position, out DockAssistHudData dockHud, out _))
+                if (!DockNavigation.TryBuildDockAssistHudData(_playerShip.CurrentDockAssistTarget, _playerShip.Position, true, out DockAssistHudData dockHud, out _))
                 {
                     return;
                 }
 
-                Vector2 pos = new Vector2(GraphicsDevice.Viewport.Width / 2 - 160, 30);
-                _spriteBatch.Draw(_pixel, new Rectangle((int)pos.X - 10, (int)pos.Y - 10, 320, 88), Color.Black * 0.5f);
-                _spriteBatch.DrawString(_font, $"DOCK ASSIST: {dockHud.Station?.Name ?? "Station"}", pos, Color.LightSkyBlue);
-                _spriteBatch.DrawString(_font, dockHud.DistanceLabel, pos + new Vector2(0, 22), Color.White);
-                _spriteBatch.DrawString(_font, dockHud.DockRangeLabel, pos + new Vector2(0, 44), Color.White);
-                _spriteBatch.DrawString(_font, dockHud.GuidanceLabel, pos + new Vector2(0, 66), dockHud.InRange ? Color.Lime : Color.Orange);
+                List<string> lines = new List<string>
+                {
+                    dockHud.StationLabel,
+                    dockHud.DistanceLabel,
+                    dockHud.DockRangeLabel
+                };
+
+                if (!string.IsNullOrWhiteSpace(dockHud.RangeDeltaLabel))
+                {
+                    lines.Add(dockHud.RangeDeltaLabel);
+                }
+
+                if (!string.IsNullOrWhiteSpace(dockHud.GuidanceLabel))
+                {
+                    lines.Add(dockHud.GuidanceLabel);
+                }
+
+                float panelWidth = 0f;
+                float panelHeight = 0f;
+                foreach (string line in lines)
+                {
+                    Vector2 size = _font.MeasureString(line);
+                    panelWidth = Math.Max(panelWidth, size.X);
+                    panelHeight += size.Y + 2f;
+                }
+
+                panelWidth += 28f;
+                panelHeight += 16f;
+
+                Vector2 pos = new Vector2(GraphicsDevice.Viewport.Width / 2 - panelWidth / 2f, 30);
+                _spriteBatch.Draw(_pixel, new Rectangle((int)pos.X - 10, (int)pos.Y - 10, (int)panelWidth, (int)panelHeight), Color.Black * 0.5f);
+
+                Vector2 cursor = pos;
+                _spriteBatch.DrawString(_font, dockHud.StationLabel, cursor, Color.LightSkyBlue);
+                cursor.Y += _font.MeasureString(dockHud.StationLabel).Y + 2f;
+                _spriteBatch.DrawString(_font, dockHud.DistanceLabel, cursor, Color.White);
+                cursor.Y += _font.MeasureString(dockHud.DistanceLabel).Y + 2f;
+                _spriteBatch.DrawString(_font, dockHud.DockRangeLabel, cursor, Color.White);
+                cursor.Y += _font.MeasureString(dockHud.DockRangeLabel).Y + 2f;
+
+                if (!string.IsNullOrWhiteSpace(dockHud.RangeDeltaLabel))
+                {
+                    _spriteBatch.DrawString(_font, dockHud.RangeDeltaLabel, cursor, Color.White);
+                    cursor.Y += _font.MeasureString(dockHud.RangeDeltaLabel).Y + 2f;
+                }
+
+                if (!string.IsNullOrWhiteSpace(dockHud.GuidanceLabel))
+                {
+                    _spriteBatch.DrawString(_font, dockHud.GuidanceLabel, cursor, dockHud.InRange ? Color.Lime : Color.Orange);
+                }
                 return;
             }
 
@@ -3777,6 +3904,7 @@ namespace Roguelancer {
         /// </summary>
         private void HandleUndock() {
             _notificationManager?.ShowMessage("Undocked - Systems online", 2f);
+            MarkFirstDockHintCompleted();
             _playerShip.Reset();
             IsMouseVisible = !_playerShip.IsFreeFlightMode;
         }
@@ -4046,7 +4174,7 @@ namespace Roguelancer {
             // If docked, draw station UI instead of regular HUD
             if (_stationDockUI?.IsDocked == true) {
                 _stationDockUI.Draw(_spriteBatch, GraphicsDevice, _playerCredits, _playerShip);
-            } else {
+                } else {
             // Regular HUD when not docked
                 // If system map is open, draw it instead of normal HUD
                 if (_systemMap?.IsVisible == true) {
@@ -4054,6 +4182,7 @@ namespace Roguelancer {
                 } else {
                     DrawStatusPanel();
                     DrawCurrentTargetDisplay();
+                    DrawFirstDockOnboardingHint();
                     DrawSpaceObjectBrackets();
                     DrawGotoStatus();
                     DrawSunDistanceIndicator();
@@ -4100,6 +4229,53 @@ namespace Roguelancer {
             Vector2 pos = new Vector2(10, 10);
             _spriteBatch.DrawString(_font, systemName, pos + Vector2.One, Color.Black * 0.5f);
             _spriteBatch.DrawString(_font, systemName, pos, Color.Gold);
+        }
+
+        /// <summary>
+        /// Draw the short first-dock onboarding hint during a fresh, undocked run.
+        /// </summary>
+        private void DrawFirstDockOnboardingHint() {
+            if (_font == null || !ShouldShowFirstDockOnboarding()) {
+                return;
+            }
+
+            if (!DockNavigation.TryBuildFirstDockHintData(out DockOnboardingHudData dockHint, out _))
+            {
+                return;
+            }
+
+            List<string> lines = new List<string>
+            {
+                dockHint.PrimaryLine,
+                dockHint.SecondaryLine
+            };
+
+            float panelWidth = 0f;
+            float panelHeight = 0f;
+            foreach (string line in lines)
+            {
+                Vector2 size = _font.MeasureString(line);
+                panelWidth = Math.Max(panelWidth, size.X);
+                panelHeight += size.Y + 2f;
+            }
+
+            panelWidth += 28f;
+            panelHeight += 18f;
+
+            float panelX = (GraphicsDevice.Viewport.Width - panelWidth) / 2f;
+            float panelY = 80f;
+
+            Rectangle panel = new Rectangle((int)panelX, (int)panelY, (int)panelWidth, (int)panelHeight);
+            _spriteBatch.Draw(_pixel, panel, Color.Black * 0.5f);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 2), Color.Gold * 0.75f);
+
+            Vector2 titlePos = new Vector2(panel.X + 10, panel.Y + 6);
+            _spriteBatch.DrawString(_font, dockHint.HeaderLabel, titlePos, Color.Gold);
+
+            Vector2 cursor = new Vector2(panel.X + 10, panel.Y + 26);
+            _spriteBatch.DrawString(_font, dockHint.PrimaryLine, cursor, Color.White);
+            cursor.Y += _font.MeasureString(dockHint.PrimaryLine).Y + 2f;
+            _spriteBatch.DrawString(_font, dockHint.SecondaryLine, cursor, Color.White);
         }
 
         /// <summary>

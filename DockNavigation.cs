@@ -5,6 +5,13 @@ using System.Linq;
 
 namespace Roguelancer
 {
+    internal sealed class DockOnboardingHudData
+    {
+        public string HeaderLabel { get; set; } = "FIRST DOCK";
+        public string PrimaryLine { get; set; } = "Press Ctrl+F2 to target nearest station";
+        public string SecondaryLine { get; set; } = "Press F3 for dock assist";
+    }
+
     internal sealed class DockAssistHudData
     {
         public Station Station { get; set; }
@@ -21,6 +28,13 @@ namespace Roguelancer
 
     internal static class DockNavigation
     {
+        public static bool TryBuildFirstDockHintData(out DockOnboardingHudData hudData, out string failureReason)
+        {
+            hudData = new DockOnboardingHudData();
+            failureReason = string.Empty;
+            return true;
+        }
+
         public static bool TryResolveNearestDockableStation(
             IReadOnlyList<Station> stations,
             Vector3 playerPosition,
@@ -83,6 +97,16 @@ namespace Roguelancer
             out DockAssistHudData hudData,
             out string failureReason)
         {
+            return TryBuildDockAssistHudData(station, playerPosition, dockAssistActive: false, out hudData, out failureReason);
+        }
+
+        public static bool TryBuildDockAssistHudData(
+            Station station,
+            Vector3 playerPosition,
+            bool dockAssistActive,
+            out DockAssistHudData hudData,
+            out string failureReason)
+        {
             hudData = null;
             failureReason = string.Empty;
 
@@ -96,19 +120,43 @@ namespace Roguelancer
             float dockRange = Math.Max(0f, station.DockingRange);
             float remaining = Math.Max(distance - dockRange, 0f);
             bool inRange = distance <= dockRange;
+            string stationName = string.IsNullOrWhiteSpace(station.Name) ? "Station" : station.Name;
+
+            string stationLabel;
+            string rangeDeltaLabel;
+            string guidanceLabel;
+
+            if (dockAssistActive)
+            {
+                stationLabel = $"Dock Assist: Approaching {stationName}";
+                rangeDeltaLabel = inRange
+                    ? "Within dock range"
+                    : $"Dock range in {FormatDistance(remaining)}";
+                guidanceLabel = inRange
+                    ? "Press F3 to dock"
+                    : "Dock assist active";
+            }
+            else
+            {
+                stationLabel = inRange
+                    ? "Press F3 to dock"
+                    : $"Press F3: Approach/Dock {stationName}";
+                rangeDeltaLabel = inRange
+                    ? "Within dock range"
+                    : $"Distance to dock range: {FormatDistance(remaining)}";
+                guidanceLabel = inRange
+                    ? "Press F3 to dock"
+                    : "Press F3 for dock assist";
+            }
 
             hudData = new DockAssistHudData
             {
                 Station = station,
-                StationLabel = $"Approaching {station.Name}",
+                StationLabel = stationLabel,
                 DistanceLabel = $"Distance: {FormatDistance(distance)}",
                 DockRangeLabel = $"Dock range: {FormatDistance(dockRange)}",
-                RangeDeltaLabel = inRange
-                    ? "Within dock range"
-                    : $"To dock: {FormatDistance(remaining)} remaining",
-                GuidanceLabel = inRange
-                    ? "Press F3 to dock"
-                    : $"Too far: approach to within {FormatDistance(dockRange)}",
+                RangeDeltaLabel = rangeDeltaLabel,
+                GuidanceLabel = guidanceLabel,
                 InRange = inRange,
                 DistanceToStation = distance,
                 DistanceToDockRange = remaining
