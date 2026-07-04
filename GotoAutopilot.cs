@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -61,6 +61,7 @@ namespace Roguelancer
 
         // final destination
         private SpaceObject _destination;
+        private bool _preferDirectStationApproach = false;
 
         // collision avoidance
         private Vector3 _avoidanceOffset = Vector3.Zero;
@@ -91,6 +92,8 @@ namespace Roguelancer
         public bool IsDocked => _state == AutopilotState.Docked;
         public SpaceObject Destination => _destination;
         public AutopilotState State => _state;
+        public bool IsDockAssistMode => _preferDirectStationApproach && _destination is Station;
+        public string ModeLabel => IsDockAssistMode ? "DOCK ASSIST" : "AUTOPILOT";
         public string CurrentNodeDescription => _route.Count > 0 && _nodeIndex < _route.Count
             ? _route[_nodeIndex].Type.ToString()
             : "None";
@@ -136,8 +139,14 @@ namespace Roguelancer
         /// <summary>Activate GOTO to the given target.</summary>
         public void Activate(SpaceObject target)
         {
+            Activate(target, false);
+        }
+
+        public void Activate(SpaceObject target, bool preferDirectStationApproach)
+        {
             if (target == null) return;
             _destination = target;
+            _preferDirectStationApproach = preferDirectStationApproach;
             _state = AutopilotState.Planning;
             _avoidanceOffset = Vector3.Zero;
             _nodeIndex = 0;
@@ -153,6 +162,7 @@ namespace Roguelancer
             _route.Clear();
             _nodeIndex = 0;
             _destination = null;
+            _preferDirectStationApproach = false;
             _avoidanceOffset = Vector3.Zero;
             Console.WriteLine("[AUTOPILOT] Cancelled.");
         }
@@ -234,32 +244,36 @@ namespace Roguelancer
             Vector3 start = _ship.Position;
             Vector3 end = _destination.Position;
 
-            // 1. Check if a tradelane can save travel time
-            TryAddTradelaneNodes(start, end);
-
-            // 2. Check for jump holes if no beneficial tradelane was added
-            //    (cross-system not yet supported beyond single jump)
-            if (_route.Count == 0)
-                TryAddJumpholeNodes(start, end);
-
-            // 3. Determine if destination is a dockable station
             bool isDockable = _destination is Station || IsStationTarget(_destination);
 
-            // 4. Final leg: plain FlyTo or Docking approach
+            if (_preferDirectStationApproach && isDockable)
+            {
+                BuildDirectDockRoute(start);
+            }
+            else
+            {
+                // 1. Check if a tradelane can save travel time
+                TryAddTradelaneNodes(start, end);
+
+                // 2. Check for jump holes if no beneficial tradelane was added
+                //    (cross-system not yet supported beyond single jump)
+                if (_route.Count == 0)
+                    TryAddJumpholeNodes(start, end);
+            }
+
+            // Final leg: plain FlyTo or Docking approach
             if (isDockable)
             {
-                // Approach waypoint (stand-off distance)
-                Vector3 approachOffset = Vector3.Normalize(start - end);
-                if (approachOffset.LengthSquared() < 0.001f) approachOffset = Vector3.Forward;
-                Vector3 approachPos = end + approachOffset * DockingApproachRange;
-
-                _route.Add(new RouteNode
+                if (!_preferDirectStationApproach)
                 {
-                    Type = NodeType.DockingApproach,
-                    Position = end,
-                    Reference = _destination,
-                    ArrivalRadius = DockingFinalRange
-                });
+                    _route.Add(new RouteNode
+                    {
+                        Type = NodeType.DockingApproach,
+                        Position = end,
+                        Reference = _destination,
+                        ArrivalRadius = DockingFinalRange
+                    });
+                }
             }
             else
             {
@@ -274,7 +288,8 @@ namespace Roguelancer
             }
 
             _state = AutopilotState.Executing;
-            _notifications?.ShowMessage($"AUTOPILOT: Routing to {_destination.Name}");
+            string routeMode = IsDockAssistMode ? "DOCK ASSIST" : "AUTOPILOT";
+            _notifications?.ShowMessage($"{routeMode}: Routing to {_destination.Name}");
             Console.WriteLine($"[AUTOPILOT] Route built: {_route.Count} nodes to '{_destination.Name}'");
             foreach (var n in _route)
                 Console.WriteLine($"  [{n.Type}] pos={n.Position:F0} arrR={n.ArrivalRadius:F0}");
@@ -330,6 +345,46 @@ namespace Roguelancer
             });
 
             Console.WriteLine($"[AUTOPILOT] Tradelane '{bestLane.Config.Name}' selected (entry ring: {bestEntry.Name})");
+        }
+
+        private void BuildDirectDockRoute(Vector3 start)
+        {
+            if (_destination is not Station station)
+            {
+                return;
+            }
+
+            Vector3 dockingPoint = station.GetDockingPoint();
+            Vector3 dockingDirection = dockingPoint - start;
+            if (dockingDirection.LengthSquared() < 0.001f)
+            {
+                dockingDirection = Vector3.Forward;
+            }
+            else
+            {
+                dockingDirection.Normalize();
+            }
+
+            float approachDistance = Math.Max(station.Config.DockingApproachDistance, DockingApproachRange * 0.5f);
+            Vector3 approachPoint = dockingPoint - dockingDirection * approachDistance;
+
+            _route.Add(new RouteNode
+            {
+                Type = NodeType.FlyTo,
+                Position = approachPoint,
+                Reference = station,
+                ArrivalRadius = Math.Max(250f, approachDistance * 0.35f)
+            });
+
+            _route.Add(new RouteNode
+            {
+                Type = NodeType.DockingApproach,
+                Position = dockingPoint,
+                Reference = station,
+                ArrivalRadius = DockingFinalRange
+            });
+
+            Console.WriteLine($"[AUTOPILOT] Direct dock assist route selected for '{station.Name}'");
         }
 
         private void CheckLaneDirection(
@@ -462,7 +517,7 @@ namespace Roguelancer
                 var node = _route[_nodeIndex];
                 if (node.Reference is TradelaneRing ring && ring.IsDestroyed)
                 {
-                    Console.WriteLine("[AUTOPILOT] Tradelane ring destroyed � rebuilding route.");
+                    Console.WriteLine("[AUTOPILOT] Tradelane ring destroyed – rebuilding route.");
                     BuildRoute();
                 }
             }
@@ -619,8 +674,20 @@ namespace Roguelancer
             Vector3 targetPos = node.Position;
             float dist = Vector3.Distance(_ship.Position, targetPos);
 
+            Vector3 toTarget = targetPos - _ship.Position;
+            if (toTarget.LengthSquared() < 0.0001f)
+            {
+                SetTargetSpeed(0f);
+                _ship.SetEnginesKilled(false);
+                _state = AutopilotState.Docked;
+                _notifications?.ShowMessage($"Docked at {node.Reference?.Name ?? "station"}");
+                Console.WriteLine($"[AUTOPILOT] Docked at '{node.Reference?.Name}'.");
+                OnDockingComplete?.Invoke();
+                return;
+            }
+
             // Calculate alignment for smoother approach
-            float alignment = Vector3.Dot(_ship.Forward, Vector3.Normalize(targetPos - _ship.Position));
+            float alignment = Vector3.Dot(_ship.Forward, Vector3.Normalize(toTarget));
 
             // Phase 1: Approach waypoint
             if (dist > DockingFinalRange * 3f)
@@ -957,11 +1024,11 @@ namespace Roguelancer
             if (_font != null)
             {
                 string phase = CurrentNodeDescription;
-                string txt = $"AUTOPILOT  [{phase}]  ? {_destination?.Name}";
+                string txt = $"{ModeLabel}  [{phase}]  -> {_destination?.Name}";
                 Vector2 sz = _font.MeasureString(txt);
                 Vector2 pos = new Vector2(x + barW / 2f - sz.X / 2f, y + barH / 2f - sz.Y / 2f);
                 spriteBatch.DrawString(_font, txt, pos + Vector2.One, Color.Black * 0.6f);
-                spriteBatch.DrawString(_font, txt, pos, Color.Lime);
+                spriteBatch.DrawString(_font, txt, pos, IsDockAssistMode ? Color.LightSkyBlue : Color.Lime);
             }
         }
 
@@ -999,3 +1066,4 @@ namespace Roguelancer
         }
     }
 }
+

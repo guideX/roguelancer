@@ -109,6 +109,10 @@ namespace Roguelancer
         private Station _nearestStation = null;
         public Station NearestStation => _nearestStation;
         public bool CanDock => _nearestStation != null && Vector3.Distance(Position, _nearestStation.Position) <= _nearestStation.DockingRange;
+        private bool _dockAssistActive = false;
+        private Station _dockAssistTarget = null;
+        public bool IsDockAssistActive => _dockAssistActive;
+        public Station CurrentDockAssistTarget => _dockAssistTarget;
         
         // Autopilot / GOTO
         private bool _gotoActive = false;
@@ -801,9 +805,16 @@ namespace Roguelancer
 
         public void ActivateGoto(SpaceObject target)
         {
+            ActivateGoto(target, false);
+        }
+
+        public void ActivateGoto(SpaceObject target, bool preferDirectStationApproach)
+        {
             if (target == null) return;
             _gotoTarget = target;
             _gotoActive = true;
+            _dockAssistActive = preferDirectStationApproach && target is Station;
+            _dockAssistTarget = _dockAssistActive ? target as Station : null;
             EnginesKilled = false;
             IsAfterburnerActive = false;
             _autopilotTargetSpeed = -1f;
@@ -811,12 +822,13 @@ namespace Roguelancer
             // Delegate to full autopilot if available
             if (_gotoAutopilot != null)
             {
-                _gotoAutopilot.Activate(target);
+                _gotoAutopilot.Activate(target, _dockAssistActive);
             }
             else
             {
                 // Fallback: simple legacy goto
-                _notificationManager?.ShowMessage($"GOTO: {target.Name}");
+                string modeLabel = _dockAssistActive ? "DOCK ASSIST" : "GOTO";
+                _notificationManager?.ShowMessage($"{modeLabel}: {target.Name}");
                 float distance = Vector3.Distance(Position, target.Position);
                 if (distance > 5000f)
                 {
@@ -830,6 +842,11 @@ namespace Roguelancer
                 }
             }
         }
+
+        public void ActivateDockAssist(Station target)
+        {
+            ActivateGoto(target, true);
+        }
         
         public void CancelGoto()
         {
@@ -840,6 +857,8 @@ namespace Roguelancer
             }
             _gotoActive = false;
             _gotoTarget = null;
+            _dockAssistActive = false;
+            _dockAssistTarget = null;
             _autopilotTargetSpeed = -1f;
             _gotoAutopilot?.Cancel();
         }
@@ -858,6 +877,8 @@ namespace Roguelancer
                 {
                     _gotoActive = false;
                     _gotoTarget = null;
+                    _dockAssistActive = false;
+                    _dockAssistTarget = null;
                     _autopilotTargetSpeed = -1f;
                     EnginesKilled = true;
                     IsCruiseActive = false;

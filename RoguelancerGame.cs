@@ -108,6 +108,7 @@ namespace Roguelancer {
         /// </summary>
         private int _selectedSpaceObjectIndex = -1;
         private object _selectedNavTarget;
+        private string _selectedNavTargetContextLabel = string.Empty;
         /// <summary>
         /// Npc Ships
         /// </summary>
@@ -203,6 +204,7 @@ namespace Roguelancer {
         private readonly bool _runLootSmoke;
         private readonly bool _runMissionSmoke;
         private readonly bool _runNavSmoke;
+        private readonly bool _runDockSmoke;
         private readonly bool _runShipSmoke;
         private readonly bool _runAllSmoke;
         private SaveGameManager _saveGameManager;
@@ -253,6 +255,7 @@ namespace Roguelancer {
             _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMissionSmoke = args?.Any(arg => string.Equals(arg, "--mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runNavSmoke = args?.Any(arg => string.Equals(arg, "--nav-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runDockSmoke = args?.Any(arg => string.Equals(arg, "--dock-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runShipSmoke = args?.Any(arg => string.Equals(arg, "--ship-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
 
@@ -1056,6 +1059,11 @@ namespace Roguelancer {
                 var result = RunNavSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runDockSmoke)
+            {
+                var result = RunDockSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runShipSmoke)
             {
                 var result = RunShipSmokeTest();
@@ -1118,6 +1126,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("loot smoke", RunLootSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("mission smoke", RunMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("nav smoke", RunNavSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("dock smoke", RunDockSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("ship smoke", RunShipSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
@@ -1282,6 +1291,20 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[NAV SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunDockSmokeTest()
+        {
+            try
+            {
+                var harness = new DockSmokeTest();
+                return harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[DOCK SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -1633,18 +1656,18 @@ namespace Roguelancer {
 
             // Check for docking request (F3)
             if (keyboardState.IsKeyDown(Keys.F3) && _prevKeys.IsKeyUp(Keys.F3)) {
-                if (_playerShip.TryDock()) {
-                    // Successfully initiated docking
-                    if (_stationDockUI?.DockAtStation(_playerShip.NearestStation) == true) {
-                        _notificationManager?.ShowMessage($"Docked at {_playerShip.NearestStation?.Name}", 3f);
-                    } else {
-                        string dockDeniedReason = _stationDockUI?.LastDockingDeniedReason;
-                        _notificationManager?.ShowMessage(
-                            string.IsNullOrWhiteSpace(dockDeniedReason)
-                                ? "Docking denied by station security"
-                                : dockDeniedReason,
-                            3f);
-                    }
+                Station dockTarget = ResolveDockAssistTarget();
+                if (dockTarget == null) {
+                    _notificationManager?.ShowMessage("No dockable station found", 2f);
+                    Console.WriteLine("[DOCK ASSIST] No dockable station resolved");
+                }
+                else if (!TryStartDockAssist(dockTarget, useNearestLabel: !ReferenceEquals(GetSelectedStationTarget(), dockTarget))) {
+                    string dockDeniedReason = _stationDockUI?.LastDockingDeniedReason;
+                    _notificationManager?.ShowMessage(
+                        string.IsNullOrWhiteSpace(dockDeniedReason)
+                            ? "Docking denied by station security"
+                            : dockDeniedReason,
+                        3f);
                 }
             }
 
@@ -2131,6 +2154,7 @@ namespace Roguelancer {
             {
                 _selectedNavTarget = null;
                 _selectedSpaceObjectIndex = -1;
+                _selectedNavTargetContextLabel = string.Empty;
             }
 
             _missionWorldManager?.NotifyNpcDestroyed(destroyedShip);
@@ -2150,6 +2174,7 @@ namespace Roguelancer {
             bool shiftT = tPressed && (keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift));
             bool ctrlT = tPressed && (keyboardState.IsKeyDown(Keys.LeftControl) || keyboardState.IsKeyDown(Keys.RightControl));
             bool shiftHeld = keyboardState.IsKeyDown(Keys.LeftShift) || keyboardState.IsKeyDown(Keys.RightShift);
+            bool ctrlHeld = keyboardState.IsKeyDown(Keys.LeftControl) || keyboardState.IsKeyDown(Keys.RightControl);
             bool f1Pressed = keyboardState.IsKeyDown(Keys.F1) && _prevKeys.IsKeyUp(Keys.F1);
             bool f2Pressed = keyboardState.IsKeyDown(Keys.F2) && _prevKeys.IsKeyUp(Keys.F2);
             bool f4Pressed = keyboardState.IsKeyDown(Keys.F4) && _prevKeys.IsKeyUp(Keys.F4);
@@ -2166,8 +2191,11 @@ namespace Roguelancer {
                 CycleSpaceObjectTargets(obj => obj is NpcShip npc && !npc.IsDestroyed && IsHostile(npc.FactionId), forward: !shiftHeld, "Hostile target");
             }
 
-            if (f2Pressed) {
-                CycleSpaceObjectTargets(obj => obj is Station, forward: !shiftHeld, "Station target");
+            if (f2Pressed && ctrlHeld) {
+                TrySelectNearestDockableStation();
+            }
+            else if (f2Pressed) {
+                CycleStationTargets(forward: !shiftHeld);
             }
 
             if (f4Pressed) {
@@ -2218,6 +2246,114 @@ namespace Roguelancer {
             return _reputationManager == null || _reputationManager.IsHostile(factionId);
         }
 
+        private Station GetSelectedStationTarget()
+        {
+            return GetSelectedSpaceObjectTarget() as Station;
+        }
+
+        private List<Station> GetStationTargets()
+        {
+            return _stationManager?.GetStations() ?? _spaceObjects.OfType<Station>().ToList();
+        }
+
+        private bool TrySelectNearestDockableStation(string sourceLabel = "Nearest Dockable Station")
+        {
+            if (_playerShip == null)
+            {
+                return false;
+            }
+
+            List<Station> stations = GetStationTargets();
+            if (!DockNavigation.TryResolveNearestDockableStation(stations, _playerShip.Position, _reputationManager, out Station nearestStation, out float distance, out string failureReason))
+            {
+                _notificationManager?.ShowMessage("No dockable station found", 2f);
+                Console.WriteLine($"[TARGETING] {sourceLabel} unavailable: {failureReason}");
+                return false;
+            }
+
+            SelectSpaceObjectTarget(nearestStation, sourceLabel, sourceLabel);
+            Console.WriteLine($"[TARGETING] {sourceLabel} selected: {nearestStation.Name} at {distance / 1000f:F2}km");
+            return true;
+        }
+
+        private bool CycleStationTargets(bool forward)
+        {
+            if (_playerShip == null)
+            {
+                return false;
+            }
+
+            List<Station> stations = DockNavigation.GetStationsSortedByDistance(GetStationTargets(), _playerShip.Position);
+            if (stations.Count == 0)
+            {
+                _notificationManager?.ShowMessage("No stations");
+                Console.WriteLine("[TARGETING] No stations found");
+                return false;
+            }
+
+            Station currentTarget = GetSelectedStationTarget();
+            int currentIndex = stations.FindIndex(candidate => ReferenceEquals(candidate, currentTarget));
+            int nextIndex = forward
+                ? (currentIndex >= 0 ? (currentIndex + 1) % stations.Count : 0)
+                : (currentIndex >= 0 ? (currentIndex - 1 + stations.Count) % stations.Count : stations.Count - 1);
+
+            SelectSpaceObjectTarget(stations[nextIndex], "Station target", "Station target");
+            return true;
+        }
+
+        private Station ResolveDockAssistTarget()
+        {
+            if (_playerShip == null)
+            {
+                return null;
+            }
+
+            Station selectedStation = GetSelectedStationTarget();
+            if (selectedStation != null && DockNavigation.IsDockableStation(selectedStation, _reputationManager))
+            {
+                return selectedStation;
+            }
+
+            if (DockNavigation.TryResolveNearestDockableStation(GetStationTargets(), _playerShip.Position, _reputationManager, out Station nearestStation, out _, out _))
+            {
+                return nearestStation;
+            }
+
+            return null;
+        }
+
+        private bool TryStartDockAssist(Station station, bool useNearestLabel)
+        {
+            if (_playerShip == null || station == null)
+            {
+                return false;
+            }
+
+            float distance = Vector3.Distance(_playerShip.Position, station.Position);
+            if (distance <= station.DockingRange)
+            {
+                _playerShip.CancelGoto();
+                _notificationManager?.ShowMessage($"Docking at {station.Name}");
+                Console.WriteLine($"[DOCK ASSIST] Docking at {station.Name} ({distance:F0}m)");
+                return _stationDockUI?.DockAtStation(station) == true;
+            }
+
+            string contextLabel = useNearestLabel ? "Nearest Dockable Station" : "Dock Assist Target";
+            if (!ReferenceEquals(GetSelectedNavTarget(), station))
+            {
+                SelectSpaceObjectTarget(station, contextLabel, contextLabel);
+            }
+            else
+            {
+                _selectedNavTargetContextLabel = contextLabel;
+            }
+
+            _playerShip.ActivateDockAssist(station);
+            _notificationManager?.ShowMessage($"Approaching {station.Name}", 2f);
+            Console.WriteLine($"[DOCK ASSIST] Approaching {station.Name} at {distance / 1000f:F2}km");
+            return true;
+        }
+
         private void PruneInvalidNavSelection()
         {
             if (_selectedNavTarget is CargoPod cargoPod)
@@ -2226,6 +2362,7 @@ namespace Roguelancer {
                 {
                     _selectedNavTarget = null;
                     _selectedSpaceObjectIndex = -1;
+                    _selectedNavTargetContextLabel = string.Empty;
                 }
                 return;
             }
@@ -2234,10 +2371,11 @@ namespace Roguelancer {
             {
                 _selectedNavTarget = null;
                 _selectedSpaceObjectIndex = -1;
+                _selectedNavTargetContextLabel = string.Empty;
             }
         }
 
-        private void SelectSpaceObjectTarget(SpaceObject target, string sourceLabel)
+        private void SelectSpaceObjectTarget(SpaceObject target, string sourceLabel, string contextLabel = null)
         {
             if (target == null)
             {
@@ -2246,13 +2384,14 @@ namespace Roguelancer {
 
             _selectedNavTarget = target;
             _selectedSpaceObjectIndex = _spaceObjects.IndexOf(target);
+            _selectedNavTargetContextLabel = contextLabel ?? sourceLabel;
 
             float distance = Vector3.Distance(_playerShip.Position, target.Position);
             _notificationManager?.ShowMessage($"Target: {target.Name}");
             Console.WriteLine($"[TARGETING] {sourceLabel} selected: {target.Name} at {distance / 1000f:F2}km");
         }
 
-        private void SelectCargoPodTarget(CargoPod target, string sourceLabel)
+        private void SelectCargoPodTarget(CargoPod target, string sourceLabel, string contextLabel = null)
         {
             if (target == null)
             {
@@ -2263,6 +2402,7 @@ namespace Roguelancer {
             string label = commodity != null ? $"{commodity.Name} x{target.Quantity}" : "Cargo Pod";
             _selectedNavTarget = target;
             _selectedSpaceObjectIndex = -1;
+            _selectedNavTargetContextLabel = contextLabel ?? sourceLabel;
 
             float distance = Vector3.Distance(_playerShip.Position, target.Position);
             _notificationManager?.ShowMessage($"Target: {label}");
@@ -2759,6 +2899,7 @@ namespace Roguelancer {
             int topY = 20;
 
             List<string> textLines = new List<string>();
+            string targetHeader = string.IsNullOrWhiteSpace(_selectedNavTargetContextLabel) ? "TARGET" : _selectedNavTargetContextLabel;
             textLines.Add(hud.Name);
             textLines.Add($"Type: {hud.TypeLabel}");
             if (!string.IsNullOrWhiteSpace(hud.MissionLabel))
@@ -2777,11 +2918,37 @@ namespace Roguelancer {
             {
                 textLines.Add($"Status: {hud.StatusLabel}");
             }
-            if (!string.IsNullOrWhiteSpace(hud.IntegrityLabel))
+
+            if (selectedTarget is Station stationTarget && DockNavigation.TryBuildDockAssistHudData(stationTarget, _playerShip.Position, out DockAssistHudData dockHud, out _))
             {
-                textLines.Add(hud.IntegrityLabel);
+                textLines.Add(dockHud.StationLabel);
+                textLines.Add(dockHud.DistanceLabel);
+                textLines.Add(dockHud.DockRangeLabel);
+                textLines.Add(dockHud.RangeDeltaLabel);
+                textLines.Add(dockHud.GuidanceLabel);
             }
-            textLines.Add($"Distance: {hud.DistanceLabel}");
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(hud.IntegrityLabel))
+                {
+                    textLines.Add(hud.IntegrityLabel);
+                }
+                textLines.Add($"Distance: {hud.DistanceLabel}");
+            }
+
+            if (_playerShip.IsGotoActive && _playerShip.CurrentGotoTarget != null)
+            {
+                string routeLabel = _playerShip.IsDockAssistActive ? "Dock assist" : "GOTO";
+                string routeTarget = _playerShip.CurrentGotoTarget.Name ?? "Unknown Target";
+                if (!ReferenceEquals(_playerShip.CurrentGotoTarget, selectedTarget))
+                {
+                    textLines.Add($"{routeLabel} destination: {routeTarget}");
+                }
+                else if (_playerShip.GotoAutopilot != null)
+                {
+                    textLines.Add($"{routeLabel} phase: {_playerShip.GotoAutopilot.CurrentNodeDescription}");
+                }
+            }
 
             float panelWidth = 0f;
             float panelHeight = 0f;
@@ -2804,7 +2971,7 @@ namespace Roguelancer {
             _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y + panel.Height - 3, panel.Width, 3), factionColor);
 
             // Target label
-            _spriteBatch.DrawString(_font, "TARGET", new Vector2(20, 20), factionColor);
+            _spriteBatch.DrawString(_font, targetHeader, new Vector2(20, 20), factionColor);
 
             Vector2 cursor = new Vector2(panel.X + 12, panel.Y + 8);
             _spriteBatch.DrawString(_font, hud.Name, cursor, Color.White);
@@ -3201,8 +3368,10 @@ namespace Roguelancer {
                     _spriteBatch.DrawString(_font, "NEWTONIAN", new Vector2(leftPanelX + 10, ly += 22), Color.Lime);
                 if (_camera.IsTurretViewActive)
                     _spriteBatch.DrawString(_font, "TURRET VIEW", new Vector2(leftPanelX + 10, ly += 22), Color.Orange);
+                if (_playerShip.IsDockAssistActive && _playerShip.CurrentDockAssistTarget != null)
+                    _spriteBatch.DrawString(_font, $"DOCK ASSIST: {_playerShip.CurrentDockAssistTarget.Name}", new Vector2(leftPanelX + 10, ly += 22), Color.LightSkyBlue);
                 if (_playerShip.IsGotoActive && _playerShip.CurrentGotoTarget != null)
-                    _spriteBatch.DrawString(_font, $"GOTO: {_playerShip.CurrentGotoTarget.Name}", new Vector2(leftPanelX + 10, ly += 22), Color.Orange);
+                    _spriteBatch.DrawString(_font, $"{(_playerShip.IsDockAssistActive ? "ROUTE" : "GOTO")}: {_playerShip.CurrentGotoTarget.Name}", new Vector2(leftPanelX + 10, ly += 22), _playerShip.IsDockAssistActive ? Color.LightSkyBlue : Color.Orange);
             }
         }
 
@@ -3407,12 +3576,36 @@ namespace Roguelancer {
         }
 
         private void DrawGotoStatus() {
-            if (_playerShip.IsGotoActive && _playerShip.CurrentGotoTarget != null && _font != null) {
+            if (_font == null)
+            {
+                return;
+            }
+
+            if (_playerShip.IsDockAssistActive && _playerShip.CurrentDockAssistTarget != null)
+            {
+                if (!DockNavigation.TryBuildDockAssistHudData(_playerShip.CurrentDockAssistTarget, _playerShip.Position, out DockAssistHudData dockHud, out _))
+                {
+                    return;
+                }
+
+                Vector2 pos = new Vector2(GraphicsDevice.Viewport.Width / 2 - 160, 30);
+                _spriteBatch.Draw(_pixel, new Rectangle((int)pos.X - 10, (int)pos.Y - 10, 320, 88), Color.Black * 0.5f);
+                _spriteBatch.DrawString(_font, $"DOCK ASSIST: {dockHud.Station?.Name ?? "Station"}", pos, Color.LightSkyBlue);
+                _spriteBatch.DrawString(_font, dockHud.DistanceLabel, pos + new Vector2(0, 22), Color.White);
+                _spriteBatch.DrawString(_font, dockHud.DockRangeLabel, pos + new Vector2(0, 44), Color.White);
+                _spriteBatch.DrawString(_font, dockHud.GuidanceLabel, pos + new Vector2(0, 66), dockHud.InRange ? Color.Lime : Color.Orange);
+                return;
+            }
+
+            if (_playerShip.IsGotoActive && _playerShip.CurrentGotoTarget != null)
+            {
                 Vector2 pos = new Vector2(GraphicsDevice.Viewport.Width / 2 -  120, 30);
                 _spriteBatch.Draw(_pixel, new Rectangle((int)pos.X - 10, (int)pos.Y - 10, 250, 50), Color.Black * 0.4f);
                 float dist = Vector3.Distance(_playerShip.Position, _playerShip.CurrentGotoTarget.Position) - _playerShip.CurrentGotoTarget.Radius;
                 _spriteBatch.DrawString(_font, $"GOTO: {_playerShip.CurrentGotoTarget.Name}", pos, Color.Orange);
-                _spriteBatch.DrawString(_font, $"DIST: {Math.Max(dist, 0) / 1000f:F2} k", pos + new Vector2(0, 22), Color.White);
+                string routeLabel = _playerShip.GotoAutopilot != null ? _playerShip.GotoAutopilot.CurrentNodeDescription : "Legacy";
+                _spriteBatch.DrawString(_font, $"ROUTE: {routeLabel}", pos + new Vector2(0, 22), Color.White);
+                _spriteBatch.DrawString(_font, $"DIST: {Math.Max(dist, 0) / 1000f:F2} k", pos + new Vector2(0, 44), Color.White);
             }
         }
 
