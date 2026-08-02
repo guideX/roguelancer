@@ -1,100 +1,108 @@
-# Phase 1K.4 — First Legal Trade Route Completion Test
+# Phase 1K.4 - First Legal Trade Route Completion Test
 
-## Date and run context
+Date: 2026-08-01
 
-Run date: 2026-08-01.
+## Date / run context
 
-This was a clean-start manual client run in the New York System. No save file was present at the start. The run began with the Phase 1K.3 known-good fresh-start docking flow and reached Fort Bush.
-
-The only gameplay-code change during the run was a tiny `GotoAutopilot.SteerToward` fallback for a nearly opposite heading. It snaps the ship to the desired heading when the current and desired vectors are almost 180 degrees apart. No new system was added.
+- Replayed against the current `main` checkout after the Phase 1K.3 station-loop pass.
+- Started from a clean client save. The pre-existing post-route save was preserved outside the repository before the replay.
+- No gameplay code was changed during this validation pass. The current checkout already contains the earlier small GOTO steering fallback; it was not modified here.
+- The complete live route was: fresh start -> Fort Bush -> buy Water -> Newark Station -> sell Water -> quicksave -> visible station-area change -> quickload.
 
 ## Validation commands
 
 | Command | Result |
 |---|---|
-| `dotnet build Roguelancer.sln --no-restore` | PASS — 0 errors, 56 existing warnings |
-| `dotnet run --no-build --project Roguelancer.csproj -- --dock-smoke` | PASS — 9/9 |
-| `dotnet run --no-build --project Roguelancer.csproj -- --all-smoke` | PASS — 12 suites passed, 0 failed |
+| `dotnet build Roguelancer.sln --no-restore` | PASS - 0 errors, 56 existing warnings |
+| `dotnet run --no-build --project Roguelancer.csproj -- --market-smoke` | PASS - 7 passed, 0 failed |
+| `dotnet run --no-build --project Roguelancer.csproj -- --dock-smoke` | PASS - 9 passed, 0 failed |
+| `dotnet run --no-build --project Roguelancer.csproj -- --all-smoke` | PASS - 12 suites passed, 0 failed |
 
-Manual validation used the normal client executable with the following flow: fresh start → `Ctrl+F2` nearest station → `F3` dock assist → `D3` dealer → `TAB` commodity market → buy/sell controls → map click and `G` targeting attempt → `F3` dock assist fallback → `F6` quicksave → visible station-area change → `F8` quickload.
+The smoke output still includes existing non-blocking missing optional-content/model and sun-effect warnings. None affected the trade route.
 
-## Route and transaction
+## Manual route and transaction
 
+- System: New York System
 - Origin station: Fort Bush
 - Destination station: Newark Station
-- System: New York System
 - Commodity: Water
 - Quantity: 1 unit
+- Cargo capacity: 50 units
 
-| Checkpoint | Credits | Cargo hold | Market observation |
-|---|---:|---:|---|
-| Before purchase | 3,000 CR | 0/50 | Fort Bush buy price: 55 CR/unit |
-| After purchase | 2,945 CR | 1/50 Water | Fort Bush stock decreased from 500 to 499 |
-| Before sale | 2,945 CR | 1/50 Water | Newark sell price: 75 CR/unit |
-| After sale | 3,020 CR | 0/50 | Newark stock increased to 201 |
+| Checkpoint | Credits | Cargo hold | Market state |
+|---|---:|---|---|
+| Before purchase | 3,000 CR | 0/50 | Fort Bush buy price: 55 CR/unit; stock: 500 |
+| After purchase | 2,945 CR | 1/50 Water | Fort Bush stock: 499 |
+| Before sale | 2,945 CR | 1/50 Water | Newark sell price: 75 CR/unit; stock: 200 |
+| After sale | 3,020 CR | 0/50 | Newark stock: 201 |
 
 Profit/loss: **+20 CR** (`75 - 55`, one unit).
 
-The transaction behaved correctly: credits decreased on purchase, cargo appeared in the hold, the cargo was accepted at the legal destination, credits increased on sale, and the hold returned to empty.
-
-## Save/load check
-
-After the sale, `F6` wrote the save file. The saved state contained:
-
-- `player_credits: 3020`
-- New York system index `1`
-- Empty cargo list
-- Newark Water market stock `201`
-
-The run then changed station area and used `F8`. The game returned to free flight at the saved New York location with no duplicate cargo and no duplicate money. The save/load path safely exits the docked station UI rather than restoring the dealer screen; this is non-blocking but not especially explicit to the player.
+The route was legal and completed without developer-only market manipulation. Credits decreased on purchase, the Water stack appeared in the hold, Newark accepted the cargo, credits increased on sale, and the hold returned to empty.
 
 ## Travel and docking feel
 
-Fresh-start docking at Fort Bush felt short and practical. The Fort Bush → Newark distance was reasonable, but the full route felt a little long because of the tradelane handoff and the final docking approach. Repeated docking was practical once using the visible dock-assist flow.
+- The fresh-start direct F3 dock-assist fallback reached Fort Bush reliably and felt practical for the first station.
+- Newark was targeted from the system map and GOTO reached the Manhattan-Newark tradelane entry.
+- The route displayed a clear F5 tradelane-entry prompt, but pressing F5 did not synchronize the GOTO state. GOTO returned to the entry prompt, so F3 dock assist was used to complete the Newark approach.
+- Repeated docking at Fort Bush and Newark was practical with dock assist.
+- Overall route feel: slightly long / somewhat indirect because of the tradelane handoff and final docking approach, but still reasonable for a first legal hop.
 
-The GOTO route initially exposed a near-180-degree steering edge case and moved away from Newark. After the small steering fallback, the route converged on the Newark tradelane entry. The tradelane displayed a clear `Press F5` prompt, but manually entering it did not keep the GOTO node state synchronized; dock assist was used to complete the route reliably.
+## Save/load check
+
+After the sale, F6 quicksave succeeded. A visible station-area change was made, then F8 quickload returned the client to safe New York free flight and showed `Game Loaded`.
+
+The written save payload contained:
+
+- `player_credits: 3020`
+- `current_system_index: 1`
+- an empty cargo list
+- Fort Bush Water stock `499`
+- Newark Water stock `201`
+
+No duplicate cargo or money appeared. The post-load state confirms that the sale, credits, cargo removal, market stock changes, and location state were preserved. The save/load path leaves the player in free flight rather than reopening the dealer screen, which is safe but not very explicit.
 
 ## What worked well
 
-- Clean-start docking reached Fort Bush without dev-only setup.
-- Fort Bush station services and commodity dealer were reachable.
-- Water was clearly legal and had the intended Newark destination spread.
-- Buy, hold, sell, credit, and market-stock changes were all correct.
-- Newark docking and the commodity dealer were reachable through dock assist.
-- Save/load preserved credits, empty cargo, market state, system, and safe location.
-- Final build, dock smoke, and all-smoke gates remained green.
+- A new player could get from a clean start to Fort Bush with the visible dock-assist path.
+- Fort Bush station services and the commodity dealer were reachable.
+- Water was clearly legal and had a positive Newark destination spread.
+- Buy, cargo, sell, credit, and station-stock changes all matched the intended values.
+- Newark docking and the second market screen were reachable without code or save editing.
+- Quicksave/quickload preserved the completed sale and did not create an exploit.
+- Build, market smoke, dock smoke, and all-smoke remained green without gameplay changes.
 
 ## Issue list
 
 ### Blocking bug
 
-- **Resolved during this pass:** GOTO/dock assist could steer away from Newark when the initial heading was nearly opposite the target. The small `SteerToward` fallback fixed the edge case; the final run converged and all smoke suites stayed green.
-- No remaining blocker prevented completion of the legal route when using dock assist.
+- None found. The legal route completed end-to-end.
 
 ### Confusing UX
 
-- GOTO can stop at a tradelane entry with a visible F5 prompt, but manual F5 entry does not advance the GOTO state, so the route can return toward the entry ring. This is avoidable with dock assist but is confusing for a new player.
-- The station menu opens the dealer in Equipment mode by default; the player must use `TAB` to reach commodities. The existing `[3] Equipment` label can make the intended commodity action unclear.
+- GOTO can stop at the Newark tradelane entry with an F5 prompt, but manual F5 entry does not advance the GOTO state; the route can return to the same entry point. Dock assist is a reliable workaround, but the behavior is confusing for a new player.
+- The station navigation label `[3] Equipment` opens the dealer in Equipment mode. The player must press TAB to reach commodities.
 
 ### Travel/docking feel
 
-- Fort Bush docking felt good. Newark was reachable, but the tradelane handoff and final approach added noticeable waiting and made the route feel slightly indirect.
+- Fort Bush docking felt good. The Fort Bush -> Newark route felt slightly long because of the tradelane handoff and final approach.
 
 ### Market/balance issue
 
-- The legal route produced the intended modest profit: +20 CR for one Water. That is correct for the one-unit validation, though a larger-quantity pass is still needed to judge how rewarding the route feels in normal play.
+- No failure found. The intended legal Water route produced a modest +20 CR/unit profit.
+- One unit validates correctness, but a 5-10 unit run is still needed to judge normal play reward and cargo feedback.
 
 ### Missing feedback
 
-- After quickload, the station UI is closed and the player is back in space. The brief load feedback is easy to miss, and free-flight HUD state does not prominently restate the restored credits/cargo result.
-- The existing Phase 1K.3 market/equipment lower-row overflow at 1920×1080 remains non-blocking.
+- `Game Loaded` is visible briefly, but free-flight HUD state does not prominently restate the restored credits or cargo result after quickload.
+- The commodity/equipment lists extend below the fixed 1920x1080 viewport. Keyboard selection remains safe, so this is non-blocking.
 
 ### Nice-to-have
 
-- Keep the tradelane handoff prompt, but make it explicit whether F5 is a manual step or have GOTO synchronize/auto-enter when aligned.
-- Show route buy/sell spread or expected per-unit profit in the market flow.
-- Defer the existing dealer/equipment layout polish until the route loop is stable.
+- Synchronize GOTO state with manual F5 tradelane entry, or make the handoff automatic when aligned.
+- Show the expected buy/sell spread or destination profit in the market flow.
+- Add paging/scrolling for the lower market and equipment rows.
 
 ## Recommended next pass
 
-Make the next pass a focused navigation/persistence replay: verify GOTO plus tradelane entry state synchronization, then run a 5–10 unit Water or Food transaction to judge profit feel and cargo feedback. Keep the current build, `--dock-smoke`, and `--all-smoke` gates unchanged. No additional trade or economy system is needed for this phase.
+Run a focused navigation/persistence replay around GOTO plus tradelane-entry synchronization, then repeat the Water or Food route with 5-10 units to judge profit feel. Keep `dotnet build`, `--market-smoke`, `--dock-smoke`, and `--all-smoke` as the regression gate. No new trade or economy system is needed for this phase.
