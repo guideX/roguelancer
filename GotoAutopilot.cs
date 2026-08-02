@@ -745,6 +745,12 @@ namespace Roguelancer
             // Already aligned - no steering needed
             if (dot >= AlignmentThreshold) return;
 
+            if (dot < -0.95f)
+            {
+                _ship.SetFacing(desired);
+                return;
+            }
+
             Vector3 axis = Vector3.Cross(current, desired);
             if (axis.LengthSquared() < 0.0001f) return;
             axis.Normalize();
