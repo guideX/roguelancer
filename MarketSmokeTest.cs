@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
+using Roguelancer.Configuration;
 
 namespace Roguelancer
 {
@@ -34,7 +36,11 @@ namespace Roguelancer
 
         public MarketSmokeTest(IReadOnlyList<Station> stations, SpriteFont font, Texture2D pixel)
         {
-            _stations = stations ?? Array.Empty<Station>();
+            // Smoke coverage must not borrow the live system's station collection. The
+            // player may be in any system, while these assertions intentionally cover
+            // the New York market fixtures. Lightweight stations are sufficient for
+            // docking and market resolution; no render model is needed by the harness.
+            _stations = LoadFixtureStations();
             _commodityDealer = RunSilenced(() => new CommodityDealer());
             _tempShip = new Ship(Vector3.Zero);
             _tempCredits = new PlayerCredits(50_000);
@@ -316,6 +322,42 @@ namespace Roguelancer
             return _stations.FirstOrDefault(station =>
                 NormalizeKey(station?.Name) == target ||
                 NormalizeKey(station?.Config?.Description) == target);
+        }
+
+        private static IReadOnlyList<Station> LoadFixtureStations()
+        {
+            string stationDirectory = Path.Combine("Configuration", "stations");
+            if (!Directory.Exists(stationDirectory))
+            {
+                return Array.Empty<Station>();
+            }
+
+            var fixtureNames = new HashSet<string>(
+                ConfiguredStations.Concat(new[] { FallbackStationName }),
+                StringComparer.OrdinalIgnoreCase);
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+            var fixtures = new List<Station>();
+
+            foreach (string file in Directory.GetFiles(stationDirectory, "station_*.json"))
+            {
+                try
+                {
+                    var config = JsonSerializer.Deserialize<StationConfig>(File.ReadAllText(file), options);
+                    if (config != null && fixtureNames.Contains(config.Description))
+                    {
+                        fixtures.Add(new Station(config, null));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[MARKET SMOKE] Could not load fixture {Path.GetFileName(file)}: {ex.Message}");
+                }
+            }
+
+            return fixtures;
         }
 
         private bool ValidateListingsCanBeRead(IReadOnlyList<StationMarketListing> listings, out int availableCount, out string failureReason)

@@ -1459,6 +1459,7 @@ namespace Roguelancer {
                 return false;
             }
 
+            _shipDealer?.SetCurrentShip(shipDefinition);
             shipDefinition.ApplyToShip(_playerShip);
 
             List<string> loadoutWarnings = new();
@@ -4333,6 +4334,11 @@ namespace Roguelancer {
 
             // Reload configuration
             _config.LoadAll();
+
+            // Save/load can change systems without a completed jump-hole transit.
+            // Refresh the active jump-hole collection so the loaded system cannot
+            // retain the previous system's navigation objects.
+            _jumpHoleManager?.LoadJumpHolesForSystem(newSystemIndex);
 
             // Load the new system config
             SystemConfig newSystem = _config.GetSystem(newSystemIndex);

@@ -252,13 +252,19 @@ namespace Roguelancer
             }
             else
             {
-                // 1. Check if a tradelane can save travel time
-                TryAddTradelaneNodes(start, end);
+                // A player-selected jump hole is already the concrete transit
+                // destination. Do not replace it with a nearer unrelated hole;
+                // that can send a cross-system GOTO to the wrong system.
+                if (_destination is not JumpHole)
+                {
+                    // 1. Check if a tradelane can save travel time
+                    TryAddTradelaneNodes(start, end);
 
-                // 2. Check for jump holes if no beneficial tradelane was added
-                //    (cross-system not yet supported beyond single jump)
-                if (_route.Count == 0)
-                    TryAddJumpholeNodes(start, end);
+                    // 2. Check for jump holes if no beneficial tradelane was added
+                    //    (cross-system not yet supported beyond single jump)
+                    if (_route.Count == 0)
+                        TryAddJumpholeNodes(start, end);
+                }
             }
 
             // Final leg: plain FlyTo or Docking approach
@@ -277,7 +283,9 @@ namespace Roguelancer
             }
             else
             {
-                float arrivalRadius = Math.Max(150f, _destination.Radius + 200f);
+                float arrivalRadius = _destination is JumpHole jumpHole
+                    ? jumpHole.Config.ActivationRange
+                    : Math.Max(150f, _destination.Radius + 200f);
                 _route.Add(new RouteNode
                 {
                     Type = NodeType.FlyTo,
