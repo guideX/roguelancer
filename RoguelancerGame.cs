@@ -30,14 +30,18 @@ namespace Roguelancer {
         /// </summary>
         private Camera _camera;
 
-        // Isolated Phase 1 developer on-foot test mode. These objects are
-        // deliberately separate from the flight camera, ship update, and
-        // docking UI so entering the prototype cannot mutate flight state.
+        // Generic station interior runtime. The explicit session distinguishes
+        // a real completed dock from the developer shortcut while keeping the
+        // Phase 2 scene/controller implementation isolated from flight update.
         private StationTestScene _stationTestScene;
         private CharacterCamera _stationCharacterCamera;
         private PlayerCharacter _stationPlayerCharacter;
         private BasicEffect _stationCharacterEffect;
         private bool _stationTestMode;
+        private StationSession _stationSession;
+        private readonly List<StationInteraction> _stationInteractions = new();
+        private bool _stationInteractionKeyHeld;
+        private bool _stationTransitioning;
         private bool _stationCharacterLoadAttempted;
         private bool _stationEntryKeyHeld;
         private bool _stationEscapeKeyHeld;
@@ -873,6 +877,8 @@ namespace Roguelancer {
             // Load ship model
             try {
                 _playerShip.Model = Content.Load<Model>("SHIPS/scimitar/Scimitar2");
+                _playerShip.DisplayName = "Scimitar";
+                _playerShip.ModelPath = "SHIPS/scimitar/Scimitar2";
                 Console.WriteLine("Scimitar model loaded successfully!");
 
                 // Load wreck model
@@ -1040,29 +1046,7 @@ namespace Roguelancer {
                 _notificationManager,
                 GraphicsDevice,
                 _font);
-            _gotoAutopilot.OnDockingComplete += () =>
-            {
-                var station = _stationManager.GetStations().Find(
-                    s => _gotoAutopilot.Destination == s ||
-                         (_gotoAutopilot.Destination != null &&
-                          Vector3.Distance(s.Position, _gotoAutopilot.Destination.Position) < 10f));
-                if (station != null)
-                {
-                    if (_stationDockUI?.DockAtStation(station) != true)
-                    {
-                        string dockDeniedReason = _stationDockUI?.LastDockingDeniedReason;
-                        _notificationManager?.ShowMessage(
-                            string.IsNullOrWhiteSpace(dockDeniedReason)
-                                ? "Docking denied by station security"
-                                : dockDeniedReason,
-                            3f);
-                    }
-                    else
-                    {
-                        MarkFirstDockHintCompleted();
-                    }
-                }
-            };
+            _gotoAutopilot.OnDockingComplete += HandleDockingCompleted;
             _playerShip.SetGotoAutopilot(_gotoAutopilot);
 
             _saveGameManager = new SaveGameManager();
@@ -1593,8 +1577,9 @@ namespace Roguelancer {
                 return; // Skip the rest of the update logic
             }
 
-            // Developer-only station test path. The ship, flight camera, and
-            // all space simulation systems are intentionally not updated here.
+            // Station interior path. The authoritative ship, flight camera, and
+            // space simulation are paused for both developer and real docked
+            // sessions; the explicit session controls the exit behavior.
             if (_stationTestMode) {
                 UpdateStationTestMode(gameTime, keyboardState, mouseState);
                 _prevKeys = keyboardState;
@@ -1603,8 +1588,8 @@ namespace Roguelancer {
                 return;
             }
 
-            // F10 is unused by the existing flight controls. It toggles only
-            // this temporary test scene; it is not real docking or launching.
+            // F10 remains a developer-only shortcut into the generic station
+            // bay. A real docked session is entered only by docking completion.
             if (keyboardState.IsKeyDown(Keys.F10) && _prevKeys.IsKeyUp(Keys.F10)) {
                 EnterStationTestMode(keyboardState);
                 _prevKeys = keyboardState;
@@ -2386,19 +2371,6 @@ namespace Roguelancer {
             }
 
             float distance = Vector3.Distance(_playerShip.Position, station.Position);
-            if (distance <= station.DockingRange)
-            {
-                _playerShip.CancelGoto();
-                _notificationManager?.ShowMessage($"Docking at {station.Name}");
-                Console.WriteLine($"[DOCK ASSIST] Docking at {station.Name} ({distance:F0}m)");
-                bool docked = _stationDockUI?.DockAtStation(station) == true;
-                if (docked)
-                {
-                    MarkFirstDockHintCompleted();
-                }
-                return docked;
-            }
-
             string contextLabel = useNearestLabel ? "Nearest Dockable Station" : "Dock Assist Target";
             if (!ReferenceEquals(GetSelectedNavTarget(), station))
             {
@@ -2410,9 +2382,59 @@ namespace Roguelancer {
             }
 
             _playerShip.ActivateDockAssist(station);
-            _notificationManager?.ShowMessage($"Approaching {station.Name}", 2f);
-            Console.WriteLine($"[DOCK ASSIST] Approaching {station.Name} at {distance / 1000f:F2}km");
+            _notificationManager?.ShowMessage(
+                distance <= station.DockingRange
+                    ? $"Docking at {station.Name}"
+                    : $"Approaching {station.Name}",
+                2f);
+            Console.WriteLine(
+                distance <= station.DockingRange
+                    ? $"[DOCK ASSIST] Starting final docking approach to {station.Name} ({distance:F0}m)"
+                    : $"[DOCK ASSIST] Approaching {station.Name} at {distance / 1000f:F2}km");
             return true;
+        }
+
+        /// <summary>
+        /// Real docking completion boundary. GotoAutopilot has already reached
+        /// its docking node and disabled normal control before this is called.
+        /// Unsupported GOTO destinations never reach this station-only path.
+        /// </summary>
+        private void HandleDockingCompleted()
+        {
+            if (_gotoAutopilot?.Destination is not Station station)
+            {
+                Console.WriteLine("[DOCK] Completion ignored because the destination is not a supported station.");
+                _playerShip?.RestoreFlightState(_playerShip.Position, _playerShip.Forward);
+                return;
+            }
+
+            StationSession session = StationSession.CreateRealDocked(station, _playerShip, _currentSystemIndex);
+            if (_stationDockUI?.DockAtStation(station) != true)
+            {
+                string dockDeniedReason = _stationDockUI?.LastDockingDeniedReason;
+                Console.WriteLine($"[DOCK] Station context rejected after physical docking at {station.Name}; preserving ship and restoring flight.");
+                _notificationManager?.ShowMessage(
+                    string.IsNullOrWhiteSpace(dockDeniedReason)
+                        ? "Docking denied by station security"
+                        : dockDeniedReason,
+                    3f);
+                _playerShip?.RestoreFlightState(session.LaunchPosition, session.LaunchForward);
+                return;
+            }
+
+            _stationSession = session;
+            if (!EnterStationSession(session, Keyboard.GetState()))
+            {
+                // The station UI is already in its docked state. Its normal
+                // undock event routes through HandleUndock and the same safe
+                // launch cleanup used by a successful boarding interaction.
+                Console.WriteLine($"[DOCK] Failed to initialize station interior for {station.Name}; aborting safely.");
+                _stationDockUI.Undock();
+                return;
+            }
+
+            MarkFirstDockHintCompleted();
+            Console.WriteLine($"[DOCK] Real docked station session active: {station.Name} / system {session.SystemIndex} / ship {_playerShip.DisplayName}");
         }
 
         private bool HasActiveMissionObjective()
@@ -3949,10 +3971,77 @@ namespace Roguelancer {
         /// Handle undocking from station
         /// </summary>
         private void HandleUndock() {
+            if (_stationSession?.IsRealDockedSession == true)
+            {
+                LaunchFromStationSession();
+                return;
+            }
+
             _notificationManager?.ShowMessage("Undocked - Systems online", 2f);
             MarkFirstDockHintCompleted();
             _playerShip.Reset();
+            _playerShip.EnginesKilled = false;
             IsMouseVisible = !_playerShip.IsFreeFlightMode;
+        }
+
+        private void BoardPlayerShip()
+        {
+            if (_stationSession?.IsRealDockedSession != true || _stationTransitioning)
+            {
+                return;
+            }
+
+            BeginStationLaunch("Boarded player ship");
+        }
+
+        private void BeginStationLaunch(string reason)
+        {
+            if (_stationTransitioning || _stationSession?.IsRealDockedSession != true)
+            {
+                return;
+            }
+
+            _stationTransitioning = true;
+            Console.WriteLine($"[STATION] {reason}; beginning station cleanup and launch.");
+            _notificationManager?.ShowMessage(reason, 1.5f);
+
+            // StationDockUI owns the existing docked-state teardown. Its event
+            // synchronously reaches HandleUndock, which calls the same launch
+            // method whether this was boarding or an emergency developer exit.
+            if (_stationDockUI?.IsDocked == true)
+            {
+                _stationDockUI.Undock();
+            }
+            else
+            {
+                LaunchFromStationSession();
+            }
+        }
+
+        private void LaunchFromStationSession()
+        {
+            StationSession session = _stationSession;
+            _stationTestMode = false;
+            _stationEntryKeyHeld = false;
+            _stationEscapeKeyHeld = false;
+            _stationInteractionKeyHeld = false;
+            _stationInteractions.Clear();
+
+            if (session?.PlayerShip != null)
+            {
+                // This is the intentional handoff from local station display
+                // coordinates back to the authoritative spaceflight transform.
+                session.PlayerShip.RestoreFlightState(session.LaunchPosition, session.LaunchForward);
+                Console.WriteLine($"[STATION] Launch restored {_playerShip.DisplayName} at {session.LaunchPosition} facing {session.LaunchForward}; station={session.StationDisplayName} system={session.SystemIndex}");
+            }
+
+            _stationSession = null;
+            _stationTransitioning = false;
+            IsMouseVisible = !_playerShip.IsFreeFlightMode;
+            Window.Title = "Roguelancer";
+            _camera?.Follow(_playerShip.Position, _playerShip.Forward, _playerShip.Up, 1.0f);
+            _notificationManager?.ShowMessage("Launched - Systems online", 2f);
+            Console.WriteLine("[STATION] Returned to normal spaceflight from docked station session.");
         }
 
         /// <summary>
@@ -4015,32 +4104,97 @@ namespace Roguelancer {
                 return;
             }
 
-            if (_stationTestScene == null || _stationCharacterCamera == null) {
-                _notificationManager?.ShowMessage("Station test scene is not ready", 2f);
-                return;
+            StationSession session = StationSession.CreateDeveloperTest(_playerShip);
+            if (!EnterStationSession(session, keyboardState)) return;
+
+            _notificationManager?.ShowMessage("Station test entered | F10 or Esc to return to flight", 3f);
+            Console.WriteLine("[STATION TEST] Entered developer station bay session");
+        }
+
+        private bool EnterStationSession(StationSession session, KeyboardState keyboardState)
+        {
+            if (session == null || _stationTestScene == null || _stationCharacterCamera == null)
+            {
+                _notificationManager?.ShowMessage("Station interior is not ready; ship state preserved", 3f);
+                Console.WriteLine("[STATION] Cannot enter: scene or camera is unavailable.");
+                return false;
             }
 
-            if (!EnsureStationCharacterLoaded()) return;
+            if (!EnsureStationCharacterLoaded()) return false;
 
+            _stationSession = session;
             _stationPlayerCharacter.ResetToSpawn();
             _stationCharacterCamera.Reset(_stationPlayerCharacter.Position, _stationPlayerCharacter.YawDegrees);
-            // Gate both transition keys until their current physical state has
-            // been released. This prevents the enter event from immediately
-            // being interpreted as an exit by a real keyboard or key injector.
+            BuildStationInteractions();
+
+            // Gate transition-sensitive keys until their current physical state
+            // has been released. This prevents docking/F10/E held across a mode
+            // boundary from triggering an immediate action.
             _stationEntryKeyHeld = keyboardState.IsKeyDown(Keys.F10);
             _stationEscapeKeyHeld = keyboardState.IsKeyDown(Keys.Escape);
+            _stationInteractionKeyHeld = keyboardState.IsKeyDown(Keys.E);
             _stationTestMode = true;
             IsMouseVisible = false;
-            Window.Title = "Roguelancer - Station Test Bay";
-            _notificationManager?.ShowMessage("Station test entered | F10 or Esc to return to flight", 3f);
-            Console.WriteLine("[STATION TEST] Entered isolated on-foot station bay");
+            Window.Title = session.IsRealDockedSession
+                ? $"Roguelancer - {session.StationDisplayName}"
+                : "Roguelancer - Station Test Bay";
+            Console.WriteLine(session.IsRealDockedSession
+                ? $"[STATION] Entered real docked session at {session.StationDisplayName}"
+                : "[STATION TEST] Entered developer station bay session");
+            return true;
+        }
+
+        private void BuildStationInteractions()
+        {
+            _stationInteractions.Clear();
+            if (_stationSession == null || _stationTestScene == null) return;
+
+            if (_stationSession.IsRealDockedSession)
+            {
+                Vector3 boardingPoint = _stationTestScene.GetBoardingPoint(_playerShip);
+                _stationInteractions.Add(new StationInteraction(
+                    "board-player-ship",
+                    boardingPoint,
+                    2.6f,
+                    _playerShip?.DisplayName ?? "PLAYER SHIP",
+                    "Press E to board ship",
+                    BoardPlayerShip));
+            }
+
+            _stationInteractions.Add(new StationInteraction(
+                "station-interior-boundary",
+                _stationTestScene.AirlockInteractionPosition,
+                2.5f,
+                "STATION INTERIOR",
+                "Additional station areas not yet available",
+                () => _notificationManager?.ShowMessage("Station interior — coming in a later phase", 2.5f)));
+        }
+
+        private StationInteraction GetActiveStationInteraction()
+        {
+            if (_stationPlayerCharacter == null) return null;
+            foreach (StationInteraction interaction in _stationInteractions)
+            {
+                if (interaction.IsInRange(_stationPlayerCharacter.Position)) return interaction;
+            }
+
+            return null;
         }
 
         private void ExitStationTestMode()
         {
+            if (_stationSession?.IsRealDockedSession == true)
+            {
+                BeginStationLaunch("Emergency developer exit from docked station");
+                return;
+            }
+
             _stationTestMode = false;
             _stationEntryKeyHeld = false;
             _stationEscapeKeyHeld = false;
+            _stationInteractionKeyHeld = false;
+            _stationInteractions.Clear();
+            _stationSession = null;
             IsMouseVisible = !_playerShip.IsFreeFlightMode;
             Window.Title = "Roguelancer";
             _camera?.Follow(_playerShip.Position, _playerShip.Forward, _playerShip.Up, 1.0f);
@@ -4053,6 +4207,7 @@ namespace Roguelancer {
             float deltaTime = Math.Clamp((float)gameTime.ElapsedGameTime.TotalSeconds, 0.0f, 0.1f);
             if (_stationEntryKeyHeld && keyboardState.IsKeyUp(Keys.F10)) _stationEntryKeyHeld = false;
             if (_stationEscapeKeyHeld && keyboardState.IsKeyUp(Keys.Escape)) _stationEscapeKeyHeld = false;
+            if (_stationInteractionKeyHeld && keyboardState.IsKeyUp(Keys.E)) _stationInteractionKeyHeld = false;
             bool f10ExitPressed = !_stationEntryKeyHeld && keyboardState.IsKeyDown(Keys.F10) && _prevKeys.IsKeyUp(Keys.F10);
             bool escapeExitPressed = !_stationEscapeKeyHeld && keyboardState.IsKeyDown(Keys.Escape) && _prevKeys.IsKeyUp(Keys.Escape);
             if (f10ExitPressed || escapeExitPressed) {
@@ -4070,6 +4225,14 @@ namespace Roguelancer {
             _stationPlayerCharacter.Update(keyboardState, _stationCharacterCamera, deltaTime);
             _stationCharacterCamera.Update(_stationPlayerCharacter.Position, deltaTime, recenterMouse: true, _stationTestScene);
             _stationPlayerCharacter.UpdatePose();
+
+            bool boardPressed = !_stationInteractionKeyHeld && keyboardState.IsKeyDown(Keys.E) && _prevKeys.IsKeyUp(Keys.E);
+            if (boardPressed)
+            {
+                StationInteraction interaction = GetActiveStationInteraction();
+                interaction?.Action?.Invoke();
+            }
+
             IsMouseVisible = false;
         }
 
@@ -4366,7 +4529,7 @@ namespace Roguelancer {
 
             if (_stationTestScene != null && _stationCharacterCamera != null && _stationPlayerCharacter != null) {
                 _stationTestScene.Draw(_stationCharacterCamera.View, _stationCharacterCamera.Projection);
-                _stationTestScene.DrawShipModel(_playerShip.Model, _playerShip.ModelRotationCorrection, _stationCharacterCamera.View, _stationCharacterCamera.Projection, _lightDirection);
+                _stationTestScene.DrawShipModel(_playerShip, _stationCharacterCamera.View, _stationCharacterCamera.Projection, _lightDirection);
                 _stationPlayerCharacter.Renderer.Draw(
                     _stationCharacterEffect,
                     _stationPlayerCharacter.WorldMatrix,
@@ -4396,12 +4559,34 @@ namespace Roguelancer {
             Rectangle panel = new(16, 16, 390, 112);
             _spriteBatch.Draw(_pixel, panel, Color.Black * 0.62f);
             _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 3), Color.Gold * 0.9f);
-            _spriteBatch.DrawString(_font, "ROGUELANCER // STATION TEST BAY", new Vector2(panel.X + 12, panel.Y + 9), Color.Gold);
-            _spriteBatch.DrawString(_font, "F10 / ESC  return to spaceflight", new Vector2(panel.X + 12, panel.Y + 31), Color.White);
+            string sessionTitle = _stationSession?.IsRealDockedSession == true
+                ? $"ROGUELANCER // {_stationSession.StationDisplayName.ToUpperInvariant()}"
+                : "ROGUELANCER // STATION TEST BAY";
+            string exitLabel = _stationSession?.IsRealDockedSession == true
+                ? "F10 / ESC  emergency launch"
+                : "F10 / ESC  return to spaceflight";
+            _spriteBatch.DrawString(_font, sessionTitle, new Vector2(panel.X + 12, panel.Y + 9), Color.Gold);
+            _spriteBatch.DrawString(_font, exitLabel, new Vector2(panel.X + 12, panel.Y + 31), Color.White);
             _spriteBatch.DrawString(_font, "WASD move   Shift run   Space jump   Mouse camera", new Vector2(panel.X + 12, panel.Y + 52), Color.LightGray);
             _spriteBatch.DrawString(_font, "F12 capsule debug   R reset", new Vector2(panel.X + 12, panel.Y + 73), Color.LightGray);
             string state = $"{_stationPlayerCharacter.StateLabel} | {( _stationPlayerCharacter.IsGrounded ? "grounded" : "airborne")}";
             _spriteBatch.DrawString(_font, state, new Vector2(panel.X + 12, panel.Y + 94), Color.Cyan);
+
+            StationInteraction activeInteraction = GetActiveStationInteraction();
+            if (activeInteraction != null)
+            {
+                Vector2 titleSize = _font.MeasureString(activeInteraction.DisplayLabel);
+                Vector2 actionSize = _font.MeasureString(activeInteraction.ActionLabel);
+                int promptWidth = (int)MathF.Max(titleSize.X, actionSize.X) + 36;
+                int promptHeight = (int)(titleSize.Y + actionSize.Y) + 28;
+                int promptX = width / 2 - promptWidth / 2;
+                int promptY = height - 112;
+                Rectangle prompt = new(promptX, promptY, promptWidth, promptHeight);
+                _spriteBatch.Draw(_pixel, prompt, Color.Black * 0.74f);
+                _spriteBatch.Draw(_pixel, new Rectangle(prompt.X, prompt.Y, prompt.Width, 3), Color.LightSkyBlue * 0.9f);
+                _spriteBatch.DrawString(_font, activeInteraction.DisplayLabel, new Vector2(prompt.X + 18, prompt.Y + 8), Color.White);
+                _spriteBatch.DrawString(_font, activeInteraction.ActionLabel, new Vector2(prompt.X + 18, prompt.Y + 8 + titleSize.Y), Color.LightSkyBlue);
+            }
 
             string footer = $"Surface: {_stationPlayerCharacter.SurfaceLabel}   slope {_stationPlayerCharacter.SlopeAngleDegrees:0.0} deg   local scale: 1 unit = 1m";
             Vector2 footerPos = new(16, height - 32);

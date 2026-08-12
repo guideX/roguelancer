@@ -75,6 +75,8 @@ namespace Roguelancer
         
         // Ship model
         public Model Model { get; set; }
+        public string DisplayName { get; set; } = "Scimitar";
+        public string ModelPath { get; set; } = "SHIPS/scimitar/Scimitar2";
         public Matrix ModelRotationCorrection { get; set; } = Matrix.Identity;
 
         // Hull integrity
@@ -886,12 +888,15 @@ namespace Roguelancer
             ActivateGoto(target, true);
         }
         
-        public void CancelGoto()
+        public void CancelGoto(bool showNotification = true)
         {
-            if (_gotoActive)
+            if (_gotoActive || _gotoAutopilot?.IsDocked == true)
             {
-                _notificationManager?.ShowMessage("GOTO Cancelled");
-                Console.WriteLine("GOTO cancelled");
+                if (showNotification)
+                {
+                    _notificationManager?.ShowMessage("GOTO Cancelled");
+                    Console.WriteLine("GOTO cancelled");
+                }
             }
             _gotoActive = false;
             _gotoTarget = null;
@@ -899,6 +904,25 @@ namespace Roguelancer
             _dockAssistTarget = null;
             _autopilotTargetSpeed = -1f;
             _gotoAutopilot?.Cancel();
+        }
+
+        /// <summary>
+        /// Restore normal flight after leaving a station interior. This is the
+        /// only path that moves the authoritative ship out of the docked port;
+        /// station display coordinates never reach Ship.Position.
+        /// </summary>
+        public void RestoreFlightState(Vector3 position, Vector3 forward)
+        {
+            CancelGoto(showNotification: false);
+            Position = position;
+            Velocity = Vector3.Zero;
+            _newtonianVelocity = Vector3.Zero;
+            SetFacing(forward);
+            Reset();
+            EnginesKilled = false;
+            _previousKeyboardState = Keyboard.GetState();
+            _prevLeftMouseState = ButtonState.Released;
+            _previousScrollWheelValue = Mouse.GetState().ScrollWheelValue;
         }
         
         private void UpdateGoto(float deltaTime)

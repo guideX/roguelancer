@@ -24,6 +24,8 @@ namespace Roguelancer
             RunCase(ValidateDockRangePrompt, "dock range prompt", ref passed, ref failed);
             RunCase(ValidateNoTargetDockFallback, "no-target dock fallback", ref passed, ref failed);
             RunCase(ValidateStationCyclingSafety, "station cycling safety", ref passed, ref failed);
+            RunCase(ValidateRealStationSessionPreservesShip, "real station session preserves ship", ref passed, ref failed);
+            RunCase(ValidateStationLaunchClearsDockRange, "station launch clears dock range", ref passed, ref failed);
 
             Console.WriteLine($"[DOCK SMOKE] RESULT: {passed} passed, {failed} failed");
             return (passed, failed);
@@ -298,6 +300,55 @@ namespace Roguelancer
             if (next == null)
             {
                 return Fail("station cycling selected a null station");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateRealStationSessionPreservesShip()
+        {
+            DockSmokeContext ctx = CreateContext();
+            Station station = ctx.Stations[0];
+            Ship player = ctx.Player;
+            player.DisplayName = "Smoke Test Ship";
+            player.ModelPath = "SHIPS/test/ship";
+            float hullBefore = player.Hull.CurrentHull;
+            ShipLoadout loadoutBefore = player.Loadout;
+            Vector3 positionBefore = player.Position;
+
+            StationSession session = StationSession.CreateRealDocked(station, player, 1);
+            if (!ReferenceEquals(session.PlayerShip, player) ||
+                !ReferenceEquals(player.Loadout, loadoutBefore) ||
+                !string.Equals(player.DisplayName, "Smoke Test Ship", StringComparison.Ordinal) ||
+                !string.Equals(player.ModelPath, "SHIPS/test/ship", StringComparison.Ordinal) ||
+                player.Hull.CurrentHull != hullBefore)
+            {
+                return Fail("station session changed authoritative ship identity or state");
+            }
+
+            if (player.Position != positionBefore || session.DockingSpacePosition != positionBefore)
+            {
+                return Fail("station session mutated the authoritative space position on entry");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateStationLaunchClearsDockRange()
+        {
+            DockSmokeContext ctx = CreateContext();
+            Station station = ctx.Stations[0];
+            StationSession session = StationSession.CreateRealDocked(station, ctx.Player, 1);
+            ctx.Player.RestoreFlightState(session.LaunchPosition, session.LaunchForward);
+
+            if (Vector3.Distance(ctx.Player.Position, station.Position) <= station.DockingRange)
+            {
+                return Fail("launch position remained inside station docking range");
+            }
+
+            if (ctx.Player.EnginesKilled || ctx.Player.Velocity.LengthSquared() > 0.001f)
+            {
+                return Fail("flight controls were not restored cleanly after launch");
             }
 
             return Pass();

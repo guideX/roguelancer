@@ -102,6 +102,8 @@ namespace Roguelancer
         /// </summary>
         public void ApplyToShip(Ship ship)
         {
+            ship.DisplayName = Name;
+            ship.ModelPath = ModelPath;
             ship.MaxSpeed = MaxSpeed;
             ship.MaxReverseSpeed = MaxReverseSpeed;
             ship.CruiseSpeed = CruiseSpeed;

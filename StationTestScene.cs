@@ -23,8 +23,36 @@ public sealed class StationTestScene : IDisposable
 
     public Vector3 SpawnPosition { get; } = new(-8.5f, 0.0f, -7.0f);
     public float SpawnYawDegrees { get; } = 42.0f;
+    // These are station-local presentation coordinates. They are deliberately
+    // separate from Ship.Position, which remains in the spaceflight system.
     public Vector3 DockedShipPosition { get; } = new(0.0f, 0.05f, 1.5f);
+    public Matrix DockedShipOrientation { get; } = Matrix.Identity;
+    public Vector3 AirlockInteractionPosition { get; } = new(0.0f, 0.0f, 14.25f);
     public string ShipScaleNote => "Uses Ship.Draw's shared 0.1 model scale and correction; bay units are treated as metres and the human capsule is 1.8m tall.";
+
+    /// <summary>
+    /// Centralized first-pass boarding approximation. Model-specific ramps and
+    /// cockpits can replace this later without changing the interaction flow.
+    /// </summary>
+    public Vector3 GetBoardingPoint(Ship ship)
+    {
+        float sideOffset = 6.8f;
+        if (ship?.Model != null)
+        {
+            float modelRadius = 0.0f;
+            foreach (ModelMesh mesh in ship.Model.Meshes)
+            {
+                modelRadius = MathF.Max(modelRadius, mesh.BoundingSphere.Radius);
+            }
+
+            // The shared ship renderer applies a 0.1 presentation scale. Keep
+            // the result inside the current bay while leaving a clear path
+            // around the Phase 2 ship collision envelope.
+            sideOffset = MathHelper.Clamp(modelRadius * 0.1f + 1.5f, 6.8f, 10.5f);
+        }
+
+        return DockedShipPosition + Vector3.Right * sideOffset;
+    }
 
     public void LoadContent(ContentManager content, GraphicsDevice graphicsDevice)
     {
@@ -89,10 +117,20 @@ public sealed class StationTestScene : IDisposable
         }
     }
 
-    public void DrawShipModel(Model model, Matrix modelCorrection, Matrix view, Matrix projection, Vector3 lightDirection)
+    public void DrawShipModel(Ship ship, Matrix view, Matrix projection, Vector3 lightDirection)
     {
-        if (model is null || _graphicsDevice is null) return;
-        Matrix world = Ship.CreateModelWorldMatrix(DockedShipPosition, Matrix.Identity, modelCorrection);
+        if (ship?.Model is null || _graphicsDevice is null)
+        {
+            if (!_shipMaterialStateLogged)
+            {
+                _shipMaterialStateLogged = true;
+                Console.WriteLine("[STATION TEST] Parked player ship could not render: the authoritative ship has no model.");
+            }
+            return;
+        }
+
+        Model model = ship.Model;
+        Matrix world = Ship.CreateModelWorldMatrix(DockedShipPosition, DockedShipOrientation, ship.ModelRotationCorrection);
         int texturedEffects = 0;
         int effectCount = 0;
         List<string> materialDiagnostics = new();
@@ -116,7 +154,8 @@ public sealed class StationTestScene : IDisposable
                 // texture; re-enable it explicitly for this presentation pass
                 // without replacing the material binding.
                 int materialIndex = effectSlot / 2;
-                if (effect.Texture == null && materialIndex < _shipMaterialTextures.Count)
+                bool isScimitar = ship.ModelPath?.Contains("scimitar", StringComparison.OrdinalIgnoreCase) == true;
+                if (isScimitar && effect.Texture == null && materialIndex < _shipMaterialTextures.Count)
                     effect.Texture = _shipMaterialTextures[materialIndex];
                 effect.TextureEnabled = effect.Texture != null;
                 if (effect.Texture != null && effect.TextureEnabled) texturedEffects++;
@@ -127,7 +166,7 @@ public sealed class StationTestScene : IDisposable
         if (!_shipMaterialStateLogged)
         {
             _shipMaterialStateLogged = true;
-            Console.WriteLine($"[STATION TEST] Ship material pass: meshes={model.Meshes.Count}, effects={effectCount}, texturedEffects={texturedEffects}");
+            Console.WriteLine($"[STATION TEST] Parked ship material pass: name={ship.DisplayName}, model={ship.ModelPath}, meshes={model.Meshes.Count}, effects={effectCount}, texturedEffects={texturedEffects}");
             Console.WriteLine($"[STATION TEST] Imported ship effect materials: {string.Join(" | ", materialDiagnostics)}");
         }
     }
