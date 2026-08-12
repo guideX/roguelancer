@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -28,6 +29,17 @@ namespace Roguelancer {
         /// Camera
         /// </summary>
         private Camera _camera;
+
+        // Isolated Phase 1 developer on-foot test mode. These objects are
+        // deliberately separate from the flight camera, ship update, and
+        // docking UI so entering the prototype cannot mutate flight state.
+        private StationTestScene _stationTestScene;
+        private CharacterCamera _stationCharacterCamera;
+        private PlayerCharacter _stationPlayerCharacter;
+        private BasicEffect _stationCharacterEffect;
+        private bool _stationTestMode;
+        private bool _stationCharacterLoadAttempted;
+        private bool _stationEntryKeyHeld;
         /// <summary>
         /// Starfield
         /// </summary>
@@ -910,6 +922,18 @@ namespace Roguelancer {
                 Console.WriteLine("Make sure the FBX file is added to the Content Pipeline.");
             }
 
+            // Phase 1 station geometry uses the existing local texture set.
+            // Character GLBs are loaded lazily on F10 so normal space startup
+            // does not pay the prototype's CPU-skinning asset cost.
+            _stationTestScene = new StationTestScene();
+            _stationTestScene.LoadContent(Content, GraphicsDevice);
+            _stationCharacterCamera = new CharacterCamera(GraphicsDevice);
+            _stationCharacterEffect = new BasicEffect(GraphicsDevice) {
+                TextureEnabled = true,
+                LightingEnabled = true,
+                VertexColorEnabled = false,
+            };
+
             // Initialize StationManager with GraphicsDevice and load stations
             _stationManager = new StationManager(Content, GraphicsDevice);
             try {
@@ -1566,6 +1590,26 @@ namespace Roguelancer {
                 _prevKeys = keyboardState;
                 _prevMouseState = mouseState;
                 return; // Skip the rest of the update logic
+            }
+
+            // Developer-only station test path. The ship, flight camera, and
+            // all space simulation systems are intentionally not updated here.
+            if (_stationTestMode) {
+                UpdateStationTestMode(gameTime, keyboardState, mouseState);
+                _prevKeys = keyboardState;
+                _prevMouseState = mouseState;
+                base.Update(gameTime);
+                return;
+            }
+
+            // F10 is unused by the existing flight controls. It toggles only
+            // this temporary test scene; it is not real docking or launching.
+            if (keyboardState.IsKeyDown(Keys.F10) && _prevKeys.IsKeyUp(Keys.F10)) {
+                EnterStationTestMode();
+                _prevKeys = keyboardState;
+                _prevMouseState = mouseState;
+                base.Update(gameTime);
+                return;
             }
 
             if (HandleSaveLoadHotkeys(keyboardState))
@@ -3948,8 +3992,12 @@ namespace Roguelancer {
         /// </summary>
         private void OnWindowDeactivated(object sender, EventArgs e) {
             _isWindowFocused = false;
-            _playerShip.Reset();
-            Console.WriteLine("[WINDOW] DEACTIVATED - Input disabled, ship state reset.");
+            // The on-foot prototype is an isolated view over the existing
+            // ship state; losing focus must not reset flight while testing it.
+            if (!_stationTestMode) _playerShip.Reset();
+            Console.WriteLine(_stationTestMode
+                ? "[WINDOW] DEACTIVATED - Station test paused; flight state preserved."
+                : "[WINDOW] DEACTIVATED - Input disabled, ship state reset.");
         }
 
         /// <summary>
@@ -3959,6 +4007,136 @@ namespace Roguelancer {
             _isWindowFocused = IsActive;
         }
 
+        private void EnterStationTestMode()
+        {
+            if (_stationDockUI?.IsDocked == true || _systemMap?.IsVisible == true || _jumpHoleManager?.IsInTransit == true) {
+                _notificationManager?.ShowMessage("Exit the current overlay/dock UI before station test", 2f);
+                return;
+            }
+
+            if (_stationTestScene == null || _stationCharacterCamera == null) {
+                _notificationManager?.ShowMessage("Station test scene is not ready", 2f);
+                return;
+            }
+
+            if (!EnsureStationCharacterLoaded()) return;
+
+            _stationPlayerCharacter.ResetToSpawn();
+            _stationCharacterCamera.Reset(_stationPlayerCharacter.Position, _stationPlayerCharacter.YawDegrees);
+            _stationEntryKeyHeld = true;
+            _stationTestMode = true;
+            IsMouseVisible = false;
+            Window.Title = "Roguelancer - Station Test Bay";
+            _notificationManager?.ShowMessage("Station test entered | F10 or Esc to return to flight", 3f);
+            Console.WriteLine("[STATION TEST] Entered isolated on-foot station bay");
+        }
+
+        private void ExitStationTestMode()
+        {
+            _stationTestMode = false;
+            IsMouseVisible = !_playerShip.IsFreeFlightMode;
+            Window.Title = "Roguelancer";
+            _camera?.Follow(_playerShip.Position, _playerShip.Forward, _playerShip.Up, 1.0f);
+            _notificationManager?.ShowMessage("Returned to normal space flight", 2f);
+            Console.WriteLine("[STATION TEST] Returned to normal space flight");
+        }
+
+        private void UpdateStationTestMode(GameTime gameTime, KeyboardState keyboardState, MouseState mouseState)
+        {
+            float deltaTime = Math.Clamp((float)gameTime.ElapsedGameTime.TotalSeconds, 0.0f, 0.1f);
+            if (_stationEntryKeyHeld && keyboardState.IsKeyUp(Keys.F10)) _stationEntryKeyHeld = false;
+            if ((!_stationEntryKeyHeld && keyboardState.IsKeyDown(Keys.F10)) || keyboardState.IsKeyDown(Keys.Escape)) {
+                ExitStationTestMode();
+                return;
+            }
+
+            if (_stationPlayerCharacter == null || _stationCharacterCamera == null) return;
+            if (keyboardState.IsKeyDown(Keys.F12) && _prevKeys.IsKeyUp(Keys.F12)) {
+                _stationPlayerCharacter.CapsuleDebugVisible = !_stationPlayerCharacter.CapsuleDebugVisible;
+                Console.WriteLine($"[STATION TEST] Capsule debug {(_stationPlayerCharacter.CapsuleDebugVisible ? "ON" : "OFF")}");
+            }
+            if (keyboardState.IsKeyDown(Keys.R) && _prevKeys.IsKeyUp(Keys.R)) _stationPlayerCharacter.ResetToSpawn();
+
+            _stationPlayerCharacter.Update(keyboardState, _stationCharacterCamera, deltaTime);
+            _stationCharacterCamera.Update(_stationPlayerCharacter.Position, deltaTime, recenterMouse: true);
+            _stationPlayerCharacter.UpdatePose();
+            IsMouseVisible = false;
+        }
+
+        private bool EnsureStationCharacterLoaded()
+        {
+            if (_stationPlayerCharacter != null) return true;
+            if (_stationCharacterLoadAttempted) return false;
+            _stationCharacterLoadAttempted = true;
+
+            try
+            {
+                string root = ResolveStationCharacterAssetRoot();
+                string modelPath = Path.Combine(root, "Models", "GuyWalking2.glb");
+                if (!File.Exists(modelPath)) throw new FileNotFoundException("The station-test character model was not found", modelPath);
+
+                CharacterGltfAsset model = CharacterGltfAsset.Load(modelPath, extractImages: true);
+                Dictionary<CharacterAnimationState, CharacterGltfAnimationClip?> clips = new();
+                CharacterGltfAnimationClip forward = CharacterGltfAsset.LoadAnimation(modelPath);
+                clips[CharacterAnimationState.WalkForward] = forward;
+                clips[CharacterAnimationState.Idle] = LoadStationAnimation(root, "GuyIdle.glb") ?? forward;
+                clips[CharacterAnimationState.WalkBackward] = LoadStationAnimation(root, "GuyWalkingBackwards.glb") ?? forward;
+                clips[CharacterAnimationState.RunForward] = LoadStationAnimation(root, "GuyRunning.glb") ?? forward;
+                clips[CharacterAnimationState.StrafeLeft] = LoadStationAnimation(root, "GuyStrafeLeft.glb") ?? forward;
+                clips[CharacterAnimationState.StrafeRight] = LoadStationAnimation(root, "GuyStrafeRight.glb") ?? forward;
+                clips[CharacterAnimationState.Jump] = LoadStationAnimation(root, "GuyJumping.glb") ?? forward;
+
+                _stationPlayerCharacter = new PlayerCharacter(model, clips, _stationTestScene);
+                _stationPlayerCharacter.LoadGraphics(GraphicsDevice);
+                Console.WriteLine($"[STATION TEST] Character asset loaded from {root}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[STATION TEST] Character load failed: {ex}");
+                _notificationManager?.ShowMessage("Station test character assets unavailable; see debug console", 5f);
+                return false;
+            }
+        }
+
+        private static CharacterGltfAnimationClip? LoadStationAnimation(string root, string fileName)
+        {
+            string path = Path.Combine(root, "Animations", fileName);
+            if (!File.Exists(path)) {
+                Console.WriteLine($"[STATION TEST] Optional animation missing: {path}");
+                return null;
+            }
+            CharacterGltfAnimationClip clip = CharacterGltfAsset.LoadAnimation(path);
+            Console.WriteLine($"[STATION TEST] Loaded {fileName}: {clip.Duration:0.###} sec, channels={clip.ChannelCount}");
+            return clip;
+        }
+
+        private static string ResolveStationCharacterAssetRoot()
+        {
+            string configured = Environment.GetEnvironmentVariable("ROGUELANCER_WALKING_ANIMATION_ASSETS") ?? string.Empty;
+            List<string> candidates = new();
+            if (!string.IsNullOrWhiteSpace(configured)) candidates.Add(configured);
+            candidates.Add(Path.Combine(AppContext.BaseDirectory, "Content", "Characters", "Prototype"));
+            candidates.Add(Path.Combine(Directory.GetCurrentDirectory(), "Content", "Characters", "Prototype"));
+
+            DirectoryInfo? directory = new(AppContext.BaseDirectory);
+            for (int i = 0; i < 7 && directory != null; i++, directory = directory.Parent) {
+                candidates.Add(Path.Combine(directory.FullName, "WalkingAnimationLab", "Monogame", "Content"));
+            }
+            string? match = candidates.FirstOrDefault(path => File.Exists(Path.Combine(path, "Models", "GuyWalking2.glb")));
+            return match ?? candidates[0];
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) {
+                _stationPlayerCharacter?.Renderer.Dispose();
+                _stationTestScene?.Dispose();
+                _stationCharacterEffect?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
         protected override void EndDraw() {
             _prevKeys = Keyboard.GetState();
             _prevMouseState = Mouse.GetState();
@@ -3966,6 +4144,11 @@ namespace Roguelancer {
         }
 
         protected override void Draw(GameTime gameTime) {
+            if (_stationTestMode) {
+                DrawStationTestMode(gameTime);
+                return;
+            }
+
             GraphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Black, 1.0f, 0);
 
             // === 3D RENDERING PHASE ===
@@ -4161,6 +4344,51 @@ namespace Roguelancer {
             DrawHUD();
 
             base.Draw(gameTime);
+        }
+
+        private void DrawStationTestMode(GameTime gameTime)
+        {
+            GraphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, new Color(8, 11, 16), 1.0f, 0);
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            GraphicsDevice.BlendState = BlendState.Opaque;
+            GraphicsDevice.RasterizerState = RasterizerState.CullNone;
+            GraphicsDevice.SamplerStates[0] = SamplerState.LinearWrap;
+
+            if (_stationTestScene != null && _stationCharacterCamera != null && _stationPlayerCharacter != null) {
+                _stationTestScene.Draw(_stationCharacterCamera.View, _stationCharacterCamera.Projection);
+                _stationTestScene.DrawShipModel(_playerShip.Model, _playerShip.ModelRotationCorrection, _stationCharacterCamera.View, _stationCharacterCamera.Projection);
+                _stationPlayerCharacter.Renderer.Draw(_stationCharacterEffect, _stationPlayerCharacter.WorldMatrix, _stationCharacterCamera.View, _stationCharacterCamera.Projection, Color.White);
+                _stationPlayerCharacter.DrawDebug(GraphicsDevice, _stationCharacterEffect, _stationCharacterCamera.View, _stationCharacterCamera.Projection);
+            }
+
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
+            DrawStationTestHud();
+            base.Draw(gameTime);
+        }
+
+        private void DrawStationTestHud()
+        {
+            if (_font == null || _pixel == null || _stationPlayerCharacter == null) return;
+            _spriteBatch.Begin();
+            int width = GraphicsDevice.Viewport.Width;
+            int height = GraphicsDevice.Viewport.Height;
+            Rectangle panel = new(16, 16, 390, 112);
+            _spriteBatch.Draw(_pixel, panel, Color.Black * 0.62f);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 3), Color.Gold * 0.9f);
+            _spriteBatch.DrawString(_font, "ROGUELANCER // STATION TEST BAY", new Vector2(panel.X + 12, panel.Y + 9), Color.Gold);
+            _spriteBatch.DrawString(_font, "F10 / ESC  return to spaceflight", new Vector2(panel.X + 12, panel.Y + 31), Color.White);
+            _spriteBatch.DrawString(_font, "WASD move   Shift run   Space jump   Mouse camera", new Vector2(panel.X + 12, panel.Y + 52), Color.LightGray);
+            _spriteBatch.DrawString(_font, "F12 capsule debug   R reset", new Vector2(panel.X + 12, panel.Y + 73), Color.LightGray);
+            string state = $"{_stationPlayerCharacter.StateLabel} | {( _stationPlayerCharacter.IsGrounded ? "grounded" : "airborne")}";
+            _spriteBatch.DrawString(_font, state, new Vector2(panel.X + 12, panel.Y + 94), Color.Cyan);
+
+            string footer = $"Surface: {_stationPlayerCharacter.SurfaceLabel}   slope {_stationPlayerCharacter.SlopeAngleDegrees:0.0} deg   local scale: 1 unit = 1m";
+            Vector2 footerPos = new(16, height - 32);
+            _spriteBatch.Draw(_pixel, new Rectangle(0, height - 45, width, 45), Color.Black * 0.55f);
+            _spriteBatch.DrawString(_font, footer, footerPos, Color.LightGray);
+            _spriteBatch.End();
         }
 
         private void DrawHUD() {

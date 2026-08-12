@@ -22,7 +22,13 @@
   - `Distance to dock range: X`
   - `Dock Assist: Approaching [Station Name]`
   - `Dock range in X`
-  - `Press F3 to dock` when you are in range
+- `Press F3 to dock` when you are in range
+
+## Developer station test
+
+- `F10`: enter the isolated industrial station on-foot test bay from normal spaceflight.
+- In the bay: `W/S` move forward/back, `A/D` strafe, `Shift+W` run, `Space` jump, mouse orbit camera, `R` reset player, `F12` toggle capsule debug.
+- `F10` or `Escape`: return safely to the preserved normal spaceflight state.
 
 ## Targeting Notes
 
