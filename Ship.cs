@@ -765,31 +765,69 @@ namespace Roguelancer
         {
             if (Model == null) return;
 
-            Matrix modelScale = Matrix.CreateScale(0.1f);
-            Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
-            
-            Matrix pitchTilt = Matrix.CreateFromAxisAngle(Orientation.Right, _pitchTiltAngle);
-            Matrix bankTilt = Matrix.CreateFromAxisAngle(Orientation.Forward, _bankTiltAngle);
-            Matrix world = modelScale * modelCorrection * ModelRotationCorrection * Orientation * pitchTilt * bankTilt * Matrix.CreateTranslation(Position);
+            Matrix world = CreateModelWorldMatrix(Position, Orientation, ModelRotationCorrection, _pitchTiltAngle, _bankTiltAngle);
             
             foreach (ModelMesh mesh in Model.Meshes)
             {
                 foreach (BasicEffect effect in mesh.Effects)
                 {
-                    effect.World = world;
-                    effect.View = view;
-                    effect.Projection = projection;
-                    effect.EnableDefaultLighting();
-                    effect.PreferPerPixelLighting = true;
-                    effect.SpecularPower = 16f;
-                    effect.Alpha = 1.0f;
-                    effect.DirectionalLight0.Direction = lightDirection;
-                    effect.DirectionalLight0.DiffuseColor = new Vector3(0.9f, 0.9f, 1.0f);
-                    effect.DirectionalLight0.SpecularColor = new Vector3(0.5f, 0.5f, 0.6f);
-                    effect.AmbientLightColor = new Vector3(0.2f, 0.2f, 0.25f);
+                    ConfigureModelEffect(
+                        effect,
+                        world,
+                        view,
+                        projection,
+                        lightDirection,
+                        new Vector3(0.9f, 0.9f, 1.0f),
+                        new Vector3(0.5f, 0.5f, 0.6f),
+                        new Vector3(0.2f, 0.2f, 0.25f));
                 }
                 mesh.Draw();
             }
+        }
+
+        /// <summary>
+        /// Builds the same model-space correction and scale used by normal flight rendering.
+        /// Station presentation passes use this with an identity orientation and zero tilt.
+        /// </summary>
+        public static Matrix CreateModelWorldMatrix(
+            Vector3 position,
+            Matrix orientation,
+            Matrix modelRotationCorrection,
+            float pitchTiltAngle = 0.0f,
+            float bankTiltAngle = 0.0f)
+        {
+            Matrix modelScale = Matrix.CreateScale(0.1f);
+            Matrix modelCorrection = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi);
+            Matrix pitchTilt = Matrix.CreateFromAxisAngle(orientation.Right, pitchTiltAngle);
+            Matrix bankTilt = Matrix.CreateFromAxisAngle(orientation.Forward, bankTiltAngle);
+            return modelScale * modelCorrection * modelRotationCorrection * orientation * pitchTilt * bankTilt * Matrix.CreateTranslation(position);
+        }
+
+        /// <summary>
+        /// Applies the shared BasicEffect material/lighting setup used by ship model passes.
+        /// The model's imported texture and diffuse-color bindings are intentionally preserved.
+        /// </summary>
+        public static void ConfigureModelEffect(
+            BasicEffect effect,
+            Matrix world,
+            Matrix view,
+            Matrix projection,
+            Vector3 lightDirection,
+            Vector3 diffuseColor,
+            Vector3 specularColor,
+            Vector3 ambientLightColor)
+        {
+            effect.World = world;
+            effect.View = view;
+            effect.Projection = projection;
+            effect.EnableDefaultLighting();
+            effect.PreferPerPixelLighting = true;
+            effect.SpecularPower = 16f;
+            effect.Alpha = 1.0f;
+            effect.DirectionalLight0.Direction = lightDirection;
+            effect.DirectionalLight0.DiffuseColor = diffuseColor;
+            effect.DirectionalLight0.SpecularColor = specularColor;
+            effect.AmbientLightColor = ambientLightColor;
         }
 
         public float GetThrottle() => _throttle;

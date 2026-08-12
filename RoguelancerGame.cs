@@ -40,6 +40,7 @@ namespace Roguelancer {
         private bool _stationTestMode;
         private bool _stationCharacterLoadAttempted;
         private bool _stationEntryKeyHeld;
+        private bool _stationEscapeKeyHeld;
         /// <summary>
         /// Starfield
         /// </summary>
@@ -1605,7 +1606,7 @@ namespace Roguelancer {
             // F10 is unused by the existing flight controls. It toggles only
             // this temporary test scene; it is not real docking or launching.
             if (keyboardState.IsKeyDown(Keys.F10) && _prevKeys.IsKeyUp(Keys.F10)) {
-                EnterStationTestMode();
+                EnterStationTestMode(keyboardState);
                 _prevKeys = keyboardState;
                 _prevMouseState = mouseState;
                 base.Update(gameTime);
@@ -4007,7 +4008,7 @@ namespace Roguelancer {
             _isWindowFocused = IsActive;
         }
 
-        private void EnterStationTestMode()
+        private void EnterStationTestMode(KeyboardState keyboardState)
         {
             if (_stationDockUI?.IsDocked == true || _systemMap?.IsVisible == true || _jumpHoleManager?.IsInTransit == true) {
                 _notificationManager?.ShowMessage("Exit the current overlay/dock UI before station test", 2f);
@@ -4023,7 +4024,11 @@ namespace Roguelancer {
 
             _stationPlayerCharacter.ResetToSpawn();
             _stationCharacterCamera.Reset(_stationPlayerCharacter.Position, _stationPlayerCharacter.YawDegrees);
-            _stationEntryKeyHeld = true;
+            // Gate both transition keys until their current physical state has
+            // been released. This prevents the enter event from immediately
+            // being interpreted as an exit by a real keyboard or key injector.
+            _stationEntryKeyHeld = keyboardState.IsKeyDown(Keys.F10);
+            _stationEscapeKeyHeld = keyboardState.IsKeyDown(Keys.Escape);
             _stationTestMode = true;
             IsMouseVisible = false;
             Window.Title = "Roguelancer - Station Test Bay";
@@ -4034,6 +4039,8 @@ namespace Roguelancer {
         private void ExitStationTestMode()
         {
             _stationTestMode = false;
+            _stationEntryKeyHeld = false;
+            _stationEscapeKeyHeld = false;
             IsMouseVisible = !_playerShip.IsFreeFlightMode;
             Window.Title = "Roguelancer";
             _camera?.Follow(_playerShip.Position, _playerShip.Forward, _playerShip.Up, 1.0f);
@@ -4045,7 +4052,10 @@ namespace Roguelancer {
         {
             float deltaTime = Math.Clamp((float)gameTime.ElapsedGameTime.TotalSeconds, 0.0f, 0.1f);
             if (_stationEntryKeyHeld && keyboardState.IsKeyUp(Keys.F10)) _stationEntryKeyHeld = false;
-            if ((!_stationEntryKeyHeld && keyboardState.IsKeyDown(Keys.F10)) || keyboardState.IsKeyDown(Keys.Escape)) {
+            if (_stationEscapeKeyHeld && keyboardState.IsKeyUp(Keys.Escape)) _stationEscapeKeyHeld = false;
+            bool f10ExitPressed = !_stationEntryKeyHeld && keyboardState.IsKeyDown(Keys.F10) && _prevKeys.IsKeyUp(Keys.F10);
+            bool escapeExitPressed = !_stationEscapeKeyHeld && keyboardState.IsKeyDown(Keys.Escape) && _prevKeys.IsKeyUp(Keys.Escape);
+            if (f10ExitPressed || escapeExitPressed) {
                 ExitStationTestMode();
                 return;
             }
@@ -4058,7 +4068,7 @@ namespace Roguelancer {
             if (keyboardState.IsKeyDown(Keys.R) && _prevKeys.IsKeyUp(Keys.R)) _stationPlayerCharacter.ResetToSpawn();
 
             _stationPlayerCharacter.Update(keyboardState, _stationCharacterCamera, deltaTime);
-            _stationCharacterCamera.Update(_stationPlayerCharacter.Position, deltaTime, recenterMouse: true);
+            _stationCharacterCamera.Update(_stationPlayerCharacter.Position, deltaTime, recenterMouse: true, _stationTestScene);
             _stationPlayerCharacter.UpdatePose();
             IsMouseVisible = false;
         }
@@ -4356,8 +4366,16 @@ namespace Roguelancer {
 
             if (_stationTestScene != null && _stationCharacterCamera != null && _stationPlayerCharacter != null) {
                 _stationTestScene.Draw(_stationCharacterCamera.View, _stationCharacterCamera.Projection);
-                _stationTestScene.DrawShipModel(_playerShip.Model, _playerShip.ModelRotationCorrection, _stationCharacterCamera.View, _stationCharacterCamera.Projection);
-                _stationPlayerCharacter.Renderer.Draw(_stationCharacterEffect, _stationPlayerCharacter.WorldMatrix, _stationCharacterCamera.View, _stationCharacterCamera.Projection, Color.White);
+                _stationTestScene.DrawShipModel(_playerShip.Model, _playerShip.ModelRotationCorrection, _stationCharacterCamera.View, _stationCharacterCamera.Projection, _lightDirection);
+                _stationPlayerCharacter.Renderer.Draw(
+                    _stationCharacterEffect,
+                    _stationPlayerCharacter.WorldMatrix,
+                    _stationCharacterCamera.View,
+                    _stationCharacterCamera.Projection,
+                    Color.White,
+                    new Vector3(0.30f, 0.34f, 0.44f),
+                    new Vector3(0.58f, 0.64f, 0.78f),
+                    new Vector3(-0.35f, -0.85f, -0.40f));
                 _stationPlayerCharacter.DrawDebug(GraphicsDevice, _stationCharacterEffect, _stationCharacterCamera.View, _stationCharacterCamera.Projection);
             }
 
@@ -4374,6 +4392,7 @@ namespace Roguelancer {
             _spriteBatch.Begin();
             int width = GraphicsDevice.Viewport.Width;
             int height = GraphicsDevice.Viewport.Height;
+            DrawStationSignage();
             Rectangle panel = new(16, 16, 390, 112);
             _spriteBatch.Draw(_pixel, panel, Color.Black * 0.62f);
             _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 3), Color.Gold * 0.9f);
@@ -4389,6 +4408,34 @@ namespace Roguelancer {
             _spriteBatch.Draw(_pixel, new Rectangle(0, height - 45, width, 45), Color.Black * 0.55f);
             _spriteBatch.DrawString(_font, footer, footerPos, Color.LightGray);
             _spriteBatch.End();
+        }
+
+        private void DrawStationSignage()
+        {
+            if (_stationCharacterCamera == null || _font == null || _pixel == null) return;
+
+            DrawStationSign("DOCKING BAY 01", new Vector3(0.0f, 7.15f, 16.85f), Color.Gold, 0.72f);
+            DrawStationSign("SERVICE ACCESS", new Vector3(-13.55f, 3.25f, 6.5f), Color.LightSkyBlue, 0.60f);
+            DrawStationSign("STATION INTERIOR", new Vector3(0.0f, 5.35f, 16.75f), Color.LightSkyBlue, 0.55f);
+        }
+
+        private void DrawStationSign(string text, Vector3 worldPosition, Color color, float scale)
+        {
+            Vector3 screen = GraphicsDevice.Viewport.Project(
+                worldPosition,
+                _stationCharacterCamera!.Projection,
+                _stationCharacterCamera.View,
+                Matrix.Identity);
+            if (screen.Z < 0.0f || screen.Z > 1.0f || screen.X < -200.0f || screen.X > GraphicsDevice.Viewport.Width + 200.0f || screen.Y < -100.0f || screen.Y > GraphicsDevice.Viewport.Height + 100.0f) return;
+
+            Vector2 measured = _font!.MeasureString(text) * scale;
+            Rectangle background = new(
+                (int)(screen.X - measured.X * 0.5f - 7.0f),
+                (int)(screen.Y - measured.Y * 0.5f - 4.0f),
+                (int)measured.X + 14,
+                (int)measured.Y + 8);
+            _spriteBatch.Draw(_pixel!, background, Color.Black * 0.48f);
+            _spriteBatch.DrawString(_font, text, new Vector2(screen.X - measured.X * 0.5f, screen.Y - measured.Y * 0.5f), color, 0.0f, Vector2.Zero, scale, SpriteEffects.None, 0.0f);
         }
 
         private void DrawHUD() {

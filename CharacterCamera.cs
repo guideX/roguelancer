@@ -7,6 +7,8 @@ namespace Roguelancer;
 
 public sealed class CharacterCamera
 {
+    private const float PreferredDistance = 6.0f;
+    private const float CameraRadius = 0.30f;
     private readonly GraphicsDevice _graphicsDevice;
     private Vector3 _smoothedPosition;
     private Vector3 _smoothedTarget;
@@ -35,6 +37,9 @@ public sealed class CharacterCamera
     }
 
     public void Update(Vector3 playerPosition, float deltaSeconds, bool recenterMouse)
+        => Update(playerPosition, deltaSeconds, recenterMouse, null);
+
+    public void Update(Vector3 playerPosition, float deltaSeconds, bool recenterMouse, StationTestScene? collisionScene)
     {
         Point center = new(_graphicsDevice.Viewport.Width / 2, _graphicsDevice.Viewport.Height / 2);
         MouseState mouse = Mouse.GetState();
@@ -52,22 +57,34 @@ public sealed class CharacterCamera
 
         Vector3 target = playerPosition + new Vector3(0.0f, 1.05f, 0.0f);
         Vector3 direction = ViewDirection(_yaw, _pitch);
-        Vector3 desiredPosition = target - direction * 6.0f;
+        Vector3 desiredPosition = target - direction * PreferredDistance;
+        StationCameraCollision collision = collisionScene?.ResolveCameraPosition(target, desiredPosition, CameraRadius)
+            ?? new StationCameraCollision(false, desiredPosition, string.Empty);
+        Vector3 collisionSafePosition = collision.Position;
         if (!_initialized)
         {
-            _smoothedPosition = desiredPosition;
+            _smoothedPosition = collisionSafePosition;
             _smoothedTarget = target;
             _initialized = true;
         }
         else if (deltaSeconds > 0.0f)
         {
-            float blend = 1.0f - MathF.Exp(-12.0f * deltaSeconds);
-            _smoothedPosition = Vector3.Lerp(_smoothedPosition, desiredPosition, blend);
+            float positionRate = collision.Hit ? 24.0f : 8.0f;
+            float blend = 1.0f - MathF.Exp(-positionRate * deltaSeconds);
+            _smoothedPosition = Vector3.Lerp(_smoothedPosition, collisionSafePosition, blend);
+            // Clamp the smoothed position every frame as well. This prevents a
+            // frame of interpolation from placing the camera on the far side
+            // of a wall when the player rotates into it.
+            if (collisionScene != null)
+            {
+                StationCameraCollision smoothedCollision = collisionScene.ResolveCameraPosition(target, _smoothedPosition, CameraRadius);
+                _smoothedPosition = smoothedCollision.Position;
+            }
             _smoothedTarget = Vector3.Lerp(_smoothedTarget, target, blend);
         }
         else
         {
-            _smoothedPosition = desiredPosition;
+            _smoothedPosition = collisionSafePosition;
             _smoothedTarget = target;
         }
 

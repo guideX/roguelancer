@@ -88,16 +88,42 @@ public sealed class CharacterRenderer : IDisposable
 
     public void Draw(BasicEffect effect, Matrix world, Matrix view, Matrix projection, Color tint)
     {
+        Draw(
+            effect,
+            world,
+            view,
+            projection,
+            tint,
+            new Vector3(0.46f, 0.50f, 0.62f),
+            new Vector3(0.72f, 0.76f, 0.90f),
+            new Vector3(-0.35f, -0.85f, -0.40f));
+    }
+
+    public void Draw(
+        BasicEffect effect,
+        Matrix world,
+        Matrix view,
+        Matrix projection,
+        Color tint,
+        Vector3 ambientLightColor,
+        Vector3 diffuseLightColor,
+        Vector3 lightDirection)
+    {
         if (_graphicsDevice is null) return;
         effect.World = world;
         effect.View = view;
         effect.Projection = projection;
         effect.LightingEnabled = true;
         effect.EnableDefaultLighting();
-        effect.AmbientLightColor = new Vector3(0.46f, 0.50f, 0.62f);
-        effect.DirectionalLight0.Direction = new Vector3(-0.35f, -0.85f, -0.40f);
-        effect.DirectionalLight0.DiffuseColor = new Vector3(0.72f, 0.76f, 0.90f);
+        effect.PreferPerPixelLighting = true;
+        effect.SpecularPower = 14.0f;
+        effect.AmbientLightColor = ambientLightColor;
+        effect.DirectionalLight0.Direction = lightDirection;
+        effect.DirectionalLight0.DiffuseColor = diffuseLightColor;
+        effect.DirectionalLight0.SpecularColor = new Vector3(0.30f, 0.32f, 0.38f);
         effect.DirectionalLight0.Enabled = true;
+        effect.DirectionalLight1.Enabled = false;
+        effect.DirectionalLight2.Enabled = false;
         effect.TextureEnabled = true;
         foreach (SkinnedPart part in _parts)
         {
