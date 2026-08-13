@@ -64,7 +64,7 @@ public sealed class PlayerCharacter
         _previousKeyboard = Keyboard.GetState();
     }
 
-    public void Update(KeyboardState keyboard, CharacterCamera camera, float deltaSeconds)
+    public void Update(KeyboardState keyboard, CharacterCamera camera, float deltaSeconds, PerformanceDiagnostics diagnostics)
     {
         bool forwardHeld = keyboard.IsKeyDown(Keys.W) || keyboard.IsKeyDown(Keys.Up);
         bool backwardHeld = keyboard.IsKeyDown(Keys.S) || keyboard.IsKeyDown(Keys.Down);
@@ -74,17 +74,20 @@ public sealed class PlayerCharacter
         bool jumpPressed = keyboard.IsKeyDown(Keys.Space) && _previousKeyboard.IsKeyUp(Keys.Space);
 
         CharacterAnimationState inputState = SelectAnimationState(forwardHeld, backwardHeld, leftHeld, rightHeld, runHeld);
-        if (!_animation.IsOneShot)
+        using (diagnostics.Measure("station.animation.state"))
         {
-            if (jumpPressed && IsGrounded)
+            if (!_animation.IsOneShot)
             {
-                VerticalVelocity = JumpVelocity;
-                IsGrounded = false;
-                _animation.SetState(CharacterAnimationState.Jump);
-            }
-            else
-            {
-                _animation.SetState(inputState);
+                if (jumpPressed && IsGrounded)
+                {
+                    VerticalVelocity = JumpVelocity;
+                    IsGrounded = false;
+                    _animation.SetState(CharacterAnimationState.Jump);
+                }
+                else
+                {
+                    _animation.SetState(inputState);
+                }
             }
         }
 
@@ -93,24 +96,42 @@ public sealed class PlayerCharacter
         else if (backwardHeld && !forwardHeld) movement -= camera.MovementForward * WalkSpeed;
         if (leftHeld && !rightHeld) movement -= camera.MovementRight * StrafeSpeed;
         else if (rightHeld && !leftHeld) movement += camera.MovementRight * StrafeSpeed;
-        if (movement.LengthSquared() > 0.0001f)
+        using (diagnostics.Measure("station.controller.collision"))
         {
-            if (IsGrounded) movement = CapsuleControllerMath.ProjectMovementAlongGround(movement, GroundNormal);
-            Vector3 desired = Position + movement * deltaSeconds;
-            Position = _scene.ResolveMovement(Position, desired, CapsuleHeight, IsGrounded, GroundNormal, out _);
-            float targetYaw = MathHelper.ToDegrees(MathF.Atan2(movement.X, movement.Z));
-            YawDegrees = RotateTowards(YawDegrees, targetYaw, 540.0f * deltaSeconds);
-        }
+            if (movement.LengthSquared() > 0.0001f)
+            {
+                if (IsGrounded) movement = CapsuleControllerMath.ProjectMovementAlongGround(movement, GroundNormal);
+                Vector3 desired = Position + movement * deltaSeconds;
+                Position = _scene.ResolveMovement(Position, desired, CapsuleHeight, IsGrounded, GroundNormal, out _);
+                float targetYaw = MathHelper.ToDegrees(MathF.Atan2(movement.X, movement.Z));
+                YawDegrees = RotateTowards(YawDegrees, targetYaw, 540.0f * deltaSeconds);
+            }
 
-        UpdateVerticalMovement(deltaSeconds);
+            UpdateVerticalMovement(deltaSeconds);
+        }
         if (Position.Y < -3.0f || _scene.IsOutOfBounds(Position)) ResetToSpawn();
 
-        _animation.Update(deltaSeconds);
+        using (diagnostics.Measure("station.animation.time"))
+        {
+            _animation.Update(deltaSeconds);
+        }
         if (_animation.IsFinished && IsGrounded) _animation.SetState(inputState);
         _previousKeyboard = keyboard;
     }
 
-    public void UpdatePose() => _renderer.UpdatePose(_animation.EvaluateLocalPose(stripJumpRootVertical: true));
+    public void UpdatePose(PerformanceDiagnostics diagnostics = null)
+    {
+        if (diagnostics == null)
+        {
+            _renderer.UpdatePose(_animation.EvaluateLocalPose(stripJumpRootVertical: true));
+            return;
+        }
+
+        using (diagnostics.Measure("station.animation.pose.evaluate"))
+        {
+            _renderer.UpdatePose(_animation.EvaluateLocalPose(stripJumpRootVertical: true));
+        }
+    }
 
     public Matrix WorldMatrix => Matrix.CreateRotationY(MathHelper.ToRadians(YawDegrees + ModelYawOffset)) * Matrix.CreateTranslation(Position);
 

@@ -224,6 +224,10 @@ namespace Roguelancer {
         private readonly bool _runDockSmoke;
         private readonly bool _runShipSmoke;
         private readonly bool _runAllSmoke;
+        private readonly bool _runPerformanceDiagnostics;
+        private readonly bool _performanceAutoStation;
+        private readonly double _performanceDurationSeconds;
+        private readonly PerformanceDiagnostics _performanceDiagnostics;
         private SaveGameManager _saveGameManager;
         private const float FirstDockHintAutoSelectDelaySeconds = 4f;
         private float _firstDockHintElapsedSeconds = 0f;
@@ -279,6 +283,10 @@ namespace Roguelancer {
             _runDockSmoke = args?.Any(arg => string.Equals(arg, "--dock-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runShipSmoke = args?.Any(arg => string.Equals(arg, "--ship-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPerformanceDiagnostics = args?.Any(arg => string.Equals(arg, "--perf-diagnostics", StringComparison.OrdinalIgnoreCase)) == true;
+            _performanceAutoStation = args?.Any(arg => string.Equals(arg, "--perf-station", StringComparison.OrdinalIgnoreCase)) == true;
+            _performanceDurationSeconds = ParsePerformanceDuration(args);
+            _performanceDiagnostics = new PerformanceDiagnostics(_runPerformanceDiagnostics, _performanceDurationSeconds);
 
             // Load game settings
             _gameSettings = GameSettings.Load();
@@ -296,6 +304,17 @@ namespace Roguelancer {
             if (_gameSettings.EnableOnlineMode) {
                 InitializeNetworkManager();
             }
+        }
+
+        private static double ParsePerformanceDuration(string[]? args)
+        {
+            string? value = args?.FirstOrDefault(arg => arg.StartsWith("--perf-duration=", StringComparison.OrdinalIgnoreCase));
+            if (value == null || !double.TryParse(value.Substring("--perf-duration=".Length), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double seconds))
+            {
+                return 0.0;
+            }
+
+            return Math.Max(0.0, seconds);
         }
 
         private void SyncMountedGunWeaponProfile()
@@ -1050,6 +1069,7 @@ namespace Roguelancer {
             _playerShip.SetGotoAutopilot(_gotoAutopilot);
 
             _saveGameManager = new SaveGameManager();
+            _performanceDiagnostics.LogGraphicsConfiguration(this, _graphics, "initial");
             if (_runAllSmoke)
             {
                 var result = RunAllSmokeTests();
@@ -1564,10 +1584,33 @@ namespace Roguelancer {
             return standings;
         }
 
-        protected override void Update(GameTime gameTime) {
+        protected override void Update(GameTime gameTime)
+        {
+            _performanceDiagnostics.BeginUpdate(gameTime, _stationTestMode);
+            try
+            {
+                UpdateCore(gameTime);
+            }
+            finally
+            {
+                _performanceDiagnostics.EndUpdate(_stationTestMode);
+                if (_performanceDiagnostics.ShouldStop(gameTime.TotalGameTime.TotalSeconds))
+                {
+                    _performanceDiagnostics.PrintSummary();
+                    Exit();
+                }
+            }
+        }
+
+        private void UpdateCore(GameTime gameTime) {
             KeyboardState keyboardState = Keyboard.GetState();
             MouseState mouseState = Mouse.GetState();
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (_performanceAutoStation && !_stationTestMode && gameTime.TotalGameTime.TotalSeconds >= 2.0)
+            {
+                EnterStationTestMode(keyboardState);
+            }
 
             // Handle input cooldown after window activation
             if (_inputCooldown > 0) {
@@ -4126,6 +4169,7 @@ namespace Roguelancer {
             _stationPlayerCharacter.ResetToSpawn();
             _stationCharacterCamera.Reset(_stationPlayerCharacter.Position, _stationPlayerCharacter.YawDegrees);
             BuildStationInteractions();
+            _performanceDiagnostics.LogGraphicsConfiguration(this, _graphics, "station-entry");
 
             // Gate transition-sensitive keys until their current physical state
             // has been released. This prevents docking/F10/E held across a mode
@@ -4134,6 +4178,7 @@ namespace Roguelancer {
             _stationEscapeKeyHeld = keyboardState.IsKeyDown(Keys.Escape);
             _stationInteractionKeyHeld = keyboardState.IsKeyDown(Keys.E);
             _stationTestMode = true;
+            _performanceDiagnostics.SetMode(stationMode: true);
             IsMouseVisible = false;
             Window.Title = session.IsRealDockedSession
                 ? $"Roguelancer - {session.StationDisplayName}"
@@ -4190,6 +4235,7 @@ namespace Roguelancer {
             }
 
             _stationTestMode = false;
+            _performanceDiagnostics.SetMode(stationMode: false);
             _stationEntryKeyHeld = false;
             _stationEscapeKeyHeld = false;
             _stationInteractionKeyHeld = false;
@@ -4222,15 +4268,22 @@ namespace Roguelancer {
             }
             if (keyboardState.IsKeyDown(Keys.R) && _prevKeys.IsKeyUp(Keys.R)) _stationPlayerCharacter.ResetToSpawn();
 
-            _stationPlayerCharacter.Update(keyboardState, _stationCharacterCamera, deltaTime);
-            _stationCharacterCamera.Update(_stationPlayerCharacter.Position, deltaTime, recenterMouse: true, _stationTestScene);
-            _stationPlayerCharacter.UpdatePose();
-
+            using (_performanceDiagnostics.Measure("station.player.update"))
+            {
+                _stationPlayerCharacter.Update(keyboardState, _stationCharacterCamera, deltaTime, _performanceDiagnostics);
+            }
+            using (_performanceDiagnostics.Measure("station.camera.update"))
+            {
+                _stationCharacterCamera.Update(_stationPlayerCharacter.Position, deltaTime, recenterMouse: true, _stationTestScene, _performanceDiagnostics);
+            }
             bool boardPressed = !_stationInteractionKeyHeld && keyboardState.IsKeyDown(Keys.E) && _prevKeys.IsKeyUp(Keys.E);
             if (boardPressed)
             {
-                StationInteraction interaction = GetActiveStationInteraction();
-                interaction?.Action?.Invoke();
+                using (_performanceDiagnostics.Measure("station.interaction"))
+                {
+                    StationInteraction interaction = GetActiveStationInteraction();
+                    interaction?.Action?.Invoke();
+                }
             }
 
             IsMouseVisible = false;
@@ -4313,10 +4366,32 @@ namespace Roguelancer {
         protected override void EndDraw() {
             _prevKeys = Keyboard.GetState();
             _prevMouseState = Mouse.GetState();
-            base.EndDraw();
+            _performanceDiagnostics.BeginEndDraw();
+            try
+            {
+                base.EndDraw();
+            }
+            finally
+            {
+                _performanceDiagnostics.EndEndDraw();
+            }
         }
 
-        protected override void Draw(GameTime gameTime) {
+        protected override void Draw(GameTime gameTime)
+        {
+            _performanceDiagnostics.BeginDraw(gameTime, _stationTestMode);
+            try
+            {
+                DrawCore(gameTime);
+                base.Draw(gameTime);
+            }
+            finally
+            {
+                _performanceDiagnostics.EndDrawBody();
+            }
+        }
+
+        private void DrawCore(GameTime gameTime) {
             if (_stationTestMode) {
                 DrawStationTestMode(gameTime);
                 return;
@@ -4516,7 +4591,6 @@ namespace Roguelancer {
             // Draw HUD
             DrawHUD();
 
-            base.Draw(gameTime);
         }
 
         private void DrawStationTestMode(GameTime gameTime)
@@ -4528,25 +4602,46 @@ namespace Roguelancer {
             GraphicsDevice.SamplerStates[0] = SamplerState.LinearWrap;
 
             if (_stationTestScene != null && _stationCharacterCamera != null && _stationPlayerCharacter != null) {
-                _stationTestScene.Draw(_stationCharacterCamera.View, _stationCharacterCamera.Projection);
-                _stationTestScene.DrawShipModel(_playerShip, _stationCharacterCamera.View, _stationCharacterCamera.Projection, _lightDirection);
-                _stationPlayerCharacter.Renderer.Draw(
-                    _stationCharacterEffect,
-                    _stationPlayerCharacter.WorldMatrix,
-                    _stationCharacterCamera.View,
-                    _stationCharacterCamera.Projection,
-                    Color.White,
-                    new Vector3(0.30f, 0.34f, 0.44f),
-                    new Vector3(0.58f, 0.64f, 0.78f),
-                    new Vector3(-0.35f, -0.85f, -0.40f));
-                _stationPlayerCharacter.DrawDebug(GraphicsDevice, _stationCharacterEffect, _stationCharacterCamera.View, _stationCharacterCamera.Projection);
+                using (_performanceDiagnostics.Measure("station.geometry.draw"))
+                {
+                    _performanceDiagnostics.AddCounter("station.geometry.draws");
+                    _stationTestScene.Draw(_stationCharacterCamera.View, _stationCharacterCamera.Projection);
+                }
+                using (_performanceDiagnostics.Measure("station.ship.draw"))
+                {
+                    _performanceDiagnostics.AddCounter("station.ship.draws");
+                    _stationTestScene.DrawShipModel(_playerShip, _stationCharacterCamera.View, _stationCharacterCamera.Projection, _lightDirection);
+                }
+                using (_performanceDiagnostics.Measure("station.pose.update"))
+                {
+                    _stationPlayerCharacter.UpdatePose(_performanceDiagnostics);
+                }
+                using (_performanceDiagnostics.Measure("station.character.draw"))
+                {
+                    _performanceDiagnostics.AddCounter("station.character.draws");
+                    _stationPlayerCharacter.Renderer.Draw(
+                        _stationCharacterEffect,
+                        _stationPlayerCharacter.WorldMatrix,
+                        _stationCharacterCamera.View,
+                        _stationCharacterCamera.Projection,
+                        Color.White,
+                        new Vector3(0.30f, 0.34f, 0.44f),
+                        new Vector3(0.58f, 0.64f, 0.78f),
+                        new Vector3(-0.35f, -0.85f, -0.40f));
+                }
+                using (_performanceDiagnostics.Measure("station.debug.draw"))
+                {
+                    _stationPlayerCharacter.DrawDebug(GraphicsDevice, _stationCharacterEffect, _stationCharacterCamera.View, _stationCharacterCamera.Projection);
+                }
             }
 
             GraphicsDevice.DepthStencilState = DepthStencilState.None;
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
-            DrawStationTestHud();
-            base.Draw(gameTime);
+            using (_performanceDiagnostics.Measure("station.hud.draw"))
+            {
+                DrawStationTestHud();
+            }
         }
 
         private void DrawStationTestHud()

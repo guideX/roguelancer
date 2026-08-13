@@ -39,7 +39,7 @@ public sealed class CharacterCamera
     public void Update(Vector3 playerPosition, float deltaSeconds, bool recenterMouse)
         => Update(playerPosition, deltaSeconds, recenterMouse, null);
 
-    public void Update(Vector3 playerPosition, float deltaSeconds, bool recenterMouse, StationTestScene? collisionScene)
+    public void Update(Vector3 playerPosition, float deltaSeconds, bool recenterMouse, StationTestScene? collisionScene, PerformanceDiagnostics diagnostics = null)
     {
         Point center = new(_graphicsDevice.Viewport.Width / 2, _graphicsDevice.Viewport.Height / 2);
         MouseState mouse = Mouse.GetState();
@@ -58,8 +58,20 @@ public sealed class CharacterCamera
         Vector3 target = playerPosition + new Vector3(0.0f, 1.05f, 0.0f);
         Vector3 direction = ViewDirection(_yaw, _pitch);
         Vector3 desiredPosition = target - direction * PreferredDistance;
-        StationCameraCollision collision = collisionScene?.ResolveCameraPosition(target, desiredPosition, CameraRadius)
-            ?? new StationCameraCollision(false, desiredPosition, string.Empty);
+        StationCameraCollision collision;
+        if (diagnostics == null)
+        {
+            collision = collisionScene?.ResolveCameraPosition(target, desiredPosition, CameraRadius)
+                ?? new StationCameraCollision(false, desiredPosition, string.Empty);
+        }
+        else
+        {
+            using (diagnostics.Measure("station.camera.collision"))
+            {
+                collision = collisionScene?.ResolveCameraPosition(target, desiredPosition, CameraRadius)
+                    ?? new StationCameraCollision(false, desiredPosition, string.Empty);
+            }
+        }
         Vector3 collisionSafePosition = collision.Position;
         if (!_initialized)
         {
@@ -77,7 +89,18 @@ public sealed class CharacterCamera
             // of a wall when the player rotates into it.
             if (collisionScene != null)
             {
-                StationCameraCollision smoothedCollision = collisionScene.ResolveCameraPosition(target, _smoothedPosition, CameraRadius);
+                StationCameraCollision smoothedCollision;
+                if (diagnostics == null)
+                {
+                    smoothedCollision = collisionScene.ResolveCameraPosition(target, _smoothedPosition, CameraRadius);
+                }
+                else
+                {
+                    using (diagnostics.Measure("station.camera.collision"))
+                    {
+                        smoothedCollision = collisionScene.ResolveCameraPosition(target, _smoothedPosition, CameraRadius);
+                    }
+                }
                 _smoothedPosition = smoothedCollision.Position;
             }
             _smoothedTarget = Vector3.Lerp(_smoothedTarget, target, blend);

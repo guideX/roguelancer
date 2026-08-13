@@ -15,6 +15,9 @@ public sealed class CharacterRenderer : IDisposable
     private readonly CharacterGltfAsset _asset;
     private readonly List<SkinnedPart> _parts = new();
     private Texture2D?[] _textures = Array.Empty<Texture2D?>();
+    private NMatrix[] _worldPose = Array.Empty<NMatrix>();
+    private bool[] _resolvedPose = Array.Empty<bool>();
+    private NMatrix[] _skinPose = Array.Empty<NMatrix>();
     private GraphicsDevice? _graphicsDevice;
 
     public CharacterRenderer(CharacterGltfAsset asset) => _asset = asset;
@@ -23,6 +26,9 @@ public sealed class CharacterRenderer : IDisposable
     {
         _graphicsDevice = graphicsDevice;
         _textures = new Texture2D?[_asset.ImageBytes.Count];
+        _worldPose = new NMatrix[_asset.Nodes.Count];
+        _resolvedPose = new bool[_asset.Nodes.Count];
+        _skinPose = _asset.Skin is null ? Array.Empty<NMatrix>() : new NMatrix[_asset.Skin.JointNodeIndices.Length];
         for (int i = 0; i < _textures.Length; i++)
         {
             byte[]? bytes = _asset.ImageBytes[i];
@@ -43,20 +49,28 @@ public sealed class CharacterRenderer : IDisposable
     public void UpdatePose(NMatrix[] localPose)
     {
         if (_graphicsDevice is null) return;
-        NMatrix[] worldPose = new NMatrix[_asset.Nodes.Count];
-        bool[] resolved = new bool[_asset.Nodes.Count];
         NMatrix Resolve(int index)
         {
-            if (resolved[index]) return worldPose[index];
-            worldPose[index] = _asset.Nodes[index].ParentIndex >= 0 ? localPose[index] * Resolve(_asset.Nodes[index].ParentIndex) : localPose[index];
-            resolved[index] = true;
-            return worldPose[index];
+            if (_resolvedPose[index]) return _worldPose[index];
+            _worldPose[index] = _asset.Nodes[index].ParentIndex >= 0 ? localPose[index] * Resolve(_asset.Nodes[index].ParentIndex) : localPose[index];
+            _resolvedPose[index] = true;
+            return _worldPose[index];
         }
+        Array.Clear(_resolvedPose, 0, _resolvedPose.Length);
         for (int i = 0; i < _asset.Nodes.Count; i++) Resolve(i);
+
+        if (_asset.Skin is not null)
+        {
+            for (int joint = 0; joint < _skinPose.Length; joint++)
+            {
+                int node = _asset.Skin.JointNodeIndices[joint];
+                _skinPose[joint] = _asset.Skin.InverseBindMatrices[joint] * _worldPose[node];
+            }
+        }
 
         foreach (SkinnedPart part in _parts)
         {
-            VertexPositionNormalTexture[] output = new VertexPositionNormalTexture[part.Source.Vertices.Length];
+            VertexPositionNormalTexture[] output = part.PoseOutput;
             for (int i = 0; i < output.Length; i++)
             {
                 CharacterGltfVertex source = part.Source.Vertices[i];
@@ -70,8 +84,7 @@ public sealed class CharacterRenderer : IDisposable
                         int joint = influence switch { 0 => (int)source.Joints.X, 1 => (int)source.Joints.Y, 2 => (int)source.Joints.Z, _ => (int)source.Joints.W };
                         float weight = influence switch { 0 => source.Weights.X, 1 => source.Weights.Y, 2 => source.Weights.Z, _ => source.Weights.W };
                         if (weight <= 0.00001f || joint < 0 || joint >= _asset.Skin.JointNodeIndices.Length) continue;
-                        int node = _asset.Skin.JointNodeIndices[joint];
-                        NMatrix skin = _asset.Skin.InverseBindMatrices[joint] * worldPose[node];
+                        NMatrix skin = _skinPose[joint];
                         position += NVector3.Transform(source.Position, skin) * weight;
                         normal += NVector3.TransformNormal(source.Normal, skin) * weight;
                         totalWeight += weight;
@@ -144,15 +157,25 @@ public sealed class CharacterRenderer : IDisposable
         _parts.Clear();
         foreach (Texture2D? texture in _textures) texture?.Dispose();
         _textures = Array.Empty<Texture2D?>();
+        _worldPose = Array.Empty<NMatrix>();
+        _resolvedPose = Array.Empty<bool>();
+        _skinPose = Array.Empty<NMatrix>();
     }
 
     private static Vector3 ToXna(NVector3 value) => new(value.X, value.Y, value.Z);
     private sealed class SkinnedPart : IDisposable
     {
-        public SkinnedPart(CharacterGltfPrimitive source, DynamicVertexBuffer vertices, IndexBuffer indices) { Source = source; Vertices = vertices; Indices = indices; }
+        public SkinnedPart(CharacterGltfPrimitive source, DynamicVertexBuffer vertices, IndexBuffer indices)
+        {
+            Source = source;
+            Vertices = vertices;
+            Indices = indices;
+            PoseOutput = new VertexPositionNormalTexture[source.Vertices.Length];
+        }
         public CharacterGltfPrimitive Source { get; }
         public DynamicVertexBuffer Vertices { get; }
         public IndexBuffer Indices { get; }
+        public VertexPositionNormalTexture[] PoseOutput { get; }
         public void Dispose() { Vertices.Dispose(); Indices.Dispose(); }
     }
 }
