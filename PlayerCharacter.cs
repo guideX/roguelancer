@@ -14,18 +14,22 @@ public sealed class PlayerCharacter
     private const float StrafeSpeed = 2.6f;
     private const float JumpVelocity = 4.5f;
     private const float Gravity = -18.0f;
-    private const float ModelYawOffset = 180.0f;
-
     private readonly StationTestScene _scene;
     private readonly CharacterAnimationController _animation;
     private readonly CharacterRenderer _renderer;
+    private readonly CharacterModelConfiguration _modelConfiguration;
     private KeyboardState _previousKeyboard;
 
-    public PlayerCharacter(CharacterGltfAsset asset, IReadOnlyDictionary<CharacterAnimationState, CharacterGltfAnimationClip?> clips, StationTestScene scene)
+    public PlayerCharacter(
+        CharacterGltfAsset asset,
+        IReadOnlyDictionary<CharacterAnimationState, CharacterGltfAnimationClip?> clips,
+        StationTestScene scene,
+        CharacterModelConfiguration? modelConfiguration = null)
     {
         _scene = scene;
         _animation = new CharacterAnimationController(asset, clips);
         _renderer = new CharacterRenderer(asset);
+        _modelConfiguration = modelConfiguration ?? CharacterModelConfiguration.AdamMixamo;
         ResetToSpawn();
     }
 
@@ -35,12 +39,18 @@ public sealed class PlayerCharacter
     public float VerticalVelocity { get; private set; }
     public Vector3 GroundNormal { get; private set; } = Vector3.Up;
     public Vector3 GroundPoint { get; private set; }
+    public Vector3 RequestedMovement { get; private set; }
+    public Vector3 RequestedMovementDirection { get; private set; }
+    public Vector3 ActualHorizontalVelocity { get; private set; }
     public float SlopeAngleDegrees { get; private set; }
     public string SurfaceLabel { get; private set; } = "Bay floor";
     public float CapsuleRadius => CapsuleControllerMath.Radius;
     public float CapsuleHeight => CapsuleControllerMath.StandingHeight;
     public CharacterAnimationController Animation => _animation;
     public CharacterRenderer Renderer => _renderer;
+    public CharacterModelConfiguration ModelConfiguration => _modelConfiguration;
+    public Vector3 LogicalForward => ForwardFromYaw(YawDegrees);
+    public Vector3 RenderedModelForward => _modelConfiguration.GetRenderedForward(YawDegrees);
     public bool CapsuleDebugVisible { get; set; }
     public string StateLabel => _animation.State.ToString();
 
@@ -56,6 +66,9 @@ public sealed class PlayerCharacter
         YawDegrees = _scene.SpawnYawDegrees;
         GroundPoint = Position;
         GroundNormal = Vector3.Up;
+        RequestedMovement = Vector3.Zero;
+        RequestedMovementDirection = Vector3.Zero;
+        ActualHorizontalVelocity = Vector3.Zero;
         SlopeAngleDegrees = 0.0f;
         SurfaceLabel = "Bay floor";
         IsGrounded = true;
@@ -96,6 +109,9 @@ public sealed class PlayerCharacter
         else if (backwardHeld && !forwardHeld) movement -= camera.MovementForward * WalkSpeed;
         if (leftHeld && !rightHeld) movement -= camera.MovementRight * StrafeSpeed;
         else if (rightHeld && !leftHeld) movement += camera.MovementRight * StrafeSpeed;
+        RequestedMovement = movement;
+        RequestedMovementDirection = movement.LengthSquared() > 0.0001f ? Vector3.Normalize(movement) : Vector3.Zero;
+        Vector3 previousPosition = Position;
         using (diagnostics.Measure("station.controller.collision"))
         {
             if (movement.LengthSquared() > 0.0001f)
@@ -103,12 +119,18 @@ public sealed class PlayerCharacter
                 if (IsGrounded) movement = CapsuleControllerMath.ProjectMovementAlongGround(movement, GroundNormal);
                 Vector3 desired = Position + movement * deltaSeconds;
                 Position = _scene.ResolveMovement(Position, desired, CapsuleHeight, IsGrounded, GroundNormal, out _);
-                float targetYaw = MathHelper.ToDegrees(MathF.Atan2(movement.X, movement.Z));
-                YawDegrees = RotateTowards(YawDegrees, targetYaw, 540.0f * deltaSeconds);
+                if (forwardHeld != backwardHeld)
+                {
+                    float targetYaw = MathHelper.ToDegrees(MathF.Atan2(camera.MovementForward.X, camera.MovementForward.Z));
+                    YawDegrees = RotateTowards(YawDegrees, targetYaw, 540.0f * deltaSeconds);
+                }
             }
 
             UpdateVerticalMovement(deltaSeconds);
         }
+        ActualHorizontalVelocity = deltaSeconds > 0.0001f
+            ? new Vector3((Position.X - previousPosition.X) / deltaSeconds, 0.0f, (Position.Z - previousPosition.Z) / deltaSeconds)
+            : Vector3.Zero;
         if (Position.Y < -3.0f || _scene.IsOutOfBounds(Position)) ResetToSpawn();
 
         using (diagnostics.Measure("station.animation.time"))
@@ -133,7 +155,9 @@ public sealed class PlayerCharacter
         }
     }
 
-    public Matrix WorldMatrix => Matrix.CreateRotationY(MathHelper.ToRadians(YawDegrees + ModelYawOffset)) * Matrix.CreateTranslation(Position);
+    public Matrix WorldMatrix =>
+        Matrix.CreateRotationY(MathHelper.ToRadians(YawDegrees + _modelConfiguration.RenderYawCorrectionDegrees)) *
+        Matrix.CreateTranslation(Position);
 
     public void DrawDebug(GraphicsDevice graphicsDevice, BasicEffect effect, Matrix view, Matrix projection)
     {
@@ -206,6 +230,14 @@ public sealed class PlayerCharacter
         if (left && !right) return CharacterAnimationState.StrafeLeft;
         if (right && !left) return CharacterAnimationState.StrafeRight;
         return CharacterAnimationState.Idle;
+    }
+
+    private static Vector3 ForwardFromYaw(float yawDegrees)
+    {
+        // Station gameplay uses +Z as logical forward at yaw 0; positive yaw
+        // turns toward +X, matching CharacterCamera's convention.
+        float radians = MathHelper.ToRadians(yawDegrees);
+        return Vector3.Normalize(new Vector3(MathF.Sin(radians), 0.0f, MathF.Cos(radians)));
     }
 
     private static float RotateTowards(float current, float target, float maxDelta)

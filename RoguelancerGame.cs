@@ -4651,7 +4651,9 @@ namespace Roguelancer {
             int width = GraphicsDevice.Viewport.Width;
             int height = GraphicsDevice.Viewport.Height;
             DrawStationSignage();
-            Rectangle panel = new(16, 16, 390, 112);
+            int panelHeight = _stationPlayerCharacter.CapsuleDebugVisible ? 175 : 112;
+            int panelWidth = _stationPlayerCharacter.CapsuleDebugVisible ? 540 : 390;
+            Rectangle panel = new(16, 16, panelWidth, panelHeight);
             _spriteBatch.Draw(_pixel, panel, Color.Black * 0.62f);
             _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 3), Color.Gold * 0.9f);
             string sessionTitle = _stationSession?.IsRealDockedSession == true
@@ -4666,6 +4668,31 @@ namespace Roguelancer {
             _spriteBatch.DrawString(_font, "F12 capsule debug   R reset", new Vector2(panel.X + 12, panel.Y + 73), Color.LightGray);
             string state = $"{_stationPlayerCharacter.StateLabel} | {( _stationPlayerCharacter.IsGrounded ? "grounded" : "airborne")}";
             _spriteBatch.DrawString(_font, state, new Vector2(panel.X + 12, panel.Y + 94), Color.Cyan);
+            if (_stationPlayerCharacter.CapsuleDebugVisible && _stationCharacterCamera != null)
+            {
+                Vector3 velocity = _stationPlayerCharacter.ActualHorizontalVelocity;
+                Vector3 requested = _stationPlayerCharacter.RequestedMovement;
+                Vector3 requestedDirection = _stationPlayerCharacter.RequestedMovementDirection;
+                Vector3 logical = _stationPlayerCharacter.LogicalForward;
+                Vector3 rendered = _stationPlayerCharacter.RenderedModelForward;
+                Vector3 cameraForward = _stationCharacterCamera.CameraForward;
+                Vector3 cameraRight = _stationCharacterCamera.CameraRight;
+                _spriteBatch.DrawString(
+                    _font,
+                    $"MOVE req({requested.X:0.0},{requested.Z:0.0}) dir({requestedDirection.X:0.00},{requestedDirection.Z:0.00})",
+                    new Vector2(panel.X + 12, panel.Y + 115),
+                    Color.LightGreen);
+                _spriteBatch.DrawString(
+                    _font,
+                    $"DIR vel({velocity.X:0.0},{velocity.Z:0.0}) logical({logical.X:0.00},{logical.Z:0.00}) model({rendered.X:0.00},{rendered.Z:0.00})",
+                    new Vector2(panel.X + 12, panel.Y + 136),
+                    Color.LightGreen);
+                _spriteBatch.DrawString(
+                    _font,
+                    $"CAM fwd({cameraForward.X:0.00},{cameraForward.Z:0.00}) right({cameraRight.X:0.00},{cameraRight.Z:0.00})",
+                    new Vector2(panel.X + 12, panel.Y + 157),
+                    Color.Khaki);
+            }
 
             StationInteraction activeInteraction = GetActiveStationInteraction();
             if (activeInteraction != null)

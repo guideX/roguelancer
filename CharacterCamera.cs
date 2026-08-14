@@ -118,6 +118,8 @@ public sealed class CharacterCamera
     }
 
     public Vector3 MovementForward => ForwardFromYaw(_yaw);
+    public Vector3 CameraForward => ViewDirection(_yaw, _pitch);
+    public Vector3 CameraRight => MovementRight;
     public Vector3 MovementRight
     {
         get

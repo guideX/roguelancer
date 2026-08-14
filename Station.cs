@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Roguelancer.Configuration;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Roguelancer
@@ -50,6 +51,7 @@ namespace Roguelancer
             Model = model;
             FactionId = FactionManager.NormalizeFactionId(config.FactionId);
             DockingRange = config.DockingRange;
+            LogMaterialDiagnostics();
         }
 
         /// <summary>
@@ -144,32 +146,70 @@ namespace Roguelancer
 
                 foreach (BasicEffect effect in mesh.Effects)
                 {
-                    effect.World = world;
-                    effect.View = view;
-                    effect.Projection = projection;
-                    
-                    // Enable textures if the mesh has texture coordinates
-                    if (hasTextureCoordinates && effect.Texture != null)
-                    {
-                        effect.TextureEnabled = true;
-                    }
-                    else
-                    {
-                        effect.TextureEnabled = false;
-                        effect.DiffuseColor = new Vector3(0.7f, 0.7f, 0.7f); // Fallback color if no texture
-                    }
-                    
-                    effect.EnableDefaultLighting();
-                    effect.PreferPerPixelLighting = true;
-                    effect.DirectionalLight0.Enabled = true;
-                    effect.DirectionalLight0.Direction = lightDirection;
-                    effect.DirectionalLight0.DiffuseColor = Vector3.One;
-                    effect.DirectionalLight0.SpecularColor = new Vector3(0.25f, 0.25f, 0.25f);
-                    effect.SpecularPower = 16f;
-                    effect.AmbientLightColor = new Vector3(0.2f, 0.2f, 0.2f); // Add some ambient light
+                    Ship.ConfigureModelEffect(
+                        effect,
+                        world,
+                        view,
+                        projection,
+                        lightDirection,
+                        new Vector3(0.9f, 0.9f, 1.0f),
+                        new Vector3(0.5f, 0.5f, 0.6f),
+                        new Vector3(0.2f, 0.2f, 0.25f));
+                    effect.TextureEnabled = hasTextureCoordinates && effect.Texture != null;
+                    if (!effect.TextureEnabled && effect.DiffuseColor == Vector3.One)
+                        effect.DiffuseColor = new Vector3(0.45f, 0.48f, 0.52f);
                 }
                 mesh.Draw();
             }
+        }
+
+        private void LogMaterialDiagnostics()
+        {
+            if (Model == null)
+            {
+                string modelPath = Config.ModelPath ?? "<none>";
+                Console.WriteLine(
+                    $"[STATION MATERIAL] name={Name}, model={modelPath}, no model loaded");
+                return;
+            }
+
+            int effectCount = 0;
+            int texturedEffects = 0;
+            int missingTextureEffects = 0;
+            int meshesWithTextureCoordinates = 0;
+            HashSet<string> textureNames = new(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> diffuseColors = new(StringComparer.Ordinal);
+
+            foreach (ModelMesh mesh in Model.Meshes)
+            {
+                bool hasTextureCoordinates = mesh.MeshParts.Any(part =>
+                    part.VertexBuffer.VertexDeclaration.GetVertexElements().Any(element =>
+                        element.VertexElementUsage == VertexElementUsage.TextureCoordinate && element.UsageIndex == 0));
+                if (hasTextureCoordinates) meshesWithTextureCoordinates++;
+
+                foreach (BasicEffect effect in mesh.Effects)
+                {
+                    effectCount++;
+                    if (effect.Texture is not null)
+                    {
+                        texturedEffects++;
+                        if (!string.IsNullOrWhiteSpace(effect.Texture.Name)) textureNames.Add(effect.Texture.Name);
+                    }
+                    else if (hasTextureCoordinates)
+                    {
+                        missingTextureEffects++;
+                    }
+
+                    diffuseColors.Add($"({effect.DiffuseColor.X:0.###},{effect.DiffuseColor.Y:0.###},{effect.DiffuseColor.Z:0.###})");
+                }
+            }
+
+            string textures = textureNames.Count == 0 ? "<none>" : string.Join(", ", textureNames);
+            string colors = diffuseColors.Count == 0 ? "<none>" : string.Join(", ", diffuseColors);
+            Console.WriteLine(
+                $"[STATION MATERIAL] name={Name}, model={Config.ModelPath}, meshes={Model.Meshes.Count}, " +
+                $"meshesWithUv={meshesWithTextureCoordinates}, effects={effectCount}, texturedEffects={texturedEffects}, " +
+                $"missingTextureEffects={missingTextureEffects}, textureNames={textures}, diffuseColors={colors}");
         }
     }
 }
