@@ -36,10 +36,14 @@ namespace Roguelancer {
         private StationTestScene _stationTestScene;
         private CharacterCamera _stationCharacterCamera;
         private PlayerCharacter _stationPlayerCharacter;
+        private readonly List<StationNpc> _stationNpcs = new();
+        private readonly CharacterAssetCache _stationCharacterAssets = new();
         private BasicEffect _stationCharacterEffect;
         private bool _stationTestMode;
         private StationSession _stationSession;
         private readonly List<StationInteraction> _stationInteractions = new();
+        private string _stationDialogueText = string.Empty;
+        private float _stationDialogueRemaining;
         private bool _stationInteractionKeyHeld;
         private bool _stationTransitioning;
         private bool _stationCharacterLoadAttempted;
@@ -227,6 +231,7 @@ namespace Roguelancer {
         private readonly bool _runPerformanceDiagnostics;
         private readonly bool _performanceAutoStation;
         private readonly double _performanceDurationSeconds;
+        private readonly int _performanceCharacterCount;
         private readonly PerformanceDiagnostics _performanceDiagnostics;
         private SaveGameManager _saveGameManager;
         private const float FirstDockHintAutoSelectDelaySeconds = 4f;
@@ -286,6 +291,7 @@ namespace Roguelancer {
             _runPerformanceDiagnostics = args?.Any(arg => string.Equals(arg, "--perf-diagnostics", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceAutoStation = args?.Any(arg => string.Equals(arg, "--perf-station", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceDurationSeconds = ParsePerformanceDuration(args);
+            _performanceCharacterCount = ParsePerformanceCharacterCount(args);
             _performanceDiagnostics = new PerformanceDiagnostics(_runPerformanceDiagnostics, _performanceDurationSeconds);
 
             // Load game settings
@@ -316,6 +322,15 @@ namespace Roguelancer {
 
             return Math.Max(0.0, seconds);
         }
+
+        private static int ParsePerformanceCharacterCount(string[]? args)
+        {
+            string? value = args?.FirstOrDefault(arg => arg.StartsWith("--perf-characters=", StringComparison.OrdinalIgnoreCase));
+            if (value == null || !int.TryParse(value.Substring("--perf-characters=".Length), out int count)) return 3;
+            return Math.Clamp(count, 1, 3);
+        }
+
+        private int RequestedStationNpcCount => _runPerformanceDiagnostics ? _performanceCharacterCount - 1 : 2;
 
         private void SyncMountedGunWeaponProfile()
         {
@@ -4167,6 +4182,9 @@ namespace Roguelancer {
 
             _stationSession = session;
             _stationPlayerCharacter.ResetToSpawn();
+            foreach (StationNpc npc in _stationNpcs) npc.Reset();
+            _stationDialogueText = string.Empty;
+            _stationDialogueRemaining = 0.0f;
             _stationCharacterCamera.Reset(_stationPlayerCharacter.Position, _stationPlayerCharacter.YawDegrees);
             BuildStationInteractions();
             _performanceDiagnostics.LogGraphicsConfiguration(this, _graphics, "station-entry");
@@ -4213,17 +4231,59 @@ namespace Roguelancer {
                 "STATION INTERIOR",
                 "Additional station areas not yet available",
                 () => _notificationManager?.ShowMessage("Station interior — coming in a later phase", 2.5f)));
+
+            foreach (StationNpc npc in _stationNpcs)
+            {
+                _stationInteractions.Add(new StationInteraction(
+                    $"npc-{npc.Id}",
+                    npc.Position,
+                    npc.InteractionRadius,
+                    npc.InteractionLabel,
+                    "Press E to talk",
+                    () => TalkToStationNpc(npc)));
+            }
         }
 
         private StationInteraction GetActiveStationInteraction()
         {
             if (_stationPlayerCharacter == null) return null;
+            StationInteraction nearest = null;
+            float nearestScore = float.MaxValue;
+            Vector3 playerPosition = _stationPlayerCharacter.Position;
+            Vector3 forward = _stationPlayerCharacter.LogicalForward;
             foreach (StationInteraction interaction in _stationInteractions)
             {
-                if (interaction.IsInRange(_stationPlayerCharacter.Position)) return interaction;
+                Vector3 offset = interaction.Position - playerPosition;
+                float distanceSquared = offset.LengthSquared();
+                if (distanceSquared > interaction.Radius * interaction.Radius) continue;
+
+                // Nearest target is the primary rule. A small penalty for a
+                // target behind the player keeps an overlapping E prompt from
+                // selecting something the player has clearly walked past.
+                float score = distanceSquared;
+                offset.Y = 0.0f;
+                if (offset.LengthSquared() > 0.0001f)
+                {
+                    float facing = Vector3.Dot(Vector3.Normalize(offset), forward);
+                    if (facing < -0.25f) score += 0.35f;
+                }
+
+                if (score < nearestScore)
+                {
+                    nearest = interaction;
+                    nearestScore = score;
+                }
             }
 
-            return null;
+            return nearest;
+        }
+
+        private void TalkToStationNpc(StationNpc npc)
+        {
+            if (_stationPlayerCharacter == null || npc == null) return;
+            npc.FacePlayer(_stationPlayerCharacter.Position);
+            _stationDialogueText = $"{npc.DisplayName}: {npc.DialogueText}";
+            _stationDialogueRemaining = 3.5f;
         }
 
         private void ExitStationTestMode()
@@ -4240,6 +4300,8 @@ namespace Roguelancer {
             _stationEscapeKeyHeld = false;
             _stationInteractionKeyHeld = false;
             _stationInteractions.Clear();
+            _stationDialogueText = string.Empty;
+            _stationDialogueRemaining = 0.0f;
             _stationSession = null;
             IsMouseVisible = !_playerShip.IsFreeFlightMode;
             Window.Title = "Roguelancer";
@@ -4251,6 +4313,12 @@ namespace Roguelancer {
         private void UpdateStationTestMode(GameTime gameTime, KeyboardState keyboardState, MouseState mouseState)
         {
             float deltaTime = Math.Clamp((float)gameTime.ElapsedGameTime.TotalSeconds, 0.0f, 0.1f);
+            _notificationManager?.Update(gameTime);
+            if (_stationDialogueRemaining > 0.0f)
+            {
+                _stationDialogueRemaining = MathF.Max(0.0f, _stationDialogueRemaining - deltaTime);
+                if (_stationDialogueRemaining <= 0.0f) _stationDialogueText = string.Empty;
+            }
             if (_stationEntryKeyHeld && keyboardState.IsKeyUp(Keys.F10)) _stationEntryKeyHeld = false;
             if (_stationEscapeKeyHeld && keyboardState.IsKeyUp(Keys.Escape)) _stationEscapeKeyHeld = false;
             if (_stationInteractionKeyHeld && keyboardState.IsKeyUp(Keys.E)) _stationInteractionKeyHeld = false;
@@ -4272,6 +4340,13 @@ namespace Roguelancer {
             {
                 _stationPlayerCharacter.Update(keyboardState, _stationCharacterCamera, deltaTime, _performanceDiagnostics);
             }
+            foreach (StationNpc npc in _stationNpcs)
+            {
+                using (_performanceDiagnostics.Measure("station.npc.animation.time"))
+                {
+                    npc.Update(deltaTime);
+                }
+            }
             using (_performanceDiagnostics.Measure("station.camera.update"))
             {
                 _stationCharacterCamera.Update(_stationPlayerCharacter.Position, deltaTime, recenterMouse: true, _stationTestScene, _performanceDiagnostics);
@@ -4291,34 +4366,70 @@ namespace Roguelancer {
 
         private bool EnsureStationCharacterLoaded()
         {
-            if (_stationPlayerCharacter != null) return true;
+            if (_stationPlayerCharacter != null && _stationNpcs.Count == RequestedStationNpcCount) return true;
             if (_stationCharacterLoadAttempted) return false;
             _stationCharacterLoadAttempted = true;
 
+            PlayerCharacter player = null;
+            List<StationNpc> npcs = new();
             try
             {
                 string root = ResolveStationCharacterAssetRoot();
                 string modelPath = Path.Combine(root, "Models", "GuyWalking2.glb");
                 if (!File.Exists(modelPath)) throw new FileNotFoundException("The station-test character model was not found", modelPath);
 
-                CharacterGltfAsset model = CharacterGltfAsset.Load(modelPath, extractImages: true);
-                Dictionary<CharacterAnimationState, CharacterGltfAnimationClip?> clips = new();
-                CharacterGltfAnimationClip forward = CharacterGltfAsset.LoadAnimation(modelPath);
-                clips[CharacterAnimationState.WalkForward] = forward;
-                clips[CharacterAnimationState.Idle] = LoadStationAnimation(root, "GuyIdle.glb") ?? forward;
-                clips[CharacterAnimationState.WalkBackward] = LoadStationAnimation(root, "GuyWalkingBackwards.glb") ?? forward;
-                clips[CharacterAnimationState.RunForward] = LoadStationAnimation(root, "GuyRunning.glb") ?? forward;
-                clips[CharacterAnimationState.StrafeLeft] = LoadStationAnimation(root, "GuyStrafeLeft.glb") ?? forward;
-                clips[CharacterAnimationState.StrafeRight] = LoadStationAnimation(root, "GuyStrafeRight.glb") ?? forward;
-                clips[CharacterAnimationState.Jump] = LoadStationAnimation(root, "GuyJumping.glb") ?? forward;
+                CharacterAsset prototypeAdam = _stationCharacterAssets.GetOrAdd("prototype-adam", () =>
+                {
+                    Console.WriteLine($"[STATION TEST] Loading shared Prototype Adam source assets from {root}");
+                    (CharacterGltfAsset model, CharacterGltfAnimationClip forward) = CharacterGltfAsset.LoadWithAnimation(modelPath, extractImages: true);
+                    Dictionary<CharacterAnimationState, CharacterGltfAnimationClip?> clips = new();
+                    clips[CharacterAnimationState.WalkForward] = forward;
+                    clips[CharacterAnimationState.Idle] = LoadStationAnimation(root, "GuyIdle.glb") ?? forward;
+                    clips[CharacterAnimationState.WalkBackward] = LoadStationAnimation(root, "GuyWalkingBackwards.glb") ?? forward;
+                    clips[CharacterAnimationState.RunForward] = LoadStationAnimation(root, "GuyRunning.glb") ?? forward;
+                    clips[CharacterAnimationState.StrafeLeft] = LoadStationAnimation(root, "GuyStrafeLeft.glb") ?? forward;
+                    clips[CharacterAnimationState.StrafeRight] = LoadStationAnimation(root, "GuyStrafeRight.glb") ?? forward;
+                    clips[CharacterAnimationState.Jump] = LoadStationAnimation(root, "GuyJumping.glb") ?? forward;
+                    return new CharacterAsset("prototype-adam", model, clips, CharacterModelConfiguration.AdamMixamo);
+                });
 
-                _stationPlayerCharacter = new PlayerCharacter(model, clips, _stationTestScene);
-                _stationPlayerCharacter.LoadGraphics(GraphicsDevice);
-                Console.WriteLine($"[STATION TEST] Character asset loaded from {root}");
+                player = new PlayerCharacter(prototypeAdam, _stationTestScene);
+                if (RequestedStationNpcCount >= 1)
+                {
+                    npcs.Add(new StationNpc(
+                        "dock-technician",
+                        "Dock Technician",
+                        prototypeAdam,
+                        _stationTestScene.DockTechnicianPosition,
+                        _stationTestScene.DockTechnicianYawDegrees,
+                        2.4f,
+                        "Your ship's looking good.",
+                        0.0f));
+                }
+                if (RequestedStationNpcCount >= 2)
+                {
+                    npcs.Add(new StationNpc(
+                        "station-attendant",
+                        "Station Attendant",
+                        prototypeAdam,
+                        _stationTestScene.StationAttendantPosition,
+                        _stationTestScene.StationAttendantYawDegrees,
+                        2.4f,
+                        "Station services aren't available yet.",
+                        1.3f));
+                }
+
+                player.LoadGraphics(GraphicsDevice);
+                foreach (StationNpc npc in npcs) npc.LoadGraphics(GraphicsDevice);
+                _stationPlayerCharacter = player;
+                _stationNpcs.AddRange(npcs);
+                Console.WriteLine($"[STATION TEST] Shared Prototype Adam ready: instances={1 + _stationNpcs.Count}, parsedAssets={_stationCharacterAssets.Count}, sharedTextures/materials=true, independentPoses=true");
                 return true;
             }
             catch (Exception ex)
             {
+                player?.Renderer.Dispose();
+                foreach (StationNpc npc in npcs) npc.Dispose();
                 Console.WriteLine($"[STATION TEST] Character load failed: {ex}");
                 _notificationManager?.ShowMessage("Station test character assets unavailable; see debug console", 5f);
                 return false;
@@ -4356,7 +4467,10 @@ namespace Roguelancer {
         protected override void Dispose(bool disposing)
         {
             if (disposing) {
+                foreach (StationNpc npc in _stationNpcs) npc.Dispose();
+                _stationNpcs.Clear();
                 _stationPlayerCharacter?.Renderer.Dispose();
+                _stationCharacterAssets.Dispose();
                 _stationTestScene?.Dispose();
                 _stationCharacterEffect?.Dispose();
             }
@@ -4618,7 +4732,6 @@ namespace Roguelancer {
                 }
                 using (_performanceDiagnostics.Measure("station.character.draw"))
                 {
-                    _performanceDiagnostics.AddCounter("station.character.draws");
                     _stationPlayerCharacter.Renderer.Draw(
                         _stationCharacterEffect,
                         _stationPlayerCharacter.WorldMatrix,
@@ -4629,6 +4742,30 @@ namespace Roguelancer {
                         new Vector3(0.58f, 0.64f, 0.78f),
                         new Vector3(-0.35f, -0.85f, -0.40f));
                 }
+                foreach (StationNpc npc in _stationNpcs)
+                {
+                    using (_performanceDiagnostics.Measure("station.pose.update"))
+                    {
+                        npc.UpdatePose(_performanceDiagnostics);
+                    }
+                    using (_performanceDiagnostics.Measure("station.character.draw"))
+                    {
+                        npc.Renderer.Draw(
+                            _stationCharacterEffect,
+                            npc.WorldMatrix,
+                            _stationCharacterCamera.View,
+                            _stationCharacterCamera.Projection,
+                            Color.White,
+                            new Vector3(0.30f, 0.34f, 0.44f),
+                            new Vector3(0.58f, 0.64f, 0.78f),
+                            new Vector3(-0.35f, -0.85f, -0.40f));
+                    }
+                }
+                int visibleCharacterCount = 1 + _stationNpcs.Count;
+                _performanceDiagnostics.AddCounter("station.character.draws", visibleCharacterCount);
+                _performanceDiagnostics.AddCounter("station.characters.visible", visibleCharacterCount);
+                _performanceDiagnostics.AddCounter("station.animation.pose.evaluations", visibleCharacterCount);
+                _performanceDiagnostics.AddCounter("station.animation.pose.uploads", visibleCharacterCount);
                 using (_performanceDiagnostics.Measure("station.debug.draw"))
                 {
                     _stationPlayerCharacter.DrawDebug(GraphicsDevice, _stationCharacterEffect, _stationCharacterCamera.View, _stationCharacterCamera.Projection);
@@ -4651,7 +4788,7 @@ namespace Roguelancer {
             int width = GraphicsDevice.Viewport.Width;
             int height = GraphicsDevice.Viewport.Height;
             DrawStationSignage();
-            int panelHeight = _stationPlayerCharacter.CapsuleDebugVisible ? 175 : 112;
+            int panelHeight = _stationPlayerCharacter.CapsuleDebugVisible ? 220 : 112;
             int panelWidth = _stationPlayerCharacter.CapsuleDebugVisible ? 540 : 390;
             Rectangle panel = new(16, 16, panelWidth, panelHeight);
             _spriteBatch.Draw(_pixel, panel, Color.Black * 0.62f);
@@ -4692,6 +4829,16 @@ namespace Roguelancer {
                     $"CAM fwd({cameraForward.X:0.00},{cameraForward.Z:0.00}) right({cameraRight.X:0.00},{cameraRight.Z:0.00})",
                     new Vector2(panel.X + 12, panel.Y + 157),
                     Color.Khaki);
+                int npcDebugY = panel.Y + 178;
+                foreach (StationNpc npc in _stationNpcs)
+                {
+                    _spriteBatch.DrawString(
+                        _font,
+                        $"NPC {npc.DisplayName} | {npc.StateLabel} | {Vector3.Distance(_stationPlayerCharacter.Position, npc.Position):0.0}m",
+                        new Vector2(panel.X + 12, npcDebugY),
+                        Color.LightSalmon);
+                    npcDebugY += 21;
+                }
             }
 
             StationInteraction activeInteraction = GetActiveStationInteraction();
@@ -4709,6 +4856,19 @@ namespace Roguelancer {
                 _spriteBatch.DrawString(_font, activeInteraction.DisplayLabel, new Vector2(prompt.X + 18, prompt.Y + 8), Color.White);
                 _spriteBatch.DrawString(_font, activeInteraction.ActionLabel, new Vector2(prompt.X + 18, prompt.Y + 8 + titleSize.Y), Color.LightSkyBlue);
             }
+
+            if (_stationDialogueRemaining > 0.0f && !string.IsNullOrEmpty(_stationDialogueText))
+            {
+                Vector2 dialogueSize = _font.MeasureString(_stationDialogueText);
+                int dialogueWidth = (int)dialogueSize.X + 36;
+                int dialogueHeight = (int)dialogueSize.Y + 24;
+                Rectangle dialogue = new(width / 2 - dialogueWidth / 2, height - 190, dialogueWidth, dialogueHeight);
+                _spriteBatch.Draw(_pixel, dialogue, Color.Black * 0.82f);
+                _spriteBatch.Draw(_pixel, new Rectangle(dialogue.X, dialogue.Y, dialogue.Width, 3), Color.Gold * 0.9f);
+                _spriteBatch.DrawString(_font, _stationDialogueText, new Vector2(dialogue.X + 18, dialogue.Y + 9), Color.White);
+            }
+
+            _notificationManager?.Draw(_spriteBatch);
 
             string footer = $"Surface: {_stationPlayerCharacter.SurfaceLabel}   slope {_stationPlayerCharacter.SlopeAngleDegrees:0.0} deg   local scale: 1 unit = 1m";
             Vector2 footerPos = new(16, height - 32);

@@ -15,22 +15,37 @@ public sealed class PlayerCharacter
     private const float JumpVelocity = 4.5f;
     private const float Gravity = -18.0f;
     private readonly StationTestScene _scene;
+    private readonly CharacterAsset _assets;
     private readonly CharacterAnimationController _animation;
     private readonly CharacterRenderer _renderer;
     private readonly CharacterModelConfiguration _modelConfiguration;
     private KeyboardState _previousKeyboard;
 
     public PlayerCharacter(
+        CharacterAsset assets,
+        StationTestScene scene)
+    {
+        _assets = assets ?? throw new ArgumentNullException(nameof(assets));
+        _scene = scene ?? throw new ArgumentNullException(nameof(scene));
+        _animation = new CharacterAnimationController(assets.Model, assets.Animations);
+        _renderer = new CharacterRenderer(assets);
+        _modelConfiguration = assets.ModelConfiguration;
+        ResetToSpawn();
+    }
+
+    public PlayerCharacter(
         CharacterGltfAsset asset,
         IReadOnlyDictionary<CharacterAnimationState, CharacterGltfAnimationClip?> clips,
         StationTestScene scene,
         CharacterModelConfiguration? modelConfiguration = null)
+        : this(
+            new CharacterAsset(
+                "inline-character",
+                asset,
+                clips,
+                modelConfiguration ?? CharacterModelConfiguration.AdamMixamo),
+            scene)
     {
-        _scene = scene;
-        _animation = new CharacterAnimationController(asset, clips);
-        _renderer = new CharacterRenderer(asset);
-        _modelConfiguration = modelConfiguration ?? CharacterModelConfiguration.AdamMixamo;
-        ResetToSpawn();
     }
 
     public Vector3 Position { get; private set; }
@@ -48,6 +63,7 @@ public sealed class PlayerCharacter
     public float CapsuleHeight => CapsuleControllerMath.StandingHeight;
     public CharacterAnimationController Animation => _animation;
     public CharacterRenderer Renderer => _renderer;
+    public CharacterAsset Assets => _assets;
     public CharacterModelConfiguration ModelConfiguration => _modelConfiguration;
     public Vector3 LogicalForward => ForwardFromYaw(YawDegrees);
     public Vector3 RenderedModelForward => _modelConfiguration.GetRenderedForward(YawDegrees);
@@ -149,9 +165,14 @@ public sealed class PlayerCharacter
             return;
         }
 
+        System.Numerics.Matrix4x4[] localPose;
         using (diagnostics.Measure("station.animation.pose.evaluate"))
         {
-            _renderer.UpdatePose(_animation.EvaluateLocalPose(stripJumpRootVertical: true));
+            localPose = _animation.EvaluateLocalPose(stripJumpRootVertical: true);
+        }
+        using (diagnostics.Measure("station.animation.pose.upload"))
+        {
+            _renderer.UpdatePose(localPose);
         }
     }
 

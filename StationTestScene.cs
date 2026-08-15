@@ -28,6 +28,10 @@ public sealed class StationTestScene : IDisposable
     public Vector3 DockedShipPosition { get; } = new(0.0f, 0.05f, 1.5f);
     public Matrix DockedShipOrientation { get; } = Matrix.Identity;
     public Vector3 AirlockInteractionPosition { get; } = new(0.0f, 0.0f, 14.25f);
+    public Vector3 DockTechnicianPosition { get; } = new(-9.0f, 0.0f, 7.5f);
+    public float DockTechnicianYawDegrees { get; } = 90.0f;
+    public Vector3 StationAttendantPosition { get; } = new(6.2f, 0.0f, 14.6f);
+    public float StationAttendantYawDegrees { get; } = 180.0f;
     public string ShipScaleNote => "Uses Ship.Draw's shared 0.1 model scale and correction; bay units are treated as metres and the human capsule is 1.8m tall.";
 
     /// <summary>

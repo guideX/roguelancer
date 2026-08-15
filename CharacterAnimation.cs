@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
 
 namespace Roguelancer;
@@ -20,28 +19,33 @@ public enum CharacterAnimationState
 public sealed class CharacterAnimationController
 {
     private readonly CharacterGltfAsset _asset;
-    private readonly Dictionary<CharacterAnimationState, CharacterGltfAnimationClip?> _clips;
+    private readonly IReadOnlyDictionary<CharacterAnimationState, CharacterGltfAnimationClip?> _clips;
     private readonly int _rootNodeIndex;
-    private Matrix4x4[] _lastPose;
-    private Matrix4x4[]? _blendFrom;
+    private readonly Matrix4x4[] _pose;
+    private readonly Matrix4x4[] _sampledPose;
+    private readonly Matrix4x4[] _blendFrom;
+    private bool _blendActive;
     private float _blendRemaining;
 
     public CharacterAnimationController(CharacterGltfAsset asset, IReadOnlyDictionary<CharacterAnimationState, CharacterGltfAnimationClip?> clips)
     {
         _asset = asset;
-        _clips = new Dictionary<CharacterAnimationState, CharacterGltfAnimationClip?>(clips);
+        _clips = clips;
         _rootNodeIndex = asset.FindRootLikeNode();
-        _lastPose = asset.Nodes.Select(node => node.LocalMatrix).ToArray();
+        _pose = new Matrix4x4[asset.Nodes.Count];
+        _sampledPose = new Matrix4x4[asset.Nodes.Count];
+        _blendFrom = new Matrix4x4[asset.Nodes.Count];
+        Reset();
     }
 
     public CharacterAnimationState State { get; private set; } = CharacterAnimationState.Idle;
     public float Time { get; private set; }
-    public CharacterGltfAnimationClip? ActiveClip => State == CharacterAnimationState.Idle
-        ? (_clips.GetValueOrDefault(CharacterAnimationState.Idle) ?? _clips.GetValueOrDefault(CharacterAnimationState.WalkForward))
-        : _clips.GetValueOrDefault(State);
+    public CharacterGltfAnimationClip? ActiveClip => GetClip(State == CharacterAnimationState.Idle
+        ? (_clips.ContainsKey(CharacterAnimationState.Idle) ? CharacterAnimationState.Idle : CharacterAnimationState.WalkForward)
+        : State);
     public bool IsOneShot => State == CharacterAnimationState.Jump;
     public bool IsFinished => IsOneShot && (ActiveClip is null || Time >= ActiveClip.Duration - 0.0001f);
-    public bool HasClip(CharacterAnimationState state) => _clips.GetValueOrDefault(state) is not null;
+    public bool HasClip(CharacterAnimationState state) => GetClip(state) is not null;
     public string ActiveClipName => State.ToString();
 
     public void SetState(CharacterAnimationState next)
@@ -49,16 +53,18 @@ public sealed class CharacterAnimationController
         if (next == State) return;
         State = next;
         Time = 0.0f;
-        _blendFrom = _lastPose.ToArray();
+        Array.Copy(_pose, _blendFrom, _pose.Length);
+        _blendActive = true;
         _blendRemaining = 0.10f;
     }
 
-    public void Reset()
+    public void Reset(float startTime = 0.0f)
     {
         State = CharacterAnimationState.Idle;
-        Time = 0.0f;
-        _lastPose = _asset.Nodes.Select(node => node.LocalMatrix).ToArray();
-        _blendFrom = null;
+        CharacterGltfAnimationClip? clip = ActiveClip;
+        Time = clip is null || clip.Duration <= 0.0f ? 0.0f : MathF.Abs(startTime) % clip.Duration;
+        for (int i = 0; i < _pose.Length; i++) _pose[i] = _asset.Nodes[i].LocalMatrix;
+        _blendActive = false;
         _blendRemaining = 0.0f;
     }
 
@@ -80,19 +86,27 @@ public sealed class CharacterAnimationController
     public Matrix4x4[] EvaluateLocalPose(bool stripJumpRootVertical)
     {
         CharacterGltfAnimationClip? clip = ActiveClip;
-        Matrix4x4[] target = new Matrix4x4[_asset.Nodes.Count];
-        for (int i = 0; i < target.Length; i++)
-            target[i] = clip?.SampleLocal(_asset.Nodes[i], i, Time, _rootNodeIndex, stripJumpRootVertical && State == CharacterAnimationState.Jump) ?? _asset.Nodes[i].LocalMatrix;
+        for (int i = 0; i < _sampledPose.Length; i++)
+            _sampledPose[i] = clip?.SampleLocal(_asset.Nodes[i], i, Time, _rootNodeIndex, stripJumpRootVertical && State == CharacterAnimationState.Jump) ?? _asset.Nodes[i].LocalMatrix;
 
-        if (_blendFrom is not null && _blendRemaining > 0.0f)
+        if (_blendActive && _blendRemaining > 0.0f)
         {
             float amount = 1.0f - _blendRemaining / 0.10f;
-            for (int i = 0; i < target.Length; i++) target[i] = Matrix4x4.Lerp(_blendFrom[i], target[i], amount);
+            for (int i = 0; i < _pose.Length; i++) _pose[i] = Matrix4x4.Lerp(_blendFrom[i], _sampledPose[i], amount);
         }
-        else _blendFrom = null;
-        _lastPose = target;
-        return target;
+        else
+        {
+            Array.Copy(_sampledPose, _pose, _sampledPose.Length);
+            _blendActive = false;
+        }
+
+        return _pose;
     }
 
     public static bool IsStanding(CharacterAnimationState state) => state != CharacterAnimationState.Jump;
+
+    private CharacterGltfAnimationClip? GetClip(CharacterAnimationState state)
+    {
+        return _clips.TryGetValue(state, out CharacterGltfAnimationClip? clip) ? clip : null;
+    }
 }

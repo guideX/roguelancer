@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using NMatrix = System.Numerics.Matrix4x4;
@@ -13,36 +12,44 @@ namespace Roguelancer;
 public sealed class CharacterRenderer : IDisposable
 {
     private readonly CharacterGltfAsset _asset;
+    private readonly CharacterGraphicsResources _sharedGraphics;
+    private readonly bool _ownsGraphicsResources;
     private readonly List<SkinnedPart> _parts = new();
-    private Texture2D?[] _textures = Array.Empty<Texture2D?>();
     private NMatrix[] _worldPose = Array.Empty<NMatrix>();
     private bool[] _resolvedPose = Array.Empty<bool>();
     private NMatrix[] _skinPose = Array.Empty<NMatrix>();
     private GraphicsDevice? _graphicsDevice;
 
-    public CharacterRenderer(CharacterGltfAsset asset) => _asset = asset;
+    public CharacterRenderer(CharacterAsset asset)
+    {
+        _asset = asset.Model;
+        _sharedGraphics = asset.Graphics;
+    }
+
+    // Kept for small tools/tests that construct a renderer directly. The
+    // station runtime uses CharacterAsset so source and graphics resources are
+    // shared across the player and NPC instances.
+    public CharacterRenderer(CharacterGltfAsset asset)
+    {
+        _asset = asset;
+        _sharedGraphics = new CharacterGraphicsResources(asset);
+        _ownsGraphicsResources = true;
+    }
 
     public void LoadGraphics(GraphicsDevice graphicsDevice)
     {
+        if (_graphicsDevice is not null) return;
+        _sharedGraphics.LoadGraphics(graphicsDevice);
         _graphicsDevice = graphicsDevice;
-        _textures = new Texture2D?[_asset.ImageBytes.Count];
         _worldPose = new NMatrix[_asset.Nodes.Count];
         _resolvedPose = new bool[_asset.Nodes.Count];
         _skinPose = _asset.Skin is null ? Array.Empty<NMatrix>() : new NMatrix[_asset.Skin.JointNodeIndices.Length];
-        for (int i = 0; i < _textures.Length; i++)
-        {
-            byte[]? bytes = _asset.ImageBytes[i];
-            if (bytes is null || bytes.Length == 0) continue;
-            using MemoryStream stream = new(bytes, writable: false);
-            _textures[i] = Texture2D.FromStream(graphicsDevice, stream);
-        }
 
-        foreach (CharacterGltfPrimitive primitive in _asset.Primitives)
+        for (int primitiveIndex = 0; primitiveIndex < _asset.Primitives.Count; primitiveIndex++)
         {
-            IndexBuffer indices = new(graphicsDevice, IndexElementSize.ThirtyTwoBits, primitive.Indices.Length, BufferUsage.WriteOnly);
-            indices.SetData(primitive.Indices);
+            CharacterGltfPrimitive primitive = _asset.Primitives[primitiveIndex];
             DynamicVertexBuffer vertices = new(graphicsDevice, VertexPositionNormalTexture.VertexDeclaration, primitive.Vertices.Length, BufferUsage.WriteOnly);
-            _parts.Add(new SkinnedPart(primitive, vertices, indices));
+            _parts.Add(new SkinnedPart(primitive, vertices, _sharedGraphics.GetIndexBuffer(primitiveIndex)));
         }
     }
 
@@ -141,7 +148,7 @@ public sealed class CharacterRenderer : IDisposable
         foreach (SkinnedPart part in _parts)
         {
             CharacterGltfMaterial material = part.Source.MaterialIndex >= 0 && part.Source.MaterialIndex < _asset.Materials.Count ? _asset.Materials[part.Source.MaterialIndex] : new CharacterGltfMaterial { BaseColor = NVector4.One, TextureIndex = -1 };
-            effect.Texture = material.TextureIndex >= 0 && material.TextureIndex < _textures.Length ? _textures[material.TextureIndex] : null;
+            effect.Texture = _sharedGraphics.GetTexture(material.TextureIndex);
             effect.DiffuseColor = new Vector3(tint.R / 255.0f * material.BaseColor.X, tint.G / 255.0f * material.BaseColor.Y, tint.B / 255.0f * material.BaseColor.Z);
             effect.Alpha = tint.A / 255.0f * material.BaseColor.W;
             effect.CurrentTechnique.Passes[0].Apply();
@@ -155,11 +162,10 @@ public sealed class CharacterRenderer : IDisposable
     {
         foreach (SkinnedPart part in _parts) part.Dispose();
         _parts.Clear();
-        foreach (Texture2D? texture in _textures) texture?.Dispose();
-        _textures = Array.Empty<Texture2D?>();
         _worldPose = Array.Empty<NMatrix>();
         _resolvedPose = Array.Empty<bool>();
         _skinPose = Array.Empty<NMatrix>();
+        if (_ownsGraphicsResources) _sharedGraphics.Dispose();
     }
 
     private static Vector3 ToXna(NVector3 value) => new(value.X, value.Y, value.Z);
@@ -176,6 +182,6 @@ public sealed class CharacterRenderer : IDisposable
         public DynamicVertexBuffer Vertices { get; }
         public IndexBuffer Indices { get; }
         public VertexPositionNormalTexture[] PoseOutput { get; }
-        public void Dispose() { Vertices.Dispose(); Indices.Dispose(); }
+        public void Dispose() => Vertices.Dispose();
     }
 }

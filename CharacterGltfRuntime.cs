@@ -33,6 +33,12 @@ public sealed class CharacterGltfAsset
         return document.DecodeAnimation();
     }
 
+    public static (CharacterGltfAsset Asset, CharacterGltfAnimationClip Animation) LoadWithAnimation(string path, bool extractImages)
+    {
+        using CharacterGltfDocument document = CharacterGltfDocument.Read(path);
+        return (document.DecodeAsset(extractImages), document.DecodeAnimation());
+    }
+
     public int FindRootLikeNode()
     {
         for (int i = 0; i < Nodes.Count; i++)
