@@ -39,6 +39,15 @@ namespace Roguelancer
 
         private bool _hasLoggedDrawAttempt = false;
 
+        // Station albedos are authored as already-readable industrial surfaces.
+        // Keep the spaceflight ship profile unchanged, but use a restrained
+        // single-light profile here so bright gray albedo texels do not wash out
+        // the panel detail. EnableDefaultLighting turns on three lights, so the
+        // unused two are explicitly disabled below.
+        private static readonly Vector3 StationDiffuseLight = new(0.58f, 0.60f, 0.66f);
+        private static readonly Vector3 StationSpecularLight = new(0.10f, 0.11f, 0.13f);
+        private static readonly Vector3 StationAmbientLight = new(0.09f, 0.10f, 0.12f);
+
         /// <summary>
         /// Station
         /// </summary>
@@ -146,21 +155,53 @@ namespace Roguelancer
 
                 foreach (BasicEffect effect in mesh.Effects)
                 {
-                    Ship.ConfigureModelEffect(
+                    ConfigureStationEffect(
                         effect,
                         world,
                         view,
                         projection,
                         lightDirection,
-                        new Vector3(0.9f, 0.9f, 1.0f),
-                        new Vector3(0.5f, 0.5f, 0.6f),
-                        new Vector3(0.2f, 0.2f, 0.25f));
+                        StationDiffuseLight,
+                        StationSpecularLight,
+                        StationAmbientLight);
                     effect.TextureEnabled = hasTextureCoordinates && effect.Texture != null;
                     if (!effect.TextureEnabled && effect.DiffuseColor == Vector3.One)
                         effect.DiffuseColor = new Vector3(0.45f, 0.48f, 0.52f);
                 }
                 mesh.Draw();
             }
+        }
+
+        private static void ConfigureStationEffect(
+            BasicEffect effect,
+            Matrix world,
+            Matrix view,
+            Matrix projection,
+            Vector3 lightDirection,
+            Vector3 diffuseColor,
+            Vector3 specularColor,
+            Vector3 ambientLightColor)
+        {
+            Ship.ConfigureModelEffect(
+                effect,
+                world,
+                view,
+                projection,
+                lightDirection,
+                diffuseColor,
+                specularColor,
+                ambientLightColor);
+
+            // BasicEffect.EnableDefaultLighting() enables all three directional
+            // lights. A station only needs the system sun plus a small ambient
+            // term; leaving the two defaults active is what made the bright
+            // station albedo read as a featureless white silhouette.
+            effect.DirectionalLight0.Enabled = true;
+            effect.DirectionalLight0.Direction = lightDirection;
+            effect.DirectionalLight1.Enabled = false;
+            effect.DirectionalLight2.Enabled = false;
+            effect.SpecularColor = new Vector3(0.12f, 0.13f, 0.15f);
+            effect.SpecularPower = 8.0f;
         }
 
         private void LogMaterialDiagnostics()

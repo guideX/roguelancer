@@ -27,8 +27,10 @@ public sealed class CharacterModelConfiguration
 
     /// <summary>
     /// The normalized Mixamo GLB used by the temporary station character.
-    /// Its mesh faces local +Z, so Roguelancer needs no extra yaw correction.
+    /// The mesh's authored forward is local -Z (XNA Vector3.Forward). The
+    /// correction is kept at the render boundary, matching WalkingAnimationLab;
+    /// gameplay yaw and collision remain in Roguelancer's +Z-forward convention.
     /// </summary>
     public static CharacterModelConfiguration AdamMixamo { get; } =
-        new("Adam/Mixamo GuyWalking2.glb (normalized Y-up, local +Z)", Vector3.Forward, 0.0f);
+        new("Adam/Mixamo GuyWalking2.glb (normalized Y-up, local -Z)", Vector3.Forward, 180.0f);
 }
