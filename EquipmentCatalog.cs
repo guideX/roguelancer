@@ -10,6 +10,17 @@ namespace Roguelancer
     public static class EquipmentCatalog
     {
         private static readonly Dictionary<string, EquipmentDefinition> _definitions = new Dictionary<string, EquipmentDefinition>(StringComparer.OrdinalIgnoreCase);
+        private static readonly string[] _dealerInventoryIds =
+        {
+            // These are the definitions consumed by the live flight systems. The
+            // remaining catalog entries stay available for starter/save fallback
+            // behavior until their flight effects are implemented.
+            "liberty_pulse_cannon",
+            "rogue_blaster",
+            "basic_missile_launcher",
+            "basic_mine_dropper",
+            "basic_countermeasure_dropper"
+        };
         private static readonly Dictionary<EquipmentType, string> _fallbackByType = new Dictionary<EquipmentType, string>
         {
             { EquipmentType.Gun, "liberty_light_laser" },
@@ -143,6 +154,14 @@ namespace Roguelancer
             return _definitions.Values
                 .OrderBy(definition => definition.EquipmentType)
                 .ThenBy(definition => definition.Price)
+                .ToList();
+        }
+
+        public static IReadOnlyList<EquipmentDefinition> GetDealerInventory()
+        {
+            return _dealerInventoryIds
+                .Select(GetById)
+                .Where(definition => definition != null)
                 .ToList();
         }
 

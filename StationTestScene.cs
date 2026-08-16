@@ -500,7 +500,7 @@ public sealed class StationTestScene : IDisposable
         AddBox(new Vector3(8.35f, 1.95f, 36.0f), new Vector3(0.08f, 1.2f, 1.45f), "glow", 1.0f, true, false, emissive: true);
         AddBox(new Vector3(5.0f, 0.45f, 37.8f), new Vector3(2.2f, 0.9f, 0.55f), "structure", 1.0f, false, true);
 
-        // Equipment is a recognizable closed kiosk, not a functioning shop.
+        // Equipment is a recognizable service kiosk used by the on-foot terminal.
         AddBox(new Vector3(7.65f, 1.5f, 42.1f), new Vector3(3.2f, 3.0f, 0.55f), "structure", 1.0f, false, true);
         AddBox(new Vector3(7.65f, 3.2f, 42.1f), new Vector3(2.6f, 0.10f, 0.12f), "glow", 1.0f, true, false, emissive: true);
         AddBox(new Vector3(6.05f, 0.9f, 42.1f), new Vector3(0.55f, 1.8f, 2.8f), "accent", 1.0f, false, true);

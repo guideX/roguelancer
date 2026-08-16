@@ -44,6 +44,7 @@ namespace Roguelancer {
         private StationSession _stationSession;
         private readonly List<StationInteraction> _stationInteractions = new();
         private StationShipDealerUI _stationShipDealerUI;
+        private StationEquipmentDealerUI _stationEquipmentDealerUI;
         private string _stationDialogueText = string.Empty;
         private float _stationDialogueRemaining;
         private bool _stationInteractionKeyHeld;
@@ -229,6 +230,7 @@ namespace Roguelancer {
         private readonly bool _runNavSmoke;
         private readonly bool _runDockSmoke;
         private readonly bool _runShipSmoke;
+        private readonly bool _runEquipmentSmoke;
         private readonly bool _runAllSmoke;
         private readonly bool _runPerformanceDiagnostics;
         private readonly bool _performanceAutoStation;
@@ -291,6 +293,7 @@ namespace Roguelancer {
             _runNavSmoke = args?.Any(arg => string.Equals(arg, "--nav-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runDockSmoke = args?.Any(arg => string.Equals(arg, "--dock-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runShipSmoke = args?.Any(arg => string.Equals(arg, "--ship-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runEquipmentSmoke = args?.Any(arg => string.Equals(arg, "--equipment-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPerformanceDiagnostics = args?.Any(arg => string.Equals(arg, "--perf-diagnostics", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceAutoStation = args?.Any(arg => string.Equals(arg, "--perf-station", StringComparison.OrdinalIgnoreCase)) == true;
@@ -932,6 +935,11 @@ namespace Roguelancer {
                     _shipDealer,
                     message => _notificationManager?.ShowMessage(message, 3f));
                 _stationShipDealerUI.OnShipPurchased += HandleShipPurchased;
+                _stationEquipmentDealerUI = new StationEquipmentDealerUI(
+                    _font,
+                    _pixel,
+                    _equipmentDealer,
+                    message => _notificationManager?.ShowMessage(message, 3f));
             }
 
             // Load ship model
@@ -1160,6 +1168,11 @@ namespace Roguelancer {
                 var result = RunShipSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runEquipmentSmoke)
+            {
+                var result = RunEquipmentSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else
             {
                 TryAutoLoadSavedGame();
@@ -1219,6 +1232,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("nav smoke", RunNavSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("dock smoke", RunDockSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("ship smoke", RunShipSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("equipment smoke", RunEquipmentSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1410,6 +1424,20 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[SHIP SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunEquipmentSmokeTest()
+        {
+            try
+            {
+                var harness = new EquipmentDealerSmokeTest();
+                return harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EQUIPMENT SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -4123,6 +4151,7 @@ namespace Roguelancer {
             _stationEscapeKeyHeld = false;
             _stationInteractionKeyHeld = false;
             _stationShipDealerUI?.Close();
+            _stationEquipmentDealerUI?.Close();
             _stationInteractions.Clear();
 
             if (session?.PlayerShip != null)
@@ -4292,8 +4321,8 @@ namespace Roguelancer {
                 _stationTestScene.EquipmentInteractionPosition,
                 2.0f,
                 "EQUIPMENT",
-                "Press E to use",
-                () => _notificationManager?.ShowMessage("Equipment — services not yet available", 2.5f)));
+                "Press E to browse",
+                OpenEquipmentDealer));
             _stationInteractions.Add(new StationInteraction(
                 "station-bar",
                 _stationTestScene.BarInteractionPosition,
@@ -4379,6 +4408,19 @@ namespace Roguelancer {
             _stationDialogueRemaining = 0f;
         }
 
+        private void OpenEquipmentDealer()
+        {
+            if (_stationEquipmentDealerUI == null || _stationPlayerCharacter == null || _stationSession == null)
+            {
+                _notificationManager?.ShowMessage("Equipment terminal is unavailable", 2f);
+                return;
+            }
+
+            _stationEquipmentDealerUI.Open(_stationSession.StationDisplayName, _playerCredits, _playerShip);
+            _stationDialogueText = string.Empty;
+            _stationDialogueRemaining = 0f;
+        }
+
         private void ExitStationTestMode()
         {
             if (_stationSession?.IsRealDockedSession == true)
@@ -4393,6 +4435,7 @@ namespace Roguelancer {
             _stationEscapeKeyHeld = false;
             _stationInteractionKeyHeld = false;
             _stationShipDealerUI?.Close();
+            _stationEquipmentDealerUI?.Close();
             _stationInteractions.Clear();
             _stationDialogueText = string.Empty;
             _stationDialogueRemaining = 0.0f;
@@ -4409,6 +4452,7 @@ namespace Roguelancer {
             float deltaTime = Math.Clamp((float)gameTime.ElapsedGameTime.TotalSeconds, 0.0f, 0.1f);
             _notificationManager?.Update(gameTime);
             _stationShipDealerUI?.Update(deltaTime);
+            _stationEquipmentDealerUI?.Update(deltaTime);
             if (_stationDialogueRemaining > 0.0f)
             {
                 _stationDialogueRemaining = MathF.Max(0.0f, _stationDialogueRemaining - deltaTime);
@@ -4430,12 +4474,19 @@ namespace Roguelancer {
             // alive, but consumes movement and service input until it closes.
             // Escape is handled by the overlay before it can become the
             // emergency-launch shortcut below.
-            if (_stationShipDealerUI?.IsOpen == true)
+            if (_stationShipDealerUI?.IsOpen == true || _stationEquipmentDealerUI?.IsOpen == true)
             {
                 _stationTestScene?.Update(deltaTime);
                 foreach (StationNpc npc in _stationNpcs) npc.Update(deltaTime);
                 _stationCharacterCamera.Update(_stationPlayerCharacter.Position, deltaTime, recenterMouse: true, _stationTestScene, _performanceDiagnostics);
-                _stationShipDealerUI.HandleInput(keyboardState, _prevKeys);
+                if (_stationShipDealerUI?.IsOpen == true)
+                {
+                    _stationShipDealerUI.HandleInput(keyboardState, _prevKeys);
+                }
+                else
+                {
+                    _stationEquipmentDealerUI?.HandleInput(keyboardState, _prevKeys);
+                }
                 IsMouseVisible = false;
                 return;
             }
@@ -4970,9 +5021,16 @@ namespace Roguelancer {
             int width = GraphicsDevice.Viewport.Width;
             int height = GraphicsDevice.Viewport.Height;
             DrawStationSignage();
-            if (_stationShipDealerUI?.IsOpen == true)
+            if (_stationShipDealerUI?.IsOpen == true || _stationEquipmentDealerUI?.IsOpen == true)
             {
-                _stationShipDealerUI.Draw(_spriteBatch, GraphicsDevice);
+                if (_stationShipDealerUI?.IsOpen == true)
+                {
+                    _stationShipDealerUI.Draw(_spriteBatch, GraphicsDevice);
+                }
+                else
+                {
+                    _stationEquipmentDealerUI?.Draw(_spriteBatch, GraphicsDevice);
+                }
                 _spriteBatch.End();
                 return;
             }
