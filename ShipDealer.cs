@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework.Content;
+using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,9 +13,11 @@ namespace Roguelancer
     {
         private List<ShipDefinition> _availableShips = new List<ShipDefinition>();
         private ShipDefinition _currentPlayerShip;
+        private bool _modelsLoaded;
         
         public IReadOnlyList<ShipDefinition> AvailableShips => _availableShips;
         public ShipDefinition CurrentPlayerShip => _currentPlayerShip;
+        public bool ModelsLoaded => _modelsLoaded;
 
         public ShipDealer()
         {
@@ -29,8 +32,10 @@ namespace Roguelancer
             _availableShips.Add(ShipDefinition.CreateScimitar());
             _availableShips.Add(ShipDefinition.CreateTransport());
             
-            // Set default player ship to Scimitar
-            _currentPlayerShip = ShipDefinition.CreateScimitar();
+            // The catalog entry is also the authoritative current definition.
+            // Keeping one object per model prevents the station UI and save path
+            // from drifting apart from the player's actual ship identity.
+            _currentPlayerShip = _availableShips[0];
         }
 
         /// <summary>
@@ -38,27 +43,41 @@ namespace Roguelancer
         /// </summary>
         public void LoadShipModels(ContentManager content)
         {
-            foreach (var ship in _availableShips)
+            if (content == null)
             {
+                _modelsLoaded = false;
+                return;
+            }
+
+            Dictionary<string, Model> modelCache = new(StringComparer.OrdinalIgnoreCase);
+            foreach (ShipDefinition ship in _availableShips)
+            {
+                if (ship == null || string.IsNullOrWhiteSpace(ship.ModelPath)) continue;
+                if (modelCache.TryGetValue(ship.ModelPath, out Model cachedModel))
+                {
+                    ship.Model = cachedModel;
+                    continue;
+                }
+
                 try
                 {
-                    ship.Model = content.Load<Microsoft.Xna.Framework.Graphics.Model>(ship.ModelPath);
+                    Model model = content.Load<Model>(ship.ModelPath);
+                    modelCache[ship.ModelPath] = model;
+                    ship.Model = model;
                     Console.WriteLine($"[SHIP DEALER] Loaded model for {ship.Name}");
                 }
                 catch (Exception ex)
                 {
+                    ship.Model = null;
                     Console.WriteLine($"[SHIP DEALER] Failed to load model for {ship.Name}: {ex.Message}");
                 }
             }
-            
-            // Load current player ship model too
-            try
+
+            _modelsLoaded = true;
+            _availableShips = _availableShips.Where(ship => ship?.Model != null).ToList();
+            if (_currentPlayerShip == null || !_availableShips.Contains(_currentPlayerShip))
             {
-                _currentPlayerShip.Model = content.Load<Microsoft.Xna.Framework.Graphics.Model>(_currentPlayerShip.ModelPath);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[SHIP DEALER] Failed to load current player ship model: {ex.Message}");
+                _currentPlayerShip = _availableShips.FirstOrDefault();
             }
         }
 
@@ -67,8 +86,11 @@ namespace Roguelancer
         /// </summary>
         public bool CanAffordShip(ShipDefinition ship, PlayerCredits credits)
         {
+            if (ship == null || credits == null || !_availableShips.Contains(ship)) return false;
+            if (_currentPlayerShip != null && string.Equals(ship.Name, _currentPlayerShip.Name, StringComparison.OrdinalIgnoreCase)) return false;
+            if (_modelsLoaded && ship.Model == null) return false;
             int totalCost = GetTotalCost(ship);
-            return credits.CanAfford(totalCost);
+            return ship.Price > 0 && totalCost >= 0 && credits.CanAfford(totalCost);
         }
 
         /// <summary>
@@ -76,13 +98,16 @@ namespace Roguelancer
         /// </summary>
         public int GetTotalCost(ShipDefinition ship)
         {
-            if (ship.Name == _currentPlayerShip.Name)
+            if (ship == null) return -1;
+            if (_currentPlayerShip != null && string.Equals(ship.Name, _currentPlayerShip.Name, StringComparison.OrdinalIgnoreCase))
             {
                 return 0; // Already own this ship
             }
             
             // New ship price minus trade-in value of current ship
-            return Math.Max(0, ship.Price - _currentPlayerShip.TradeInValue);
+            int tradeInValue = _currentPlayerShip?.TradeInValue ?? 0;
+            long totalCost = (long)ship.Price - Math.Max(0, tradeInValue);
+            return (int)Math.Clamp(totalCost, 0L, int.MaxValue);
         }
 
         /// <summary>
@@ -90,44 +115,137 @@ namespace Roguelancer
         /// </summary>
         public bool PurchaseShip(ShipDefinition ship, PlayerCredits credits, Ship playerShip, CommodityDealer commodityDealer)
         {
-            // Check if already own this ship
-            if (ship.Name == _currentPlayerShip.Name)
+            return TryPurchaseShip(ship, credits, playerShip, out _);
+        }
+
+        /// <summary>
+        /// Validate a purchase without changing credits, the player ship, cargo,
+        /// loadout, or dealer state. Models are required once content loading has
+        /// completed; pure smoke tests can exercise the transaction without a
+        /// graphics device before that point.
+        /// </summary>
+        public bool CanPurchaseShip(ShipDefinition ship, PlayerCredits credits, Ship playerShip, out string message)
+        {
+            message = string.Empty;
+            if (ship == null || !_availableShips.Contains(ship))
             {
-                Console.WriteLine($"[SHIP DEALER] Already own {ship.Name}");
+                message = "Ship is not available at this dealer.";
                 return false;
             }
 
-            // Check if can afford
-            int totalCost = GetTotalCost(ship);
-            if (!credits.CanAfford(totalCost))
+            if (_currentPlayerShip != null && string.Equals(ship.Name, _currentPlayerShip.Name, StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine($"[SHIP DEALER] Cannot afford {ship.Name} - need {totalCost} CR");
+                message = "That ship is already your current ship.";
                 return false;
             }
 
-            // Check if cargo fits in new ship
-            int currentCargoUsed = playerShip.CargoHold.UsedCapacity;
-            if (currentCargoUsed > ship.CargoCapacity)
+            if (string.IsNullOrWhiteSpace(ship.Name) || string.IsNullOrWhiteSpace(ship.ModelPath))
             {
-                Console.WriteLine($"[SHIP DEALER] Cargo doesn't fit! Current: {currentCargoUsed}, New ship capacity: {ship.CargoCapacity}");
+                message = "Ship definition is incomplete.";
                 return false;
             }
 
-            // Process purchase
-            if (credits.RemoveCredits(totalCost))
+            if (ship.Price <= 0 || ship.CargoCapacity <= 0 || ship.MaxHull <= 0f || ship.MaxEnergy <= 0f || ship.MaxShields < 0f ||
+                float.IsNaN(ship.MaxSpeed) || float.IsInfinity(ship.MaxSpeed) || float.IsNaN(ship.TurnSpeed) || float.IsInfinity(ship.TurnSpeed))
             {
-                Console.WriteLine($"[SHIP DEALER] Purchased {ship.Name} for {totalCost} CR");
-                
-                // Apply new ship stats (this will update cargo capacity)
+                message = "Ship has invalid pricing or flight data.";
+                return false;
+            }
+
+            if (_modelsLoaded && ship.Model == null)
+            {
+                message = "That ship's model is unavailable.";
+                return false;
+            }
+
+            if (credits == null || playerShip?.CargoHold == null)
+            {
+                message = "Ship dealer transaction is unavailable.";
+                return false;
+            }
+
+            if (playerShip.CargoHold.UsedCapacity > ship.CargoCapacity)
+            {
+                message = $"Cargo does not fit in the {ship.Name} hold.";
+                return false;
+            }
+
+            int purchaseCost = GetTotalCost(ship);
+            if (purchaseCost < 0)
+            {
+                message = "Ship price is invalid.";
+                return false;
+            }
+
+            if (!credits.CanAfford(purchaseCost))
+            {
+                message = $"Insufficient credits. Need {purchaseCost:N0} CR.";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Execute one validated ship replacement. The candidate definition is
+        /// prepared on an isolated Ship first, so invalid initialization cannot
+        /// consume credits or mutate the authoritative player instance.
+        /// </summary>
+        public bool TryPurchaseShip(ShipDefinition ship, PlayerCredits credits, Ship playerShip, out string message)
+        {
+            if (!CanPurchaseShip(ship, credits, playerShip, out message))
+            {
+                Console.WriteLine($"[SHIP DEALER] Purchase rejected: {message}");
+                return false;
+            }
+
+            try
+            {
+                Ship preparedShip = new(playerShip.Position);
+                ship.ApplyToShip(preparedShip);
+                if (preparedShip.ModelPath != ship.ModelPath || preparedShip.CargoHold.MaxCapacity != ship.CargoCapacity)
+                {
+                    message = "Replacement ship could not be prepared.";
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                message = $"Replacement ship could not be prepared: {ex.Message}";
+                Console.WriteLine($"[SHIP DEALER] {message}");
+                return false;
+            }
+
+            int purchaseCost = GetTotalCost(ship);
+            if (!credits.RemoveCredits(purchaseCost))
+            {
+                message = "Insufficient credits.";
+                return false;
+            }
+
+            try
+            {
+                // Preserve the authoritative Ship object. Flight, mission,
+                // station, and network systems all reference this instance.
+                // ApplyToShip resets the new ship's hull/energy/shields to full
+                // and changes only the ship configuration; cargo and loadout
+                // remain on the player-owned state after the capacity gate.
                 ship.ApplyToShip(playerShip);
-                
-                // Update current player ship
+                playerShip.RefreshCollisionRadiusFromModel();
                 _currentPlayerShip = ship;
-                
+                message = $"Purchased {ship.Name} for {purchaseCost:N0} CR.";
+                Console.WriteLine($"[SHIP DEALER] {message}");
                 return true;
             }
-
-            return false;
+            catch (Exception ex)
+            {
+                // ApplyToShip is deliberately simple and preflighted above, but
+                // refund if a future definition adds a failing initializer.
+                credits.AddCredits(purchaseCost);
+                message = $"Replacement failed; credits were restored: {ex.Message}";
+                Console.WriteLine($"[SHIP DEALER] {message}");
+                return false;
+            }
         }
 
         /// <summary>
@@ -135,7 +253,7 @@ namespace Roguelancer
         /// </summary>
         public ShipDefinition GetShipByName(string name)
         {
-            return _availableShips.FirstOrDefault(s => s.Name == name);
+            return _availableShips.FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>
@@ -154,7 +272,10 @@ namespace Roguelancer
         /// </summary>
         public void SetCurrentShip(ShipDefinition ship)
         {
-            _currentPlayerShip = ship;
+            if (ship != null && _availableShips.Contains(ship))
+            {
+                _currentPlayerShip = ship;
+            }
         }
 
         /// <summary>

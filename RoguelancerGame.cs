@@ -43,6 +43,7 @@ namespace Roguelancer {
         private bool _stationTestMode;
         private StationSession _stationSession;
         private readonly List<StationInteraction> _stationInteractions = new();
+        private StationShipDealerUI _stationShipDealerUI;
         private string _stationDialogueText = string.Empty;
         private float _stationDialogueRemaining;
         private bool _stationInteractionKeyHeld;
@@ -925,6 +926,12 @@ namespace Roguelancer {
                 _stationDockUI = new StationDockUI(_font, _pixel, _shipDealer, _commodityDealer, _missionManager, _reputationManager, _equipmentDealer);
                 _stationDockUI.OnUndock += HandleUndock;
                 _stationDockUI.OnShipPurchased += HandleShipPurchased;
+                _stationShipDealerUI = new StationShipDealerUI(
+                    _font,
+                    _pixel,
+                    _shipDealer,
+                    message => _notificationManager?.ShowMessage(message, 3f));
+                _stationShipDealerUI.OnShipPurchased += HandleShipPurchased;
             }
 
             // Load ship model
@@ -932,6 +939,7 @@ namespace Roguelancer {
                 _playerShip.Model = Content.Load<Model>("SHIPS/scimitar/Scimitar2");
                 _playerShip.DisplayName = "Scimitar";
                 _playerShip.ModelPath = "SHIPS/scimitar/Scimitar2";
+                _playerShip.RefreshCollisionRadiusFromModel();
                 Console.WriteLine("Scimitar model loaded successfully!");
 
                 // Load wreck model
@@ -987,6 +995,7 @@ namespace Roguelancer {
             // does not pay the prototype's CPU-skinning asset cost.
             _stationTestScene = new StationTestScene();
             _stationTestScene.LoadContent(Content, GraphicsDevice);
+            _stationTestScene.RefreshParkedShip(_playerShip);
             _stationCharacterCamera = new CharacterCamera(GraphicsDevice);
             _stationCharacterEffect = new BasicEffect(GraphicsDevice) {
                 TextureEnabled = true,
@@ -4113,6 +4122,7 @@ namespace Roguelancer {
             _stationEntryKeyHeld = false;
             _stationEscapeKeyHeld = false;
             _stationInteractionKeyHeld = false;
+            _stationShipDealerUI?.Close();
             _stationInteractions.Clear();
 
             if (session?.PlayerShip != null)
@@ -4139,6 +4149,15 @@ namespace Roguelancer {
             Console.WriteLine($"[SHIP PURCHASE] Switched to {newShip.Name}");
             _notificationManager?.ShowMessage($"Ship purchased: {newShip.Name}!", 3f);
 
+            // The on-foot bay renders the authoritative Ship instance directly;
+            // refresh its model-derived service envelope and boarding prompt in
+            // the same frame as the transaction.
+            _stationTestScene?.RefreshParkedShip(_playerShip);
+            if (_stationTestMode)
+            {
+                BuildStationInteractions();
+            }
+
             // Re-register hull event handlers (they get reset when SetHull is called)
             _playerShip.Hull.OnDestroyed += () => {
                 Console.WriteLine("💀 PLAYER SHIP DESTROYED!");
@@ -4150,6 +4169,7 @@ namespace Roguelancer {
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
             _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
+            _weaponSystem?.SetEnergySystem(_playerShip.Energy);
 
             Console.WriteLine($"[SHIP PURCHASE] New ship fully configured with hull: {_playerShip.Hull.MaxHull}, energy: {_playerShip.Energy.MaxEnergy}, shields: {_playerShip.Shields?.MaxShields ?? 0}");
         }
@@ -4212,6 +4232,7 @@ namespace Roguelancer {
 
             _stationSession = session;
             _stationTestScene.ResetSession();
+            _stationTestScene.RefreshParkedShip(_playerShip);
             _stationPlayerCharacter.ResetToSpawn();
             foreach (StationNpc npc in _stationNpcs) npc.Reset();
             _stationDialogueText = string.Empty;
@@ -4284,13 +4305,14 @@ namespace Roguelancer {
             foreach (StationNpc npc in _stationNpcs)
             {
                 if (!npc.IsInteractive) continue;
+                bool isShipDealer = string.Equals(npc.Id, "ship-dealer", StringComparison.OrdinalIgnoreCase);
                 _stationInteractions.Add(new StationInteraction(
                     $"npc-{npc.Id}",
                     npc.Position,
                     npc.InteractionRadius,
                     npc.InteractionLabel,
                     "Press E to talk",
-                    () => TalkToStationNpc(npc)));
+                    isShipDealer ? () => OpenShipDealer(npc) : () => TalkToStationNpc(npc)));
             }
         }
 
@@ -4343,6 +4365,20 @@ namespace Roguelancer {
             _stationDialogueRemaining = 3.5f;
         }
 
+        private void OpenShipDealer(StationNpc npc)
+        {
+            if (_stationShipDealerUI == null || _stationPlayerCharacter == null || _stationSession == null)
+            {
+                _notificationManager?.ShowMessage("Ship dealer is unavailable", 2f);
+                return;
+            }
+
+            npc?.FacePlayer(_stationPlayerCharacter.Position);
+            _stationShipDealerUI.Open(_stationSession.StationDisplayName, _playerCredits, _playerShip);
+            _stationDialogueText = string.Empty;
+            _stationDialogueRemaining = 0f;
+        }
+
         private void ExitStationTestMode()
         {
             if (_stationSession?.IsRealDockedSession == true)
@@ -4356,6 +4392,7 @@ namespace Roguelancer {
             _stationEntryKeyHeld = false;
             _stationEscapeKeyHeld = false;
             _stationInteractionKeyHeld = false;
+            _stationShipDealerUI?.Close();
             _stationInteractions.Clear();
             _stationDialogueText = string.Empty;
             _stationDialogueRemaining = 0.0f;
@@ -4371,6 +4408,7 @@ namespace Roguelancer {
         {
             float deltaTime = Math.Clamp((float)gameTime.ElapsedGameTime.TotalSeconds, 0.0f, 0.1f);
             _notificationManager?.Update(gameTime);
+            _stationShipDealerUI?.Update(deltaTime);
             if (_stationDialogueRemaining > 0.0f)
             {
                 _stationDialogueRemaining = MathF.Max(0.0f, _stationDialogueRemaining - deltaTime);
@@ -4381,12 +4419,32 @@ namespace Roguelancer {
             if (_stationInteractionKeyHeld && keyboardState.IsKeyUp(Keys.E)) _stationInteractionKeyHeld = false;
             bool f10ExitPressed = !_stationEntryKeyHeld && keyboardState.IsKeyDown(Keys.F10) && _prevKeys.IsKeyUp(Keys.F10);
             bool escapeExitPressed = !_stationEscapeKeyHeld && keyboardState.IsKeyDown(Keys.Escape) && _prevKeys.IsKeyUp(Keys.Escape);
-            if (f10ExitPressed || escapeExitPressed) {
+            if (f10ExitPressed) {
                 ExitStationTestMode();
                 return;
             }
 
             if (_stationPlayerCharacter == null || _stationCharacterCamera == null) return;
+
+            // The dealer overlay keeps the station visible and NPC animation
+            // alive, but consumes movement and service input until it closes.
+            // Escape is handled by the overlay before it can become the
+            // emergency-launch shortcut below.
+            if (_stationShipDealerUI?.IsOpen == true)
+            {
+                _stationTestScene?.Update(deltaTime);
+                foreach (StationNpc npc in _stationNpcs) npc.Update(deltaTime);
+                _stationCharacterCamera.Update(_stationPlayerCharacter.Position, deltaTime, recenterMouse: true, _stationTestScene, _performanceDiagnostics);
+                _stationShipDealerUI.HandleInput(keyboardState, _prevKeys);
+                IsMouseVisible = false;
+                return;
+            }
+
+            if (escapeExitPressed) {
+                ExitStationTestMode();
+                return;
+            }
+
             _stationTestScene?.Update(deltaTime);
             if (keyboardState.IsKeyDown(Keys.F12) && _prevKeys.IsKeyUp(Keys.F12)) {
                 _stationPlayerCharacter.CapsuleDebugVisible = !_stationPlayerCharacter.CapsuleDebugVisible;
@@ -4912,6 +4970,12 @@ namespace Roguelancer {
             int width = GraphicsDevice.Viewport.Width;
             int height = GraphicsDevice.Viewport.Height;
             DrawStationSignage();
+            if (_stationShipDealerUI?.IsOpen == true)
+            {
+                _stationShipDealerUI.Draw(_spriteBatch, GraphicsDevice);
+                _spriteBatch.End();
+                return;
+            }
             int panelHeight = _stationPlayerCharacter.CapsuleDebugVisible ? 220 : 112;
             int panelWidth = _stationPlayerCharacter.CapsuleDebugVisible ? 540 : 390;
             Rectangle panel = new(16, 16, panelWidth, panelHeight);

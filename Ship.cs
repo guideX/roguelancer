@@ -237,6 +237,27 @@ namespace Roguelancer
         {
             Hull = new HullIntegrity(maxHull);
         }
+
+        /// <summary>
+        /// Refresh the coarse flight collision radius from the currently loaded
+        /// model. The spaceflight collision system remains intentionally bounded;
+        /// station presentation uses the more detailed model-derived envelopes.
+        /// </summary>
+        public void RefreshCollisionRadiusFromModel()
+        {
+            if (Model == null) return;
+
+            float radius = 0f;
+            foreach (ModelMesh mesh in Model.Meshes)
+            {
+                radius = MathF.Max(radius, mesh.BoundingSphere.Radius * 0.1f);
+            }
+
+            if (radius > 0f && !float.IsNaN(radius) && !float.IsInfinity(radius))
+            {
+                CollisionRadius = MathHelper.Clamp(radius, 3f, 100f);
+            }
+        }
         
         /// <summary>
         /// Update ship's energy system (regeneration)

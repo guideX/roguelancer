@@ -125,6 +125,7 @@ namespace Roguelancer
             
             // Apply model
             ship.Model = Model;
+            ship.RefreshCollisionRadiusFromModel();
             
             // Apply model correction rotation from ship definition
             ship.ModelRotationCorrection = ModelCorrectionRotation;

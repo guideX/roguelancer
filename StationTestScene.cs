@@ -30,6 +30,10 @@ public sealed class StationTestScene : IDisposable
     private bool _shipMaterialStateLogged;
     private StationAirlockState _airlockState = StationAirlockState.Closed;
     private float _airlockDoorProgress;
+    private Ship? _parkedShip;
+    private bool _hasParkedShipBounds;
+    private Vector3 _parkedShipMinimum;
+    private Vector3 _parkedShipMaximum;
 
     private const float AirlockAnimationSeconds = 0.75f;
     private const float AirlockTraversalProgress = 0.65f;
@@ -50,6 +54,7 @@ public sealed class StationTestScene : IDisposable
     public Vector3 EquipmentInteractionPosition { get; } = new(7.2f, 0.0f, 42.0f);
     public Vector3 BarInteractionPosition { get; } = new(-7.2f, 0.0f, 42.0f);
     public string ShipScaleNote => "Uses Ship.Draw's shared 0.1 model scale and correction; bay units are treated as metres and the human capsule is 1.8m tall.";
+    public Ship? ParkedShip => _parkedShip;
     public StationAirlockState AirlockState => _airlockState;
     public float AirlockDoorProgress => _airlockDoorProgress;
     public bool IsAirlockOpen => _airlockState == StationAirlockState.Open;
@@ -61,27 +66,47 @@ public sealed class StationTestScene : IDisposable
     };
 
     /// <summary>
-    /// Centralized first-pass boarding approximation. Model-specific ramps and
-    /// cockpits can replace this later without changing the interaction flow.
+    /// Refresh the physical station representation from the authoritative ship.
+    /// The model-derived envelope is intentionally a small set of boxes rather
+    /// than triangle collision, which keeps the on-foot controller bounded while
+    /// avoiding a stale Scimitar-sized obstacle after a purchase.
+    /// </summary>
+    public bool RefreshParkedShip(Ship ship)
+    {
+        _parkedShip = ship;
+        _colliders.RemoveAll(collider => collider.IsParkedShip);
+        _hasParkedShipBounds = TryGetParkedShipBounds(ship, out _parkedShipMinimum, out _parkedShipMaximum);
+        if (!_hasParkedShipBounds)
+        {
+            AddFallbackParkedShipColliders();
+            return false;
+        }
+
+        AddParkedShipColliders(_parkedShipMinimum, _parkedShipMaximum);
+        Console.WriteLine($"[STATION] Parked ship refreshed: {ship.DisplayName} bounds=({_parkedShipMinimum.X:0.00},{_parkedShipMinimum.Y:0.00},{_parkedShipMinimum.Z:0.00})..({_parkedShipMaximum.X:0.00},{_parkedShipMaximum.Y:0.00},{_parkedShipMaximum.Z:0.00})");
+        return true;
+    }
+
+    /// <summary>
+    /// Centralized boarding approximation derived from the currently parked
+    /// model bounds. Model-specific cockpit metadata can replace this later
+    /// without changing the interaction flow.
     /// </summary>
     public Vector3 GetBoardingPoint(Ship ship)
     {
-        float sideOffset = 6.8f;
-        if (ship?.Model != null)
+        if (ship != null && (!_hasParkedShipBounds || !ReferenceEquals(ship, _parkedShip)))
         {
-            float modelRadius = 0.0f;
-            foreach (ModelMesh mesh in ship.Model.Meshes)
-            {
-                modelRadius = MathF.Max(modelRadius, mesh.BoundingSphere.Radius);
-            }
-
-            // The shared ship renderer applies a 0.1 presentation scale. Keep
-            // the result inside the current bay while leaving a clear path
-            // around the Phase 2 ship collision envelope.
-            sideOffset = MathHelper.Clamp(modelRadius * 0.1f + 1.5f, 6.8f, 10.5f);
+            _hasParkedShipBounds = TryGetParkedShipBounds(ship, out _parkedShipMinimum, out _parkedShipMaximum);
         }
 
-        return DockedShipPosition + Vector3.Right * sideOffset;
+        if (!_hasParkedShipBounds)
+        {
+            return DockedShipPosition + Vector3.Right * 6.8f;
+        }
+
+        float boardingX = MathHelper.Clamp(_parkedShipMaximum.X + 1.35f, -15.5f, 15.5f);
+        float boardingZ = MathHelper.Clamp((_parkedShipMinimum.Z + _parkedShipMaximum.Z) * 0.5f, -4.5f, 5.5f);
+        return new Vector3(boardingX, 0.05f, boardingZ);
     }
 
     public void LoadContent(ContentManager content, GraphicsDevice graphicsDevice)
@@ -503,11 +528,118 @@ public sealed class StationTestScene : IDisposable
         AddBox(new Vector3(11.7f, 0.55f, -12.0f), new Vector3(1.3f, 1.1f, 1.3f), "structure", 1.0f, false, true);
         AddBox(new Vector3(-13.0f, 0.6f, -12.5f), new Vector3(1.7f, 1.2f, 1.7f), "structure", 1.0f, false, true);
 
-        // A small set of service-envelope boxes keeps the player out of the
-        // parked ship without turning it into a comically large invisible block.
-        _colliders.Add(new StationCollider(new Vector2(-3.9f, -0.95f), new Vector2(3.9f, 4.65f), 0.0f, 2.45f, "parked ship central hull", true, true));
-        _colliders.Add(new StationCollider(new Vector2(-5.75f, 0.05f), new Vector2(-3.15f, 3.35f), 0.0f, 1.75f, "parked ship port wing", true, true));
-        _colliders.Add(new StationCollider(new Vector2(3.15f, 0.05f), new Vector2(5.75f, 3.35f), 0.0f, 1.75f, "parked ship starboard wing", true, true));
+        // Initial fallback until the authoritative model is available. Entry
+        // immediately refreshes this with model-derived dimensions.
+        AddFallbackParkedShipColliders();
+    }
+
+    private void AddFallbackParkedShipColliders()
+    {
+        AddParkedShipColliders(
+            new Vector3(-5.75f, 0.0f, -0.95f),
+            new Vector3(5.75f, 2.45f, 4.65f));
+    }
+
+    private void AddParkedShipColliders(Vector3 minimum, Vector3 maximum)
+    {
+        float minX = MathHelper.Clamp(MathF.Min(minimum.X, maximum.X), -15.5f, 15.5f);
+        float maxX = MathHelper.Clamp(MathF.Max(minimum.X, maximum.X), -15.5f, 15.5f);
+        float minZ = MathHelper.Clamp(MathF.Min(minimum.Z, maximum.Z), -6.0f, 8.0f);
+        float maxZ = MathHelper.Clamp(MathF.Max(minimum.Z, maximum.Z), -6.0f, 8.0f);
+        float minY = MathHelper.Clamp(MathF.Min(minimum.Y, maximum.Y), 0.0f, 1.0f);
+        float maxY = MathHelper.Clamp(MathF.Max(minimum.Y, maximum.Y), 1.0f, 7.5f);
+        if (maxX - minX < 1.5f) maxX = minX + 1.5f;
+        if (maxZ - minZ < 1.5f) maxZ = minZ + 1.5f;
+
+        float centerX = (minX + maxX) * 0.5f;
+        float centerZ = (minZ + maxZ) * 0.5f;
+        float centralHalfWidth = MathHelper.Clamp((maxX - minX) * 0.28f, 1.2f, 4.5f);
+        float centralMinZ = MathHelper.Lerp(minZ, centerZ, 0.18f);
+        float centralMaxZ = MathHelper.Lerp(maxZ, centerZ, 0.82f);
+        _colliders.Add(new StationCollider(
+            new Vector2(centerX - centralHalfWidth, centralMinZ),
+            new Vector2(centerX + centralHalfWidth, centralMaxZ),
+            minY,
+            maxY,
+            "parked ship central hull",
+            true,
+            true,
+            false,
+            true));
+
+        float wingWidth = MathHelper.Clamp((maxX - minX) * 0.22f, 0.8f, 2.6f);
+        _colliders.Add(new StationCollider(
+            new Vector2(minX, minZ),
+            new Vector2(MathHelper.Min(centerX - centralHalfWidth, minX + wingWidth), maxZ),
+            minY,
+            MathHelper.Min(maxY, 3.0f),
+            "parked ship port wing",
+            true,
+            true,
+            false,
+            true));
+        _colliders.Add(new StationCollider(
+            new Vector2(MathHelper.Max(centerX + centralHalfWidth, maxX - wingWidth), minZ),
+            new Vector2(maxX, maxZ),
+            minY,
+            MathHelper.Min(maxY, 3.0f),
+            "parked ship starboard wing",
+            true,
+            true,
+            false,
+            true));
+    }
+
+    private bool TryGetParkedShipBounds(Ship ship, out Vector3 minimum, out Vector3 maximum)
+    {
+        minimum = Vector3.Zero;
+        maximum = Vector3.Zero;
+        if (ship?.Model == null) return false;
+
+        Matrix world = Ship.CreateModelWorldMatrix(DockedShipPosition, DockedShipOrientation, ship.ModelRotationCorrection);
+        bool found = false;
+        foreach (ModelMesh mesh in ship.Model.Meshes)
+        {
+            Matrix meshWorld = (mesh.ParentBone?.Transform ?? Matrix.Identity) * world;
+            Vector3 meshCenter = Vector3.Transform(mesh.BoundingSphere.Center, meshWorld);
+            float radius = mesh.BoundingSphere.Radius * 0.1f;
+            if (radius <= 0f || float.IsNaN(radius) || float.IsInfinity(radius)) continue;
+
+            Vector3 meshMinimum = meshCenter - new Vector3(radius);
+            Vector3 meshMaximum = meshCenter + new Vector3(radius);
+            if (!found)
+            {
+                minimum = meshMinimum;
+                maximum = meshMaximum;
+                found = true;
+            }
+            else
+            {
+                minimum = Vector3.Min(minimum, meshMinimum);
+                maximum = Vector3.Max(maximum, meshMaximum);
+            }
+        }
+
+        if (!found ||
+            float.IsNaN(minimum.X) || float.IsInfinity(minimum.X) ||
+            float.IsNaN(maximum.X) || float.IsInfinity(maximum.X))
+        {
+            return false;
+        }
+
+        // Imported model spheres are useful for relative sizing but can include
+        // large source-space padding. Keep the resulting service envelope within
+        // the bay's pedestrian scale while retaining the model-derived center
+        // and relative span for different hulls.
+        Vector3 boundsCenter = (minimum + maximum) * 0.5f;
+        float width = MathHelper.Clamp(maximum.X - minimum.X, 5.0f, 14.0f);
+        float depth = MathHelper.Clamp(maximum.Z - minimum.Z, 5.0f, 11.0f);
+        float height = MathHelper.Clamp(maximum.Y - minimum.Y, 2.0f, 5.0f);
+        boundsCenter.X = MathHelper.Clamp(boundsCenter.X, -3.0f, 3.0f);
+        boundsCenter.Z = MathHelper.Clamp(boundsCenter.Z, -1.5f, 3.0f);
+        minimum = new Vector3(boundsCenter.X - width * 0.5f, 0.0f, boundsCenter.Z - depth * 0.5f);
+        maximum = new Vector3(boundsCenter.X + width * 0.5f, height, boundsCenter.Z + depth * 0.5f);
+        return true;
     }
 
     private bool TryResolveAxis(Vector3 current, Vector3 candidate, float capsuleHeight, bool grounded, ref Vector3 result, ref Vector3 wallNormal, bool axisX)
@@ -675,5 +807,6 @@ public sealed class StationTestScene : IDisposable
         string Label,
         bool BlocksPlayer = false,
         bool BlocksCamera = false,
-        bool IsAirlockDoor = false);
+        bool IsAirlockDoor = false,
+        bool IsParkedShip = false);
 }

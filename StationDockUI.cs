@@ -232,6 +232,9 @@ namespace Roguelancer
         {
             if (_currentArea != StationArea.ShipDealer) return false;
 
+            IReadOnlyList<ShipDefinition> ships = _shipDealer?.AvailableShips;
+            if (ships == null || ships.Count == 0) return false;
+            _selectedShipIndex = Math.Clamp(_selectedShipIndex, 0, ships.Count - 1);
             bool purchasedShip = false;
 
             // Navigate up/down through ships
@@ -239,23 +242,27 @@ namespace Roguelancer
                 prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Up))
             {
                 _selectedShipIndex--;
-                if (_selectedShipIndex < 0) _selectedShipIndex = _shipDealer.AvailableShips.Count - 1;
+                if (_selectedShipIndex < 0) _selectedShipIndex = ships.Count - 1;
             }
             else if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Down) && 
                      prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Down))
             {
                 _selectedShipIndex++;
-                if (_selectedShipIndex >= _shipDealer.AvailableShips.Count) _selectedShipIndex = 0;
+                if (_selectedShipIndex >= ships.Count) _selectedShipIndex = 0;
             }
 
             // Purchase ship with Enter
             if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Enter) && 
                 prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Enter))
             {
-                var selectedShip = _shipDealer.AvailableShips[_selectedShipIndex];
+                ShipDefinition selectedShip = ships[_selectedShipIndex];
                 if (selectedShip != null)
                 {
-                    bool success = _shipDealer.PurchaseShip(selectedShip, credits, playerShip, _commodityDealer);
+                    bool success = _shipDealer.TryPurchaseShip(selectedShip, credits, playerShip, out string message);
+                    if (!string.IsNullOrWhiteSpace(message))
+                    {
+                        _notificationManager?.ShowMessage(message, 3f);
+                    }
                     if (success)
                     {
                         OnShipPurchased?.Invoke(selectedShip);

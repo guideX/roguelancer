@@ -26,7 +26,12 @@ namespace Roguelancer
             RunCase(ValidateBalanceAnchors, "balance anchors", ref passed, ref failed);
             RunCase(ValidateUnaffordablePurchaseFailsSafely, "unaffordable purchase", ref passed, ref failed);
             RunCase(ValidateCargoGateFailsSafely, "cargo gate", ref passed, ref failed);
+            RunCase(ValidateCurrentShipRejected, "current ship guard", ref passed, ref failed);
+            RunCase(ValidateInvalidShipRejectedSafely, "invalid ship guard", ref passed, ref failed);
             RunCase(ValidateAffordablePurchaseSucceeds, "affordable purchase", ref passed, ref failed);
+            RunCase(ValidateRepeatedPurchaseCannotDoubleCharge, "repeated purchase guard", ref passed, ref failed);
+            RunCase(ValidateStationParkedShipRefresh, "station parked ship refresh", ref passed, ref failed);
+            RunCase(ValidateShipIdentitySaveRoundTrip, "ship identity save round-trip", ref passed, ref failed);
 
             Console.WriteLine($"[SHIP SMOKE] RESULT: {passed} passed, {failed} failed");
             return (passed, failed);
@@ -288,6 +293,151 @@ namespace Roguelancer
             }
 
             return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateCurrentShipRejected()
+        {
+            ShipDefinition current = _shipDealer.GetShipByName("Scimitar");
+            Ship playerShip = new Ship(Vector3.Zero);
+            PlayerCredits credits = new PlayerCredits(100_000);
+            int creditsBefore = credits.Credits;
+
+            if (_shipDealer.TryPurchaseShip(current, credits, playerShip, out string message))
+            {
+                return Fail("current ship purchase unexpectedly succeeded");
+            }
+
+            if (credits.Credits != creditsBefore || !string.Equals(playerShip.DisplayName, "Scimitar", StringComparison.OrdinalIgnoreCase))
+            {
+                return Fail($"current ship rejection changed state: {message}");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateInvalidShipRejectedSafely()
+        {
+            ShipDefinition invalid = new ShipDefinition("Missing Model", "invalid", "SHIPS/missing/model", 1);
+            Ship playerShip = new Ship(Vector3.Zero);
+            PlayerCredits credits = new PlayerCredits(100_000);
+            int creditsBefore = credits.Credits;
+            string nameBefore = playerShip.DisplayName;
+
+            if (_shipDealer.TryPurchaseShip(invalid, credits, playerShip, out string message))
+            {
+                return Fail("ship outside the dealer inventory unexpectedly purchased");
+            }
+
+            if (credits.Credits != creditsBefore || !string.Equals(playerShip.DisplayName, nameBefore, StringComparison.Ordinal))
+            {
+                return Fail($"invalid ship rejection changed state: {message}");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateRepeatedPurchaseCannotDoubleCharge()
+        {
+            ShipDealer dealer = new ShipDealer();
+            ShipDefinition upgrade = dealer.GetShipByName("Pirate Transport");
+            Ship playerShip = new Ship(Vector3.Zero);
+            int purchaseCost = dealer.GetTotalCost(upgrade);
+            PlayerCredits credits = new PlayerCredits(purchaseCost * 2);
+
+            if (!dealer.TryPurchaseShip(upgrade, credits, playerShip, out string firstMessage))
+            {
+                return Fail($"first purchase failed: {firstMessage}");
+            }
+
+            int afterFirstPurchase = credits.Credits;
+            if (dealer.TryPurchaseShip(upgrade, credits, playerShip, out _))
+            {
+                return Fail("repeated purchase unexpectedly succeeded");
+            }
+
+            if (credits.Credits != afterFirstPurchase || credits.Credits != purchaseCost)
+            {
+                return Fail("repeated purchase changed credits");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateStationParkedShipRefresh()
+        {
+            ShipDealer dealer = new ShipDealer();
+            ShipDefinition upgrade = dealer.GetShipByName("Pirate Transport");
+            Ship playerShip = new Ship(Vector3.Zero);
+            PlayerCredits credits = new PlayerCredits(dealer.GetTotalCost(upgrade));
+            StationTestScene scene = new StationTestScene();
+            scene.RefreshParkedShip(playerShip);
+
+            if (!dealer.TryPurchaseShip(upgrade, credits, playerShip, out string message))
+            {
+                return Fail($"purchase failed before station refresh: {message}");
+            }
+
+            scene.RefreshParkedShip(playerShip);
+            if (!ReferenceEquals(scene.ParkedShip, playerShip))
+            {
+                return Fail("station did not retain the authoritative player ship reference");
+            }
+
+            if (!string.Equals(scene.ParkedShip.DisplayName, upgrade.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                return Fail("parked ship display was not refreshed to the purchased definition");
+            }
+
+            Vector3 boardingPoint = scene.GetBoardingPoint(playerShip);
+            if (boardingPoint.X <= 0f)
+            {
+                return Fail("refreshed boarding point was not placed beside the parked ship");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateShipIdentitySaveRoundTrip()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "Roguelancer_ShipSmoke_" + Guid.NewGuid().ToString("N"));
+            string savePath = Path.Combine(directory, "ship.json");
+            try
+            {
+                SaveGameManager saveManager = new SaveGameManager(savePath);
+                SaveGameData data = new SaveGameData
+                {
+                    PlayerCredits = 7_500,
+                    CurrentShipName = "Pirate Transport"
+                };
+                if (!saveManager.TrySave(data, out string saveFailure))
+                {
+                    return Fail($"ship save failed: {saveFailure}");
+                }
+
+                if (!saveManager.TryLoad(out SaveGameData loaded, out string loadFailure))
+                {
+                    return Fail($"ship save load failed: {loadFailure}");
+                }
+
+                if (!string.Equals(loaded.CurrentShipName, data.CurrentShipName, StringComparison.OrdinalIgnoreCase) ||
+                    loaded.PlayerCredits != data.PlayerCredits)
+                {
+                    return Fail("ship identity or credits did not round-trip");
+                }
+
+                return Pass();
+            }
+            finally
+            {
+                try
+                {
+                    if (Directory.Exists(directory)) Directory.Delete(directory, true);
+                }
+                catch
+                {
+                    // Smoke cleanup must not hide the transaction result.
+                }
+            }
         }
 
         private static (bool Success, string FailureReason) Pass()
