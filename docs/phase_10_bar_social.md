@@ -57,5 +57,6 @@ system, shop, branching dialogue, or persistence was added.
 - Synthetic frustum sample: 8 active, 3 visible, 5 culled, 64,512 bone
   upload bytes/frame, 0 dynamic vertex upload bytes/frame.
 - The runtime smoke/performance tooling was used in place of a manual remote
-  keyboard walk-through. No runtime screenshot was captured in this pass.
-
+  keyboard walk-through. Review artifact: `artifacts_phase10_bar_entrance.png`
+  captures the concourse-side Bar entrance. A manual interior walk-through
+  capture was not achieved because keyboard automation was unavailable.
