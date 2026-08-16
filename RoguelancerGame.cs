@@ -232,6 +232,7 @@ namespace Roguelancer {
         private readonly bool _runShipSmoke;
         private readonly bool _runEquipmentSmoke;
         private readonly bool _runHardpointSmoke;
+        private readonly bool _runBarSmoke;
         private readonly bool _runAllSmoke;
         private readonly bool _runPerformanceDiagnostics;
         private readonly bool _performanceAutoStation;
@@ -296,6 +297,7 @@ namespace Roguelancer {
             _runShipSmoke = args?.Any(arg => string.Equals(arg, "--ship-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runEquipmentSmoke = args?.Any(arg => string.Equals(arg, "--equipment-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runHardpointSmoke = args?.Any(arg => string.Equals(arg, "--hardpoint-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runBarSmoke = args?.Any(arg => string.Equals(arg, "--bar-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPerformanceDiagnostics = args?.Any(arg => string.Equals(arg, "--perf-diagnostics", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceAutoStation = args?.Any(arg => string.Equals(arg, "--perf-station", StringComparison.OrdinalIgnoreCase)) == true;
@@ -337,15 +339,15 @@ namespace Roguelancer {
         private static int ParsePerformanceCharacterCount(string[]? args)
         {
             string? value = args?.FirstOrDefault(arg => arg.StartsWith("--perf-characters=", StringComparison.OrdinalIgnoreCase));
-            if (value == null || !int.TryParse(value.Substring("--perf-characters=".Length), out int count)) return 3;
-            return Math.Clamp(count, 1, 6);
+            if (value == null || !int.TryParse(value.Substring("--perf-characters=".Length), out int count)) return 8;
+            return Math.Clamp(count, 1, 16);
         }
 
         private static int ParsePerformanceVisibleCharacterCount(string[]? args)
         {
             string? value = args?.FirstOrDefault(arg => arg.StartsWith("--perf-visible=", StringComparison.OrdinalIgnoreCase));
             if (value == null || !int.TryParse(value.Substring("--perf-visible=".Length), out int count)) return -1;
-            return Math.Clamp(count, 0, 6);
+            return Math.Clamp(count, 0, 16);
         }
 
         private static string ParseCharacterSkinningMode(string[]? args)
@@ -355,7 +357,11 @@ namespace Roguelancer {
             return mode is "cpu" or "gpu" ? mode : "gpu";
         }
 
-        private int RequestedStationNpcCount => _runPerformanceDiagnostics ? _performanceCharacterCount - 1 : 3;
+        private int RequestedStationNpcCount => _runPerformanceDiagnostics
+            ? Math.Max(0, _performanceCharacterCount - 1)
+            : StationBarSocial.CreateRoles().Count + 3;
+        private bool UseSyntheticPerformancePlacement => _runPerformanceDiagnostics &&
+            (_performanceCharacterCount != 8 || _performanceVisibleCharacterCount >= 0);
 
         private void SyncMountedGunWeaponProfile()
         {
@@ -1182,6 +1188,11 @@ namespace Roguelancer {
                 var result = RunHardpointSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runBarSmoke)
+            {
+                var result = RunBarSocialSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else
             {
                 TryAutoLoadSavedGame();
@@ -1243,6 +1254,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("ship smoke", RunShipSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("equipment smoke", RunEquipmentSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("hardpoint smoke", RunHardpointSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("bar social smoke", RunBarSocialSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1464,6 +1476,11 @@ namespace Roguelancer {
                 Console.WriteLine($"[HARDPOINT SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
+        }
+
+        private (int Passed, int Failed) RunBarSocialSmokeTest()
+        {
+            return new StationBarSocialSmokeTest().Run();
         }
 
         private bool HandleSaveLoadHotkeys(KeyboardState keyboardState)
@@ -4347,13 +4364,16 @@ namespace Roguelancer {
                 "EQUIPMENT",
                 "Press E to browse",
                 OpenEquipmentDealer));
-            _stationInteractions.Add(new StationInteraction(
-                "station-bar",
-                _stationTestScene.BarInteractionPosition,
-                2.0f,
-                "BAR",
-                "Press E to enter",
-                () => _notificationManager?.ShowMessage("Bar — interior not yet available", 2.5f)));
+            if (!_stationTestScene.IsBarDoorOpen)
+            {
+                _stationInteractions.Add(new StationInteraction(
+                    "station-bar-door",
+                    _stationTestScene.BarInteractionPosition,
+                    2.0f,
+                    "BAR",
+                    _stationTestScene.BarDoorActionLabel,
+                    OpenStationBarDoor));
+            }
 
             foreach (StationNpc npc in _stationNpcs)
             {
@@ -4372,35 +4392,10 @@ namespace Roguelancer {
         private StationInteraction GetActiveStationInteraction()
         {
             if (_stationPlayerCharacter == null) return null;
-            StationInteraction nearest = null;
-            float nearestScore = float.MaxValue;
-            Vector3 playerPosition = _stationPlayerCharacter.Position;
-            Vector3 forward = _stationPlayerCharacter.LogicalForward;
-            foreach (StationInteraction interaction in _stationInteractions)
-            {
-                Vector3 offset = interaction.Position - playerPosition;
-                float distanceSquared = offset.LengthSquared();
-                if (distanceSquared > interaction.Radius * interaction.Radius) continue;
-
-                // Nearest target is the primary rule. A small penalty for a
-                // target behind the player keeps an overlapping E prompt from
-                // selecting something the player has clearly walked past.
-                float score = distanceSquared;
-                offset.Y = 0.0f;
-                if (offset.LengthSquared() > 0.0001f)
-                {
-                    float facing = Vector3.Dot(Vector3.Normalize(offset), forward);
-                    if (facing < -0.25f) score += 0.35f;
-                }
-
-                if (score < nearestScore)
-                {
-                    nearest = interaction;
-                    nearestScore = score;
-                }
-            }
-
-            return nearest;
+            return StationInteractionResolver.FindNearest(
+                _stationInteractions,
+                _stationPlayerCharacter.Position,
+                _stationPlayerCharacter.LogicalForward);
         }
 
         private void OpenStationAirlock()
@@ -4410,12 +4405,19 @@ namespace Roguelancer {
             _notificationManager?.ShowMessage("Airlock opening", 1.25f);
         }
 
+        private void OpenStationBarDoor()
+        {
+            if (_stationTestScene?.TryOpenBarDoor() != true) return;
+            BuildStationInteractions();
+            _notificationManager?.ShowMessage("Bar door opening", 1.25f);
+        }
+
         private void TalkToStationNpc(StationNpc npc)
         {
             if (_stationPlayerCharacter == null || npc == null) return;
             npc.FacePlayer(_stationPlayerCharacter.Position);
-            _stationDialogueText = $"{npc.DisplayName}: {npc.DialogueText}";
-            _stationDialogueRemaining = 3.5f;
+            _stationDialogueText = $"{npc.Dialogue.Speaker}: {npc.Dialogue.Text}";
+            _stationDialogueRemaining = npc.Dialogue.Duration;
         }
 
         private void OpenShipDealer(StationNpc npc)
@@ -4569,7 +4571,7 @@ namespace Roguelancer {
                 string modelPath = Path.Combine(root, "Models", "GuyWalking2.glb");
                 if (!File.Exists(modelPath)) throw new FileNotFoundException("The station-test character model was not found", modelPath);
 
-                CharacterAsset prototypeAdam = _stationCharacterAssets.GetOrAdd("prototype-adam", () =>
+                CharacterAsset prototypeAdam = _stationCharacterAssets.GetOrAdd(StationBarSocial.SharedCharacterAssetId, () =>
                 {
                     Console.WriteLine($"[STATION TEST] Loading shared Prototype Adam source assets from {root}");
                     (CharacterGltfAsset model, CharacterGltfAnimationClip forward) = CharacterGltfAsset.LoadWithAnimation(modelPath, extractImages: true);
@@ -4587,7 +4589,7 @@ namespace Roguelancer {
                 player = new PlayerCharacter(prototypeAdam, _stationTestScene, _stationCharacterSkinningEffect);
                 if (RequestedStationNpcCount >= 1)
                 {
-                    Vector3 position = _runPerformanceDiagnostics ? GetPerformanceNpcPosition(0) : _stationTestScene.DockTechnicianPosition;
+                    Vector3 position = UseSyntheticPerformancePlacement ? GetPerformanceNpcPosition(0) : _stationTestScene.DockTechnicianPosition;
                     npcs.Add(new StationNpc(
                         "dock-technician",
                         "Dock Technician",
@@ -4602,7 +4604,7 @@ namespace Roguelancer {
                 }
                 if (RequestedStationNpcCount >= 2)
                 {
-                    Vector3 position = _runPerformanceDiagnostics ? GetPerformanceNpcPosition(1) : _stationTestScene.StationAttendantPosition;
+                    Vector3 position = UseSyntheticPerformancePlacement ? GetPerformanceNpcPosition(1) : _stationTestScene.StationAttendantPosition;
                     npcs.Add(new StationNpc(
                         "station-attendant",
                         "Station Attendant",
@@ -4617,7 +4619,7 @@ namespace Roguelancer {
                 }
                 if (RequestedStationNpcCount >= 3)
                 {
-                    Vector3 position = _runPerformanceDiagnostics ? GetPerformanceNpcPosition(2) : _stationTestScene.ShipDealerPosition;
+                    Vector3 position = UseSyntheticPerformancePlacement ? GetPerformanceNpcPosition(2) : _stationTestScene.ShipDealerPosition;
                     npcs.Add(new StationNpc(
                         "ship-dealer",
                         "Ship Dealer",
@@ -4630,7 +4632,30 @@ namespace Roguelancer {
                         interactive: true,
                         skinningEffect: _stationCharacterSkinningEffect));
                 }
-                for (int i = 3; i < RequestedStationNpcCount; i++)
+                foreach (StationSocialNpcDefinition role in StationBarSocial.CreateRoles())
+                {
+                    if (npcs.Count >= RequestedStationNpcCount) break;
+                    bool performancePlacement = UseSyntheticPerformancePlacement;
+                    Vector3 position = performancePlacement
+                        ? GetPerformanceNpcPosition(npcs.Count)
+                        : role.Position;
+                    npcs.Add(new StationNpc(
+                        role.Id,
+                        role.DisplayName,
+                        prototypeAdam,
+                        position,
+                        performancePlacement ? 180.0f : role.YawDegrees,
+                        role.InteractionRadius,
+                        role.Dialogue.Text,
+                        role.IdleOffset,
+                        interactive: true,
+                        skinningEffect: _stationCharacterSkinningEffect,
+                        interactionRole: role.InteractionRole,
+                        hasFutureMissionHook: role.HasFutureMissionHook,
+                        dialogueDuration: role.Dialogue.Duration));
+                }
+
+                for (int i = npcs.Count; i < RequestedStationNpcCount; i++)
                 {
                     npcs.Add(new StationNpc(
                         $"perf-npc-{i + 1}",
@@ -5159,6 +5184,8 @@ namespace Roguelancer {
             DrawStationSign("SHIP DEALER", new Vector3(7.0f, 4.1f, 34.25f), Color.Gold, 0.62f);
             DrawStationSign("EQUIPMENT", new Vector3(7.4f, 4.0f, 41.2f), Color.LightSkyBlue, 0.58f);
             DrawStationSign("BAR", new Vector3(-7.25f, 5.55f, 39.9f), Color.LightSkyBlue, 0.62f);
+            DrawStationSign("SOCIAL FLOOR", new Vector3(-7.25f, 3.55f, 48.95f), Color.Gold, 0.48f);
+            DrawStationSign("BACK ROOM // OFFLINE", new Vector3(-1.05f, 2.65f, 60.75f), Color.LightSkyBlue, 0.36f);
         }
 
         private void DrawStationSign(string text, Vector3 worldPosition, Color color, float scale)

@@ -26,7 +26,10 @@ public sealed class StationNpc : IDisposable
         string dialogueText,
         float animationStartTime,
         bool interactive = true,
-        Microsoft.Xna.Framework.Graphics.Effect? skinningEffect = null)
+        Microsoft.Xna.Framework.Graphics.Effect? skinningEffect = null,
+        StationNpcInteractionRole interactionRole = StationNpcInteractionRole.Dialogue,
+        bool hasFutureMissionHook = false,
+        float dialogueDuration = 3.5f)
     {
         Id = id ?? throw new ArgumentNullException(nameof(id));
         DisplayName = displayName ?? throw new ArgumentNullException(nameof(displayName));
@@ -35,6 +38,9 @@ public sealed class StationNpc : IDisposable
         YawDegrees = yawDegrees;
         InteractionRadius = interactionRadius;
         DialogueText = dialogueText ?? string.Empty;
+        Dialogue = new StationDialogue(DisplayName, DialogueText, dialogueDuration);
+        InteractionRole = interactionRole;
+        HasFutureMissionHook = hasFutureMissionHook;
         _animationStartTime = animationStartTime;
         _modelYawCorrectionDegrees = assets.ModelConfiguration.RenderYawCorrectionDegrees;
         _animation = new CharacterAnimationController(assets.Model, assets.Animations);
@@ -52,7 +58,10 @@ public sealed class StationNpc : IDisposable
     public float YawDegrees { get; private set; }
     public float InteractionRadius { get; }
     public string DialogueText { get; }
+    public StationDialogue Dialogue { get; }
     public bool IsInteractive { get; }
+    public StationNpcInteractionRole InteractionRole { get; }
+    public bool HasFutureMissionHook { get; }
     public CharacterAsset Assets => _assets;
     public CharacterAnimationController Animation => _animation;
     public CharacterRenderer Renderer => _renderer;
