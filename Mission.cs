@@ -1,24 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
-
-
 using Microsoft.Xna.Framework;
 
 namespace Roguelancer
 {
-    /// <summary>
-    /// Types of missions available in the game
-    /// </summary>
     public enum MissionType
     {
+        ReachLocation,
+        DestroyHostiles,
         Delivery,
         Bounty,
         Escort
     }
 
-    /// <summary>
-    /// Mission difficulty / risk level
-    /// </summary>
     public enum MissionDifficulty
     {
         Easy,
@@ -28,30 +23,148 @@ namespace Roguelancer
     }
 
     /// <summary>
-    /// Current status of a mission
+    /// Explicit mission lifecycle. Active remains a source-compatible alias
+    /// for the pre-Phase-11 navigation code.
     /// </summary>
     public enum MissionStatus
     {
         Available,
-        Active,
+        Accepted,
+        InProgress,
+        Active = InProgress,
         Completed,
-        Failed
+        Failed,
+        Rewarded
+    }
+
+    public sealed class MissionDefinition
+    {
+        public MissionDefinition(
+            string id,
+            string title,
+            string description,
+            MissionType type,
+            int rewardCredits,
+            string targetLocation,
+            int targetCount = 1,
+            int targetSystemIndex = 0,
+            string targetFactionId = null)
+        {
+            Id = id ?? string.Empty;
+            Title = title ?? string.Empty;
+            Description = description ?? string.Empty;
+            Type = type;
+            RewardCredits = rewardCredits;
+            TargetLocation = targetLocation ?? string.Empty;
+            TargetCount = targetCount;
+            TargetSystemIndex = targetSystemIndex;
+            TargetFactionId = FactionManager.NormalizeFactionId(targetFactionId);
+        }
+
+        public string Id { get; }
+        public string Title { get; }
+        public string Description { get; }
+        public MissionType Type { get; }
+        public int RewardCredits { get; }
+        public string TargetLocation { get; }
+        public int TargetCount { get; }
+        public int TargetSystemIndex { get; }
+        public string TargetFactionId { get; }
+
+        public bool IsValid(out string reason)
+        {
+            if (string.IsNullOrWhiteSpace(Id)) { reason = "definition id is empty"; return false; }
+            if (string.IsNullOrWhiteSpace(Title)) { reason = "definition title is empty"; return false; }
+            if (string.IsNullOrWhiteSpace(Description)) { reason = "definition description is empty"; return false; }
+            if (RewardCredits <= 0) { reason = "reward must be positive"; return false; }
+            if (TargetCount <= 0) { reason = "target count must be positive"; return false; }
+            if ((Type == MissionType.ReachLocation || Type == MissionType.DestroyHostiles) &&
+                string.IsNullOrWhiteSpace(TargetLocation))
+            {
+                reason = "prototype target location is empty";
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+    }
+
+    /// <summary>Fixed Phase 11 board catalog; UI code does not own metadata.</summary>
+    public static class MissionCatalog
+    {
+        public const string PatrolSweepId = "patrol-sweep";
+        public const string RogueHuntId = "rogue-hunt";
+
+        private static readonly IReadOnlyList<MissionDefinition> Definitions = new[]
+        {
+            new MissionDefinition(
+                PatrolSweepId,
+                "Patrol Sweep",
+                "Check the patrol marker outside the originating station.",
+                MissionType.ReachLocation,
+                1500,
+                "Origin station patrol marker"),
+            new MissionDefinition(
+                RogueHuntId,
+                "Rogue Hunt",
+                "Clear a small mission-designated rogue flight near the station.",
+                MissionType.DestroyHostiles,
+                4000,
+                "Mission rogue flight",
+                targetCount: 3,
+                targetFactionId: FactionManager.LibertyRogues)
+        };
+
+        public static IReadOnlyList<MissionDefinition> All => Definitions;
+
+        public static MissionDefinition GetById(string id)
+        {
+            return Definitions.FirstOrDefault(definition =>
+                string.Equals(definition.Id, id, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public static List<Mission> CreateRuntimeMissions(string offeredBy = "Mission Board", string factionId = null)
+        {
+            return Definitions.Select(definition => Mission.FromDefinition(definition, offeredBy, factionId)).ToList();
+        }
+
+        public static bool Validate(out string reason)
+        {
+            HashSet<string> ids = new(StringComparer.OrdinalIgnoreCase);
+            foreach (MissionDefinition definition in Definitions)
+            {
+                if (!definition.IsValid(out reason)) return false;
+                if (!ids.Add(definition.Id))
+                {
+                    reason = $"duplicate mission id '{definition.Id}'";
+                    return false;
+                }
+            }
+
+            reason = string.Empty;
+            return true;
+        }
     }
 
     /// <summary>
-    /// Represents a single mission that can be offered, accepted, tracked, and completed
+    /// Runtime mission state. Definition metadata is copied at acceptance;
+    /// progress, origin, target binding, and reward state live here.
     /// </summary>
     public class Mission
     {
         private static int _nextId = 1;
 
         public int Id { get; }
+        public string DefinitionId { get; }
+        public string Title { get; }
         public MissionType Type { get; }
         public MissionDifficulty Difficulty { get; }
         public MissionStatus Status { get; set; }
         public string Target { get; }
         public string Destination { get; }
         public int Reward { get; }
+        public int RewardCredits => Reward;
         public float TimeLimit { get; }
         public float ElapsedTime { get; set; }
         public string Description { get; }
@@ -59,176 +172,323 @@ namespace Roguelancer
         public string FactionId { get; set; }
         public string BountyTargetFactionId { get; set; }
 
-        // Progress tracking
-        public bool ObjectiveComplete { get; set; }
+        public string TargetLocation { get; set; }
+        public int TargetSystemIndex { get; set; }
+        public int TargetCount { get; set; }
+        public int RequiredProgress { get; set; }
+        public int CurrentProgress { get; set; }
+        public int ObjectiveRadius { get; set; } = 500;
 
-        // Waypoint / marker tracking (resolved at runtime by MissionWaypointSystem)
+        public string OriginStationId { get; set; } = string.Empty;
+        public string OriginStationName { get; set; } = string.Empty;
+        public int OriginSystemIndex { get; set; }
+        public DateTime AcceptedAtUtc { get; set; }
+        public bool RewardPaid { get; set; }
+
+        public bool ObjectiveComplete { get; set; }
         public Vector3? TargetPosition { get; set; }
         public SpaceObject TargetSpaceObject { get; set; }
 
         public bool IsExpired => TimeLimit > 0 && ElapsedTime >= TimeLimit;
         public float TimeRemaining => TimeLimit > 0 ? Math.Max(0, TimeLimit - ElapsedTime) : -1;
+        public bool IsActive => Status is MissionStatus.Accepted or MissionStatus.InProgress;
+        public bool HasUnclaimedReward => Status == MissionStatus.Completed && !RewardPaid;
 
-        public Mission(MissionType type, MissionDifficulty difficulty, string target, string destination, int reward, float timeLimit, string description, string factionId = null)
+        public Mission(
+            MissionType type,
+            MissionDifficulty difficulty,
+            string target,
+            string destination,
+            int reward,
+            float timeLimit,
+            string description,
+            string factionId = null)
+            : this(
+                0,
+                string.Empty,
+                description,
+                type,
+                difficulty,
+                MissionStatus.Available,
+                target,
+                destination,
+                reward,
+                timeLimit,
+                description,
+                string.Empty,
+                factionId,
+                destination,
+                0,
+                1,
+                0,
+                1,
+                false,
+                null,
+                string.Empty,
+                string.Empty,
+                0,
+                DateTime.MinValue,
+                false)
         {
-            Id = _nextId++;
-            Type = type;
-            Difficulty = difficulty;
-            Status = MissionStatus.Available;
-            Target = target;
-            Destination = destination;
-            Reward = reward;
-            TimeLimit = timeLimit;
-            ElapsedTime = 0f;
-            Description = description;
-            OfferedBy = "";
-            FactionId = FactionManager.NormalizeFactionId(factionId);
-            BountyTargetFactionId = string.Empty;
-            ObjectiveComplete = false;
         }
 
-        private Mission(int id, MissionType type, MissionDifficulty difficulty, MissionStatus status, string target, string destination, int reward, float timeLimit, string description, string offeredBy, string factionId, float elapsedTime, bool objectiveComplete)
+        private Mission(
+            int id,
+            string definitionId,
+            string title,
+            MissionType type,
+            MissionDifficulty difficulty,
+            MissionStatus status,
+            string target,
+            string destination,
+            int reward,
+            float timeLimit,
+            string description,
+            string offeredBy,
+            string factionId,
+            string targetLocation,
+            int targetSystemIndex,
+            int targetCount,
+            int currentProgress,
+            int requiredProgress,
+            bool objectiveComplete,
+            Vector3? targetPosition,
+            string originStationId,
+            string originStationName,
+            int originSystemIndex,
+            DateTime acceptedAtUtc,
+            bool rewardPaid)
         {
             Id = id > 0 ? id : _nextId++;
+            if (_nextId <= Id) _nextId = Id + 1;
+            DefinitionId = definitionId ?? string.Empty;
+            Title = string.IsNullOrWhiteSpace(title) ? description ?? string.Empty : title;
             Type = type;
             Difficulty = difficulty;
             Status = status;
             Target = target ?? string.Empty;
             Destination = destination ?? string.Empty;
-            Reward = reward;
+            Reward = Math.Max(0, reward);
             TimeLimit = Math.Max(0f, timeLimit);
-            ElapsedTime = Math.Max(0f, elapsedTime);
+            ElapsedTime = 0f;
             Description = description ?? string.Empty;
             OfferedBy = offeredBy ?? string.Empty;
             FactionId = FactionManager.NormalizeFactionId(factionId);
             BountyTargetFactionId = string.Empty;
-            ObjectiveComplete = objectiveComplete;
-
-            if (_nextId <= Id)
-            {
-                _nextId = Id + 1;
-            }
+            TargetLocation = targetLocation ?? string.Empty;
+            TargetSystemIndex = Math.Max(0, targetSystemIndex);
+            TargetCount = Math.Max(1, targetCount);
+            RequiredProgress = Math.Max(1, requiredProgress);
+            CurrentProgress = Math.Clamp(currentProgress, 0, RequiredProgress);
+            ObjectiveComplete = objectiveComplete || CurrentProgress >= RequiredProgress;
+            TargetPosition = targetPosition;
+            OriginStationId = originStationId ?? string.Empty;
+            OriginStationName = originStationName ?? string.Empty;
+            OriginSystemIndex = Math.Max(0, originSystemIndex);
+            AcceptedAtUtc = acceptedAtUtc;
+            RewardPaid = rewardPaid;
         }
 
-        /// <summary>
-        /// Restore a mission from save data without disturbing the save file's mission identity.
-        /// </summary>
-        public static Mission CreateRestored(int id, MissionType type, MissionDifficulty difficulty, MissionStatus status, string target, string destination, int reward, float timeLimit, string description, string offeredBy, string factionId, float elapsedTime, bool objectiveComplete)
+        public static Mission FromDefinition(MissionDefinition definition, string offeredBy = "Mission Board", string factionId = null)
         {
-            return new Mission(id, type, difficulty, status, target, destination, reward, timeLimit, description, offeredBy, factionId, elapsedTime, objectiveComplete);
+            if (definition == null) return null;
+            return new Mission(
+                0,
+                definition.Id,
+                definition.Title,
+                definition.Type,
+                MissionDifficulty.Easy,
+                MissionStatus.Available,
+                definition.TargetLocation,
+                definition.TargetLocation,
+                definition.RewardCredits,
+                0f,
+                definition.Description,
+                offeredBy,
+                factionId ?? definition.TargetFactionId,
+                definition.TargetLocation,
+                definition.TargetSystemIndex,
+                definition.TargetCount,
+                0,
+                definition.TargetCount,
+                false,
+                null,
+                string.Empty,
+                string.Empty,
+                0,
+                DateTime.MinValue,
+                false);
         }
 
-        /// <summary>
-        /// Get a short summary string for UI display
-        /// </summary>
-        public string GetSummary()
+        public static Mission CreateRestored(
+            int id,
+            MissionType type,
+            MissionDifficulty difficulty,
+            MissionStatus status,
+            string target,
+            string destination,
+            int reward,
+            float timeLimit,
+            string description,
+            string offeredBy,
+            string factionId,
+            float elapsedTime,
+            bool objectiveComplete)
         {
-            return $"[{GetTypeLabel()}] {GetObjectiveText()} | {GetRiskLabel()} | Reward: {Reward:N0} CR | Client: {GetClientLabel()}";
+            Mission mission = new Mission(
+                id,
+                string.Empty,
+                description,
+                type,
+                difficulty,
+                status,
+                target,
+                destination,
+                reward,
+                timeLimit,
+                description,
+                offeredBy,
+                factionId,
+                destination,
+                0,
+                1,
+                objectiveComplete ? 1 : 0,
+                1,
+                objectiveComplete,
+                null,
+                string.Empty,
+                string.Empty,
+                0,
+                DateTime.MinValue,
+                false);
+            mission.ElapsedTime = Math.Max(0f, elapsedTime);
+            return mission;
         }
 
-        /// <summary>
-        /// Get a detailed multi-line description for mission info panel
-        /// </summary>
-        public string GetDetailedDescription()
+        public static Mission CreateRestored(
+            int id,
+            string definitionId,
+            string title,
+            MissionType type,
+            MissionDifficulty difficulty,
+            MissionStatus status,
+            string target,
+            string destination,
+            int reward,
+            float timeLimit,
+            string description,
+            string offeredBy,
+            string factionId,
+            float elapsedTime,
+            bool objectiveComplete,
+            string targetLocation,
+            int targetSystemIndex,
+            int targetCount,
+            int currentProgress,
+            int requiredProgress,
+            int objectiveRadius,
+            string originStationId,
+            string originStationName,
+            int originSystemIndex,
+            DateTime acceptedAtUtc,
+            bool rewardPaid,
+            SaveVector3Data targetPosition)
         {
-            string timeStr = TimeLimit > 0 ? $"Time Limit: {TimeLimit:F0}s" : "Time Limit: None";
-            string targetFaction = Type == MissionType.Bounty
-                ? GetTargetFactionLabel()
-                : "Target Faction: N/A";
-
-            if (Type == MissionType.Escort)
-            {
-                return
-                    $"Type: {GetTypeLabel()}\n" +
-                    $"Objective: Protect {GetTargetLabel()}\n" +
-                    $"Destination: {GetDestinationLabel()}\n" +
-                    $"Status: {GetEscortStatusLabel()}\n" +
-                    $"Reward: {Reward:N0} CR\n" +
-                    $"Risk: {GetRiskLabel()}\n" +
-                    $"Client: {GetClientLabel()}\n" +
-                    $"Faction: {FactionManager.GetFactionDisplayName(FactionId)}\n" +
-                    $"{timeStr}";
-            }
-
-            return
-                $"Objective: {GetObjectiveText()}\n" +
-                $"Target: {GetTargetLabel()}\n" +
-                $"Destination: {GetDestinationLabel()}\n" +
-                $"{targetFaction}\n" +
-                $"Reward: {Reward:N0} CR\n" +
-                $"Risk: {GetRiskLabel()}\n" +
-                $"Client: {GetClientLabel()}\n" +
-                $"{timeStr}";
+            Mission mission = new Mission(
+                id,
+                definitionId,
+                title,
+                type,
+                difficulty,
+                status,
+                target,
+                destination,
+                reward,
+                timeLimit,
+                description,
+                offeredBy,
+                factionId,
+                targetLocation,
+                targetSystemIndex,
+                targetCount,
+                currentProgress,
+                requiredProgress,
+                objectiveComplete,
+                targetPosition?.ToVector3(),
+                originStationId,
+                originStationName,
+                originSystemIndex,
+                acceptedAtUtc,
+                rewardPaid);
+            mission.ElapsedTime = Math.Max(0f, elapsedTime);
+            mission.ObjectiveRadius = Math.Clamp(objectiveRadius <= 0 ? 500 : objectiveRadius, 1, 10000);
+            return mission;
         }
 
-        public string GetTypeLabel()
+        public void SetOrigin(Station station)
         {
-            return Type switch
-            {
-                MissionType.Delivery => "DELIVERY",
-                MissionType.Bounty => "BOUNTY",
-                MissionType.Escort => "ESCORT",
-                _ => "MISSION"
-            };
+            OriginStationName = station?.Name ?? "Station Test Bay";
+            OriginStationId = station == null ? "station-test-bay" : BuildStationIdentity(station);
+            OriginSystemIndex = station?.Config?.SystemIndex ?? 0;
+            if (TargetSystemIndex <= 0) TargetSystemIndex = OriginSystemIndex;
         }
 
-        public string GetRiskLabel()
+        public static string BuildStationIdentity(Station station)
         {
-            return Difficulty switch
-            {
-                MissionDifficulty.Easy => "LOW RISK",
-                MissionDifficulty.Medium => "MODERATE RISK",
-                MissionDifficulty.Hard => "HIGH RISK",
-                MissionDifficulty.Deadly => "EXTREME RISK",
-                _ => "UNKNOWN"
-            };
+            if (station == null) return "station-test-bay";
+            return $"{station.Config?.SystemIndex ?? 0}:{station.Name}";
         }
 
-        public string GetClientLabel()
+        public string GetSummary() =>
+            $"[{GetTypeLabel()}] {GetObjectiveText()} | Reward: {Reward:N0} CR | Client: {GetClientLabel()}";
+
+        public string GetDetailedDescription() =>
+            $"Type: {GetTypeLabel()}\nObjective: {GetObjectiveText()}\nReward: {Reward:N0} CR\nClient: {GetClientLabel()}\nStatus: {Status}";
+
+        public string GetTypeLabel() => Type switch
         {
-            if (!string.IsNullOrWhiteSpace(OfferedBy))
-            {
-                return OfferedBy.Trim();
-            }
+            MissionType.ReachLocation => "REACH LOCATION",
+            MissionType.DestroyHostiles => "DESTROY HOSTILES",
+            MissionType.Delivery => "DELIVERY",
+            MissionType.Bounty => "BOUNTY",
+            MissionType.Escort => "ESCORT",
+            _ => "MISSION"
+        };
 
-            return FactionManager.GetFactionDisplayName(FactionId);
-        }
-
-        public string GetEscortStatusLabel()
+        public string GetRiskLabel() => Difficulty switch
         {
-            return Status switch
-            {
-                MissionStatus.Available => "Available",
-                MissionStatus.Active => "In Progress",
-                MissionStatus.Completed => "Arrived",
-                MissionStatus.Failed => "Failed",
-                _ => "Unknown"
-            };
-        }
+            MissionDifficulty.Easy => "LOW RISK",
+            MissionDifficulty.Medium => "MODERATE RISK",
+            MissionDifficulty.Hard => "HIGH RISK",
+            MissionDifficulty.Deadly => "EXTREME RISK",
+            _ => "UNKNOWN"
+        };
 
-        public string GetEscortShipName()
+        public string GetClientLabel() => !string.IsNullOrWhiteSpace(OfferedBy)
+            ? OfferedBy.Trim()
+            : FactionManager.GetFactionDisplayName(FactionId);
+
+        public string GetEscortStatusLabel() => Status switch
         {
-            string baseName = !string.IsNullOrWhiteSpace(Target)
-                ? Target.Trim()
-                : "Escort Convoy";
+            MissionStatus.Available => "Available",
+            MissionStatus.Accepted or MissionStatus.InProgress => "In Progress",
+            MissionStatus.Completed => "Arrived",
+            MissionStatus.Failed => "Failed",
+            MissionStatus.Rewarded => "Rewarded",
+            _ => "Unknown"
+        };
 
-            return $"{baseName} {Id}";
-        }
+        public string GetEscortShipName() =>
+            $"{(string.IsNullOrWhiteSpace(Target) ? "Escort Convoy" : Target.Trim())} {Id}";
 
         public string GetTargetLabel()
         {
+            if (Type == MissionType.DestroyHostiles)
+                return string.IsNullOrWhiteSpace(TargetLocation) ? "Mission rogue flight" : TargetLocation;
             if (!string.IsNullOrWhiteSpace(Target))
             {
-                if (Type == MissionType.Escort)
-                {
-                    if (TargetSpaceObject is NpcShip escortShip && !escortShip.IsDestroyed && !string.IsNullOrWhiteSpace(escortShip.Name))
-                    {
-                        return escortShip.Name.Trim();
-                    }
-
-                    return GetEscortShipName();
-                }
-
+                if (Type == MissionType.Escort && TargetSpaceObject is NpcShip escortShip && !escortShip.IsDestroyed)
+                    return string.IsNullOrWhiteSpace(escortShip.Name) ? GetEscortShipName() : escortShip.Name.Trim();
                 return Target.Trim();
             }
 
@@ -236,68 +496,45 @@ namespace Roguelancer
             {
                 MissionType.Bounty => "Target signal unresolved",
                 MissionType.Escort => "Escort signal unresolved",
+                MissionType.ReachLocation => TargetLocation,
                 _ => "Cargo unavailable"
             };
         }
 
-        public string GetDestinationLabel()
+        public string GetDestinationLabel() => !string.IsNullOrWhiteSpace(Destination)
+            ? Destination.Trim()
+            : Type is MissionType.Escort or MissionType.Delivery ? "Destination unavailable" : "Location unavailable";
+
+        public string GetTargetFactionLabel() => FactionManager.GetFactionDisplayName(
+            string.IsNullOrWhiteSpace(BountyTargetFactionId) ? FactionId : BountyTargetFactionId);
+
+        public string GetObjectiveText() => Type switch
         {
-            if (!string.IsNullOrWhiteSpace(Destination))
-            {
-                return Destination.Trim();
-            }
+            MissionType.ReachLocation => $"Reach {GetDestinationLabel()}",
+            MissionType.DestroyHostiles => $"Destroy hostiles: {CurrentProgress} / {RequiredProgress}",
+            MissionType.Delivery => $"Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
+            MissionType.Bounty => $"Destroy {GetTargetLabel()}",
+            MissionType.Escort => $"Escort {GetTargetLabel()} to {GetDestinationLabel()}",
+            _ => Description
+        };
 
-            return Type == MissionType.Escort || Type == MissionType.Delivery
-                ? "Destination unavailable"
-                : "Location unavailable";
-        }
+        public string GetHudHeadline() => Title;
 
-        public string GetTargetFactionLabel()
+        public string GetHudFallbackLine() => Type switch
         {
-            string factionId = !string.IsNullOrWhiteSpace(BountyTargetFactionId)
-                ? BountyTargetFactionId
-                : FactionManager.LibertyRogues;
+            MissionType.ReachLocation => TargetPosition.HasValue ? $"Reach {GetDestinationLabel()}" : "Patrol marker unresolved",
+            MissionType.DestroyHostiles => $"Hostiles destroyed: {CurrentProgress} / {RequiredProgress}",
+            MissionType.Bounty => string.IsNullOrWhiteSpace(Target) ? "Target signal unresolved" : string.Empty,
+            MissionType.Delivery => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty,
+            MissionType.Escort => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty,
+            _ => string.Empty
+        };
 
-            return FactionManager.GetFactionDisplayName(factionId);
-        }
-
-        public string GetObjectiveText()
+        public string GetHudProgressLine() => Type switch
         {
-            return Type switch
-            {
-                MissionType.Delivery => $"Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
-                MissionType.Bounty => $"Destroy {GetTargetLabel()}",
-                MissionType.Escort => $"Escort {GetTargetLabel()} to {GetDestinationLabel()}",
-                _ => Description
-            };
-        }
-
-        public string GetHudHeadline()
-        {
-            return Type switch
-            {
-                MissionType.Bounty => $"Bounty: Destroy {GetTargetLabel()}",
-                MissionType.Delivery => $"Delivery: Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
-                MissionType.Escort => $"Escort: Protect {GetTargetLabel()}",
-                _ => GetObjectiveText()
-            };
-        }
-
-        public string GetHudFallbackLine()
-        {
-            return Type switch
-            {
-                MissionType.Bounty => string.IsNullOrWhiteSpace(Target) ? "Target signal unresolved" : string.Empty,
-                MissionType.Delivery => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty,
-                MissionType.Escort => string.Join(" | ", new[]
-                {
-                    TargetSpaceObject is NpcShip escortShip && !escortShip.IsDestroyed
-                        ? string.Empty
-                        : "Escort signal unresolved",
-                    string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty
-                }.Where(text => !string.IsNullOrWhiteSpace(text))),
-                _ => string.Empty
-            };
-        }
+            MissionType.DestroyHostiles => $"Hostiles destroyed: {CurrentProgress} / {RequiredProgress}",
+            MissionType.ReachLocation => $"Reach {GetDestinationLabel()}",
+            _ => GetObjectiveText()
+        };
     }
 }

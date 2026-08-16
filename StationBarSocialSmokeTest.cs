@@ -21,6 +21,7 @@ internal sealed class StationBarSocialSmokeTest
         RunCase(ValidateSocialRoles, "bartender and three patron roles", ref passed, ref failed);
         RunCase(ValidateDialoguePayloads, "speaker and bounded dialogue payloads", ref passed, ref failed);
         RunCase(ValidateSingleInteractionResolution, "one-target social interaction resolution", ref passed, ref failed);
+        RunCase(ValidateMissionBoardPlacement, "mission board placement and signage", ref passed, ref failed);
         Console.WriteLine($"[BAR SOCIAL SMOKE] RESULT: {passed} passed, {failed} failed");
         return (passed, failed);
     }
@@ -126,6 +127,21 @@ internal sealed class StationBarSocialSmokeTest
             Vector3.Forward);
         if (nearest == null || nearest.Id != "npc-smuggler") return Fail("nearest social target was not selected");
         if (interactions.Count != 4) return Fail("social target list did not remain one target per NPC");
+        return Pass();
+    }
+
+    private static (bool, string) ValidateMissionBoardPlacement()
+    {
+        StationTestScene scene = new();
+        StationBarLayout layout = StationBarSocial.Layout;
+        Vector3 board = scene.MissionBoardInteractionPosition;
+        if (scene.MissionBoardSignText != "MISSION BOARD")
+            return Fail("mission board signage text was not configured");
+        if (board.X < layout.Minimum.X || board.X > layout.Maximum.X ||
+            board.Z < layout.Minimum.Z || board.Z > layout.Maximum.Z)
+            return Fail("mission board interaction point is outside the bar");
+        if (Vector3.Distance(board, layout.DoorPosition) < 2.0f)
+            return Fail("mission board is blocking the bar entrance");
         return Pass();
     }
 

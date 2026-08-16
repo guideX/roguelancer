@@ -10,6 +10,7 @@ namespace Roguelancer
     {
         private List<Mission> _availableMissions = new();
         private MissionManager _missionManager;
+        private Station _originStation;
 
         public IReadOnlyList<Mission> AvailableMissions => _availableMissions.AsReadOnly();
         public int SelectedIndex { get; set; }
@@ -25,6 +26,7 @@ namespace Roguelancer
         public void RefreshMissions(int count = 6, string factionId = null, Station originStation = null)
         {
             _availableMissions.Clear();
+            _originStation = originStation;
             if (_missionManager != null)
             {
                 _availableMissions.AddRange(_missionManager.GenerateJobBoardMissions(count, factionId, originStation));
@@ -46,7 +48,7 @@ namespace Roguelancer
             {
                 mission.OfferedBy = "Job Board";
             }
-            bool accepted = _missionManager.AcceptMission(mission);
+            bool accepted = _missionManager.AcceptMission(mission, _originStation);
 
             if (accepted)
             {

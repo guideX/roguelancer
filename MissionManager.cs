@@ -6,389 +6,198 @@ using Microsoft.Xna.Framework;
 namespace Roguelancer
 {
     /// <summary>
-    /// Manages all missions: generation, tracking, completion, and failure
+    /// Authoritative player mission state. Phase 11 intentionally keeps one
+    /// active mission and separates objective completion from reward claiming.
     /// </summary>
     public class MissionManager
     {
-        private List<Mission> _activeMissions = new();
-        private List<Mission> _completedMissions = new();
-        private Random _random = new();
-        private PlayerCredits _playerCredits;
-        private NotificationManager _notificationManager;
-        private MissionWaypointSystem _waypointSystem;
+        private readonly List<Mission> _activeMissions = new();
+        private readonly List<Mission> _completedMissions = new();
+        private readonly HashSet<NpcShip> _countedHostileKills = new();
+        private readonly Random _random = new();
+        private readonly PlayerCredits _playerCredits;
+        private readonly NotificationManager _notificationManager;
         private ReputationManager _reputationManager;
+        private MissionWaypointSystem _waypointSystem;
         private MissionWorldManager _worldManager;
 
-        // Mission generation data
-        private static readonly string[] DeliveryTargets = {
-            "Medical Supplies", "H-Fuel Cells", "Luxury Goods",
-            "Construction Materials", "Military Hardware", "Food Rations",
-            "Side Arms", "Engine Components", "Boron", "Diamonds"
+        private static readonly string[] DeliveryTargets =
+        {
+            "Medical Supplies", "H-Fuel Cells", "Construction Materials", "Food Rations"
         };
 
-        private static readonly string[] DeliveryDestinations = {
-            "Fort Bush", "Trenton Outpost", "Newark Station",
-            "Rochester Base", "Norfolk Shipyard", "West Point Military Academy",
-            "Detroit Munitions", "Battleship Missouri", "Buffalo Base"
+        private static readonly string[] DeliveryDestinations =
+        {
+            "Fort Bush", "Trenton Outpost", "Newark Station", "Rochester Base"
         };
 
-        private static readonly string[] BountyTargets = {
-            "Rogue Pilot", "Pirate Commander", "Lane Hacker Scout",
-            "Outcast Smuggler", "Corsair Raider", "Xeno Operative",
-            "Rogue Wingman", "Junker Scavenger", "Nomad Drone"
-        };
-
-        private static readonly string[] EscortTargets = {
-            "Trade Convoy", "Diplomatic Shuttle", "Supply Freighter",
-            "Research Vessel", "Refugee Transport", "Mining Barge"
+        private static readonly string[] BountyTargets =
+        {
+            "Rogue Pilot", "Pirate Commander", "Outcast Smuggler", "Corsair Raider"
         };
 
         public IReadOnlyList<Mission> ActiveMissions => _activeMissions.AsReadOnly();
         public IReadOnlyList<Mission> CompletedMissions => _completedMissions.AsReadOnly();
+        public Mission ActiveMission => _activeMissions.FirstOrDefault();
+        public Mission UnclaimedCompletedMission => _completedMissions.FirstOrDefault(mission =>
+            mission != null && mission.Status == MissionStatus.Completed && !mission.RewardPaid);
 
-        public MissionManager(PlayerCredits playerCredits, NotificationManager notificationManager, ReputationManager reputationManager = null)
+        public MissionManager(
+            PlayerCredits playerCredits,
+            NotificationManager notificationManager,
+            ReputationManager reputationManager = null)
         {
             _playerCredits = playerCredits;
             _notificationManager = notificationManager;
             _reputationManager = reputationManager;
         }
 
-        public void SetReputationManager(ReputationManager reputationManager)
-        {
-            _reputationManager = reputationManager;
-        }
+        public void SetReputationManager(ReputationManager reputationManager) => _reputationManager = reputationManager;
+        public void SetWaypointSystem(MissionWaypointSystem waypointSystem) => _waypointSystem = waypointSystem;
+        public void SetWorldManager(MissionWorldManager worldManager) => _worldManager = worldManager;
 
-        /// <summary>
-        /// Set the waypoint system reference for automatic registration/unregistration
-        /// </summary>
-        public void SetWaypointSystem(MissionWaypointSystem waypointSystem)
-        {
-            _waypointSystem = waypointSystem;
-        }
-
-        public void SetWorldManager(MissionWorldManager worldManager)
-        {
-            _worldManager = worldManager;
-        }
-
-        /// <summary>
-        /// Clear all mission state and unregister any active waypoints.
-        /// </summary>
         public void ClearState()
         {
-            foreach (var mission in _activeMissions)
-            {
+            foreach (Mission mission in _activeMissions)
                 _waypointSystem?.UnregisterMission(mission);
-            }
 
             _activeMissions.Clear();
             _completedMissions.Clear();
+            _countedHostileKills.Clear();
             _worldManager?.ClearState();
         }
 
-        /// <summary>
-        /// Restore saved mission state.
-        /// </summary>
         public void RestoreState(IEnumerable<Mission> activeMissions, IEnumerable<Mission> completedMissions)
         {
             ClearState();
 
-            if (activeMissions != null)
+            Mission restoredActive = activeMissions?.FirstOrDefault(mission => mission != null &&
+                mission.Status is MissionStatus.Accepted or MissionStatus.InProgress);
+            if (restoredActive != null)
             {
-                foreach (var mission in activeMissions)
-                {
-                    if (mission == null)
-                    {
-                        continue;
-                    }
-
-                    mission.Status = MissionStatus.Active;
-                    _activeMissions.Add(mission);
-                    _waypointSystem?.RegisterMission(mission);
-                }
+                restoredActive.Status = MissionStatus.InProgress;
+                _activeMissions.Add(restoredActive);
+                _waypointSystem?.RegisterMission(restoredActive);
             }
 
             if (completedMissions != null)
             {
-                foreach (var mission in completedMissions)
+                foreach (Mission mission in completedMissions)
                 {
-                    if (mission == null)
-                    {
+                    if (mission == null || mission.RewardPaid || mission.Status == MissionStatus.Rewarded)
                         continue;
-                    }
-
-                    if (mission.Status == MissionStatus.Active)
-                    {
+                    if (mission.Status == MissionStatus.Available || mission.Status == MissionStatus.InProgress)
                         mission.Status = MissionStatus.Completed;
-                    }
-
                     _completedMissions.Add(mission);
                 }
             }
 
-            Console.WriteLine($"[MISSION] Restored {_activeMissions.Count} active and {_completedMissions.Count} completed missions");
+            Console.WriteLine($"[MISSION] Restored {_activeMissions.Count} active and {_completedMissions.Count} unclaimed/completed missions");
+        }
+
+        /// <summary>Creates the fixed board jobs from static catalog metadata.</summary>
+        public List<Mission> CreateBoardMissions(Station originStation = null)
+        {
+            string faction = originStation?.FactionId ?? FactionManager.LibertyCorporations;
+            List<Mission> missions = MissionCatalog.CreateRuntimeMissions("Mission Board", faction);
+            return missions;
         }
 
         /// <summary>
-        /// Generate a single random mission
+        /// Compatibility generator used by the older navigation smoke tests.
+        /// It is not used by the Phase 11 physical board.
         /// </summary>
         public Mission GenerateRandomMission(string factionId = null, Station originStation = null)
         {
+            IReadOnlyList<Station> stations = _worldManager?.GetKnownStations() ?? Array.Empty<Station>();
             MissionDifficulty difficulty = (MissionDifficulty)_random.Next(4);
-            IReadOnlyList<Station> loadedStations = _worldManager?.GetKnownStations() ?? Array.Empty<Station>();
-            bool canGenerateDelivery = loadedStations.Count > 0;
-            MissionType type = PickMissionType(canGenerateDelivery);
-            int baseReward = GetBaseReward(type, difficulty);
-
-            float timeLimit = difficulty switch
-            {
-                MissionDifficulty.Easy => 0,
-                MissionDifficulty.Medium => _random.Next(120, 300),
-                MissionDifficulty.Hard => _random.Next(90, 180),
-                MissionDifficulty.Deadly => _random.Next(60, 120),
-                _ => 0
-            };
+            MissionType type = stations.Count > 0
+                ? (MissionType)_random.Next(3, 5)
+                : MissionType.Bounty;
 
             string target;
             string destination;
             string description;
-            int reward = baseReward;
-            string offeredBy = originStation?.Name ?? FactionManager.GetFactionDisplayName(factionId);
-
             switch (type)
             {
                 case MissionType.Delivery:
-                    target = PickDeliveryCargo(difficulty);
-                    Station deliveryOrigin = originStation ?? loadedStations[_random.Next(loadedStations.Count)];
-                    Station deliveryDestination = PickDeliveryDestination(deliveryOrigin, loadedStations);
-                    destination = deliveryDestination?.Name ?? "Destination unavailable";
+                    target = DeliveryTargets[_random.Next(DeliveryTargets.Length)];
+                    destination = PickDestination(stations, originStation);
                     description = $"Deliver {target} to {destination}";
-                    reward += CalculateDeliveryRewardBonus(difficulty, deliveryOrigin, deliveryDestination);
-                    break;
-                case MissionType.Bounty:
-                    target = PickBountyTarget(difficulty);
-                    Station bountyLocation = loadedStations.Count > 0
-                        ? loadedStations[_random.Next(loadedStations.Count)]
-                        : null;
-                    destination = bountyLocation != null
-                        ? $"Last seen near {bountyLocation.Name}"
-                        : "Last seen near local traffic lanes";
-                    description = $"Destroy {target}";
-                    reward += CalculateBountyRewardBonus(difficulty, target);
                     break;
                 case MissionType.Escort:
-                    target = EscortTargets[_random.Next(EscortTargets.Length)];
-                    Station escortDestination = loadedStations.Count > 0
-                        ? loadedStations[_random.Next(loadedStations.Count)]
-                        : null;
-                    destination = escortDestination?.Name ?? "Destination unavailable";
+                    target = "Trade Convoy";
+                    destination = PickDestination(stations, originStation);
                     description = $"Escort {target} to {destination}";
-                    reward += CalculateEscortRewardBonus(difficulty, escortDestination);
                     break;
                 default:
-                    target = "Unknown";
-                    destination = "Unknown";
-                    description = "Unknown mission";
+                    target = BountyTargets[_random.Next(BountyTargets.Length)];
+                    destination = originStation?.Name ?? "Last seen near local traffic lanes";
+                    description = $"Destroy {target}";
+                    type = MissionType.Bounty;
                     break;
             }
 
-            Mission mission = new Mission(type, difficulty, target, destination, reward, timeLimit, description, factionId)
+            int difficultyValue = (int)difficulty;
+            int reward = type switch
             {
-                OfferedBy = offeredBy
+                MissionType.Delivery => 1500 + difficultyValue * 750,
+                MissionType.Escort => 2200 + difficultyValue * 850,
+                _ => 1800 + difficultyValue * 950
             };
 
-            if (mission.Type == MissionType.Bounty)
+            Mission mission = new Mission(type, difficulty, target, destination, reward, 0f, description, factionId)
             {
-                mission.BountyTargetFactionId = FactionManager.LibertyRogues;
-            }
-
+                OfferedBy = originStation?.Name ?? FactionManager.GetFactionDisplayName(factionId)
+            };
+            if (type == MissionType.Bounty) mission.BountyTargetFactionId = FactionManager.LibertyRogues;
             return mission;
         }
 
-        /// <summary>
-        /// Generate multiple random missions for a job board
-        /// </summary>
         public List<Mission> GenerateJobBoardMissions(int count, string factionId = null, Station originStation = null)
         {
-            var missions = new List<Mission>();
-            for (int i = 0; i < count; i++)
-            {
-                missions.Add(GenerateRandomMission(factionId, originStation));
-            }
-            return missions;
+            return CreateBoardMissions(originStation)
+                .Take(Math.Clamp(count, 0, MissionCatalog.All.Count))
+                .ToList();
         }
 
-        private MissionType PickMissionType(bool canGenerateDelivery)
+        private static string PickDestination(IReadOnlyList<Station> stations, Station origin)
         {
-            List<MissionType> allowedTypes = new();
-            if (canGenerateDelivery)
-            {
-                allowedTypes.Add(MissionType.Delivery);
-            }
-
-            allowedTypes.Add(MissionType.Bounty);
-            allowedTypes.Add(MissionType.Escort);
-
-            return allowedTypes[_random.Next(allowedTypes.Count)];
-        }
-
-        private string PickDeliveryCargo(MissionDifficulty difficulty)
-        {
-            string[] cargoPool = difficulty switch
-            {
-                MissionDifficulty.Easy => new[] { "Medical Supplies", "Food Rations", "H-Fuel Cells" },
-                MissionDifficulty.Medium => new[] { "Construction Materials", "Engine Components", "Luxury Goods" },
-                MissionDifficulty.Hard => new[] { "Military Hardware", "Side Arms", "Diamonds" },
-                MissionDifficulty.Deadly => new[] { "Military Hardware", "Side Arms", "Diamonds" },
-                _ => DeliveryTargets
-            };
-
-            return cargoPool[_random.Next(cargoPool.Length)];
-        }
-
-        private Station PickDeliveryDestination(Station originStation, IReadOnlyList<Station> stations)
-        {
-            if (stations == null || stations.Count == 0)
-            {
-                return null;
-            }
-
-            List<Station> candidates = stations.Where(station => station != null && !ReferenceEquals(station, originStation)).ToList();
-            if (candidates.Count == 0)
-            {
-                candidates = stations.Where(station => station != null).ToList();
-            }
-
-            if (candidates.Count == 0)
-            {
-                return null;
-            }
-
-            return candidates[_random.Next(candidates.Count)];
-        }
-
-        private string PickBountyTarget(MissionDifficulty difficulty)
-        {
-            string[] targetPool = difficulty switch
-            {
-                MissionDifficulty.Easy => new[] { "Rogue Pilot", "Lane Hacker Scout", "Junker Scavenger" },
-                MissionDifficulty.Medium => new[] { "Pirate Commander", "Outcast Smuggler", "Corsair Raider" },
-                MissionDifficulty.Hard => new[] { "Rogue Wingman", "Nomad Drone", "Xeno Operative" },
-                MissionDifficulty.Deadly => new[] { "Pirate Warlord", "Rogue Enforcer", "Corsair Marauder" },
-                _ => BountyTargets
-            };
-
-            return targetPool[_random.Next(targetPool.Length)];
-        }
-
-        private int CalculateDeliveryRewardBonus(MissionDifficulty difficulty, Station origin, Station destination)
-        {
-            int difficultyBonus = difficulty switch
-            {
-                MissionDifficulty.Easy => 0,
-                MissionDifficulty.Medium => 75,
-                MissionDifficulty.Hard => 180,
-                MissionDifficulty.Deadly => 350,
-                _ => 0
-            };
-
-            if (origin == null || destination == null)
-            {
-                return difficultyBonus;
-            }
-
-            float distance = Vector3.Distance(origin.Position, destination.Position);
-            int distanceBonus = (int)Math.Clamp(distance / 2400f * 90f, 75f, 900f);
-            return difficultyBonus + distanceBonus;
-        }
-
-        private int CalculateBountyRewardBonus(MissionDifficulty difficulty, string target)
-        {
-            int difficultyBonus = difficulty switch
-            {
-                MissionDifficulty.Easy => 150,
-                MissionDifficulty.Medium => 300,
-                MissionDifficulty.Hard => 600,
-                MissionDifficulty.Deadly => 1100,
-                _ => 150
-            };
-
-            int targetBonus = 0;
-            if (!string.IsNullOrWhiteSpace(target))
-            {
-                string lower = target.ToLowerInvariant();
-                if (lower.Contains("warlord") || lower.Contains("marauder") || lower.Contains("enforcer"))
-                {
-                    targetBonus = 400;
-                }
-                else if (lower.Contains("commander") || lower.Contains("raider"))
-                {
-                    targetBonus = 200;
-                }
-                else if (lower.Contains("smuggler") || lower.Contains("scout") || lower.Contains("wingman"))
-                {
-                    targetBonus = 100;
-                }
-            }
-
-            return difficultyBonus + targetBonus;
-        }
-
-        private int CalculateEscortRewardBonus(MissionDifficulty difficulty, Station destination)
-        {
-            int difficultyBonus = difficulty switch
-            {
-                MissionDifficulty.Easy => 100,
-                MissionDifficulty.Medium => 225,
-                MissionDifficulty.Hard => 450,
-                MissionDifficulty.Deadly => 850,
-                _ => 100
-            };
-
-            return destination != null ? difficultyBonus + 100 : difficultyBonus;
-        }
-
-        private int GetBaseReward(MissionType type, MissionDifficulty difficulty)
-        {
-            return type switch
-            {
-                MissionType.Delivery => difficulty switch
-                {
-                    MissionDifficulty.Easy => _random.Next(500, 1100),
-                    MissionDifficulty.Medium => _random.Next(1100, 2200),
-                    MissionDifficulty.Hard => _random.Next(2200, 4200),
-                    MissionDifficulty.Deadly => _random.Next(4200, 8000),
-                    _ => _random.Next(500, 1200)
-                },
-                MissionType.Bounty => difficulty switch
-                {
-                    MissionDifficulty.Easy => _random.Next(900, 1700),
-                    MissionDifficulty.Medium => _random.Next(1800, 3300),
-                    MissionDifficulty.Hard => _random.Next(3300, 6200),
-                    MissionDifficulty.Deadly => _random.Next(6200, 12000),
-                    _ => _random.Next(1000, 2000)
-                },
-                MissionType.Escort => difficulty switch
-                {
-                    MissionDifficulty.Easy => _random.Next(1000, 1900),
-                    MissionDifficulty.Medium => _random.Next(2000, 3600),
-                    MissionDifficulty.Hard => _random.Next(3600, 6800),
-                    MissionDifficulty.Deadly => _random.Next(6800, 13000),
-                    _ => _random.Next(1000, 2000)
-                },
-                _ => _random.Next(500, 1500)
-            };
+            Station destination = stations?.FirstOrDefault(station => station != null && !ReferenceEquals(station, origin))
+                ?? stations?.FirstOrDefault();
+            return destination?.Name ?? "Destination unavailable";
         }
 
         /// <summary>
-        /// Accept and assign a mission to the player
+        /// Validates and accepts exactly one mission. World binding happens
+        /// before the authoritative active state is committed.
         /// </summary>
-        public bool AcceptMission(Mission mission)
+        public bool AcceptMission(Mission mission, Station originStation = null)
         {
-            if (mission == null || mission.Status != MissionStatus.Available) return false;
+            if (mission == null || mission.Status != MissionStatus.Available)
+                return RejectAcceptance(mission, "mission is not available");
+            if (ActiveMission != null)
+                return RejectAcceptance(mission, "finish the active mission first");
+            if (mission.Reward <= 0)
+                return RejectAcceptance(mission, "reward is invalid");
 
-            mission.FactionId = FactionManager.NormalizeFactionId(mission.FactionId);
-            mission.Status = MissionStatus.Active;
+            if (!string.IsNullOrWhiteSpace(mission.DefinitionId))
+            {
+                MissionDefinition definition = MissionCatalog.GetById(mission.DefinitionId);
+                if (definition == null || definition.Type != mission.Type ||
+                    definition.RewardCredits != mission.Reward ||
+                    definition.TargetCount != mission.RequiredProgress)
+                    return RejectAcceptance(mission, "mission definition is invalid");
+            }
+
+            if (mission.Type == MissionType.DestroyHostiles && mission.RequiredProgress <= 0)
+                return RejectAcceptance(mission, "hostile target count is invalid");
+            if (mission.Type == MissionType.ReachLocation && string.IsNullOrWhiteSpace(mission.TargetLocation))
+                return RejectAcceptance(mission, "patrol target metadata is invalid");
+
+            mission.SetOrigin(originStation);
+            mission.AcceptedAtUtc = DateTime.UtcNow;
+            mission.Status = MissionStatus.Accepted;
             _activeMissions.Add(mission);
             _waypointSystem?.RegisterMission(mission);
 
@@ -397,149 +206,188 @@ namespace Roguelancer
                 _waypointSystem?.UnregisterMission(mission);
                 _activeMissions.Remove(mission);
                 mission.Status = MissionStatus.Available;
-                _worldManager?.OnMissionFinished(mission);
-                _notificationManager?.ShowMessage($"Mission unavailable: {failureReason}", 3f);
-                Console.WriteLine($"[MISSION] Rejected: {mission.GetSummary()} | Reason: {failureReason}");
-                return false;
+                _worldManager.OnMissionFinished(mission);
+                return RejectAcceptance(mission, $"mission unavailable: {failureReason}");
             }
 
-            _notificationManager?.ShowMessage($"Mission accepted: {mission.Description}", 3f);
-            Console.WriteLine($"[MISSION] Accepted: {mission.GetSummary()}");
+            mission.Status = MissionStatus.InProgress;
+            _notificationManager?.ShowMessage($"Mission accepted: {mission.Title}", 3f);
+            Console.WriteLine($"[MISSION] Accepted: {mission.GetSummary()} | Origin: {mission.OriginStationName}");
             return true;
         }
 
-        /// <summary>
-        /// Complete a mission and reward the player
-        /// </summary>
-        public void CompleteMission(Mission mission)
+        private bool RejectAcceptance(Mission mission, string reason)
         {
-            if (mission == null || mission.Status != MissionStatus.Active) return;
-
-            mission.Status = MissionStatus.Completed;
-            _activeMissions.Remove(mission);
-            _completedMissions.Add(mission);
-            _waypointSystem?.UnregisterMission(mission);
-
-            _playerCredits?.AddCredits(mission.Reward);
-            _notificationManager?.ShowMessage($"Mission complete! +{mission.Reward:N0} CR", 4f);
-            Console.WriteLine($"[MISSION] Completed: {mission.Description} | Reward: {mission.Reward:N0} CR");
-            _worldManager?.OnMissionFinished(mission);
-
-            if (_reputationManager != null)
-            {
-                string factionId = FactionManager.NormalizeFactionId(mission.FactionId);
-                _reputationManager.AddReputation(factionId, 0.12f, $"Mission completed: {mission.Description}");
-            }
+            _notificationManager?.ShowMessage(reason, 3f);
+            Console.WriteLine($"[MISSION] Rejected: {mission?.Title ?? "<null>"} | Reason: {reason}");
+            return false;
         }
 
         /// <summary>
-        /// Fail a mission (player died, time ran out, etc.)
+        /// Transitions a satisfied objective to Completed. Credits are not
+        /// changed here; the originating station performs the reward claim.
         /// </summary>
+        public void CompleteMission(Mission mission)
+        {
+            if (mission == null || !ReferenceEquals(ActiveMission, mission) || !mission.IsActive)
+                return;
+
+            mission.ObjectiveComplete = true;
+            mission.Status = MissionStatus.Completed;
+            _activeMissions.Remove(mission);
+            _completedMissions.RemoveAll(existing => existing.Id == mission.Id);
+            _completedMissions.Add(mission);
+            _waypointSystem?.UnregisterMission(mission);
+            _worldManager?.OnMissionFinished(mission);
+            _notificationManager?.ShowMessage(
+                $"Objective complete - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR",
+                4f);
+            Console.WriteLine($"[MISSION] Objective complete: {mission.Title} | Reward pending: {mission.Reward:N0} CR");
+        }
+
+        public bool TryClaimReward(Mission mission, Station station, out string message)
+        {
+            message = string.Empty;
+            if (mission == null || mission.Status != MissionStatus.Completed)
+            {
+                message = "mission is not complete";
+                return false;
+            }
+            if (mission.RewardPaid || mission.Status == MissionStatus.Rewarded)
+            {
+                message = "reward already claimed";
+                return false;
+            }
+
+            string currentStationId = Mission.BuildStationIdentity(station);
+            if (!string.Equals(currentStationId, mission.OriginStationId, StringComparison.OrdinalIgnoreCase))
+            {
+                message = $"return to {mission.OriginStationName} to claim the reward";
+                return false;
+            }
+            if (mission.Reward <= 0 || _playerCredits == null)
+            {
+                message = "reward transaction is invalid";
+                return false;
+            }
+
+            mission.RewardPaid = true;
+            _playerCredits.AddCredits(mission.Reward);
+            mission.Status = MissionStatus.Rewarded;
+            _completedMissions.Remove(mission);
+            _reputationManager?.AddReputation(
+                mission.FactionId,
+                0.12f,
+                $"Mission rewarded: {mission.Title}");
+            _notificationManager?.ShowMessage($"Mission reward received: {mission.Reward:N0} CR", 4f);
+            Console.WriteLine($"[MISSION] Rewarded: {mission.Title} | +{mission.Reward:N0} CR");
+            message = $"Mission reward received: {mission.Reward:N0} CR";
+            return true;
+        }
+
+        public bool CanClaimRewardAt(Mission mission, Station station, out string reason)
+        {
+            reason = string.Empty;
+            if (mission == null || mission.Status != MissionStatus.Completed)
+            {
+                reason = "No completed mission is waiting for payment.";
+                return false;
+            }
+            if (mission.RewardPaid)
+            {
+                reason = "Reward already claimed.";
+                return false;
+            }
+
+            if (!string.Equals(Mission.BuildStationIdentity(station), mission.OriginStationId, StringComparison.OrdinalIgnoreCase))
+            {
+                reason = $"Return to {mission.OriginStationName} to claim the reward.";
+                return false;
+            }
+
+            return true;
+        }
+
         public void FailMission(Mission mission, string reason)
         {
-            if (mission == null || mission.Status != MissionStatus.Active) return;
+            if (mission == null || !ReferenceEquals(ActiveMission, mission) || !mission.IsActive)
+                return;
 
             mission.Status = MissionStatus.Failed;
             _activeMissions.Remove(mission);
             _completedMissions.Add(mission);
             _waypointSystem?.UnregisterMission(mission);
             _worldManager?.OnMissionFinished(mission);
-
             _notificationManager?.ShowMessage($"Mission failed: {reason}", 4f);
-            Console.WriteLine($"[MISSION] Failed: {mission.Description} | Reason: {reason}");
+            Console.WriteLine($"[MISSION] Failed: {mission.Title} | Reason: {reason}");
         }
 
-        /// <summary>
-        /// Update all active missions (track time, check conditions)
-        /// </summary>
         public void Update(float deltaTime, bool playerDestroyed)
         {
-            // Iterate backwards so we can remove during iteration
-            for (int i = _activeMissions.Count - 1; i >= 0; i--)
+            Mission mission = ActiveMission;
+            if (mission == null) return;
+
+            mission.ElapsedTime += Math.Max(0f, deltaTime);
+            if (mission.IsExpired)
             {
-                var mission = _activeMissions[i];
-
-                // Update elapsed time
-                mission.ElapsedTime += deltaTime;
-
-                // Check for time expiration
-                if (mission.IsExpired)
-                {
-                    FailMission(mission, "Time ran out");
-                    continue;
-                }
-
-                // Check for player death
-                if (playerDestroyed)
-                {
-                    FailMission(mission, "Ship destroyed");
-                    continue;
-                }
-
-                // Check if objective has been marked complete
-                if (mission.ObjectiveComplete)
-                {
-                    CompleteMission(mission);
-                }
+                FailMission(mission, "Time ran out");
+                return;
             }
+            if (playerDestroyed)
+            {
+                FailMission(mission, "Ship destroyed");
+                return;
+            }
+            if (mission.ObjectiveComplete)
+                CompleteMission(mission);
         }
 
-        /// <summary>
-        /// Fail all active missions (e.g., player dies)
-        /// </summary>
         public void FailAllActiveMissions(string reason)
         {
-            for (int i = _activeMissions.Count - 1; i >= 0; i--)
-            {
-                FailMission(_activeMissions[i], reason);
-            }
+            if (ActiveMission != null) FailMission(ActiveMission, reason);
         }
 
-        /// <summary>
-        /// Mark a bounty mission as complete if the target name matches
-        /// </summary>
+        /// <summary>Legacy name-based hook retained for missile smoke coverage.</summary>
         public void NotifyTargetDestroyed(string targetName)
         {
-            if (string.IsNullOrWhiteSpace(targetName))
+            if (string.IsNullOrWhiteSpace(targetName)) return;
+            Mission mission = ActiveMission;
+            if (mission?.Type == MissionType.Bounty &&
+                !string.IsNullOrWhiteSpace(mission.Target) &&
+                targetName.Contains(mission.Target, StringComparison.OrdinalIgnoreCase))
             {
-                return;
-            }
-
-            foreach (var mission in _activeMissions)
-            {
-                if (mission.Type == MissionType.Bounty && mission.Status == MissionStatus.Active)
-                {
-                    if (!string.IsNullOrWhiteSpace(mission.Target) &&
-                        targetName.Contains(mission.Target, StringComparison.OrdinalIgnoreCase))
-                    {
-                        mission.ObjectiveComplete = true;
-                        Console.WriteLine($"[MISSION] Bounty target destroyed: {targetName}");
-                    }
-                }
+                mission.ObjectiveComplete = true;
             }
         }
 
-        /// <summary>
-        /// Check if player arrived at a delivery destination
-        /// </summary>
+        public bool RecordHostileDestroyed(Mission mission, NpcShip destroyedShip)
+        {
+            if (mission == null || destroyedShip == null ||
+                !ReferenceEquals(ActiveMission, mission) ||
+                mission.Type != MissionType.DestroyHostiles ||
+                !destroyedShip.WasDamagedByPlayer ||
+                !_countedHostileKills.Add(destroyedShip))
+                return false;
+
+            mission.CurrentProgress = Math.Min(mission.RequiredProgress, mission.CurrentProgress + 1);
+            Console.WriteLine($"[MISSION] Rogue Hunt progress {mission.CurrentProgress}/{mission.RequiredProgress}: {destroyedShip.Name}");
+            if (mission.CurrentProgress >= mission.RequiredProgress)
+            {
+                mission.ObjectiveComplete = true;
+                CompleteMission(mission);
+            }
+            return true;
+        }
+
+        /// <summary>Legacy delivery arrival hook; it now waits for reward claim.</summary>
         public void NotifyArrivedAtStation(string stationName)
         {
-            if (string.IsNullOrWhiteSpace(stationName))
+            Mission mission = ActiveMission;
+            if (mission?.Type == MissionType.Delivery &&
+                !string.IsNullOrWhiteSpace(stationName) &&
+                stationName.Contains(mission.Destination ?? string.Empty, StringComparison.OrdinalIgnoreCase))
             {
-                return;
-            }
-
-            foreach (var mission in _activeMissions)
-            {
-                if (mission.Type == MissionType.Delivery && mission.Status == MissionStatus.Active)
-                {
-                    if (!string.IsNullOrWhiteSpace(mission.Destination) &&
-                        stationName.Contains(mission.Destination, StringComparison.OrdinalIgnoreCase))
-                    {
-                        mission.ObjectiveComplete = true;
-                        Console.WriteLine($"[MISSION] Delivery arrived at: {stationName}");
-                    }
-                }
+                mission.ObjectiveComplete = true;
             }
         }
     }

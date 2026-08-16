@@ -54,6 +54,8 @@ public sealed class StationTestScene : IDisposable
     public Vector3 ShipDealerPosition { get; } = new(7.2f, 0.0f, 35.85f);
     public float ShipDealerYawDegrees { get; } = -90.0f;
     public Vector3 EquipmentInteractionPosition { get; } = new(7.2f, 0.0f, 42.0f);
+    public Vector3 MissionBoardInteractionPosition { get; } = new(-12.9f, 0.0f, 56.0f);
+    public string MissionBoardSignText => "MISSION BOARD";
     public Vector3 BarInteractionPosition => StationBarSocial.Layout.DoorPosition;
     public StationBarLayout BarLayout => StationBarSocial.Layout;
     public StationDoorState BarDoorState => _barDoor.State;
@@ -575,6 +577,12 @@ public sealed class StationTestScene : IDisposable
         AddBox(new Vector3(-3.15f, 1.65f, 58.55f), new Vector3(0.65f, 0.60f, 0.55f), "structure", 1.0f, false, true, blocksCamera: true);
         AddBox(new Vector3(-3.15f, 1.98f, 58.25f), new Vector3(0.42f, 0.08f, 0.28f), "glow", 1.0f, true, false, emissive: true);
         AddBox(new Vector3(-11.55f, 2.45f, 60.95f), new Vector3(1.8f, 1.8f, 0.12f), "glow", 1.0f, true, false, emissive: true);
+
+        // Physical jobs terminal on the Bar wall, near the entrance and clear
+        // of the counter. The interaction point remains in the walkable lane.
+        AddBox(new Vector3(-14.22f, 1.75f, 56.0f), new Vector3(0.16f, 3.0f, 2.8f), "structure", 1.0f, false, true, blocksCamera: true);
+        AddBox(new Vector3(-14.10f, 1.95f, 56.0f), new Vector3(0.05f, 1.75f, 2.15f), "glow", 1.0f, true, false, emissive: true);
+        AddBox(new Vector3(-14.08f, 3.35f, 56.0f), new Vector3(0.06f, 0.10f, 2.35f), "accent", 1.0f, false, false);
 
         // Simple tables, benches, and a wall booth keep the social floor
         // readable while leaving a clear central walking path.

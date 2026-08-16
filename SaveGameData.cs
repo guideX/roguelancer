@@ -10,7 +10,7 @@ namespace Roguelancer
     /// </summary>
     public sealed class SaveGameData
     {
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
 
         [JsonPropertyName("schema_version")]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -158,6 +158,12 @@ namespace Roguelancer
     /// </summary>
     public sealed class SaveMissionData
     {
+        [JsonPropertyName("definition_id")]
+        public string DefinitionId { get; set; } = string.Empty;
+
+        [JsonPropertyName("title")]
+        public string Title { get; set; } = string.Empty;
+
         [JsonPropertyName("mission_id")]
         public int MissionId { get; set; }
 
@@ -196,6 +202,42 @@ namespace Roguelancer
 
         [JsonPropertyName("objective_complete")]
         public bool ObjectiveComplete { get; set; }
+
+        [JsonPropertyName("target_location")]
+        public string TargetLocation { get; set; } = string.Empty;
+
+        [JsonPropertyName("target_system_index")]
+        public int TargetSystemIndex { get; set; }
+
+        [JsonPropertyName("target_count")]
+        public int TargetCount { get; set; }
+
+        [JsonPropertyName("current_progress")]
+        public int CurrentProgress { get; set; }
+
+        [JsonPropertyName("required_progress")]
+        public int RequiredProgress { get; set; }
+
+        [JsonPropertyName("objective_radius")]
+        public int ObjectiveRadius { get; set; } = 500;
+
+        [JsonPropertyName("origin_station_id")]
+        public string OriginStationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("origin_station_name")]
+        public string OriginStationName { get; set; } = string.Empty;
+
+        [JsonPropertyName("origin_system_index")]
+        public int OriginSystemIndex { get; set; }
+
+        [JsonPropertyName("accepted_at_utc")]
+        public string AcceptedAtUtc { get; set; } = string.Empty;
+
+        [JsonPropertyName("reward_paid")]
+        public bool RewardPaid { get; set; }
+
+        [JsonPropertyName("target_position")]
+        public SaveVector3Data TargetPosition { get; set; }
     }
 
     /// <summary>

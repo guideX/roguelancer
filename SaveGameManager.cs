@@ -292,7 +292,9 @@ namespace Roguelancer
                     continue;
                 }
 
-                mission.Status = MissionStatus.Active;
+                mission.Status = mission.Status is MissionStatus.Accepted or MissionStatus.InProgress
+                    ? MissionStatus.InProgress
+                    : MissionStatus.Active;
                 active.Add(mission);
             }
 
@@ -304,12 +306,15 @@ namespace Roguelancer
                     continue;
                 }
 
-                if (mission.Status == MissionStatus.Available)
+                if (mission.Status == MissionStatus.Available || mission.Status == MissionStatus.InProgress)
                 {
                     mission.Status = MissionStatus.Completed;
                 }
 
-                completed.Add(mission);
+                if (!mission.RewardPaid && mission.Status != MissionStatus.Rewarded)
+                {
+                    completed.Add(mission);
+                }
             }
 
             missionManager.RestoreState(active, completed);
@@ -432,6 +437,8 @@ namespace Roguelancer
 
                 result.Add(new SaveMissionData
                 {
+                    DefinitionId = mission.DefinitionId ?? string.Empty,
+                    Title = mission.Title ?? string.Empty,
                     MissionId = mission.Id,
                     Type = mission.Type,
                     Difficulty = mission.Difficulty,
@@ -444,7 +451,19 @@ namespace Roguelancer
                     Description = mission.Description ?? string.Empty,
                     OfferedBy = mission.OfferedBy ?? string.Empty,
                     FactionId = FactionManager.NormalizeFactionId(mission.FactionId),
-                    ObjectiveComplete = mission.ObjectiveComplete
+                    ObjectiveComplete = mission.ObjectiveComplete,
+                    TargetLocation = mission.TargetLocation ?? string.Empty,
+                    TargetSystemIndex = mission.TargetSystemIndex,
+                    TargetCount = mission.TargetCount,
+                    CurrentProgress = mission.CurrentProgress,
+                    RequiredProgress = mission.RequiredProgress,
+                    ObjectiveRadius = mission.ObjectiveRadius,
+                    OriginStationId = mission.OriginStationId ?? string.Empty,
+                    OriginStationName = mission.OriginStationName ?? string.Empty,
+                    OriginSystemIndex = mission.OriginSystemIndex,
+                    AcceptedAtUtc = mission.AcceptedAtUtc == DateTime.MinValue ? string.Empty : mission.AcceptedAtUtc.ToString("O"),
+                    RewardPaid = mission.RewardPaid,
+                    TargetPosition = mission.TargetPosition.HasValue ? SaveVector3Data.From(mission.TargetPosition.Value) : null
                 });
             }
 
@@ -585,8 +604,17 @@ namespace Roguelancer
                 return null;
             }
 
+            DateTime acceptedAtUtc = DateTime.MinValue;
+            if (!string.IsNullOrWhiteSpace(data.AcceptedAtUtc) &&
+                DateTime.TryParse(data.AcceptedAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime parsed))
+            {
+                acceptedAtUtc = parsed;
+            }
+
             return Mission.CreateRestored(
                 data.MissionId,
+                data.DefinitionId,
+                data.Title,
                 data.Type,
                 data.Difficulty,
                 data.Status,
@@ -598,7 +626,19 @@ namespace Roguelancer
                 data.OfferedBy,
                 data.FactionId,
                 data.ElapsedTime,
-                data.ObjectiveComplete);
+                data.ObjectiveComplete,
+                data.TargetLocation,
+                data.TargetSystemIndex,
+                data.TargetCount,
+                data.CurrentProgress,
+                data.RequiredProgress,
+                data.ObjectiveRadius,
+                data.OriginStationId,
+                data.OriginStationName,
+                data.OriginSystemIndex,
+                acceptedAtUtc,
+                data.RewardPaid,
+                data.TargetPosition);
         }
 
         private static float NormalizeStanding(float value)

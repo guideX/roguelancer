@@ -55,6 +55,14 @@ namespace Roguelancer
         // Hull integrity
         public HullIntegrity Hull { get; private set; }
         public bool IsDestroyed => Hull.IsDestroyed;
+        public bool WasDamagedByPlayer { get; private set; }
+
+        /// <summary>
+        /// Marks the authoritative player damage source used by bounded
+        /// mission kill attribution. It is intentionally one-way for the
+        /// lifetime of an NPC instance.
+        /// </summary>
+        public void MarkDamagedByPlayer() => WasDamagedByPlayer = true;
 
         // Shield system
         public ShieldSystem Shields { get; private set; }

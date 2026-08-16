@@ -43,8 +43,9 @@ namespace Roguelancer {
         private bool _stationTestMode;
         private StationSession _stationSession;
         private readonly List<StationInteraction> _stationInteractions = new();
-        private StationShipDealerUI _stationShipDealerUI;
-        private StationEquipmentDealerUI _stationEquipmentDealerUI;
+    private StationShipDealerUI _stationShipDealerUI;
+    private StationEquipmentDealerUI _stationEquipmentDealerUI;
+    private StationMissionBoardUI _stationMissionBoardUI;
         private string _stationDialogueText = string.Empty;
         private float _stationDialogueRemaining;
         private bool _stationInteractionKeyHeld;
@@ -236,6 +237,7 @@ namespace Roguelancer {
         private readonly bool _runAllSmoke;
         private readonly bool _runPerformanceDiagnostics;
         private readonly bool _performanceAutoStation;
+        private readonly bool _performanceAutoMission;
         private readonly double _performanceDurationSeconds;
         private readonly int _performanceCharacterCount;
         private readonly int _performanceVisibleCharacterCount;
@@ -301,6 +303,7 @@ namespace Roguelancer {
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPerformanceDiagnostics = args?.Any(arg => string.Equals(arg, "--perf-diagnostics", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceAutoStation = args?.Any(arg => string.Equals(arg, "--perf-station", StringComparison.OrdinalIgnoreCase)) == true;
+            _performanceAutoMission = args?.Any(arg => string.Equals(arg, "--perf-mission", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceDurationSeconds = ParsePerformanceDuration(args);
             _performanceCharacterCount = ParsePerformanceCharacterCount(args);
             _performanceVisibleCharacterCount = ParsePerformanceVisibleCharacterCount(args);
@@ -950,6 +953,11 @@ namespace Roguelancer {
                     _pixel,
                     _equipmentDealer,
                     message => _notificationManager?.ShowMessage(message, 3f));
+                _stationMissionBoardUI = new StationMissionBoardUI(
+                    _font,
+                    _pixel,
+                    _missionManager,
+                    message => _notificationManager?.ShowMessage(message, 3f));
             }
 
             // Load ship model
@@ -1104,6 +1112,10 @@ namespace Roguelancer {
                 HandleNpcDestroyed);
             _missionManager?.SetWorldManager(_missionWorldManager);
             _stationDockUI?.SetMissionWorldManager(_missionWorldManager);
+            if (_performanceAutoMission)
+            {
+                StartPerformanceMission();
+            }
             _trafficManager?.SetContent(Content);
 
             // Re-initialize JumpHoleManager with font now that it's loaded
@@ -1405,6 +1417,29 @@ namespace Roguelancer {
             {
                 Console.WriteLine($"[MISSION SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
+            }
+        }
+
+        private void StartPerformanceMission()
+        {
+            if (_missionManager?.ActiveMission != null || _missionWorldManager == null)
+            {
+                return;
+            }
+
+            Station origin = _stationManager?.GetStations()?.FirstOrDefault();
+            Mission mission = Mission.FromDefinition(
+                MissionCatalog.GetById(MissionCatalog.RogueHuntId),
+                "Performance Diagnostics",
+                origin?.FactionId);
+            if (_missionManager.AcceptMission(mission, origin))
+            {
+                Console.WriteLine(
+                    $"[PERF] Active mission started: {mission.Title} {mission.CurrentProgress}/{mission.RequiredProgress}");
+            }
+            else
+            {
+                Console.WriteLine("[PERF] Could not start mission-active performance scenario");
             }
         }
 
@@ -2039,7 +2074,10 @@ namespace Roguelancer {
                 npc.Update(gameTime, _damageSmokeParticles, _playerShip, _reputationManager);
             }
 
-            _missionWorldManager?.Update(deltaTime, Console.WriteLine);
+            using (_performanceDiagnostics.Measure("mission.world.update"))
+            {
+                _missionWorldManager?.Update(deltaTime, Console.WriteLine, _currentSystemIndex);
+            }
 
             // Update lawful patrol scan loop
             _policeScanSystem?.Update(gameTime, _playerShip, _npcShips, _playerCredits, _reputationManager, _notificationManager);
@@ -2144,7 +2182,7 @@ namespace Roguelancer {
             // Check projectile collisions with NPC ships
             foreach (var npc in _npcShips) {
                 if (!npc.IsDestroyed) {
-                    List<HitInfo> hits = _weaponSystem.CheckCollisions(npc.Position, npc.Radius, npc.Hull, npc.Shields);
+                    List<HitInfo> hits = _weaponSystem.CheckCollisions(npc.Position, npc.Radius, npc.Hull, npc.Shields, npc);
 
                     // Trigger impact effects for each hit
                     foreach (var hit in hits) {
@@ -2168,7 +2206,10 @@ namespace Roguelancer {
             }
 
             // Update mission manager
-            _missionManager?.Update(deltaTime, _playerShip.Hull.IsDestroyed);
+            using (_performanceDiagnostics.Measure("mission.manager.update"))
+            {
+                _missionManager?.Update(deltaTime, _playerShip.Hull.IsDestroyed);
+            }
 
             // Cargo pods: tractor pull and pickup.
             _lootManager?.Update(gameTime, _playerShip, keyboardState.IsKeyDown(Keys.P), _notificationManager, Console.WriteLine);
@@ -2176,12 +2217,15 @@ namespace Roguelancer {
             UpdateFirstDockOnboarding((float)gameTime.ElapsedGameTime.TotalSeconds);
 
             // Update mission waypoint system (resolve targets, build paths, check proximity)
-            _missionWaypointSystem?.Update(
-                _playerShip.Position,
-                _spaceObjects,
-                _npcShips,
-                _tradelaneManager?.GetTradeLanes() ?? new List<TradeLane>(),
-                _jumpHoleManager?.GetJumpHoles() ?? new List<JumpHole>());
+            using (_performanceDiagnostics.Measure("mission.waypoint.update"))
+            {
+                _missionWaypointSystem?.Update(
+                    _playerShip.Position,
+                    _spaceObjects,
+                    _npcShips,
+                    _tradelaneManager?.GetTradeLanes() ?? new List<TradeLane>(),
+                    _jumpHoleManager?.GetJumpHoles() ?? new List<JumpHole>());
+            }
 
             // Update mission marker animations
             _missionMarkerRenderer?.Update(deltaTime);
@@ -2365,9 +2409,6 @@ namespace Roguelancer {
             }
 
             _missionWorldManager?.NotifyNpcDestroyed(destroyedShip);
-            // Notify mission manager of bounty kill
-            _missionManager?.NotifyTargetDestroyed(destroyedShip.Name);
-
             // Clean up NPC weapon system tracking
             _npcWeaponSystem?.RemoveNpc(destroyedShip);
             _trafficManager?.NotifyNpcDestroyed(destroyedShip);
@@ -4193,6 +4234,7 @@ namespace Roguelancer {
             _stationInteractionKeyHeld = false;
             _stationShipDealerUI?.Close();
             _stationEquipmentDealerUI?.Close();
+            _stationMissionBoardUI?.Close();
             _stationInteractions.Clear();
 
             if (session?.PlayerShip != null)
@@ -4364,6 +4406,16 @@ namespace Roguelancer {
                 "EQUIPMENT",
                 "Press E to browse",
                 OpenEquipmentDealer));
+            if (_stationTestScene.IsBarDoorOpen)
+            {
+                _stationInteractions.Add(new StationInteraction(
+                    "mission-board",
+                    _stationTestScene.MissionBoardInteractionPosition,
+                    2.2f,
+                    _stationTestScene.MissionBoardSignText,
+                    "Press E to browse jobs",
+                    OpenMissionBoard));
+            }
             if (!_stationTestScene.IsBarDoorOpen)
             {
                 _stationInteractions.Add(new StationInteraction(
@@ -4416,7 +4468,22 @@ namespace Roguelancer {
         {
             if (_stationPlayerCharacter == null || npc == null) return;
             npc.FacePlayer(_stationPlayerCharacter.Position);
-            _stationDialogueText = $"{npc.Dialogue.Speaker}: {npc.Dialogue.Text}";
+            string line = npc.Dialogue.Text;
+            if (string.Equals(npc.Id, "bartender", StringComparison.OrdinalIgnoreCase))
+            {
+                line = _missionManager?.ActiveMission != null
+                    ? "Finish the job first. Then we'll talk."
+                    : _missionManager?.UnclaimedCompletedMission != null
+                        ? "Looks like you handled it. Collect your pay."
+                        : "Check the board if you're looking for work.";
+            }
+            else if (string.Equals(npc.Id, "smuggler", StringComparison.OrdinalIgnoreCase) &&
+                     _missionManager?.ActiveMission == null)
+            {
+                line = "Plenty of people around here pay for problems to disappear.";
+            }
+
+            _stationDialogueText = $"{npc.Dialogue.Speaker}: {line}";
             _stationDialogueRemaining = npc.Dialogue.Duration;
         }
 
@@ -4447,6 +4514,19 @@ namespace Roguelancer {
             _stationDialogueRemaining = 0f;
         }
 
+        private void OpenMissionBoard()
+        {
+            if (_stationMissionBoardUI == null || _stationPlayerCharacter == null || _stationSession == null)
+            {
+                _notificationManager?.ShowMessage("Mission board is unavailable", 2f);
+                return;
+            }
+
+            _stationMissionBoardUI.Open(_stationSession.StationDisplayName, _stationSession.DockedStation);
+            _stationDialogueText = string.Empty;
+            _stationDialogueRemaining = 0f;
+        }
+
         private void ExitStationTestMode()
         {
             if (_stationSession?.IsRealDockedSession == true)
@@ -4462,6 +4542,7 @@ namespace Roguelancer {
             _stationInteractionKeyHeld = false;
             _stationShipDealerUI?.Close();
             _stationEquipmentDealerUI?.Close();
+            _stationMissionBoardUI?.Close();
             _stationInteractions.Clear();
             _stationDialogueText = string.Empty;
             _stationDialogueRemaining = 0.0f;
@@ -4479,6 +4560,7 @@ namespace Roguelancer {
             _notificationManager?.Update(gameTime);
             _stationShipDealerUI?.Update(deltaTime);
             _stationEquipmentDealerUI?.Update(deltaTime);
+            _stationMissionBoardUI?.Update(deltaTime);
             if (_stationDialogueRemaining > 0.0f)
             {
                 _stationDialogueRemaining = MathF.Max(0.0f, _stationDialogueRemaining - deltaTime);
@@ -4500,7 +4582,9 @@ namespace Roguelancer {
             // alive, but consumes movement and service input until it closes.
             // Escape is handled by the overlay before it can become the
             // emergency-launch shortcut below.
-            if (_stationShipDealerUI?.IsOpen == true || _stationEquipmentDealerUI?.IsOpen == true)
+            if (_stationShipDealerUI?.IsOpen == true ||
+                _stationEquipmentDealerUI?.IsOpen == true ||
+                _stationMissionBoardUI?.IsOpen == true)
             {
                 _stationTestScene?.Update(deltaTime);
                 foreach (StationNpc npc in _stationNpcs) npc.Update(deltaTime);
@@ -4509,9 +4593,13 @@ namespace Roguelancer {
                 {
                     _stationShipDealerUI.HandleInput(keyboardState, _prevKeys);
                 }
-                else
+                else if (_stationEquipmentDealerUI?.IsOpen == true)
                 {
                     _stationEquipmentDealerUI?.HandleInput(keyboardState, _prevKeys);
+                }
+                else
+                {
+                    _stationMissionBoardUI?.HandleInput(keyboardState, _prevKeys);
                 }
                 IsMouseVisible = false;
                 return;
@@ -5070,15 +5158,21 @@ namespace Roguelancer {
             int width = GraphicsDevice.Viewport.Width;
             int height = GraphicsDevice.Viewport.Height;
             DrawStationSignage();
-            if (_stationShipDealerUI?.IsOpen == true || _stationEquipmentDealerUI?.IsOpen == true)
+            if (_stationShipDealerUI?.IsOpen == true ||
+                _stationEquipmentDealerUI?.IsOpen == true ||
+                _stationMissionBoardUI?.IsOpen == true)
             {
                 if (_stationShipDealerUI?.IsOpen == true)
                 {
                     _stationShipDealerUI.Draw(_spriteBatch, GraphicsDevice);
                 }
-                else
+                else if (_stationEquipmentDealerUI?.IsOpen == true)
                 {
                     _stationEquipmentDealerUI?.Draw(_spriteBatch, GraphicsDevice);
+                }
+                else
+                {
+                    _stationMissionBoardUI?.Draw(_spriteBatch, GraphicsDevice);
                 }
                 _spriteBatch.End();
                 return;
@@ -5185,6 +5279,7 @@ namespace Roguelancer {
             DrawStationSign("EQUIPMENT", new Vector3(7.4f, 4.0f, 41.2f), Color.LightSkyBlue, 0.58f);
             DrawStationSign("BAR", new Vector3(-7.25f, 5.55f, 39.9f), Color.LightSkyBlue, 0.62f);
             DrawStationSign("SOCIAL FLOOR", new Vector3(-7.25f, 3.55f, 48.95f), Color.Gold, 0.48f);
+            DrawStationSign("MISSION BOARD", new Vector3(-14.05f, 3.75f, 56.0f), Color.Gold, 0.42f);
             DrawStationSign("BACK ROOM // OFFLINE", new Vector3(-1.05f, 2.65f, 60.75f), Color.LightSkyBlue, 0.36f);
         }
 
@@ -5329,35 +5424,21 @@ namespace Roguelancer {
         private void DrawActiveMissionsHUD() {
             if (_font == null || _missionManager == null) return;
 
-            var activeMissions = _missionManager.ActiveMissions;
-            if (activeMissions.Count == 0) return;
+            Mission activeMission = _missionManager.ActiveMission;
+            if (activeMission == null) return;
 
             int panelX = 10;
             int panelY = 40;
             int panelWidth = 320;
-            int lineHeight = 20;
-            int panelHeight = 25 + activeMissions.Count * (lineHeight + 5);
+            int panelHeight = 78;
 
             _spriteBatch.Draw(_pixel, new Rectangle(panelX, panelY, panelWidth, panelHeight), Color.Black * 0.5f);
             _spriteBatch.Draw(_pixel, new Rectangle(panelX, panelY, panelWidth, 2), Color.Cyan * 0.6f);
 
-            _spriteBatch.DrawString(_font, "MISSIONS", new Vector2(panelX + 5, panelY + 3), Color.Cyan * 0.8f);
-
-            int yOff = panelY + 22;
-            foreach (var m in activeMissions) {
-                Color typeColor = m.Type switch {
-                    MissionType.Delivery => Color.Cyan,
-                    MissionType.Bounty => Color.Red,
-                    MissionType.Escort => Color.Yellow,
-                    _ => Color.White
-                };
-
-                string summary = m.Description;
-                if (summary.Length > 35) summary = summary.Substring(0, 32) + "...";
-                string timeStr = m.TimeLimit > 0 ? $" [{m.TimeRemaining:F0}s]" : "";
-                _spriteBatch.DrawString(_font, $"{summary}{timeStr}", new Vector2(panelX + 5, yOff), typeColor * 0.8f);
-                yOff += lineHeight + 5;
-            }
+            _spriteBatch.DrawString(_font, $"MISSION: {activeMission.Title}", new Vector2(panelX + 8, panelY + 6), Color.Cyan * 0.9f);
+            _spriteBatch.DrawString(_font, activeMission.GetHudProgressLine(), new Vector2(panelX + 8, panelY + 30), Color.White);
+            string origin = $"Return to: {activeMission.OriginStationName}";
+            _spriteBatch.DrawString(_font, origin, new Vector2(panelX + 8, panelY + 52), Color.LightGray);
         }
 
         /// <summary>

@@ -142,6 +142,27 @@ namespace Roguelancer
 
             switch (mission.Type)
             {
+                case MissionType.ReachLocation:
+                    if (mission.TargetPosition.HasValue)
+                    {
+                        data.ResolvedTarget = mission.TargetPosition.Value;
+                        data.TargetObject = mission.TargetSpaceObject;
+                        data.DestinationObject = mission.TargetSpaceObject;
+                    }
+                    break;
+
+                case MissionType.DestroyHostiles:
+                    if (mission.TargetSpaceObject != null)
+                    {
+                        data.ResolvedTarget = mission.TargetSpaceObject.Position;
+                        data.TargetObject = mission.TargetSpaceObject;
+                    }
+                    else if (mission.TargetPosition.HasValue)
+                    {
+                        data.ResolvedTarget = mission.TargetPosition.Value;
+                    }
+                    break;
+
                 case MissionType.Delivery:
                     // Find station/space object matching destination name
                     var destObj = FindSpaceObjectByName(spaceObjects, mission.Destination);

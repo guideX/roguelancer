@@ -122,24 +122,14 @@ namespace Roguelancer
             _offeredMission = null;
             _dialogueState = 0;
 
-            // Generate a random mission for each NPC
-            if (_missionManager != null)
+            // Phase 11 keeps the Mission Board authoritative; patrons do not
+            // become parallel mission givers.
+            foreach (var npc in _barNpcs)
             {
-                foreach (var npc in _barNpcs)
-                {
-                    npc.CurrentMission = _missionManager.GenerateRandomMission(npc.FactionId, station);
-                    npc.CurrentMission.OfferedBy = npc.Name;
-                }
-            }
-            else
-            {
-                foreach (var npc in _barNpcs)
-                {
-                    npc.CurrentMission = null;
-                }
+                npc.CurrentMission = null;
             }
 
-            _jobBoard?.RefreshMissions(6, _dockedStation?.FactionId, _dockedStation);
+            _jobBoard?.RefreshMissions(2, _dockedStation?.FactionId, _dockedStation);
 
             // Notify mission manager we docked (for delivery missions)
             _missionWorldManager?.NotifyStationDocked(station);
@@ -1425,14 +1415,22 @@ namespace Roguelancer
             if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.Enter) &&
                 prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.Enter))
             {
-                _jobBoard.AcceptSelectedMission();
+                Mission completed = _missionManager?.UnclaimedCompletedMission;
+                if (completed != null)
+                {
+                    _missionManager.TryClaimReward(completed, _dockedStation, out _);
+                }
+                else
+                {
+                    _jobBoard.AcceptSelectedMission();
+                }
                 return true;
             }
 
             if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.R) &&
                 prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.R))
             {
-                _jobBoard.RefreshMissions(6);
+                _jobBoard.RefreshMissions(2, _dockedStation?.FactionId, _dockedStation);
                 return true;
             }
 

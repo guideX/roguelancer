@@ -12,6 +12,8 @@ namespace Roguelancer
     {
         public Mission Mission { get; set; }
         public NpcShip BountyTarget { get; set; }
+        public Station ReachLocationStation { get; set; }
+        public HashSet<NpcShip> MissionHostiles { get; } = new();
         public Station DeliveryDestination { get; set; }
         public Commodity DeliveryCommodity { get; set; }
         public int DeliveryQuantity { get; set; }
@@ -63,6 +65,10 @@ namespace Roguelancer
 
             switch (mission.Type)
             {
+                case MissionType.ReachLocation:
+                    return TryBindReachLocationMission(state, out failureReason);
+                case MissionType.DestroyHostiles:
+                    return TryBindDestroyHostilesMission(state, out failureReason);
                 case MissionType.Bounty:
                     return TryBindBountyMission(state, out failureReason);
                 case MissionType.Delivery:
@@ -137,6 +143,14 @@ namespace Roguelancer
                     mission.TargetPosition = state.BountyTarget.Position;
                 }
             }
+            else if (mission.Type == MissionType.ReachLocation)
+            {
+                TryBindReachLocationMission(state, out _);
+            }
+            else if (mission.Type == MissionType.DestroyHostiles)
+            {
+                TryBindDestroyHostilesMission(state, out _);
+            }
             else if (mission.Type == MissionType.Delivery)
             {
                 state.DeliveryDestination ??= ResolveDeliveryDestination(mission);
@@ -207,11 +221,31 @@ namespace Roguelancer
                     continue;
                 }
 
+                if (mission.Type == MissionType.DestroyHostiles &&
+                    state.MissionHostiles.Remove(destroyedShip))
+                {
+                    if (destroyedShip.WasDamagedByPlayer)
+                    {
+                        _missionManager?.RecordHostileDestroyed(mission, destroyedShip);
+                    }
+                    else
+                    {
+                        _missionManager?.FailMission(
+                            mission,
+                            "mission target was destroyed without player attribution");
+                    }
+                    return;
+                }
+
                 if (mission.Type == MissionType.Bounty && IsTargetMatch(mission, destroyedShip, state.BountyTarget))
                 {
+                    if (!destroyedShip.WasDamagedByPlayer)
+                    {
+                        return;
+                    }
+
                     Console.WriteLine($"[MISSION] Target destroyed: {destroyedShip.Name} (mission #{mission.Id})");
                     mission.ObjectiveComplete = true;
-                    _missionManager?.CompleteMission(mission);
                     return;
                 }
 
@@ -301,17 +335,56 @@ namespace Roguelancer
             return completedAny;
         }
 
-        public void Update(float deltaTime, Action<string> log = null)
+        public void Update(float deltaTime, Action<string> log = null, int currentSystemIndex = 0)
         {
             if (_runtimeStates.Count == 0)
             {
                 return;
             }
 
-            foreach (MissionRuntimeState state in _runtimeStates.Values.ToList())
+            // The Phase 11 manager permits one active mission, so the common
+            // ReachLocation/DestroyHostiles path can iterate the dictionary
+            // directly. Completion/failure is deferred until after iteration
+            // to avoid both mutation-during-enumeration and a per-frame
+            // Values.ToList allocation.
+            Mission pendingCompletion = null;
+            Mission pendingFailureMission = null;
+            string pendingFailure = string.Empty;
+            foreach (MissionRuntimeState state in _runtimeStates.Values)
             {
                 Mission mission = state.Mission;
-                if (mission == null || mission.Status != MissionStatus.Active || mission.Type != MissionType.Escort)
+                if (mission == null || mission.Status != MissionStatus.Active)
+                {
+                    continue;
+                }
+
+                if (mission.Type == MissionType.ReachLocation)
+                {
+                    bool correctSystem = mission.TargetSystemIndex <= 0 ||
+                        currentSystemIndex <= 0 ||
+                        mission.TargetSystemIndex == currentSystemIndex;
+                    if (correctSystem &&
+                        mission.TargetPosition.HasValue &&
+                        Vector3.Distance(_playerShip.Position, mission.TargetPosition.Value) <= mission.ObjectiveRadius)
+                    {
+                        Console.WriteLine($"[MISSION] Reach location complete: {mission.TargetLocation} (mission #{mission.Id})");
+                        mission.ObjectiveComplete = true;
+                        pendingCompletion = mission;
+                    }
+                    break;
+                }
+
+                if (mission.Type == MissionType.DestroyHostiles)
+                {
+                    if (mission.RequiredProgress <= 0)
+                    {
+                        pendingFailureMission = mission;
+                        pendingFailure = "hostile target metadata became invalid";
+                    }
+                    break;
+                }
+
+                if (mission.Type != MissionType.Escort)
                 {
                     continue;
                 }
@@ -319,16 +392,18 @@ namespace Roguelancer
                 Station destination = state.EscortDestination ?? ResolveEscortDestination(mission);
                 if (destination == null)
                 {
-                    FailMission(mission, "destination unavailable");
-                    continue;
+                    pendingFailureMission = mission;
+                    pendingFailure = "destination unavailable";
+                    break;
                 }
 
                 state.EscortDestination = destination;
 
                 if (state.EscortTarget != null && state.EscortTarget.IsDestroyed)
                 {
-                    FailMission(mission, "escort destroyed");
-                    continue;
+                    pendingFailureMission = mission;
+                    pendingFailure = "escort destroyed";
+                    break;
                 }
 
                 NpcShip escort = ResolveEscortTarget(mission, state);
@@ -336,12 +411,9 @@ namespace Roguelancer
                 {
                     if (!TryBindEscortMission(state, out string failureReason))
                     {
-                        if (!string.IsNullOrWhiteSpace(failureReason))
-                        {
-                            FailMission(mission, failureReason);
-                        }
-
-                        continue;
+                        pendingFailureMission = mission;
+                        pendingFailure = failureReason;
+                        break;
                     }
 
                     escort = state.EscortTarget;
@@ -349,7 +421,7 @@ namespace Roguelancer
 
                 if (escort == null)
                 {
-                    continue;
+                    break;
                 }
 
                 if (escort.IsTrafficEngaged)
@@ -369,9 +441,116 @@ namespace Roguelancer
                 {
                     Console.WriteLine($"[MISSION] Escort reached destination: {escort.Name} -> {destination.Name} (mission #{mission.Id})");
                     mission.ObjectiveComplete = true;
-                    _missionManager?.CompleteMission(mission);
+                    pendingCompletion = mission;
+                }
+                break;
+            }
+
+            if (!string.IsNullOrWhiteSpace(pendingFailure))
+            {
+                FailMission(pendingFailureMission, pendingFailure);
+            }
+            else if (pendingCompletion != null)
+            {
+                _missionManager?.CompleteMission(pendingCompletion);
+            }
+        }
+
+        private bool TryBindReachLocationMission(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Mission mission = state.Mission;
+            if (mission == null)
+            {
+                failureReason = "mission was null";
+                return false;
+            }
+
+            if (!mission.TargetPosition.HasValue)
+            {
+                state.ReachLocationStation = FindStation(mission.OriginStationName);
+                if (state.ReachLocationStation != null)
+                {
+                    mission.TargetSystemIndex = mission.TargetSystemIndex > 0
+                        ? mission.TargetSystemIndex
+                        : state.ReachLocationStation.Config?.SystemIndex ?? 0;
+                    mission.TargetPosition = state.ReachLocationStation.Position + Vector3.Right * 1500f;
+                    mission.TargetSpaceObject = state.ReachLocationStation;
+                }
+                else if (_playerShip != null)
+                {
+                    // Developer station sessions have no Station object. The
+                    // player-space marker remains deterministic and saveable.
+                    mission.TargetPosition = _playerShip.Position + Vector3.Right * 1500f;
                 }
             }
+
+            if (!mission.TargetPosition.HasValue)
+            {
+                failureReason = "patrol marker position could not be resolved";
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool TryBindDestroyHostilesMission(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Mission mission = state.Mission;
+            if (mission == null)
+            {
+                failureReason = "mission was null";
+                return false;
+            }
+            if (mission.RequiredProgress <= 0 || mission.RequiredProgress > 12)
+            {
+                failureReason = "hostile target count is outside the bounded prototype range";
+                return false;
+            }
+            if (_playerShip == null)
+            {
+                failureReason = "player ship not available";
+                return false;
+            }
+
+            Vector3 anchor = mission.TargetPosition ?? _playerShip.Position + _playerShip.Forward * 1100f;
+            mission.TargetPosition = anchor;
+            int remaining = Math.Max(0, mission.RequiredProgress - mission.CurrentProgress);
+            for (int i = 0; i < remaining; i++)
+            {
+                Vector3 offset = new Vector3((i - 1) * 260f, (i % 2) * 140f, (i % 3) * 180f);
+                NpcShip target = new NpcShip(
+                    $"[MISSION] Rogue Hunt target {mission.CurrentProgress + i + 1}",
+                    anchor + offset,
+                    anchor,
+                    700f,
+                    0f,
+                    FactionManager.LibertyRogues);
+                target.ConfigureTrafficBehavior(
+                    TrafficZoneBehaviorType.PirateAmbush,
+                    $"mission-rogue-hunt-{mission.Id}",
+                    anchor,
+                    700f,
+                    140f,
+                    10000f);
+                target.OnDestroyed += npc => _spawnedNpcDestroyedCallback?.Invoke(npc);
+                target.Model = _playerShip.Model;
+                _npcShips.Add(target);
+                _spaceObjects.Add(target);
+                state.MissionHostiles.Add(target);
+                mission.TargetSpaceObject ??= target;
+            }
+
+            Console.WriteLine($"[MISSION] Rogue Hunt bound {state.MissionHostiles.Count} mission targets (mission #{mission.Id})");
+            return true;
+        }
+
+        private Station FindStation(string stationName)
+        {
+            if (string.IsNullOrWhiteSpace(stationName)) return null;
+            return GetKnownStations().FirstOrDefault(station =>
+                string.Equals(station.Name, stationName, StringComparison.OrdinalIgnoreCase));
         }
 
         private bool TryBindBountyMission(MissionRuntimeState state, out string failureReason)

@@ -711,7 +711,12 @@ namespace Roguelancer
         /// If shields are provided, damage hits shields first; remaining damage goes to hull.
         /// </summary>
         /// <returns>List of hits that occurred</returns>
-        public List<HitInfo> CheckCollisions(Vector3 shipPosition, float shipRadius, HullIntegrity hull, ShieldSystem shields = null)
+        public List<HitInfo> CheckCollisions(
+            Vector3 shipPosition,
+            float shipRadius,
+            HullIntegrity hull,
+            ShieldSystem shields = null,
+            NpcShip playerTarget = null)
         {
             List<HitInfo> hits = new List<HitInfo>();
             
@@ -722,6 +727,7 @@ namespace Roguelancer
                 
                 if (distance < shipRadius)
                 {
+                    playerTarget?.MarkDamagedByPlayer();
                     // Hit! Apply damage based on weapon type
                     float damage = p.Damage > 0f
                         ? p.Damage
@@ -859,6 +865,11 @@ namespace Roguelancer
         /// </summary>
         private void ApplyLightningDamage(object target, float hullDamage, float energyDrainAmount)
         {
+            if (target is NpcShip npcTarget)
+            {
+                npcTarget.MarkDamagedByPlayer();
+            }
+
             // Get hull, energy, and shield properties via reflection
             System.Reflection.PropertyInfo hullProp = target.GetType().GetProperty("Hull");
             System.Reflection.PropertyInfo energyProp = target.GetType().GetProperty("Energy");
