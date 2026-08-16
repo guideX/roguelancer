@@ -80,6 +80,8 @@ internal sealed class StationBarSocialSmokeTest
         if (roles.Count != 4) return Fail($"expected four social roles, found {roles.Count}");
         if (!roles.Any(role => role.Id == "bartender") || roles.Count(role => role.Id != "bartender") != 3)
             return Fail("bartender/patron role split was incorrect");
+        StationSocialNpcDefinition bartender = roles.Single(role => role.Id == "bartender");
+        if (bartender.InteractionRadius < 3.0f) return Fail("bartender customer interaction zone is too small for the counter");
         if (roles.Any(role => role.DisplayName.Contains("Adam", StringComparison.OrdinalIgnoreCase)))
             return Fail("temporary asset name leaked into gameplay identity");
         if (roles.Select(role => role.IdleOffset).Distinct().Count() != roles.Count)
@@ -91,6 +93,7 @@ internal sealed class StationBarSocialSmokeTest
     private static (bool, string) ValidateDialoguePayloads()
     {
         var roles = StationBarSocial.CreateRoles();
+        StationSocialNpcDefinition bartender = roles.Single(role => role.Id == "bartender");
         foreach (StationSocialNpcDefinition role in roles)
         {
             if (role.Dialogue.Speaker != role.DisplayName || string.IsNullOrWhiteSpace(role.Dialogue.Text))
@@ -98,7 +101,6 @@ internal sealed class StationBarSocialSmokeTest
             if (role.Dialogue.Duration <= 0.0f || role.Dialogue.Duration > 10.0f)
                 return Fail($"dialogue duration is not bounded for {role.DisplayName}");
         }
-        StationSocialNpcDefinition bartender = roles.Single(role => role.Id == "bartender");
         if (!bartender.HasFutureMissionHook || bartender.InteractionRole != StationNpcInteractionRole.Dialogue)
             return Fail("bartender future mission hook was not structural-only");
         return Pass();

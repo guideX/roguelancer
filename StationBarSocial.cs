@@ -47,16 +47,16 @@ public static class StationBarSocial
             new StationSocialNpcDefinition(
                 "bartender",
                 "Bartender",
-                new Vector3(-7.25f, 0.0f, 60.0f),
+                new Vector3(-7.25f, 0.0f, 59.8f),
                 180.0f,
-                2.3f,
+                3.1f,
                 new StationDialogue("Bartender", "Drinks are cheap. Trouble costs extra."),
                 2.61f,
                 HasFutureMissionHook: true),
             new StationSocialNpcDefinition(
                 "rogue-pilot",
                 "Rogue Pilot",
-                new Vector3(-11.4f, 0.0f, 52.7f),
+                new Vector3(-13.0f, 0.0f, 54.0f),
                 35.0f,
                 2.3f,
                 new StationDialogue("Rogue Pilot", "Heard the trade lanes are getting rough."),
@@ -64,7 +64,7 @@ public static class StationBarSocial
             new StationSocialNpcDefinition(
                 "dockhand",
                 "Dockhand",
-                new Vector3(-1.55f, 0.0f, 54.2f),
+                new Vector3(-2.7f, 0.0f, 54.5f),
                 -90.0f,
                 2.3f,
                 new StationDialogue("Dockhand", "You'd be surprised what comes through this bay."),
