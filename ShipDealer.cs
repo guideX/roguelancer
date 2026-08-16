@@ -65,6 +65,25 @@ namespace Roguelancer
                     modelCache[ship.ModelPath] = model;
                     ship.Model = model;
                     Console.WriteLine($"[SHIP DEALER] Loaded model for {ship.Name}");
+                    string meshNames = string.Join(", ", model.Meshes
+                        .Select(mesh => mesh?.Name)
+                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .Take(32));
+                    string boneNames = string.Join(", ", model.Bones
+                        .Select(bone => bone?.Name)
+                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .Take(32));
+                    string socketLikeNames = string.Join(", ", model.Bones
+                        .Select(bone => bone?.Name)
+                        .Where(name => !string.IsNullOrWhiteSpace(name) &&
+                            (name.Contains("hardpoint", StringComparison.OrdinalIgnoreCase) ||
+                             name.Contains("weapon", StringComparison.OrdinalIgnoreCase) ||
+                             name.Contains("mount", StringComparison.OrdinalIgnoreCase) ||
+                             name.Contains("turret", StringComparison.OrdinalIgnoreCase) ||
+                             name.Contains("launcher", StringComparison.OrdinalIgnoreCase) ||
+                             name.Contains("gun", StringComparison.OrdinalIgnoreCase)))
+                        .Take(16));
+                    Console.WriteLine($"[SHIP DEALER] Runtime hierarchy {ship.Name}: meshes={model.Meshes.Count}, bones={model.Bones.Count}, meshNames=[{meshNames}], boneNames=[{boneNames}], socketLikeBones=[{socketLikeNames}]");
                 }
                 catch (Exception ex)
                 {

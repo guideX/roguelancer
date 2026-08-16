@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 
 namespace Roguelancer
 {
@@ -13,6 +14,16 @@ namespace Roguelancer
         public string ModelPath { get; set; }
         public int Price { get; set; }
         public int TradeInValue { get; set; } // 50% of purchase price
+
+        /// <summary>
+        /// Explicit physical mount metadata. An empty list selects the
+        /// generic fallback layout in ShipLoadout.
+        /// </summary>
+        public IReadOnlyList<ShipHardpointDefinition> HardpointDefinitions { get; set; } = new List<ShipHardpointDefinition>();
+
+        public bool HasExplicitHardpointMetadata => HardpointDefinitions != null && HardpointDefinitions.Count > 0;
+
+        public string HardpointLayoutSource => HasExplicitHardpointMetadata ? "ShipDefinition" : "GenericFallback";
         
         // Ship Stats
         public float MaxSpeed { get; set; } = 250f;
@@ -66,7 +77,8 @@ namespace Roguelancer
                 MaxEnergy = 200f,
                 MaxShields = 50f,
                 CargoCapacity = 50,
-                DisplayColor = Color.Cyan
+                DisplayColor = Color.Cyan,
+                HardpointDefinitions = CreateScimitarHardpoints()
             };
         }
 
@@ -93,7 +105,45 @@ namespace Roguelancer
                 MaxShields = 100f,
                 CargoCapacity = 200,
                 DisplayColor = Color.Yellow,
-                ModelCorrectionRotation = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi) // Fix orientation: -90 deg pitch + 180 deg yaw
+                ModelCorrectionRotation = Matrix.CreateRotationX(-MathHelper.PiOver2) * Matrix.CreateRotationY(MathHelper.Pi), // Fix orientation: -90 deg pitch + 180 deg yaw
+                HardpointDefinitions = CreateTransportHardpoints()
+            };
+        }
+
+        private static IReadOnlyList<ShipHardpointDefinition> CreateScimitarHardpoints()
+        {
+            // Coordinates are in the displayed ship-local metres used by the
+            // shared attachment transform. They sit on the wing roots and
+            // forward centerline of the imported Scimitar hull.
+            return new List<ShipHardpointDefinition>
+            {
+                new("PrimaryGunLeft", EquipmentType.Gun, new Vector3(-4.20f, 0.80f, 0.45f)),
+                new("PrimaryGunRight", EquipmentType.Gun, new Vector3(4.20f, 0.80f, 0.45f)),
+                new("MissileRack", EquipmentType.MissileLauncher, new Vector3(0.00f, 0.65f, -1.05f)),
+                new("MineRack", EquipmentType.MineDropper, new Vector3(0.00f, 0.20f, 1.45f)),
+                new("CountermeasureRack", EquipmentType.CountermeasureDropper, new Vector3(0.00f, 1.55f, 2.25f)),
+                new("ShieldGenerator", EquipmentType.ShieldGenerator, Vector3.Zero),
+                new("Thruster", EquipmentType.Thruster, new Vector3(0.00f, 0.00f, 4.65f)),
+                new("Scanner", EquipmentType.Scanner, new Vector3(0.00f, 0.55f, -0.75f)),
+                new("TractorBeam", EquipmentType.TractorBeam, new Vector3(0.00f, -0.15f, -2.10f))
+            };
+        }
+
+        private static IReadOnlyList<ShipHardpointDefinition> CreateTransportHardpoints()
+        {
+            // The transport has one centerline gun and one centerline launcher
+            // rather than the Scimitar's paired fighter guns. Utility mounts
+            // remain available so the Phase 8 gameplay systems stay intact.
+            return new List<ShipHardpointDefinition>
+            {
+                new("TransportGun", EquipmentType.Gun, new Vector3(0.00f, 1.65f, -3.20f)),
+                new("TransportLauncher", EquipmentType.MissileLauncher, new Vector3(0.00f, 1.10f, -2.45f)),
+                new("TransportMineRack", EquipmentType.MineDropper, new Vector3(0.00f, 0.55f, 3.10f)),
+                new("CountermeasureRack", EquipmentType.CountermeasureDropper, new Vector3(0.00f, 2.20f, 4.35f)),
+                new("ShieldGenerator", EquipmentType.ShieldGenerator, Vector3.Zero),
+                new("Thruster", EquipmentType.Thruster, new Vector3(0.00f, 0.00f, 8.50f)),
+                new("Scanner", EquipmentType.Scanner, new Vector3(0.00f, 1.00f, -2.00f)),
+                new("TractorBeam", EquipmentType.TractorBeam, new Vector3(0.00f, 0.20f, -4.10f))
             };
         }
 
@@ -129,6 +179,11 @@ namespace Roguelancer
             
             // Apply model correction rotation from ship definition
             ship.ModelRotationCorrection = ModelCorrectionRotation;
+
+            // Reconfigure the existing authoritative loadout in-place at the
+            // ship boundary. Ownership is preserved and mounts are remapped
+            // deterministically by ShipLoadout.
+            ship.ApplyHardpointLayout(HardpointDefinitions);
         }
 
         /// <summary>

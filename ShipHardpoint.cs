@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Xna.Framework;
 
 namespace Roguelancer
 {
@@ -11,6 +12,9 @@ namespace Roguelancer
         public string Id { get; set; } = string.Empty;
         public List<EquipmentType> AllowedEquipmentTypes { get; set; } = new List<EquipmentType>();
         public string MountedEquipmentId { get; set; } = string.Empty;
+        public Vector3 LocalPosition { get; set; } = Vector3.Zero;
+        public Vector3 LocalRotationDegrees { get; set; } = Vector3.Zero;
+        public float VisualScale { get; set; } = 1f;
 
         public bool IsEmpty => string.IsNullOrWhiteSpace(MountedEquipmentId);
 
@@ -27,7 +31,10 @@ namespace Roguelancer
                 AllowedEquipmentTypes = AllowedEquipmentTypes != null
                     ? new List<EquipmentType>(AllowedEquipmentTypes)
                     : new List<EquipmentType>(),
-                MountedEquipmentId = MountedEquipmentId
+                MountedEquipmentId = MountedEquipmentId,
+                LocalPosition = LocalPosition,
+                LocalRotationDegrees = LocalRotationDegrees,
+                VisualScale = VisualScale
             };
         }
     }

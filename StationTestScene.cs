@@ -84,6 +84,8 @@ public sealed class StationTestScene : IDisposable
 
         AddParkedShipColliders(_parkedShipMinimum, _parkedShipMaximum);
         Console.WriteLine($"[STATION] Parked ship refreshed: {ship.DisplayName} bounds=({_parkedShipMinimum.X:0.00},{_parkedShipMinimum.Y:0.00},{_parkedShipMinimum.Z:0.00})..({_parkedShipMaximum.X:0.00},{_parkedShipMaximum.Y:0.00},{_parkedShipMaximum.Z:0.00})");
+        Console.WriteLine($"[STATION] {ship.GetHardpointDiagnostics()}");
+        Console.WriteLine($"[STATION] {MountedEquipmentRenderer.BuildDiagnostics(ship, DockedShipPosition, DockedShipOrientation)}");
         return true;
     }
 
@@ -250,6 +252,13 @@ public sealed class StationTestScene : IDisposable
             }
             mesh.Draw();
         }
+        MountedEquipmentRenderer.Draw(
+            ship,
+            DockedShipPosition,
+            DockedShipOrientation,
+            view,
+            projection,
+            lightDirection);
         if (!_shipMaterialStateLogged)
         {
             _shipMaterialStateLogged = true;

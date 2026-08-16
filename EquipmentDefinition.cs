@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Xna.Framework;
 
 namespace Roguelancer
 {
@@ -12,6 +13,20 @@ namespace Roguelancer
         public string Description { get; set; } = string.Empty;
         public EquipmentType EquipmentType { get; set; }
         public int Price { get; set; }
+
+        /// <summary>
+        /// Optional standalone equipment model. Current Phase 9 catalog
+        /// entries intentionally leave this empty because the repository has
+        /// projectile effects and ship meshes, but no standalone gun/launcher
+        /// art. The shared mounted-equipment renderer skips empty paths.
+        /// </summary>
+        public string VisualModelPath { get; set; } = string.Empty;
+
+        /// <summary>Correction applied only to the optional equipment model.</summary>
+        public Vector3 VisualRotationDegrees { get; set; } = Vector3.Zero;
+
+        /// <summary>Scale correction for the optional equipment model.</summary>
+        public float VisualModelScale { get; set; } = 1f;
 
         /// <summary>
         /// Missile damage for launcher equipment.

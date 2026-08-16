@@ -11,17 +11,22 @@ namespace Roguelancer
     {
         private readonly List<ShipHardpoint> _hardpoints = new List<ShipHardpoint>();
         private readonly Dictionary<string, int> _ownedEquipment = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        private readonly bool _usesGenericFallbackLayout;
 
         public IReadOnlyList<ShipHardpoint> Hardpoints => _hardpoints;
 
         public IReadOnlyDictionary<string, int> OwnedEquipment => _ownedEquipment;
 
+        public bool UsesGenericFallbackLayout => _usesGenericFallbackLayout;
+
         public ShipLoadout()
         {
+            _usesGenericFallbackLayout = false;
         }
 
-        public ShipLoadout(IEnumerable<ShipHardpoint> hardpoints)
+        public ShipLoadout(IEnumerable<ShipHardpoint> hardpoints, bool usesGenericFallbackLayout = false)
         {
+            _usesGenericFallbackLayout = usesGenericFallbackLayout;
             if (hardpoints == null)
             {
                 return;
@@ -38,6 +43,42 @@ namespace Roguelancer
 
         public static ShipLoadout CreateStarterLoadout(bool includeStarterEquipment = true)
         {
+            return CreateGenericStarterLoadout(includeStarterEquipment);
+        }
+
+        /// <summary>
+        /// Builds a loadout from ship-definition metadata. A missing metadata
+        /// list intentionally uses the historical generic layout so future
+        /// ships can be added without breaking equipment gameplay.
+        /// </summary>
+        public static ShipLoadout CreateForShip(ShipDefinition shipDefinition, bool includeStarterEquipment = false)
+        {
+            if (shipDefinition?.HasExplicitHardpointMetadata == true)
+            {
+                var explicitLoadout = new ShipLoadout(
+                    shipDefinition.HardpointDefinitions
+                        .Where(definition => definition != null)
+                        .Select(definition => definition.ToRuntimeHardpoint()));
+
+                if (includeStarterEquipment)
+                {
+                    MountStarterEquipment(explicitLoadout, "PrimaryGunLeft", "liberty_light_laser", EquipmentType.Gun);
+                    MountStarterEquipment(explicitLoadout, "PrimaryGunRight", "rogue_blaster", EquipmentType.Gun);
+                    MountStarterEquipment(explicitLoadout, "MissileRack", "basic_missile_launcher", EquipmentType.MissileLauncher);
+                    MountStarterEquipment(explicitLoadout, "ShieldGenerator", "civilian_shield_generator", EquipmentType.ShieldGenerator);
+                    MountStarterEquipment(explicitLoadout, "Thruster", "light_thruster", EquipmentType.Thruster);
+                    MountStarterEquipment(explicitLoadout, "Scanner", "basic_scanner", EquipmentType.Scanner);
+                    MountStarterEquipment(explicitLoadout, "CountermeasureRack", "basic_countermeasure_dropper", EquipmentType.CountermeasureDropper);
+                }
+
+                return explicitLoadout;
+            }
+
+            return CreateGenericStarterLoadout(includeStarterEquipment);
+        }
+
+        private static ShipLoadout CreateGenericStarterLoadout(bool includeStarterEquipment)
+        {
             var loadout = new ShipLoadout(new[]
             {
                 new ShipHardpoint { Id = "PrimaryGunLeft", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Gun } },
@@ -49,7 +90,7 @@ namespace Roguelancer
                 new ShipHardpoint { Id = "Thruster", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Thruster } },
                 new ShipHardpoint { Id = "Scanner", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Scanner } },
                 new ShipHardpoint { Id = "TractorBeam", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.TractorBeam } }
-            });
+            }, usesGenericFallbackLayout: true);
 
             if (includeStarterEquipment)
             {
@@ -63,6 +104,87 @@ namespace Roguelancer
             }
 
             return loadout;
+        }
+
+        /// <summary>
+        /// Rebuilds only the hardpoint layout while preserving every owned
+        /// equipment stack. Existing stable IDs are kept first; remaining
+        /// mounted items are placed into the first compatible free target
+        /// hardpoint. Items that cannot fit remain owned and are unmounted.
+        /// </summary>
+        public ShipLoadout ReconfigureHardpoints(IEnumerable<ShipHardpoint> targetHardpoints, out List<string> warnings)
+        {
+            warnings = new List<string>();
+            bool useFallback = targetHardpoints == null;
+            IEnumerable<ShipHardpoint> definitions = targetHardpoints ?? CreateGenericFallbackHardpoints();
+            ShipLoadout result = new ShipLoadout(definitions, useFallback);
+
+            foreach (var owned in _ownedEquipment)
+            {
+                if (owned.Value > 0)
+                {
+                    result._ownedEquipment[owned.Key] = owned.Value;
+                }
+            }
+
+            List<(ShipHardpoint Source, EquipmentDefinition Equipment)> mounted = _hardpoints
+                .Where(hardpoint => hardpoint != null && !hardpoint.IsEmpty)
+                .Select(hardpoint => (hardpoint, EquipmentCatalog.GetById(hardpoint.MountedEquipmentId)))
+                .ToList();
+
+            HashSet<string> placedSourceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in mounted)
+            {
+                if (entry.Equipment == null)
+                {
+                    warnings.Add($"kept unknown owned equipment '{entry.Source.MountedEquipmentId}' unmounted");
+                    continue;
+                }
+
+                ShipHardpoint sameId = result.GetHardpointById(entry.Source.Id);
+                if (sameId != null && sameId.IsEmpty && sameId.CanAccept(entry.Equipment))
+                {
+                    sameId.MountedEquipmentId = entry.Equipment.Id;
+                    placedSourceIds.Add(entry.Source.Id);
+                }
+            }
+
+            foreach (var entry in mounted)
+            {
+                if (entry.Equipment == null || placedSourceIds.Contains(entry.Source.Id))
+                {
+                    continue;
+                }
+
+                ShipHardpoint remapped = result.FindFirstCompatibleEmptyHardpoint(entry.Equipment);
+                if (remapped != null)
+                {
+                    remapped.MountedEquipmentId = entry.Equipment.Id;
+                    warnings.Add($"remapped {entry.Equipment.Id} from {entry.Source.Id} to {remapped.Id}");
+                }
+                else
+                {
+                    warnings.Add($"unmounted {entry.Equipment.Id} from {entry.Source.Id}; no compatible hardpoint on the new ship");
+                }
+            }
+
+            return result;
+        }
+
+        private static IEnumerable<ShipHardpoint> CreateGenericFallbackHardpoints()
+        {
+            return new[]
+            {
+                new ShipHardpoint { Id = "PrimaryGunLeft", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Gun } },
+                new ShipHardpoint { Id = "PrimaryGunRight", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Gun } },
+                new ShipHardpoint { Id = "MissileRack", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.MissileLauncher } },
+                new ShipHardpoint { Id = "MineRack", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.MineDropper } },
+                new ShipHardpoint { Id = "CountermeasureRack", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.CountermeasureDropper } },
+                new ShipHardpoint { Id = "ShieldGenerator", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.ShieldGenerator } },
+                new ShipHardpoint { Id = "Thruster", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Thruster } },
+                new ShipHardpoint { Id = "Scanner", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Scanner } },
+                new ShipHardpoint { Id = "TractorBeam", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.TractorBeam } }
+            };
         }
 
         public IEnumerable<EquipmentDefinition> GetMountedEquipment()

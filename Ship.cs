@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Roguelancer
 {
@@ -78,6 +79,8 @@ namespace Roguelancer
         public string DisplayName { get; set; } = "Scimitar";
         public string ModelPath { get; set; } = "SHIPS/scimitar/Scimitar2";
         public Matrix ModelRotationCorrection { get; set; } = Matrix.Identity;
+
+        public IReadOnlyList<string> LastHardpointReconfigurationWarnings { get; private set; } = Array.Empty<string>();
 
         // Hull integrity
         public HullIntegrity Hull { get; private set; }
@@ -806,6 +809,16 @@ namespace Roguelancer
                 }
                 mesh.Draw();
             }
+
+            MountedEquipmentRenderer.Draw(
+                this,
+                Position,
+                Orientation,
+                view,
+                projection,
+                lightDirection,
+                _pitchTiltAngle,
+                _bankTiltAngle);
         }
 
         /// <summary>
@@ -824,6 +837,23 @@ namespace Roguelancer
             Matrix pitchTilt = Matrix.CreateFromAxisAngle(orientation.Right, pitchTiltAngle);
             Matrix bankTilt = Matrix.CreateFromAxisAngle(orientation.Forward, bankTiltAngle);
             return modelScale * modelCorrection * modelRotationCorrection * orientation * pitchTilt * bankTilt * Matrix.CreateTranslation(position);
+        }
+
+        /// <summary>
+        /// Returns the ship pose without the imported model scale/correction.
+        /// Mounted-equipment metadata is authored in this displayed local
+        /// space, so the ship model correction is applied exactly once by the
+        /// ship pass and never duplicated for equipment attachments.
+        /// </summary>
+        public static Matrix CreateShipPoseWorldMatrix(
+            Vector3 position,
+            Matrix orientation,
+            float pitchTiltAngle = 0f,
+            float bankTiltAngle = 0f)
+        {
+            Matrix pitchTilt = Matrix.CreateFromAxisAngle(orientation.Right, pitchTiltAngle);
+            Matrix bankTilt = Matrix.CreateFromAxisAngle(orientation.Forward, bankTiltAngle);
+            return orientation * pitchTilt * bankTilt * Matrix.CreateTranslation(position);
         }
 
         /// <summary>
@@ -1124,6 +1154,45 @@ namespace Roguelancer
         public void SetLoadout(ShipLoadout loadout)
         {
             Loadout = loadout ?? ShipLoadout.CreateStarterLoadout();
+        }
+
+        /// <summary>
+        /// Applies ship-definition hardpoint metadata to the existing loadout.
+        /// This is the only transition point that changes physical mount
+        /// topology; owned equipment remains on the loadout throughout.
+        /// </summary>
+        public void ApplyHardpointLayout(IEnumerable<ShipHardpointDefinition> definitions)
+        {
+            List<ShipHardpointDefinition> metadata = definitions?
+                .Where(definition => definition != null)
+                .ToList();
+            IEnumerable<ShipHardpoint> target = metadata == null || metadata.Count == 0
+                ? null
+                : metadata.Select(definition => definition.ToRuntimeHardpoint());
+
+            if (Loadout == null)
+            {
+                Loadout = target == null ? ShipLoadout.CreateStarterLoadout(false) : new ShipLoadout(target);
+                LastHardpointReconfigurationWarnings = Array.Empty<string>();
+                return;
+            }
+
+            Loadout = Loadout.ReconfigureHardpoints(target, out List<string> warnings);
+            LastHardpointReconfigurationWarnings = warnings;
+            foreach (string warning in warnings)
+            {
+                Console.WriteLine($"[LOADOUT] {DisplayName}: {warning}");
+            }
+        }
+
+        public string GetHardpointDiagnostics()
+        {
+            string source = Loadout?.UsesGenericFallbackLayout == true ? "GenericFallback" : "ShipDefinition/Custom";
+            string assignments = Loadout == null
+                ? "unavailable"
+                : string.Join(" | ", Loadout.Hardpoints.Select(hardpoint =>
+                    $"{hardpoint.Id} -> {(hardpoint.IsEmpty ? "empty" : hardpoint.MountedEquipmentId)}"));
+            return $"Ship: {DisplayName} | Hardpoints ({source}): {assignments}";
         }
 
         public IEnumerable<WeaponEquipmentDefinition> GetMountedGuns()

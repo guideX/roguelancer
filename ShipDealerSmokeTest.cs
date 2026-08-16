@@ -274,9 +274,18 @@ namespace Roguelancer
                 return Fail("successful purchase changed the carried cargo");
             }
 
-            if (!string.Equals(playerShip.Loadout.GetMountedSummary(), loadoutBefore, StringComparison.Ordinal))
+            if (string.Equals(playerShip.Loadout.GetMountedSummary(), loadoutBefore, StringComparison.Ordinal))
             {
-                return Fail("successful purchase changed the mounted loadout");
+                return Fail("successful purchase did not switch to the transport hardpoint layout");
+            }
+
+            if (playerShip.Loadout.GetHardpointById("PrimaryGunLeft") != null ||
+                playerShip.Loadout.GetHardpointById("PrimaryGunRight") != null ||
+                playerShip.Loadout.GetCompatibleHardpoints(spareGun).Count() != 1 ||
+                playerShip.Loadout.Hardpoints.Any(hardpoint => !hardpoint.IsEmpty &&
+                    !hardpoint.CanAccept(EquipmentCatalog.GetById(hardpoint.MountedEquipmentId))))
+            {
+                return Fail("successful purchase left an invalid or generic hardpoint assignment");
             }
 
             if (playerShip.Loadout.GetOwnedCount(spareGun.Id) != spareBefore)

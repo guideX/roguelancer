@@ -231,6 +231,7 @@ namespace Roguelancer {
         private readonly bool _runDockSmoke;
         private readonly bool _runShipSmoke;
         private readonly bool _runEquipmentSmoke;
+        private readonly bool _runHardpointSmoke;
         private readonly bool _runAllSmoke;
         private readonly bool _runPerformanceDiagnostics;
         private readonly bool _performanceAutoStation;
@@ -294,6 +295,7 @@ namespace Roguelancer {
             _runDockSmoke = args?.Any(arg => string.Equals(arg, "--dock-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runShipSmoke = args?.Any(arg => string.Equals(arg, "--ship-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runEquipmentSmoke = args?.Any(arg => string.Equals(arg, "--equipment-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runHardpointSmoke = args?.Any(arg => string.Equals(arg, "--hardpoint-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPerformanceDiagnostics = args?.Any(arg => string.Equals(arg, "--perf-diagnostics", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceAutoStation = args?.Any(arg => string.Equals(arg, "--perf-station", StringComparison.OrdinalIgnoreCase)) == true;
@@ -898,12 +900,14 @@ namespace Roguelancer {
             // Initialize ship dealer
             _shipDealer = new ShipDealer();
             _shipDealer.LoadShipModels(Content);
+            _shipDealer.CurrentPlayerShip?.ApplyToShip(_playerShip);
 
             // Initialize commodity dealer
             _commodityDealer = new CommodityDealer();
 
             // Initialize equipment dealer
             _equipmentDealer = new EquipmentDealer();
+            MountedEquipmentRenderer.LoadContent(Content);
 
             // Initialize mission manager
             _missionManager = new MissionManager(_playerCredits, _notificationManager, _reputationManager);
@@ -1173,6 +1177,11 @@ namespace Roguelancer {
                 var result = RunEquipmentSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runHardpointSmoke)
+            {
+                var result = RunHardpointSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else
             {
                 TryAutoLoadSavedGame();
@@ -1233,6 +1242,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("dock smoke", RunDockSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("ship smoke", RunShipSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("equipment smoke", RunEquipmentSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("hardpoint smoke", RunHardpointSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1442,6 +1452,20 @@ namespace Roguelancer {
             }
         }
 
+        private (int Passed, int Failed) RunHardpointSmokeTest()
+        {
+            try
+            {
+                var harness = new HardpointSmokeTest();
+                return harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[HARDPOINT SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
         private bool HandleSaveLoadHotkeys(KeyboardState keyboardState)
         {
             if (keyboardState.IsKeyDown(Keys.F6) && _prevKeys.IsKeyUp(Keys.F6))
@@ -1577,7 +1601,7 @@ namespace Roguelancer {
             ShipLoadout loadout = ShipLoadout.CreateStarterLoadout(false);
             if (_saveGameManager != null)
             {
-                loadout = _saveGameManager.BuildLoadout(saveData, out loadoutWarnings);
+                loadout = _saveGameManager.BuildLoadout(saveData, shipDefinition, out loadoutWarnings);
             }
             _playerShip.SetLoadout(loadout);
 

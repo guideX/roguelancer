@@ -130,8 +130,20 @@ namespace Roguelancer
 
         public ShipLoadout BuildLoadout(SaveGameData data, out List<string> warnings)
         {
+            return BuildLoadout(data, null, out warnings);
+        }
+
+        /// <summary>
+        /// Builds a saved loadout against the current ship's hardpoint
+        /// metadata. The legacy overload above intentionally retains the
+        /// generic layout for older smoke callers and generic future ships.
+        /// </summary>
+        public ShipLoadout BuildLoadout(SaveGameData data, ShipDefinition shipDefinition, out List<string> warnings)
+        {
             warnings = new List<string>();
-            ShipLoadout loadout = ShipLoadout.CreateStarterLoadout(false);
+            ShipLoadout loadout = shipDefinition == null
+                ? ShipLoadout.CreateStarterLoadout(false)
+                : ShipLoadout.CreateForShip(shipDefinition, false);
 
             if (data == null)
             {
@@ -163,18 +175,26 @@ namespace Roguelancer
                     continue;
                 }
 
-                var hardpoint = loadout.GetHardpointById(mounted.HardpointId);
-                if (hardpoint == null)
-                {
-                    warnings.Add($"skipped missing hardpoint '{mounted.HardpointId}'");
-                    continue;
-                }
-
-                EquipmentDefinition definition = ResolveEquipmentDefinition(mounted.EquipmentId, mounted.EquipmentType, warnings, allowHardpointFallback: true, hardpoint: hardpoint);
+                EquipmentDefinition definition = ResolveEquipmentDefinition(mounted.EquipmentId, mounted.EquipmentType, warnings, allowHardpointFallback: true);
                 if (definition == null)
                 {
                     warnings.Add($"skipped unknown mounted equipment '{mounted.EquipmentId}' on {mounted.HardpointId}");
                     continue;
+                }
+
+                ShipHardpoint hardpoint = loadout.GetHardpointById(mounted.HardpointId);
+                if (hardpoint == null)
+                {
+                    hardpoint = loadout.FindFirstCompatibleEmptyHardpoint(definition);
+                    if (hardpoint != null)
+                    {
+                        warnings.Add($"remapped saved hardpoint '{mounted.HardpointId}' to '{hardpoint.Id}' for {definition.Id}");
+                    }
+                    else
+                    {
+                        warnings.Add($"skipped missing hardpoint '{mounted.HardpointId}' for incompatible {definition.Id}");
+                        continue;
+                    }
                 }
 
                 if (loadout.GetOwnedCount(definition.Id) <= 0)
