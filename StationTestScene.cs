@@ -9,17 +9,30 @@ namespace Roguelancer;
 public readonly record struct StationGroundHit(bool Found, Vector3 Point, Vector3 Normal, float SlopeDegrees, string SurfaceLabel);
 public readonly record struct StationCameraCollision(bool Hit, Vector3 Position, string ObstacleLabel);
 
+public enum StationAirlockState
+{
+    Closed,
+    Opening,
+    Open
+}
+
 /// <summary>Purpose-built industrial bay for the temporary developer on-foot mode.</summary>
 public sealed class StationTestScene : IDisposable
 {
     private readonly List<StationSurface> _surfaces = new();
     private readonly List<StationCollider> _colliders = new();
+    private readonly List<AirlockDoorPart> _airlockDoorParts = new();
     private readonly Dictionary<string, Texture2D> _textures = new();
     private readonly List<Texture2D> _shipMaterialTextures = new();
     private readonly HashSet<Texture2D> _ownedTextures = new();
     private GraphicsDevice? _graphicsDevice;
     private BasicEffect? _effect;
     private bool _shipMaterialStateLogged;
+    private StationAirlockState _airlockState = StationAirlockState.Closed;
+    private float _airlockDoorProgress;
+
+    private const float AirlockAnimationSeconds = 0.75f;
+    private const float AirlockTraversalProgress = 0.65f;
 
     public Vector3 SpawnPosition { get; } = new(-8.5f, 0.0f, -7.0f);
     public float SpawnYawDegrees { get; } = 42.0f;
@@ -30,9 +43,22 @@ public sealed class StationTestScene : IDisposable
     public Vector3 AirlockInteractionPosition { get; } = new(0.0f, 0.0f, 14.25f);
     public Vector3 DockTechnicianPosition { get; } = new(-9.0f, 0.0f, 7.5f);
     public float DockTechnicianYawDegrees { get; } = 90.0f;
-    public Vector3 StationAttendantPosition { get; } = new(6.2f, 0.0f, 14.6f);
     public float StationAttendantYawDegrees { get; } = 180.0f;
+    public Vector3 StationAttendantPosition { get; } = new(-3.5f, 0.0f, 32.9f);
+    public Vector3 ShipDealerPosition { get; } = new(7.2f, 0.0f, 35.85f);
+    public float ShipDealerYawDegrees { get; } = -90.0f;
+    public Vector3 EquipmentInteractionPosition { get; } = new(7.2f, 0.0f, 42.0f);
+    public Vector3 BarInteractionPosition { get; } = new(-7.2f, 0.0f, 42.0f);
     public string ShipScaleNote => "Uses Ship.Draw's shared 0.1 model scale and correction; bay units are treated as metres and the human capsule is 1.8m tall.";
+    public StationAirlockState AirlockState => _airlockState;
+    public float AirlockDoorProgress => _airlockDoorProgress;
+    public bool IsAirlockOpen => _airlockState == StationAirlockState.Open;
+    public string AirlockActionLabel => _airlockState switch
+    {
+        StationAirlockState.Closed => "Press E to open",
+        StationAirlockState.Opening => "Opening...",
+        _ => "Open"
+    };
 
     /// <summary>
     /// Centralized first-pass boarding approximation. Model-specific ramps and
@@ -70,6 +96,38 @@ public sealed class StationTestScene : IDisposable
         LoadTexture(content, "door", "Textures/door", Color.White);
         LoadShipMaterialTextures(content);
         BuildLayout();
+    }
+
+    public void ResetSession()
+    {
+        _airlockState = StationAirlockState.Closed;
+        _airlockDoorProgress = 0.0f;
+        UpdateAirlockDoorGeometry();
+    }
+
+    public bool TryOpenAirlock()
+    {
+        if (_airlockState != StationAirlockState.Closed) return false;
+        _airlockState = StationAirlockState.Opening;
+        Console.WriteLine("[STATION] Airlock opening");
+        return true;
+    }
+
+    public void Update(float deltaSeconds)
+    {
+        if (_airlockState != StationAirlockState.Opening) return;
+
+        _airlockDoorProgress = MathHelper.Clamp(
+            _airlockDoorProgress + MathF.Max(0.0f, deltaSeconds) / AirlockAnimationSeconds,
+            0.0f,
+            1.0f);
+        if (_airlockDoorProgress >= 1.0f)
+        {
+            _airlockDoorProgress = 1.0f;
+            _airlockState = StationAirlockState.Open;
+            Console.WriteLine("[STATION] Airlock open; player and camera collision cleared");
+        }
+        UpdateAirlockDoorGeometry();
     }
 
     public void Draw(Matrix view, Matrix projection)
@@ -215,7 +273,7 @@ public sealed class StationTestScene : IDisposable
         return new StationGroundHit(true, new Vector3(position.X, height, position.Z), normal, CapsuleControllerMath.SlopeAngleDegrees(normal), label);
     }
 
-    public bool IsOutOfBounds(Vector3 position) => position.X < -17.0f || position.X > 17.0f || position.Z < -17.0f || position.Z > 17.0f;
+    public bool IsOutOfBounds(Vector3 position) => position.X < -17.0f || position.X > 17.0f || position.Z < -17.0f || position.Z > 48.0f;
 
     /// <summary>
     /// Sweeps a small camera sphere along the pivot-to-desired segment against the
@@ -233,7 +291,7 @@ public sealed class StationTestScene : IDisposable
         string nearestLabel = string.Empty;
         foreach (StationCollider collider in _colliders)
         {
-            if (!collider.BlocksCamera) continue;
+            if (!collider.BlocksCamera || !IsColliderActive(collider)) continue;
 
             Vector3 min = new(collider.Min.X - cameraRadius, collider.MinY - cameraRadius, collider.Min.Y - cameraRadius);
             Vector3 max = new(collider.Max.X + cameraRadius, collider.MaxY + cameraRadius, collider.Max.Y + cameraRadius);
@@ -260,6 +318,7 @@ public sealed class StationTestScene : IDisposable
         _effect = null;
         _surfaces.Clear();
         _colliders.Clear();
+        _airlockDoorParts.Clear();
     }
 
     private void LoadTexture(ContentManager content, string key, string assetName, Color fallbackColor)
@@ -305,13 +364,16 @@ public sealed class StationTestScene : IDisposable
     {
         _surfaces.Clear();
         _colliders.Clear();
+        _airlockDoorParts.Clear();
 
-        // A compact service bay: the floor, ceiling, back wall, and side walls define a room.
-        AddBox(new Vector3(0, -0.12f, 0), new Vector3(36, 0.24f, 36), "floor", 5.0f, false, false);
-        AddBox(new Vector3(0, 5.0f, 17.8f), new Vector3(36, 10.0f, 0.4f), "structure", 3.0f, false, true);
-        AddBox(new Vector3(-17.8f, 5.0f, 0), new Vector3(0.4f, 10.0f, 36), "structure", 3.0f, false, true);
-        AddBox(new Vector3(17.8f, 5.0f, 0), new Vector3(0.4f, 10.0f, 36), "structure", 3.0f, false, true);
-        AddBox(new Vector3(0, 10.0f, 0), new Vector3(36, 0.35f, 36), "structure", 3.0f, false, true);
+        // The existing docking bay remains the anchor of the scene. Its rear
+        // boundary now opens into a compact station interior that continues to
+        // use the same 1-unit = 1-metre collision and presentation scale.
+        AddBox(new Vector3(0, -0.12f, 15.0f), new Vector3(36, 0.24f, 66), "floor", 5.0f, false, false);
+        AddBox(new Vector3(-17.8f, 5.0f, 15.0f), new Vector3(0.4f, 10.0f, 66), "structure", 3.0f, false, true);
+        AddBox(new Vector3(17.8f, 5.0f, 15.0f), new Vector3(0.4f, 10.0f, 66), "structure", 3.0f, false, true);
+        AddBox(new Vector3(0, 10.0f, 15.0f), new Vector3(36, 0.35f, 66), "structure", 3.0f, false, true);
+        AddBox(new Vector3(0, 5.0f, 48.8f), new Vector3(36, 10.0f, 0.4f), "structure", 3.0f, false, true);
 
         // Docking pad and perimeter hazard markings.
         AddBox(new Vector3(0, 0.035f, 0.8f), new Vector3(16.0f, 0.07f, 12.0f), "floor", 2.0f, false, false);
@@ -357,11 +419,13 @@ public sealed class StationTestScene : IDisposable
         AddBox(new Vector3(6.5f, 9.65f, -1.5f), new Vector3(8.0f, 0.08f, 0.30f), "glow", 1.0f, true, false, emissive: true);
         AddBox(new Vector3(12.5f, 9.55f, 10.5f), new Vector3(6.0f, 0.08f, 0.30f), "glow", 1.0f, true, false, emissive: true);
 
-        // Closed airlock frame and panel; the closed door is solid for this phase.
+        // Functional airlock frame and upward-sliding panel. The panel's
+        // surface moves during Update while its collider is disabled only once
+        // a standing player can safely traverse the opening.
         AddBox(new Vector3(-5.0f, 3.0f, 17.35f), new Vector3(0.75f, 6.0f, 0.65f), "accent", 1.0f, false, true);
         AddBox(new Vector3(5.0f, 3.0f, 17.35f), new Vector3(0.75f, 6.0f, 0.65f), "accent", 1.0f, false, true);
         AddBox(new Vector3(0, 6.1f, 17.35f), new Vector3(10.25f, 0.75f, 0.65f), "accent", 2.0f, false, true);
-        AddBox(new Vector3(0, 2.7f, 17.2f), new Vector3(8.8f, 5.0f, 0.20f), "door", 1.0f, false, true);
+        AddBox(new Vector3(0, 2.7f, 17.2f), new Vector3(8.8f, 5.0f, 0.20f), "door", 1.0f, false, true, airlockDoor: true);
         AddBox(new Vector3(-4.1f, 3.0f, 17.0f), new Vector3(0.18f, 3.2f, 0.10f), "glow", 1.0f, true, false, emissive: true);
         AddBox(new Vector3(4.1f, 3.0f, 17.0f), new Vector3(0.18f, 3.2f, 0.10f), "glow", 1.0f, true, false, emissive: true);
         AddBox(new Vector3(0, 5.0f, 17.0f), new Vector3(8.4f, 0.18f, 0.10f), "hazard", 2.0f, true, false);
@@ -369,6 +433,61 @@ public sealed class StationTestScene : IDisposable
         AddBox(new Vector3(-5.55f, 2.0f, 16.55f), new Vector3(0.30f, 4.0f, 1.0f), "accent", 1.0f, false, true);
         AddBox(new Vector3(5.55f, 2.0f, 16.55f), new Vector3(0.30f, 4.0f, 1.0f), "accent", 1.0f, false, true);
         AddBox(new Vector3(0.0f, 4.2f, 16.55f), new Vector3(10.8f, 0.30f, 1.0f), "accent", 1.0f, false, true);
+
+        // Service corridor: a deliberately short, five-metre-wide transition
+        // between the harsh bay and the pedestrian concourse.
+        AddBox(new Vector3(0.0f, 0.03f, 23.4f), new Vector3(6.0f, 0.08f, 11.8f), "structure", 2.0f, false, false);
+        AddBox(new Vector3(-2.95f, 2.1f, 23.6f), new Vector3(0.35f, 4.2f, 12.4f), "structure", 2.0f, false, true);
+        AddBox(new Vector3(2.95f, 2.1f, 23.6f), new Vector3(0.35f, 4.2f, 12.4f), "structure", 2.0f, false, true);
+        AddBox(new Vector3(-2.65f, 2.55f, 22.1f), new Vector3(0.12f, 2.6f, 3.0f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(2.65f, 2.55f, 25.4f), new Vector3(0.12f, 2.6f, 3.0f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(-2.70f, 3.6f, 23.5f), new Vector3(0.10f, 0.10f, 10.0f), "glow", 3.0f, true, false, emissive: true);
+        AddBox(new Vector3(2.70f, 3.6f, 23.5f), new Vector3(0.10f, 0.10f, 10.0f), "glow", 3.0f, true, false, emissive: true);
+        AddBox(new Vector3(0.0f, 3.85f, 23.5f), new Vector3(5.2f, 0.18f, 0.22f), "glow", 2.0f, true, false, emissive: true);
+        AddBox(new Vector3(-2.25f, 2.2f, 27.2f), new Vector3(0.32f, 4.0f, 0.32f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(2.25f, 2.2f, 27.2f), new Vector3(0.32f, 4.0f, 0.32f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(0.0f, 4.0f, 29.0f), new Vector3(5.9f, 0.35f, 0.35f), "accent", 1.0f, false, true);
+
+        // Main concourse: roughly 20m wide by 18m deep, with the corridor
+        // opening centered on its near wall and enough room for future NPCs.
+        AddBox(new Vector3(-10.0f, 4.5f, 38.5f), new Vector3(0.35f, 9.0f, 18.0f), "structure", 2.0f, false, true);
+        AddBox(new Vector3(10.0f, 4.5f, 38.5f), new Vector3(0.35f, 9.0f, 18.0f), "structure", 2.0f, false, true);
+        AddBox(new Vector3(0.0f, 4.5f, 47.4f), new Vector3(20.35f, 9.0f, 0.35f), "structure", 2.0f, false, true);
+        AddBox(new Vector3(-6.4f, 4.5f, 29.5f), new Vector3(7.2f, 9.0f, 0.35f), "structure", 2.0f, false, true);
+        AddBox(new Vector3(6.4f, 4.5f, 29.5f), new Vector3(7.2f, 9.0f, 0.35f), "structure", 2.0f, false, true);
+        AddBox(new Vector3(0.0f, 7.8f, 30.0f), new Vector3(19.5f, 0.30f, 0.35f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(0.0f, 6.8f, 34.0f), new Vector3(16.0f, 0.16f, 0.22f), "glow", 3.0f, true, false, emissive: true);
+        AddBox(new Vector3(0.0f, 6.8f, 43.5f), new Vector3(16.0f, 0.16f, 0.22f), "glow", 3.0f, true, false, emissive: true);
+        AddBox(new Vector3(-8.8f, 4.0f, 34.2f), new Vector3(0.45f, 8.0f, 0.45f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(8.8f, 4.0f, 34.2f), new Vector3(0.45f, 8.0f, 0.45f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(-8.8f, 4.0f, 44.0f), new Vector3(0.45f, 8.0f, 0.45f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(8.8f, 4.0f, 44.0f), new Vector3(0.45f, 8.0f, 0.45f), "accent", 1.0f, false, true);
+
+        // Station-access checkpoint and attendant position near the corridor.
+        AddBox(new Vector3(-3.5f, 0.55f, 32.1f), new Vector3(3.8f, 1.1f, 0.75f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(-3.5f, 1.35f, 32.1f), new Vector3(2.5f, 0.08f, 0.50f), "glow", 1.0f, true, false, emissive: true);
+
+        // Ship Dealer: an open counter, terminal, customer side, and a clear
+        // sightline back toward the corridor/docking infrastructure.
+        AddBox(new Vector3(7.0f, 0.55f, 35.0f), new Vector3(5.0f, 1.1f, 0.75f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(7.0f, 1.35f, 35.0f), new Vector3(4.2f, 0.08f, 0.50f), "glow", 1.0f, true, false, emissive: true);
+        AddBox(new Vector3(8.7f, 1.65f, 36.8f), new Vector3(0.35f, 3.3f, 2.4f), "structure", 1.0f, false, true);
+        AddBox(new Vector3(8.35f, 1.95f, 36.0f), new Vector3(0.08f, 1.2f, 1.45f), "glow", 1.0f, true, false, emissive: true);
+        AddBox(new Vector3(5.0f, 0.45f, 37.8f), new Vector3(2.2f, 0.9f, 0.55f), "structure", 1.0f, false, true);
+
+        // Equipment is a recognizable closed kiosk, not a functioning shop.
+        AddBox(new Vector3(7.65f, 1.5f, 42.1f), new Vector3(3.2f, 3.0f, 0.55f), "structure", 1.0f, false, true);
+        AddBox(new Vector3(7.65f, 3.2f, 42.1f), new Vector3(2.6f, 0.10f, 0.12f), "glow", 1.0f, true, false, emissive: true);
+        AddBox(new Vector3(6.05f, 0.9f, 42.1f), new Vector3(0.55f, 1.8f, 2.8f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(5.72f, 1.55f, 42.1f), new Vector3(0.08f, 0.8f, 1.3f), "glow", 1.0f, true, false, emissive: true);
+
+        // Bar placeholder: framed common-area entrance with a closed dark
+        // boundary suggesting a larger social room beyond this phase.
+        AddBox(new Vector3(-8.55f, 2.4f, 41.8f), new Vector3(0.40f, 4.8f, 3.8f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(-5.95f, 2.4f, 41.8f), new Vector3(0.40f, 4.8f, 3.8f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(-7.25f, 4.8f, 41.8f), new Vector3(3.0f, 0.45f, 3.8f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(-7.25f, 2.45f, 43.55f), new Vector3(2.3f, 4.7f, 0.20f), "structure", 1.0f, false, true);
+        AddBox(new Vector3(-7.25f, 4.0f, 40.0f), new Vector3(2.2f, 0.12f, 0.14f), "glow", 1.0f, true, false, emissive: true);
 
         // Service alcove, tool carts, and a few intentionally simple crates.
         AddBox(new Vector3(-14.0f, 2.4f, 7.0f), new Vector3(0.4f, 4.8f, 9.0f), "accent", 2.0f, false, true);
@@ -395,7 +514,7 @@ public sealed class StationTestScene : IDisposable
     {
         foreach (StationCollider collider in _colliders)
         {
-            if (!collider.BlocksPlayer) continue;
+            if (!collider.BlocksPlayer || !IsColliderActive(collider)) continue;
             if (!OverlapsVertical(candidate.Y, capsuleHeight, collider) || !CircleOverlapsBox(candidate, CapsuleControllerMath.Radius, collider)) continue;
             float step = collider.MaxY - current.Y;
             if (grounded && step > 0.0f && step <= CapsuleControllerMath.MaxStepHeight)
@@ -425,7 +544,30 @@ public sealed class StationTestScene : IDisposable
         return Vector2.DistanceSquared(new Vector2(position.X, position.Z), nearest) < radius * radius;
     }
 
-    private void AddBox(Vector3 center, Vector3 size, string textureKey, float uvRepeat, bool unlit, bool solid, bool blocksCamera = false, bool emissive = false)
+    private bool IsColliderActive(StationCollider collider)
+    {
+        return !collider.IsAirlockDoor || _airlockDoorProgress < AirlockTraversalProgress;
+    }
+
+    private void UpdateAirlockDoorGeometry()
+    {
+        if (_airlockDoorParts.Count == 0) return;
+
+        Vector3 offset = Vector3.Up * (_airlockDoorProgress * 5.25f);
+        foreach (AirlockDoorPart part in _airlockDoorParts)
+        {
+            for (int i = 0; i < part.Surface.Vertices.Length; i++)
+            {
+                VertexPositionNormalTexture vertex = part.Surface.Vertices[i];
+                part.Surface.Vertices[i] = new VertexPositionNormalTexture(
+                    part.ClosedPositions[i] + offset,
+                    vertex.Normal,
+                    vertex.TextureCoordinate);
+            }
+        }
+    }
+
+    private void AddBox(Vector3 center, Vector3 size, string textureKey, float uvRepeat, bool unlit, bool solid, bool blocksCamera = false, bool emissive = false, bool airlockDoor = false)
     {
         Vector3 min = center - size * 0.5f;
         Vector3 max = center + size * 0.5f;
@@ -437,8 +579,15 @@ public sealed class StationTestScene : IDisposable
         AddFace(vertices, indices, new Vector3(max.X, min.Y, min.Z), new Vector3(max.X, min.Y, max.Z), new Vector3(max.X, max.Y, max.Z), new Vector3(max.X, max.Y, min.Z), Vector3.Right, uvRepeat);
         AddFace(vertices, indices, new Vector3(min.X, max.Y, min.Z), new Vector3(max.X, max.Y, min.Z), new Vector3(max.X, max.Y, max.Z), new Vector3(min.X, max.Y, max.Z), Vector3.Up, uvRepeat);
         AddFace(vertices, indices, new Vector3(min.X, min.Y, max.Z), new Vector3(max.X, min.Y, max.Z), new Vector3(max.X, min.Y, min.Z), new Vector3(min.X, min.Y, min.Z), Vector3.Down, uvRepeat);
-        _surfaces.Add(new StationSurface(vertices.ToArray(), indices.ToArray(), _textures[textureKey], unlit, emissive, GetSurfaceTint(textureKey)));
-        if (solid || blocksCamera) _colliders.Add(new StationCollider(new Vector2(min.X, min.Z), new Vector2(max.X, max.Z), min.Y, max.Y, textureKey, solid, solid || blocksCamera));
+        StationSurface surface = new(vertices.ToArray(), indices.ToArray(), _textures[textureKey], unlit, emissive, GetSurfaceTint(textureKey));
+        _surfaces.Add(surface);
+        if (airlockDoor)
+        {
+            Vector3[] closedPositions = new Vector3[surface.Vertices.Length];
+            for (int i = 0; i < closedPositions.Length; i++) closedPositions[i] = surface.Vertices[i].Position;
+            _airlockDoorParts.Add(new AirlockDoorPart(surface, closedPositions));
+        }
+        if (solid || blocksCamera) _colliders.Add(new StationCollider(new Vector2(min.X, min.Z), new Vector2(max.X, max.Z), min.Y, max.Y, textureKey, solid, solid || blocksCamera, airlockDoor));
     }
 
     private void AddRamp(Vector3 center, Vector3 size, string textureKey)
@@ -517,5 +666,14 @@ public sealed class StationTestScene : IDisposable
     }
 
     private sealed record StationSurface(VertexPositionNormalTexture[] Vertices, int[] Indices, Texture2D Texture, bool Unlit, bool Emissive, Color Tint);
-    private sealed record StationCollider(Vector2 Min, Vector2 Max, float MinY, float MaxY, string Label, bool BlocksPlayer = false, bool BlocksCamera = false);
+    private sealed record AirlockDoorPart(StationSurface Surface, Vector3[] ClosedPositions);
+    private sealed record StationCollider(
+        Vector2 Min,
+        Vector2 Max,
+        float MinY,
+        float MaxY,
+        string Label,
+        bool BlocksPlayer = false,
+        bool BlocksCamera = false,
+        bool IsAirlockDoor = false);
 }

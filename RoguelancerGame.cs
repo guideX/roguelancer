@@ -349,7 +349,7 @@ namespace Roguelancer {
             return mode is "cpu" or "gpu" ? mode : "gpu";
         }
 
-        private int RequestedStationNpcCount => _runPerformanceDiagnostics ? _performanceCharacterCount - 1 : 2;
+        private int RequestedStationNpcCount => _runPerformanceDiagnostics ? _performanceCharacterCount - 1 : 3;
 
         private void SyncMountedGunWeaponProfile()
         {
@@ -4211,6 +4211,7 @@ namespace Roguelancer {
             if (!EnsureStationCharacterLoaded()) return false;
 
             _stationSession = session;
+            _stationTestScene.ResetSession();
             _stationPlayerCharacter.ResetToSpawn();
             foreach (StationNpc npc in _stationNpcs) npc.Reset();
             _stationDialogueText = string.Empty;
@@ -4254,13 +4255,31 @@ namespace Roguelancer {
                     BoardPlayerShip));
             }
 
+            if (!_stationTestScene.IsAirlockOpen)
+            {
+                _stationInteractions.Add(new StationInteraction(
+                    "station-airlock",
+                    _stationTestScene.AirlockInteractionPosition,
+                    2.5f,
+                    "STATION INTERIOR",
+                    _stationTestScene.AirlockActionLabel,
+                    OpenStationAirlock));
+            }
+
             _stationInteractions.Add(new StationInteraction(
-                "station-interior-boundary",
-                _stationTestScene.AirlockInteractionPosition,
-                2.5f,
-                "STATION INTERIOR",
-                "Additional station areas not yet available",
-                () => _notificationManager?.ShowMessage("Station interior — coming in a later phase", 2.5f)));
+                "station-equipment",
+                _stationTestScene.EquipmentInteractionPosition,
+                2.0f,
+                "EQUIPMENT",
+                "Press E to use",
+                () => _notificationManager?.ShowMessage("Equipment — services not yet available", 2.5f)));
+            _stationInteractions.Add(new StationInteraction(
+                "station-bar",
+                _stationTestScene.BarInteractionPosition,
+                2.0f,
+                "BAR",
+                "Press E to enter",
+                () => _notificationManager?.ShowMessage("Bar — interior not yet available", 2.5f)));
 
             foreach (StationNpc npc in _stationNpcs)
             {
@@ -4307,6 +4326,13 @@ namespace Roguelancer {
             }
 
             return nearest;
+        }
+
+        private void OpenStationAirlock()
+        {
+            if (_stationTestScene?.TryOpenAirlock() != true) return;
+            BuildStationInteractions();
+            _notificationManager?.ShowMessage("Airlock opening", 1.25f);
         }
 
         private void TalkToStationNpc(StationNpc npc)
@@ -4361,6 +4387,7 @@ namespace Roguelancer {
             }
 
             if (_stationPlayerCharacter == null || _stationCharacterCamera == null) return;
+            _stationTestScene?.Update(deltaTime);
             if (keyboardState.IsKeyDown(Keys.F12) && _prevKeys.IsKeyUp(Keys.F12)) {
                 _stationPlayerCharacter.CapsuleDebugVisible = !_stationPlayerCharacter.CapsuleDebugVisible;
                 Console.WriteLine($"[STATION TEST] Capsule debug {(_stationPlayerCharacter.CapsuleDebugVisible ? "ON" : "OFF")}");
@@ -4455,7 +4482,22 @@ namespace Roguelancer {
                         interactive: true,
                         skinningEffect: _stationCharacterSkinningEffect));
                 }
-                for (int i = 2; i < RequestedStationNpcCount; i++)
+                if (RequestedStationNpcCount >= 3)
+                {
+                    Vector3 position = _runPerformanceDiagnostics ? GetPerformanceNpcPosition(2) : _stationTestScene.ShipDealerPosition;
+                    npcs.Add(new StationNpc(
+                        "ship-dealer",
+                        "Ship Dealer",
+                        prototypeAdam,
+                        position,
+                        _stationTestScene.ShipDealerYawDegrees,
+                        2.4f,
+                        "I've got ships available, but the sales terminal isn't online yet.",
+                        2.17f,
+                        interactive: true,
+                        skinningEffect: _stationCharacterSkinningEffect));
+                }
+                for (int i = 3; i < RequestedStationNpcCount; i++)
                 {
                     npcs.Add(new StationNpc(
                         $"perf-npc-{i + 1}",
@@ -4966,6 +5008,11 @@ namespace Roguelancer {
             DrawStationSign("DOCKING BAY 01", new Vector3(0.0f, 7.15f, 16.85f), Color.Gold, 0.72f);
             DrawStationSign("SERVICE ACCESS", new Vector3(-13.55f, 3.25f, 6.5f), Color.LightSkyBlue, 0.60f);
             DrawStationSign("STATION INTERIOR", new Vector3(0.0f, 5.35f, 16.75f), Color.LightSkyBlue, 0.55f);
+            DrawStationSign("SERVICE CORRIDOR", new Vector3(0.0f, 4.25f, 22.5f), Color.LightSkyBlue, 0.52f);
+            DrawStationSign("MAIN CONCOURSE", new Vector3(0.0f, 7.25f, 30.1f), Color.Gold, 0.62f);
+            DrawStationSign("SHIP DEALER", new Vector3(7.0f, 4.1f, 34.25f), Color.Gold, 0.62f);
+            DrawStationSign("EQUIPMENT", new Vector3(7.4f, 4.0f, 41.2f), Color.LightSkyBlue, 0.58f);
+            DrawStationSign("BAR", new Vector3(-7.25f, 5.55f, 39.9f), Color.LightSkyBlue, 0.62f);
         }
 
         private void DrawStationSign(string text, Vector3 worldPosition, Color color, float scale)
