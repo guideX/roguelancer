@@ -39,6 +39,7 @@ namespace Roguelancer {
         private readonly List<StationNpc> _stationNpcs = new();
         private readonly CharacterAssetCache _stationCharacterAssets = new();
         private BasicEffect _stationCharacterEffect;
+        private Effect? _stationCharacterSkinningEffect;
         private bool _stationTestMode;
         private StationSession _stationSession;
         private readonly List<StationInteraction> _stationInteractions = new();
@@ -232,6 +233,8 @@ namespace Roguelancer {
         private readonly bool _performanceAutoStation;
         private readonly double _performanceDurationSeconds;
         private readonly int _performanceCharacterCount;
+        private readonly int _performanceVisibleCharacterCount;
+        private readonly string _characterSkinningMode;
         private readonly PerformanceDiagnostics _performanceDiagnostics;
         private SaveGameManager _saveGameManager;
         private const float FirstDockHintAutoSelectDelaySeconds = 4f;
@@ -292,6 +295,8 @@ namespace Roguelancer {
             _performanceAutoStation = args?.Any(arg => string.Equals(arg, "--perf-station", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceDurationSeconds = ParsePerformanceDuration(args);
             _performanceCharacterCount = ParsePerformanceCharacterCount(args);
+            _performanceVisibleCharacterCount = ParsePerformanceVisibleCharacterCount(args);
+            _characterSkinningMode = ParseCharacterSkinningMode(args);
             _performanceDiagnostics = new PerformanceDiagnostics(_runPerformanceDiagnostics, _performanceDurationSeconds);
 
             // Load game settings
@@ -327,7 +332,21 @@ namespace Roguelancer {
         {
             string? value = args?.FirstOrDefault(arg => arg.StartsWith("--perf-characters=", StringComparison.OrdinalIgnoreCase));
             if (value == null || !int.TryParse(value.Substring("--perf-characters=".Length), out int count)) return 3;
-            return Math.Clamp(count, 1, 3);
+            return Math.Clamp(count, 1, 6);
+        }
+
+        private static int ParsePerformanceVisibleCharacterCount(string[]? args)
+        {
+            string? value = args?.FirstOrDefault(arg => arg.StartsWith("--perf-visible=", StringComparison.OrdinalIgnoreCase));
+            if (value == null || !int.TryParse(value.Substring("--perf-visible=".Length), out int count)) return -1;
+            return Math.Clamp(count, 0, 6);
+        }
+
+        private static string ParseCharacterSkinningMode(string[]? args)
+        {
+            string? value = args?.FirstOrDefault(arg => arg.StartsWith("--character-skinning=", StringComparison.OrdinalIgnoreCase));
+            string mode = value?.Substring("--character-skinning=".Length).Trim().ToLowerInvariant() ?? "gpu";
+            return mode is "cpu" or "gpu" ? mode : "gpu";
         }
 
         private int RequestedStationNpcCount => _runPerformanceDiagnostics ? _performanceCharacterCount - 1 : 2;
@@ -974,6 +993,17 @@ namespace Roguelancer {
                 LightingEnabled = true,
                 VertexColorEnabled = false,
             };
+            try
+            {
+                if (_characterSkinningMode == "cpu") throw new InvalidOperationException("CPU skinning selected by --character-skinning=cpu.");
+                _stationCharacterSkinningEffect = Content.Load<Effect>("CharacterSkinning");
+                Console.WriteLine("[CHARACTER SKINNING] GPU effect loaded; GPU skinning is the preferred station path.");
+            }
+            catch (Exception ex)
+            {
+                _stationCharacterSkinningEffect = null;
+                Console.WriteLine($"[CHARACTER SKINNING] GPU effect unavailable; using CPU fallback: {ex}");
+            }
 
             // Initialize StationManager with GraphicsDevice and load stations
             _stationManager = new StationManager(Content, GraphicsDevice);
@@ -4234,6 +4264,7 @@ namespace Roguelancer {
 
             foreach (StationNpc npc in _stationNpcs)
             {
+                if (!npc.IsInteractive) continue;
                 _stationInteractions.Add(new StationInteraction(
                     $"npc-{npc.Id}",
                     npc.Position,
@@ -4393,30 +4424,50 @@ namespace Roguelancer {
                     return new CharacterAsset("prototype-adam", model, clips, CharacterModelConfiguration.AdamMixamo);
                 });
 
-                player = new PlayerCharacter(prototypeAdam, _stationTestScene);
+                player = new PlayerCharacter(prototypeAdam, _stationTestScene, _stationCharacterSkinningEffect);
                 if (RequestedStationNpcCount >= 1)
                 {
+                    Vector3 position = _runPerformanceDiagnostics ? GetPerformanceNpcPosition(0) : _stationTestScene.DockTechnicianPosition;
                     npcs.Add(new StationNpc(
                         "dock-technician",
                         "Dock Technician",
                         prototypeAdam,
-                        _stationTestScene.DockTechnicianPosition,
+                        position,
                         _stationTestScene.DockTechnicianYawDegrees,
                         2.4f,
                         "Your ship's looking good.",
-                        0.0f));
+                        0.0f,
+                        interactive: true,
+                        skinningEffect: _stationCharacterSkinningEffect));
                 }
                 if (RequestedStationNpcCount >= 2)
                 {
+                    Vector3 position = _runPerformanceDiagnostics ? GetPerformanceNpcPosition(1) : _stationTestScene.StationAttendantPosition;
                     npcs.Add(new StationNpc(
                         "station-attendant",
                         "Station Attendant",
                         prototypeAdam,
-                        _stationTestScene.StationAttendantPosition,
+                        position,
                         _stationTestScene.StationAttendantYawDegrees,
                         2.4f,
                         "Station services aren't available yet.",
-                        1.3f));
+                        1.3f,
+                        interactive: true,
+                        skinningEffect: _stationCharacterSkinningEffect));
+                }
+                for (int i = 2; i < RequestedStationNpcCount; i++)
+                {
+                    npcs.Add(new StationNpc(
+                        $"perf-npc-{i + 1}",
+                        $"Performance NPC {i + 1}",
+                        prototypeAdam,
+                        GetPerformanceNpcPosition(i),
+                        180.0f,
+                        0.0f,
+                        string.Empty,
+                        i * 0.47f,
+                        interactive: false,
+                        skinningEffect: _stationCharacterSkinningEffect));
                 }
 
                 player.LoadGraphics(GraphicsDevice);
@@ -4434,6 +4485,20 @@ namespace Roguelancer {
                 _notificationManager?.ShowMessage("Station test character assets unavailable; see debug console", 5f);
                 return false;
             }
+        }
+
+        private Vector3 GetPerformanceNpcPosition(int index)
+        {
+            int characterIndex = index + 1; // The player is character zero.
+            if (_performanceVisibleCharacterCount >= 0 && characterIndex >= _performanceVisibleCharacterCount)
+                return new Vector3(1000.0f + index * 10.0f, 0.0f, 1000.0f + index * 10.0f);
+
+            // Keep diagnostic instances in a compact camera-facing cluster so
+            // --perf-characters=1,2,3,6 exercises the intended visible count.
+            Vector3 origin = _stationTestScene.SpawnPosition;
+            int column = index % 3;
+            int row = index / 3;
+            return origin + new Vector3((column - 1) * 1.35f, 0.0f, row * 1.45f + 2.0f);
         }
 
         private static CharacterGltfAnimationClip? LoadStationAnimation(string root, string fileName)
@@ -4726,46 +4791,63 @@ namespace Roguelancer {
                     _performanceDiagnostics.AddCounter("station.ship.draws");
                     _stationTestScene.DrawShipModel(_playerShip, _stationCharacterCamera.View, _stationCharacterCamera.Projection, _lightDirection);
                 }
-                using (_performanceDiagnostics.Measure("station.pose.update"))
+                BoundingFrustum frustum = new(_stationCharacterCamera.View * _stationCharacterCamera.Projection);
+                int activeCharacterCount = 1 + _stationNpcs.Count;
+                int visibleCharacterCount = 0;
+                int culledCharacterCount = 0;
+                if (_stationPlayerCharacter.Renderer.IsVisible(_stationPlayerCharacter.WorldMatrix, frustum))
                 {
-                    _stationPlayerCharacter.UpdatePose(_performanceDiagnostics);
-                }
-                using (_performanceDiagnostics.Measure("station.character.draw"))
-                {
-                    _stationPlayerCharacter.Renderer.Draw(
-                        _stationCharacterEffect,
-                        _stationPlayerCharacter.WorldMatrix,
-                        _stationCharacterCamera.View,
-                        _stationCharacterCamera.Projection,
-                        Color.White,
-                        new Vector3(0.30f, 0.34f, 0.44f),
-                        new Vector3(0.58f, 0.64f, 0.78f),
-                        new Vector3(-0.35f, -0.85f, -0.40f));
-                }
-                foreach (StationNpc npc in _stationNpcs)
-                {
-                    using (_performanceDiagnostics.Measure("station.pose.update"))
-                    {
-                        npc.UpdatePose(_performanceDiagnostics);
-                    }
+                    visibleCharacterCount++;
+                    using (_performanceDiagnostics.Measure("station.pose.update")) _stationPlayerCharacter.UpdatePose(_performanceDiagnostics);
                     using (_performanceDiagnostics.Measure("station.character.draw"))
                     {
-                        npc.Renderer.Draw(
+                        _stationPlayerCharacter.Renderer.Draw(
                             _stationCharacterEffect,
-                            npc.WorldMatrix,
+                            _stationPlayerCharacter.WorldMatrix,
                             _stationCharacterCamera.View,
                             _stationCharacterCamera.Projection,
                             Color.White,
                             new Vector3(0.30f, 0.34f, 0.44f),
                             new Vector3(0.58f, 0.64f, 0.78f),
-                            new Vector3(-0.35f, -0.85f, -0.40f));
+                            new Vector3(-0.35f, -0.85f, -0.40f),
+                            _performanceDiagnostics);
+                }
+                }
+                else culledCharacterCount++;
+
+                foreach (StationNpc npc in _stationNpcs)
+                {
+                    Matrix world = npc.WorldMatrix;
+                    if (!npc.Renderer.IsVisible(world, frustum))
+                    {
+                        culledCharacterCount++;
+                        continue;
+                    }
+
+                    visibleCharacterCount++;
+                    using (_performanceDiagnostics.Measure("station.pose.update")) npc.UpdatePose(_performanceDiagnostics);
+                    using (_performanceDiagnostics.Measure("station.character.draw"))
+                    {
+                        npc.Renderer.Draw(
+                            _stationCharacterEffect,
+                            world,
+                            _stationCharacterCamera.View,
+                            _stationCharacterCamera.Projection,
+                            Color.White,
+                            new Vector3(0.30f, 0.34f, 0.44f),
+                            new Vector3(0.58f, 0.64f, 0.78f),
+                            new Vector3(-0.35f, -0.85f, -0.40f),
+                            _performanceDiagnostics);
                     }
                 }
-                int visibleCharacterCount = 1 + _stationNpcs.Count;
-                _performanceDiagnostics.AddCounter("station.character.draws", visibleCharacterCount);
+                _performanceDiagnostics.AddCounter("station.characters.active", activeCharacterCount);
                 _performanceDiagnostics.AddCounter("station.characters.visible", visibleCharacterCount);
-                _performanceDiagnostics.AddCounter("station.animation.pose.evaluations", visibleCharacterCount);
-                _performanceDiagnostics.AddCounter("station.animation.pose.uploads", visibleCharacterCount);
+                _performanceDiagnostics.AddCounter("station.characters.culled", culledCharacterCount);
+                _performanceDiagnostics.AddCounter("station.characters.skinned.frame", visibleCharacterCount);
+                _performanceDiagnostics.AddCounter("station.character.draw.calls.frame", visibleCharacterCount * _stationPlayerCharacter.Renderer.DrawCallCount);
+                int vertexUploadBytesPerCharacter = _stationPlayerCharacter.Renderer.IsGpuSkinningEnabled ? 0 : _stationPlayerCharacter.Renderer.SourceVertexBytesPerFrame;
+                _performanceDiagnostics.AddCounter("station.character.vertex.upload.bytes.frame", visibleCharacterCount * vertexUploadBytesPerCharacter);
+                _performanceDiagnostics.AddCounter("station.character.bone.upload.bytes.frame", visibleCharacterCount * _stationPlayerCharacter.Renderer.BonePaletteUploadBytesPerFrame);
                 using (_performanceDiagnostics.Measure("station.debug.draw"))
                 {
                     _stationPlayerCharacter.DrawDebug(GraphicsDevice, _stationCharacterEffect, _stationCharacterCamera.View, _stationCharacterCamera.Projection);

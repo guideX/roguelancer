@@ -19,6 +19,9 @@
   </ItemGroup>
   <ItemGroup>
     <MonoGameContentReference Include="Content\Content.mgcb" />
+    <MonoGameContentReference Include="CharacterContent.mgcb">
+      <Link>Content\CharacterContent.mgcb</Link>
+    </MonoGameContentReference>
   </ItemGroup>
   <ItemGroup>
     <!-- Copy Configuration folder to output directory -->

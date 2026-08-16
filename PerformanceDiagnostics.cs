@@ -15,7 +15,7 @@ public sealed class PerformanceDiagnostics
 {
     public readonly struct SectionScope : IDisposable
     {
-        private readonly PerformanceDiagnostics _owner;
+        private readonly PerformanceDiagnostics? _owner;
         private readonly string _name;
         private readonly long _start;
 
@@ -28,6 +28,7 @@ public sealed class PerformanceDiagnostics
 
         public void Dispose()
         {
+            if (_owner is null) return;
             _owner.RecordSection(_name, Stopwatch.GetTimestamp() - _start);
         }
     }
@@ -68,7 +69,7 @@ public sealed class PerformanceDiagnostics
     {
         public int Samples;
         public long Total;
-        public int Max;
+        public long Max;
     }
 
     private readonly bool _enabled;
@@ -226,6 +227,12 @@ public sealed class PerformanceDiagnostics
         RecordCounter(_drawMode, name, amount);
     }
 
+    public void AddCounter(string name, long amount)
+    {
+        if (!_enabled) return;
+        RecordCounter(_drawMode, name, amount);
+    }
+
     public void PrintSummary()
     {
         if (!_enabled || _summaryPrinted) return;
@@ -261,7 +268,7 @@ public sealed class PerformanceDiagnostics
         section.MaxTicks = Math.Max(section.MaxTicks, elapsedTicks);
     }
 
-    private void RecordCounter(Mode mode, string name, int value)
+    private void RecordCounter(Mode mode, string name, long value)
     {
         ModeStats stats = GetStats(mode);
         if (!stats.Counters.TryGetValue(name, out CounterStats counter))

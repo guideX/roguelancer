@@ -23,12 +23,14 @@ public sealed class PlayerCharacter
 
     public PlayerCharacter(
         CharacterAsset assets,
-        StationTestScene scene)
+        StationTestScene scene,
+        Effect? skinningEffect = null)
     {
         _assets = assets ?? throw new ArgumentNullException(nameof(assets));
         _scene = scene ?? throw new ArgumentNullException(nameof(scene));
         _animation = new CharacterAnimationController(assets.Model, assets.Animations);
         _renderer = new CharacterRenderer(assets);
+        _renderer.SetGpuSkinningEffect(skinningEffect);
         _modelConfiguration = assets.ModelConfiguration;
         ResetToSpawn();
     }
@@ -172,7 +174,7 @@ public sealed class PlayerCharacter
         }
         using (diagnostics.Measure("station.animation.pose.upload"))
         {
-            _renderer.UpdatePose(localPose);
+            _renderer.UpdatePose(localPose, diagnostics);
         }
     }
 

@@ -24,7 +24,9 @@ public sealed class StationNpc : IDisposable
         float yawDegrees,
         float interactionRadius,
         string dialogueText,
-        float animationStartTime)
+        float animationStartTime,
+        bool interactive = true,
+        Microsoft.Xna.Framework.Graphics.Effect? skinningEffect = null)
     {
         Id = id ?? throw new ArgumentNullException(nameof(id));
         DisplayName = displayName ?? throw new ArgumentNullException(nameof(displayName));
@@ -37,7 +39,9 @@ public sealed class StationNpc : IDisposable
         _modelYawCorrectionDegrees = assets.ModelConfiguration.RenderYawCorrectionDegrees;
         _animation = new CharacterAnimationController(assets.Model, assets.Animations);
         _renderer = new CharacterRenderer(assets);
+        _renderer.SetGpuSkinningEffect(skinningEffect);
         InteractionLabel = DisplayName.ToUpperInvariant();
+        IsInteractive = interactive;
         Reset();
     }
 
@@ -48,6 +52,7 @@ public sealed class StationNpc : IDisposable
     public float YawDegrees { get; private set; }
     public float InteractionRadius { get; }
     public string DialogueText { get; }
+    public bool IsInteractive { get; }
     public CharacterAsset Assets => _assets;
     public CharacterAnimationController Animation => _animation;
     public CharacterRenderer Renderer => _renderer;
@@ -82,7 +87,7 @@ public sealed class StationNpc : IDisposable
         }
         using (diagnostics.Measure("station.animation.pose.upload"))
         {
-            _renderer.UpdatePose(localPose);
+            _renderer.UpdatePose(localPose, diagnostics);
         }
     }
 
