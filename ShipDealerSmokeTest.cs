@@ -26,6 +26,7 @@ namespace Roguelancer
             RunCase(ValidateBalanceAnchors, "balance anchors", ref passed, ref failed);
             RunCase(ValidateUnaffordablePurchaseFailsSafely, "unaffordable purchase", ref passed, ref failed);
             RunCase(ValidateCargoGateFailsSafely, "cargo gate", ref passed, ref failed);
+            RunCase(ValidateMissionCargoCapacityAndPreservation, "mission cargo capacity/preservation", ref passed, ref failed);
             RunCase(ValidateCurrentShipRejected, "current ship guard", ref passed, ref failed);
             RunCase(ValidateInvalidShipRejectedSafely, "invalid ship guard", ref passed, ref failed);
             RunCase(ValidateAffordablePurchaseSucceeds, "affordable purchase", ref passed, ref failed);
@@ -207,6 +208,71 @@ namespace Roguelancer
             if (!string.Equals(_shipDealer.CurrentPlayerShip.Name, "Scimitar", StringComparison.OrdinalIgnoreCase))
             {
                 return Fail("cargo-gated failure should not change the current ship");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateMissionCargoCapacityAndPreservation()
+        {
+            ShipDealer dealer = RunSilenced(() => new ShipDealer());
+            Commodity package = CommodityCatalog.GetById("sealed-data-package");
+            if (package == null)
+            {
+                return Fail("courier package definition was not available");
+            }
+
+            Ship playerShip = new Ship(Vector3.Zero);
+            if (!playerShip.CargoHold.AddMissionCargo(7001, package, 1))
+            {
+                return Fail("could not stage mission cargo for ship dealer regression");
+            }
+            Commodity water = CommodityCatalog.GetById("water");
+            if (water == null || !playerShip.CargoHold.AddCommodity(water, 2))
+            {
+                return Fail("could not stage normal cargo beside mission cargo");
+            }
+
+            ShipDefinition tinyShip = new ShipDefinition(
+                "Tiny Courier",
+                "Test ship with insufficient room for existing cargo",
+                "SHIPS/scimitar/Scimitar2",
+                12000)
+            {
+                CargoCapacity = 1,
+                MaxSpeed = 140f,
+                MaxReverseSpeed = 90f,
+                CruiseSpeed = 300f,
+                AfterburnerSpeed = 220f,
+                Acceleration = 90f,
+                TurnSpeed = 1.0f,
+                MaxHull = 80f,
+                MaxEnergy = 120f,
+                MaxShields = 20f
+            };
+            PlayerCredits rejectedCredits = new PlayerCredits(100000);
+            int creditsBefore = rejectedCredits.Credits;
+            if (dealer.TryPurchaseShip(tinyShip, rejectedCredits, playerShip, out _))
+            {
+                return Fail("ship replacement with insufficient mission-cargo capacity succeeded");
+            }
+            if (rejectedCredits.Credits != creditsBefore ||
+                !playerShip.CargoHold.HasMissionCargo(7001, package.Id, 1) ||
+                dealer.CurrentPlayerShip?.Name != "Scimitar")
+            {
+                return Fail("rejected mission-cargo ship replacement mutated state");
+            }
+
+            ShipDefinition validShip = dealer.GetShipByName("Pirate Transport");
+            PlayerCredits validCredits = new PlayerCredits(dealer.GetTotalCost(validShip));
+            if (!dealer.TryPurchaseShip(validShip, validCredits, playerShip, out string message))
+            {
+                return Fail($"valid ship replacement rejected mission cargo: {message}");
+            }
+            if (!playerShip.CargoHold.HasMissionCargo(7001, package.Id, 1) ||
+                playerShip.CargoHold.GetMissionCargoReservations().Count != 1)
+            {
+                return Fail("valid ship replacement lost or duplicated mission cargo");
             }
 
             return Pass();

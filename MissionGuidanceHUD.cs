@@ -131,6 +131,7 @@ namespace Roguelancer
             {
                 MissionType.Bounty => $"Target: {data.Mission.GetTargetLabel()}",
                 MissionType.Delivery => $"Destination: {data.Mission.GetDestinationLabel()}",
+                MissionType.CourierDelivery => $"Destination: {data.Mission.GetDestinationLabel()}",
                 MissionType.Escort => data.TargetObject is NpcShip
                     ? $"Escort: {data.Mission.GetTargetLabel()}"
                     : $"Destination: {data.Mission.GetDestinationLabel()}",
@@ -246,6 +247,7 @@ namespace Roguelancer
             string typeTag = data.Mission.Type switch
             {
                 MissionType.Delivery => "[DELIVER]",
+                MissionType.CourierDelivery => "[COURIER]",
                 MissionType.Bounty => "[BOUNTY]",
                 MissionType.Escort => "[ESCORT]",
                 _ => "[MISSION]"
@@ -256,6 +258,7 @@ namespace Roguelancer
                 MissionType.Bounty => data.Mission.Target,
                 MissionType.Escort when data.TargetObject is NpcShip => data.Mission.GetTargetLabel(),
                 MissionType.Escort => data.Mission.GetDestinationLabel(),
+                MissionType.CourierDelivery => data.Mission.GetDestinationLabel(),
                 _ => data.Mission.Destination
             };
 
@@ -386,6 +389,7 @@ namespace Roguelancer
             string typeChar = data.Mission.Type switch
             {
                 MissionType.Delivery => "D",
+                MissionType.CourierDelivery => "C",
                 MissionType.Bounty => "B",
                 MissionType.Escort => "E",
                 _ => "M"
@@ -404,6 +408,7 @@ namespace Roguelancer
             string alertText = data.Mission.Type switch
             {
                 MissionType.Delivery => ">> APPROACHING DESTINATION <<",
+                MissionType.CourierDelivery => ">> APPROACHING DELIVERY STATION <<",
                 MissionType.Bounty => ">> TARGET NEARBY <<",
                 MissionType.Escort => ">> NEAR ESCORT WAYPOINT <<",
                 _ => ">> NEAR OBJECTIVE <<"
@@ -500,6 +505,7 @@ namespace Roguelancer
             return type switch
             {
                 MissionType.Delivery => new Color(80, 200, 255),
+                MissionType.CourierDelivery => new Color(80, 255, 190),
                 MissionType.Bounty => new Color(255, 80, 80),
                 MissionType.Escort => new Color(255, 200, 50),
                 _ => Color.White
@@ -552,6 +558,7 @@ namespace Roguelancer
                 MissionType.Bounty => data.Mission.GetTargetLabel(),
                 MissionType.Escort when data.TargetObject is NpcShip => data.Mission.GetTargetLabel(),
                 MissionType.Escort => data.Mission.GetDestinationLabel(),
+                MissionType.CourierDelivery => data.Mission.GetDestinationLabel(),
                 _ => data.Mission.GetDestinationLabel()
             };
             if (label.Length > 20) label = label.Substring(0, 17) + "...";

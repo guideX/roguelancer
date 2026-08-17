@@ -243,9 +243,14 @@ namespace Roguelancer
                     continue;
                 }
 
-                if (!cargoHold.AddCommodity(commodity, item.Quantity))
+                bool added = item.MissionBound || item.MissionId > 0
+                    ? cargoHold.AddMissionCargo(item.MissionId, commodity, item.Quantity)
+                    : cargoHold.AddCommodity(commodity, item.Quantity);
+                if (!added)
                 {
-                    warnings.Add($"could not fit {item.Quantity}x {commodity.Name} in cargo hold");
+                    warnings.Add(item.MissionBound || item.MissionId > 0
+                        ? $"could not restore mission cargo {item.MissionId}:{item.Quantity}x {commodity.Name}"
+                        : $"could not fit {item.Quantity}x {commodity.Name} in cargo hold");
                 }
             }
         }
@@ -384,7 +389,8 @@ namespace Roguelancer
 
             foreach (var kvp in cargoHold.GetAllCommodities())
             {
-                if (kvp.Value <= 0)
+                int ordinaryQuantity = kvp.Value - cargoHold.GetMissionReservedQuantity(kvp.Key);
+                if (ordinaryQuantity <= 0)
                 {
                     continue;
                 }
@@ -393,7 +399,23 @@ namespace Roguelancer
                 result.Add(new SaveCargoItemData
                 {
                     CommodityId = commodity?.Id ?? kvp.Key,
-                    Quantity = kvp.Value
+                    Quantity = ordinaryQuantity
+                });
+            }
+
+            foreach (MissionCargoReservation reservation in cargoHold.GetMissionCargoReservations())
+            {
+                if (reservation.MissionId <= 0 || reservation.Quantity <= 0)
+                {
+                    continue;
+                }
+
+                result.Add(new SaveCargoItemData
+                {
+                    CommodityId = reservation.CommodityId ?? reservation.CommodityName,
+                    Quantity = reservation.Quantity,
+                    MissionId = reservation.MissionId,
+                    MissionBound = true
                 });
             }
 
@@ -463,7 +485,14 @@ namespace Roguelancer
                     OriginSystemIndex = mission.OriginSystemIndex,
                     AcceptedAtUtc = mission.AcceptedAtUtc == DateTime.MinValue ? string.Empty : mission.AcceptedAtUtc.ToString("O"),
                     RewardPaid = mission.RewardPaid,
-                    TargetPosition = mission.TargetPosition.HasValue ? SaveVector3Data.From(mission.TargetPosition.Value) : null
+                    TargetPosition = mission.TargetPosition.HasValue ? SaveVector3Data.From(mission.TargetPosition.Value) : null,
+                    SourceStationName = mission.SourceStationName ?? string.Empty,
+                    DestinationStationId = mission.DestinationStationId ?? string.Empty,
+                    PackageId = mission.PackageId ?? string.Empty,
+                    PackageQuantity = mission.PackageQuantity,
+                    PackageVolume = mission.PackageVolume,
+                    MissionCargoLoaded = mission.MissionCargoLoaded,
+                    DeliveredQuantity = mission.DeliveredQuantity
                 });
             }
 
@@ -638,7 +667,14 @@ namespace Roguelancer
                 data.OriginSystemIndex,
                 acceptedAtUtc,
                 data.RewardPaid,
-                data.TargetPosition);
+                data.TargetPosition,
+                data.SourceStationName,
+                data.DestinationStationId,
+                data.PackageId,
+                data.PackageQuantity,
+                data.PackageVolume,
+                data.MissionCargoLoaded,
+                data.DeliveredQuantity);
         }
 
         private static float NormalizeStanding(float value)

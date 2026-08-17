@@ -22,6 +22,7 @@ internal sealed class StationBarSocialSmokeTest
         RunCase(ValidateDialoguePayloads, "speaker and bounded dialogue payloads", ref passed, ref failed);
         RunCase(ValidateSingleInteractionResolution, "one-target social interaction resolution", ref passed, ref failed);
         RunCase(ValidateMissionBoardPlacement, "mission board placement and signage", ref passed, ref failed);
+        RunCase(ValidateCourierBartenderDialogue, "courier bartender dialogue", ref passed, ref failed);
         Console.WriteLine($"[BAR SOCIAL SMOKE] RESULT: {passed} passed, {failed} failed");
         return (passed, failed);
     }
@@ -127,6 +128,27 @@ internal sealed class StationBarSocialSmokeTest
             Vector3.Forward);
         if (nearest == null || nearest.Id != "npc-smuggler") return Fail("nearest social target was not selected");
         if (interactions.Count != 4) return Fail("social target list did not remain one target per NPC");
+        return Pass();
+    }
+
+    private static (bool, string) ValidateCourierBartenderDialogue()
+    {
+        Mission courier = Mission.FromDefinition(MissionCatalog.GetById(MissionCatalog.PriorityDispatchId));
+        courier.Status = MissionStatus.InProgress;
+        string activeLine = StationBarSocial.GetBartenderMissionLine(courier);
+        if (!activeLine.Contains("package", StringComparison.OrdinalIgnoreCase))
+        {
+            return Fail("bartender did not acknowledge active courier cargo");
+        }
+
+        courier.Status = MissionStatus.Completed;
+        string completedLine = StationBarSocial.GetBartenderMissionLine(courier);
+        if (!completedLine.Contains("Delivery made", StringComparison.OrdinalIgnoreCase) ||
+            !completedLine.Contains("pay", StringComparison.OrdinalIgnoreCase))
+        {
+            return Fail("bartender did not acknowledge completed courier delivery");
+        }
+
         return Pass();
     }
 

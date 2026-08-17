@@ -164,6 +164,7 @@ namespace Roguelancer
                     break;
 
                 case MissionType.Delivery:
+                case MissionType.CourierDelivery:
                     // Find station/space object matching destination name
                     var destObj = FindSpaceObjectByName(spaceObjects, mission.Destination);
                     if (destObj != null)
@@ -305,6 +306,7 @@ namespace Roguelancer
                 MissionType.Escort when data.TargetObject is NpcShip => data.Mission.GetTargetLabel(),
                 MissionType.Escort => data.Mission.GetDestinationLabel(),
                 MissionType.Bounty => data.Mission.Target,
+                MissionType.CourierDelivery => data.Mission.GetDestinationLabel(),
                 _ => data.Mission.Destination
             };
 

@@ -129,7 +129,7 @@ namespace Roguelancer
                 npc.CurrentMission = null;
             }
 
-            _jobBoard?.RefreshMissions(2, _dockedStation?.FactionId, _dockedStation);
+            _jobBoard?.RefreshMissions(MissionCatalog.All.Count, _dockedStation?.FactionId, _dockedStation);
 
             // Notify mission manager we docked (for delivery missions)
             _missionWorldManager?.NotifyStationDocked(station);
@@ -1162,6 +1162,7 @@ namespace Roguelancer
                     Color typeColor = mission.Type switch
                     {
                         MissionType.Delivery => Color.Cyan,
+                        MissionType.CourierDelivery => Color.LimeGreen,
                         MissionType.Bounty => Color.Red,
                         MissionType.Escort => Color.Yellow,
                         _ => Color.White
@@ -1181,13 +1182,13 @@ namespace Roguelancer
                     }
                     else
                     {
-                        string typeTag = $"[{mission.Type.ToString().ToUpper()}]";
+                        string typeTag = $"[{mission.GetTypeLabel()}]";
                         spriteBatch.DrawString(_font, typeTag, new Vector2(mPanel.X + 10, yOffset), typeColor);
                         spriteBatch.DrawString(_font, mission.GetObjectiveText(), new Vector2(mPanel.X + 120, yOffset), isSelected ? Color.White : Color.LightGray);
 
                         string clientLine = $"Client: {mission.GetClientLabel()} | Faction: {FactionManager.GetFactionDisplayName(mission.FactionId)}";
                         string rewardLine = $"Reward: {mission.Reward:N0} CR | Risk: {mission.GetRiskLabel()}";
-                        string detailLine = mission.Type == MissionType.Delivery
+                        string detailLine = Mission.IsDeliveryType(mission.Type)
                             ? $"Destination: {mission.GetDestinationLabel()}"
                             : $"Target: {mission.GetTargetLabel()}";
 
@@ -1240,6 +1241,7 @@ namespace Roguelancer
                 Color typeColor = m.Type switch
                 {
                     MissionType.Delivery => Color.Cyan,
+                    MissionType.CourierDelivery => Color.LimeGreen,
                     MissionType.Bounty => Color.Red,
                     MissionType.Escort => Color.Yellow,
                     _ => Color.White
@@ -1265,7 +1267,11 @@ namespace Roguelancer
                     spriteBatch.DrawString(_font, detailStr, new Vector2(panelX + 10, yOff), Color.LightGray * 0.8f);
                     yOff += lineHeight;
 
-                    string rewardStr = $"  Reward: {m.Reward:N0} CR | Risk: {m.GetRiskLabel()}";
+                    string rewardStr = $"  {m.GetStatusLabel()} | Reward: {m.Reward:N0} CR | Risk: {m.GetRiskLabel()}";
+                    if (m.Type == MissionType.CourierDelivery)
+                    {
+                        rewardStr += $" | Cargo: {m.GetCargoLabel()}";
+                    }
                     if (m.TimeLimit > 0)
                     {
                         rewardStr += $" | Time: {m.TimeRemaining:F0}s";
@@ -1430,7 +1436,7 @@ namespace Roguelancer
             if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.R) &&
                 prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.R))
             {
-                _jobBoard.RefreshMissions(2, _dockedStation?.FactionId, _dockedStation);
+                _jobBoard.RefreshMissions(MissionCatalog.All.Count, _dockedStation?.FactionId, _dockedStation);
                 return true;
             }
 

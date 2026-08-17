@@ -957,6 +957,7 @@ namespace Roguelancer {
                     _font,
                     _pixel,
                     _missionManager,
+                    _playerShip?.CargoHold,
                     message => _notificationManager?.ShowMessage(message, 3f));
             }
 
@@ -4471,11 +4472,8 @@ namespace Roguelancer {
             string line = npc.Dialogue.Text;
             if (string.Equals(npc.Id, "bartender", StringComparison.OrdinalIgnoreCase))
             {
-                line = _missionManager?.ActiveMission != null
-                    ? "Finish the job first. Then we'll talk."
-                    : _missionManager?.UnclaimedCompletedMission != null
-                        ? "Looks like you handled it. Collect your pay."
-                        : "Check the board if you're looking for work.";
+                line = StationBarSocial.GetBartenderMissionLine(
+                    _missionManager?.ActiveMission ?? _missionManager?.UnclaimedCompletedMission);
             }
             else if (string.Equals(npc.Id, "smuggler", StringComparison.OrdinalIgnoreCase) &&
                      _missionManager?.ActiveMission == null)

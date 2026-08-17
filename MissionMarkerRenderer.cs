@@ -368,6 +368,7 @@ namespace Roguelancer
             return type switch
             {
                 MissionType.Delivery => new Color(80, 200, 255),  // Cyan-blue
+                MissionType.CourierDelivery => new Color(80, 255, 190), // Mint courier
                 MissionType.Bounty => new Color(255, 80, 80),     // Red
                 MissionType.Escort => new Color(255, 200, 50),    // Yellow-gold
                 _ => Color.White

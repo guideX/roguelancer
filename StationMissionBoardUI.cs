@@ -16,6 +16,7 @@ public sealed class StationMissionBoardUI
     private readonly Texture2D _pixel;
     private readonly MissionManager _missionManager;
     private readonly JobBoard _jobBoard;
+    private readonly CargoHold _cargoHold;
     private readonly Action<string> _showMessage;
 
     private string _stationName = "Station";
@@ -28,12 +29,14 @@ public sealed class StationMissionBoardUI
         SpriteFont font,
         Texture2D pixel,
         MissionManager missionManager,
+        CargoHold cargoHold = null,
         Action<string> showMessage = null)
     {
         _font = font ?? throw new ArgumentNullException(nameof(font));
         _pixel = pixel ?? throw new ArgumentNullException(nameof(pixel));
         _missionManager = missionManager ?? throw new ArgumentNullException(nameof(missionManager));
         _jobBoard = new JobBoard(missionManager);
+        _cargoHold = cargoHold;
         _showMessage = showMessage ?? (_ => { });
     }
 
@@ -44,7 +47,7 @@ public sealed class StationMissionBoardUI
     {
         _stationName = string.IsNullOrWhiteSpace(stationName) ? "Station" : stationName;
         _station = station;
-        _jobBoard.RefreshMissions(2, station?.FactionId, station);
+        _jobBoard.RefreshMissions(MissionCatalog.All.Count, station?.FactionId, station);
         _statusMessage = string.Empty;
         _statusRemaining = 0f;
         _inputGate = true;
@@ -190,7 +193,7 @@ public sealed class StationMissionBoardUI
         Mission active = _missionManager.ActiveMission;
         Mission completed = _missionManager.UnclaimedCompletedMission;
         string activeLine = active != null
-            ? $"ACTIVE: {active.Title} - {active.GetHudProgressLine()}"
+            ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - {active.GetHudProgressLine()}"
             : completed != null
                 ? $"MISSION COMPLETE: {completed.Title} - {completed.Reward:N0} CR"
                 : "ACTIVE: None";
@@ -230,6 +233,18 @@ public sealed class StationMissionBoardUI
         y += 8;
         spriteBatch.DrawString(_font, $"Objective: {mission.GetObjectiveText()}", new Vector2(x, y), Color.LightSkyBlue);
         y += 30;
+        if (mission.Type == MissionType.CourierDelivery)
+        {
+            spriteBatch.DrawString(_font, $"Origin: {mission.SourceStationName}", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Destination: {mission.GetDestinationLabel()}", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Cargo required: {mission.GetCargoLabel()} ({mission.PackageVolume} space)", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            string freeSpace = _cargoHold == null ? "unknown" : $"{_cargoHold.AvailableCapacity} space";
+            spriteBatch.DrawString(_font, $"Free cargo space: {freeSpace}", new Vector2(x, y), Color.Cyan);
+            y += 26;
+        }
         spriteBatch.DrawString(_font, $"Reward: {mission.Reward:N0} CR", new Vector2(x, y), Color.Yellow);
         y += 30;
         string action = _missionManager.ActiveMission == null ? "[ENTER] ACCEPT" : "ACTIVE MISSION BLOCKS ACCEPT";
@@ -272,6 +287,7 @@ public sealed class StationMissionBoardUI
     {
         MissionType.ReachLocation => Color.Cyan,
         MissionType.DestroyHostiles => Color.IndianRed,
+        MissionType.CourierDelivery => Color.LimeGreen,
         MissionType.Bounty => Color.Red,
         MissionType.Escort => Color.Yellow,
         _ => Color.White

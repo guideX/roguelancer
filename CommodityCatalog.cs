@@ -23,7 +23,8 @@ namespace Roguelancer
             new Commodity("diamonds", "Diamonds", "Precious crystalline carbon formations prized by industry and the wealthy.", 5000, 1, false, "Precious", Color.Cyan),
             new Commodity("alien-organisms", "Alien Organisms", "Rare biological specimens of uncertain origin and questionable legality.", 3000, 5, true, "Biological", Color.LimeGreen),
             new Commodity("boron", "Boron", "Industrial boron used in alloys, reactors, and advanced manufacturing.", 220, 1, false, "Raw Materials", Color.Khaki),
-            new Commodity("consumer-goods", "Consumer Goods", "Everyday appliances, electronics, and station market staples.", 250, 1, false, "Consumer Goods", Color.Gold)
+            new Commodity("consumer-goods", "Consumer Goods", "Everyday appliances, electronics, and station market staples.", 250, 1, false, "Consumer Goods", Color.Gold),
+            new Commodity("sealed-data-package", "Sealed Data Package", "Mission-bound courier package. This package cannot be sold or discarded before delivery.", 0, 1, false, "Mission Cargo", Color.Lime)
         };
 
         public static IReadOnlyList<Commodity> All => _all;

@@ -63,7 +63,7 @@ namespace Roguelancer
                         return true;
                     }
                 }
-                else if (mission.Type == MissionType.Delivery)
+                else if (Mission.IsDeliveryType(mission.Type))
                 {
                     if (mission.TargetSpaceObject is Station boundStation)
                     {
@@ -112,7 +112,7 @@ namespace Roguelancer
                 return false;
             }
 
-            if (mission.Type == MissionType.Delivery)
+            if (Mission.IsDeliveryType(mission.Type))
             {
                 resolvedTarget = ResolveStationTarget(mission.Destination, safeSpaceObjects);
                 if (resolvedTarget != null)
@@ -316,7 +316,7 @@ namespace Roguelancer
                 {
                     statusLabel = $"{statusLabel} | Objective target";
                 }
-                else if (missionContext.Type == MissionType.Delivery)
+                else if (Mission.IsDeliveryType(missionContext.Type))
                 {
                     statusLabel = $"{statusLabel} | Mission destination";
                 }

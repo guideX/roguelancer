@@ -34,6 +34,25 @@ public static class StationBarSocial
 {
     public const string SharedCharacterAssetId = "prototype-adam";
 
+    public static string GetBartenderMissionLine(Mission mission)
+    {
+        if (mission?.Type == MissionType.CourierDelivery && mission.IsActive)
+        {
+            return "Better not lose that package.";
+        }
+
+        if (mission?.Status == MissionStatus.Completed && !mission.RewardPaid)
+        {
+            return mission.Type == MissionType.CourierDelivery
+                ? "Delivery made? Nice work. Collect your pay."
+                : "Looks like you handled it. Collect your pay.";
+        }
+
+        return mission?.IsActive == true
+            ? "Finish the job first. Then we'll talk."
+            : "Check the board if you're looking for work.";
+    }
+
     public static readonly StationBarLayout Layout = new(
         new Vector3(-14.5f, 0.0f, 48.8f),
         new Vector3(0.0f, 4.25f, 62.0f),

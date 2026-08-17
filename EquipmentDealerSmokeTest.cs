@@ -34,6 +34,7 @@ internal sealed class EquipmentDealerSmokeTest
         RunCase(ValidateInvalidItemRejected, "invalid item rejected", ref passed, ref failed);
         RunCase(ValidateCurrentShipLoadoutIsUsed, "current ship compatibility", ref passed, ref failed);
         RunCase(ValidateFullHardpointIsSafe, "full hardpoint safety", ref passed, ref failed);
+        RunCase(ValidateMissionCargoUnaffected, "mission cargo unaffected", ref passed, ref failed);
         RunCase(ValidateSaveLoadRoundTrip, "equipment save/load", ref passed, ref failed);
 
         Console.WriteLine($"[EQUIPMENT SMOKE] RESULT: {passed} passed, {failed} failed");
@@ -329,6 +330,37 @@ internal sealed class EquipmentDealerSmokeTest
         if (credits.Credits != 0 || loadout.GetMountedCount(gun.Id) != 1 || loadout.GetOwnedCount(gun.Id) != 1)
         {
             return Fail("full hardpoint rejection changed authoritative state");
+        }
+
+        return Pass();
+    }
+
+    private (bool Success, string FailureReason) ValidateMissionCargoUnaffected()
+    {
+        Ship ship = new Ship(Vector3.Zero);
+        ship.SetLoadout(ShipLoadout.CreateStarterLoadout(false));
+        Commodity package = CommodityCatalog.GetById("sealed-data-package");
+        EquipmentDefinition gun = EquipmentCatalog.GetById("liberty_pulse_cannon");
+        if (package == null || gun == null || !ship.CargoHold.AddMissionCargo(7101, package, 1))
+        {
+            return Fail("could not stage equipment/courier regression state");
+        }
+
+        int usedBefore = ship.CargoHold.UsedCapacity;
+        if (!_equipmentDealer.TryBuyEquipment(gun, new PlayerCredits(gun.Price + 100), ship, out string purchaseMessage))
+        {
+            return Fail($"equipment purchase failed beside courier cargo: {purchaseMessage}");
+        }
+        if (!_equipmentDealer.TryMountEquipment(gun, ship, out string equipMessage))
+        {
+            return Fail($"equipment equip failed beside courier cargo: {equipMessage}");
+        }
+
+        if (ship.CargoHold.UsedCapacity != usedBefore ||
+            !ship.CargoHold.HasMissionCargo(7101, package.Id, 1) ||
+            ship.CargoHold.GetMissionCargoReservations().Count != 1)
+        {
+            return Fail("equipment transaction changed mission cargo");
         }
 
         return Pass();

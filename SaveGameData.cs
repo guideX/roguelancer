@@ -10,7 +10,7 @@ namespace Roguelancer
     /// </summary>
     public sealed class SaveGameData
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
         [JsonPropertyName("schema_version")]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -139,6 +139,12 @@ namespace Roguelancer
 
         [JsonPropertyName("quantity")]
         public int Quantity { get; set; }
+
+        [JsonPropertyName("mission_id")]
+        public int MissionId { get; set; }
+
+        [JsonPropertyName("mission_bound")]
+        public bool MissionBound { get; set; }
     }
 
     /// <summary>
@@ -238,6 +244,27 @@ namespace Roguelancer
 
         [JsonPropertyName("target_position")]
         public SaveVector3Data TargetPosition { get; set; }
+
+        [JsonPropertyName("source_station_name")]
+        public string SourceStationName { get; set; } = string.Empty;
+
+        [JsonPropertyName("destination_station_id")]
+        public string DestinationStationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("package_id")]
+        public string PackageId { get; set; } = string.Empty;
+
+        [JsonPropertyName("package_quantity")]
+        public int PackageQuantity { get; set; }
+
+        [JsonPropertyName("package_volume")]
+        public int PackageVolume { get; set; }
+
+        [JsonPropertyName("mission_cargo_loaded")]
+        public bool MissionCargoLoaded { get; set; }
+
+        [JsonPropertyName("delivered_quantity")]
+        public int DeliveredQuantity { get; set; }
     }
 
     /// <summary>

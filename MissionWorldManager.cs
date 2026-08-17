@@ -73,6 +73,8 @@ namespace Roguelancer
                     return TryBindBountyMission(state, out failureReason);
                 case MissionType.Delivery:
                     return TryBindDeliveryMission(state, out failureReason);
+                case MissionType.CourierDelivery:
+                    return TryBindCourierMission(state, out failureReason);
                 case MissionType.Escort:
                     return TryBindEscortMission(state, out failureReason);
                 default:
@@ -161,6 +163,32 @@ namespace Roguelancer
                 {
                     mission.TargetSpaceObject = state.DeliveryDestination;
                     mission.TargetPosition = state.DeliveryDestination.Position;
+                }
+            }
+            else if (mission.Type == MissionType.CourierDelivery)
+            {
+                state.DeliveryDestination ??= ResolveCourierDestination(mission);
+                state.DeliveryCommodity ??= ResolveCourierCommodity(mission);
+                state.DeliveryQuantity = mission.PackageQuantity > 0 ? mission.PackageQuantity : state.DeliveryQuantity;
+
+                if (state.DeliveryDestination != null)
+                {
+                    mission.DestinationStationId = Mission.BuildStationIdentity(state.DeliveryDestination);
+                    mission.TargetSpaceObject = state.DeliveryDestination;
+                    mission.TargetPosition = state.DeliveryDestination.Position;
+                }
+
+                if (state.DeliveryCommodity != null && _playerShip?.CargoHold != null)
+                {
+                    mission.MissionCargoLoaded = _playerShip.CargoHold.HasMissionCargo(
+                        mission.Id,
+                        mission.PackageId,
+                        state.DeliveryQuantity);
+                }
+
+                if (!mission.MissionCargoLoaded)
+                {
+                    FailMission(mission, "mission package missing after load");
                 }
             }
             else if (mission.Type == MissionType.Escort)
@@ -270,30 +298,48 @@ namespace Roguelancer
             foreach (MissionRuntimeState state in _runtimeStates.Values.ToList())
             {
                 Mission mission = state.Mission;
-                if (mission == null || mission.Status != MissionStatus.Active || mission.Type != MissionType.Delivery)
+                if (mission == null || mission.Status != MissionStatus.Active || !Mission.IsDeliveryType(mission.Type))
                 {
                     continue;
                 }
 
-                Station resolvedStation = state.DeliveryDestination ?? ResolveDeliveryDestination(mission);
+                Station resolvedStation = state.DeliveryDestination ??
+                    (mission.Type == MissionType.CourierDelivery
+                        ? ResolveCourierDestination(mission)
+                        : ResolveDeliveryDestination(mission));
                 if (resolvedStation == null)
                 {
                     continue;
                 }
 
-                if (!IsStationMatch(station, resolvedStation, mission.Destination))
+                string expectedIdentity = mission.Type == MissionType.CourierDelivery
+                    ? mission.DestinationStationId
+                    : string.Empty;
+                if (!IsStationMatch(station, resolvedStation, mission.Destination, expectedIdentity))
                 {
                     continue;
                 }
 
-                if (!TryRemoveDeliveryCargo(state))
+                bool removed = mission.Type == MissionType.CourierDelivery
+                    ? TryRemoveCourierCargo(state)
+                    : TryRemoveDeliveryCargo(state);
+                if (!removed)
                 {
-                    FailMission(mission, "mission cargo missing");
+                    FailMission(mission, mission.Type == MissionType.CourierDelivery
+                        ? "mission package missing or corrupt"
+                        : "mission cargo missing");
                     completedAny = true;
                     continue;
                 }
 
                 Console.WriteLine($"[MISSION] Delivery completed at {station.Name} (mission #{mission.Id})");
+                if (mission.Type == MissionType.CourierDelivery)
+                {
+                    mission.MissionCargoLoaded = false;
+                    mission.DeliveredQuantity = state.DeliveryQuantity;
+                    _missionManager?.ShowNotification($"Destination reached: {station.Name}", 3f);
+                    _missionManager?.ShowNotification("Cargo delivered", 3f);
+                }
                 mission.ObjectiveComplete = true;
                 _missionManager?.CompleteMission(mission);
                 completedAny = true;
@@ -666,6 +712,77 @@ namespace Roguelancer
             return true;
         }
 
+        private bool TryBindCourierMission(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Mission mission = state.Mission;
+            if (mission == null)
+            {
+                failureReason = "mission was null";
+                return false;
+            }
+
+            Station destination = ResolveCourierDestination(mission);
+            if (destination == null)
+            {
+                failureReason = $"destination '{mission.Destination}' could not be resolved";
+                return false;
+            }
+
+            Commodity commodity = ResolveCourierCommodity(mission);
+            if (commodity == null)
+            {
+                failureReason = $"package '{mission.PackageId}' could not be resolved";
+                return false;
+            }
+
+            int quantity = mission.PackageQuantity;
+            if (quantity <= 0)
+            {
+                failureReason = "package quantity must be positive";
+                return false;
+            }
+
+            int authoritativeVolume = commodity.VolumePerUnit * quantity;
+            if (mission.PackageVolume > 0 && mission.PackageVolume != authoritativeVolume)
+            {
+                failureReason = $"package volume metadata does not match {commodity.Name}";
+                return false;
+            }
+
+            if (_playerShip?.CargoHold == null)
+            {
+                failureReason = "player cargo hold unavailable";
+                return false;
+            }
+
+            if (!_playerShip.CargoHold.CanFit(commodity, quantity))
+            {
+                failureReason = $"not enough cargo space for {commodity.Name} x{quantity}";
+                return false;
+            }
+
+            if (!_playerShip.CargoHold.AddMissionCargo(mission.Id, commodity, quantity))
+            {
+                failureReason = $"failed to reserve mission package '{commodity.Name}'";
+                return false;
+            }
+
+            mission.DestinationStationId = Mission.BuildStationIdentity(destination);
+            mission.PackageId = commodity.Id;
+            mission.PackageVolume = authoritativeVolume;
+            mission.MissionCargoLoaded = true;
+            mission.DeliveredQuantity = 0;
+            state.DeliveryDestination = destination;
+            state.DeliveryCommodity = commodity;
+            state.DeliveryQuantity = quantity;
+            mission.TargetSpaceObject = destination;
+            mission.TargetPosition = destination.Position;
+
+            Console.WriteLine($"[MISSION] Courier package loaded: {commodity.Name} x{quantity} -> {destination.Name} (mission #{mission.Id})");
+            return true;
+        }
+
         private bool TryBindEscortMission(MissionRuntimeState state, out string failureReason)
         {
             failureReason = string.Empty;
@@ -790,6 +907,19 @@ namespace Roguelancer
             return _playerShip.CargoHold.RemoveCommodity(commodity, quantity);
         }
 
+        private bool TryRemoveCourierCargo(MissionRuntimeState state)
+        {
+            Mission mission = state.Mission;
+            Commodity commodity = state.DeliveryCommodity ?? ResolveCourierCommodity(mission);
+            if (mission == null || commodity == null || _playerShip?.CargoHold == null)
+            {
+                return false;
+            }
+
+            int quantity = mission.PackageQuantity > 0 ? mission.PackageQuantity : state.DeliveryQuantity;
+            return _playerShip.CargoHold.RemoveMissionCargo(mission.Id, commodity, quantity);
+        }
+
         private MissionRuntimeState GetOrCreateState(Mission mission)
         {
             if (_runtimeStates.TryGetValue(mission.Id, out MissionRuntimeState existing))
@@ -906,6 +1036,30 @@ namespace Roguelancer
             }
 
             return CommodityCatalog.GetByName(missionTarget);
+        }
+
+        private Station ResolveCourierDestination(Mission mission)
+        {
+            IReadOnlyList<Station> stations = _stationProvider?.Invoke() ?? Array.Empty<Station>();
+            if (!string.IsNullOrWhiteSpace(mission?.DestinationStationId))
+            {
+                Station byIdentity = stations.FirstOrDefault(station =>
+                    station != null && string.Equals(
+                        Mission.BuildStationIdentity(station),
+                        mission.DestinationStationId,
+                        StringComparison.OrdinalIgnoreCase));
+                if (byIdentity != null)
+                {
+                    return byIdentity;
+                }
+            }
+
+            return ResolveDeliveryDestination(mission?.Destination);
+        }
+
+        private static Commodity ResolveCourierCommodity(Mission mission)
+        {
+            return CommodityCatalog.GetByIdOrName(mission?.PackageId);
         }
 
         private Station ResolveEscortDestination(Mission mission)
@@ -1063,7 +1217,7 @@ namespace Roguelancer
             return false;
         }
 
-        private static bool IsStationMatch(Station station, Station resolvedStation, string missionDestination)
+        private static bool IsStationMatch(Station station, Station resolvedStation, string missionDestination, string expectedIdentity = "")
         {
             if (station == null)
             {
@@ -1073,6 +1227,19 @@ namespace Roguelancer
             if (resolvedStation != null && ReferenceEquals(resolvedStation, station))
             {
                 return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(expectedIdentity) &&
+                string.Equals(Mission.BuildStationIdentity(station), expectedIdentity, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            // Courier missions carry an exact destination identity. Do not
+            // fall back to a same-name station in another system.
+            if (!string.IsNullOrWhiteSpace(expectedIdentity))
+            {
+                return false;
             }
 
             if (!string.IsNullOrWhiteSpace(missionDestination) &&

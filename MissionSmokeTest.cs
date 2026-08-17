@@ -8,7 +8,7 @@ using System.Linq;
 namespace Roguelancer
 {
     /// <summary>
-    /// Remote-friendly Phase 11 mission validation. This deliberately tests
+    /// Remote-friendly mission validation. This deliberately tests
     /// the authoritative state machine without requiring a rendered traversal.
     /// </summary>
     internal sealed class MissionSmokeTest
@@ -20,6 +20,8 @@ namespace Roguelancer
 
             RunCase(ValidateCatalog, "catalog", ref passed, ref failed);
             RunCase(ValidateBoardAndAcceptance, "board/acceptance/single active", ref passed, ref failed);
+            RunCase(ValidateCourierCapacityAndFlow, "courier capacity/delivery transaction", ref passed, ref failed);
+            RunCase(ValidateCourierSaveLoad, "courier save/load integrity", ref passed, ref failed);
             RunCase(ValidateReachLocation, "reach-location objective", ref passed, ref failed);
             RunCase(ValidateDestroyHostiles, "destroy-hostiles attribution/progress", ref passed, ref failed);
             RunCase(ValidateRewardTransaction, "reward transaction", ref passed, ref failed);
@@ -58,8 +60,8 @@ namespace Roguelancer
             if (!MissionCatalog.Validate(out string reason))
                 return Fail($"catalog validation failed: {reason}");
 
-            if (MissionCatalog.All.Count != 2)
-                return Fail($"expected 2 prototype jobs, found {MissionCatalog.All.Count}");
+            if (MissionCatalog.All.Count != 3)
+                return Fail($"expected 3 prototype jobs, found {MissionCatalog.All.Count}");
 
             HashSet<string> ids = new(StringComparer.OrdinalIgnoreCase);
             foreach (MissionDefinition definition in MissionCatalog.All)
@@ -72,7 +74,160 @@ namespace Roguelancer
                     return Fail($"catalog lookup failed for {definition.Id}");
             }
 
+            MissionDefinition courier = MissionCatalog.GetById(MissionCatalog.PriorityDispatchId);
+            if (courier == null || courier.Type != MissionType.CourierDelivery ||
+                courier.SourceStationName != "Newark Station" || courier.DestinationStationName != "Buffalo Base" ||
+                courier.PackageId != "sealed-data-package" || courier.PackageQuantity != 1 || courier.PackageVolume != 1)
+            {
+                return Fail("courier catalog metadata was incomplete or incorrect");
+            }
+
             return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateCourierCapacityAndFlow()
+        {
+            MissionSmokeContext ctx = CreateCourierContext();
+            Mission mission = Mission.FromDefinition(MissionCatalog.GetById(MissionCatalog.PriorityDispatchId));
+            Commodity package = CommodityCatalog.GetById("sealed-data-package");
+            if (package == null)
+                return Fail("courier package definition was not available");
+
+            int freeBefore = ctx.Player.CargoHold.AvailableCapacity;
+            if (!ctx.MissionManager.AcceptMission(mission, ctx.Origin))
+                return Fail("courier mission was not accepted with free capacity");
+            if (ctx.Player.CargoHold.AvailableCapacity != freeBefore - mission.PackageVolume ||
+                !ctx.Player.CargoHold.HasMissionCargo(mission.Id, mission.PackageId, mission.PackageQuantity) ||
+                ctx.Player.CargoHold.GetMissionCargoReservations().Count != 1)
+            {
+                return Fail("courier package did not consume exactly one authoritative reservation");
+            }
+
+            CommodityDealer dealer = new();
+            dealer.SetDockedStation(ctx.Origin);
+            PlayerCredits saleCredits = new PlayerCredits(0);
+            if (dealer.TrySellCommodity(package, 1, saleCredits, ctx.Player.CargoHold, out _))
+                return Fail("mission package was exposed to normal commodity selling");
+            if (!ctx.Player.CargoHold.HasMissionCargo(mission.Id, mission.PackageId, mission.PackageQuantity))
+                return Fail("rejected mission-cargo sale mutated the reservation");
+
+            Station wrongStation = CreateStation("Fort Bush", 1, 10000f, 0f, 0f);
+            ctx.Stations.Add(wrongStation);
+            if (ctx.WorldManager.NotifyStationDocked(wrongStation))
+                return Fail("wrong-station docking reported courier completion");
+            if (mission.Status != MissionStatus.InProgress || !ctx.Player.CargoHold.HasMissionCargo(mission.Id, mission.PackageId, 1))
+                return Fail("wrong-station docking changed courier state or cargo");
+
+            Station sameNameWrongSystem = CreateStation("Buffalo Base", 9, 12000f, 0f, 0f);
+            ctx.Stations.Add(sameNameWrongSystem);
+            if (ctx.WorldManager.NotifyStationDocked(sameNameWrongSystem))
+                return Fail("same-name station in another system reported courier completion");
+
+            Station destination = ctx.Stations.First(station => station.Name == "Buffalo Base");
+            if (!ctx.WorldManager.NotifyStationDocked(destination))
+                return Fail("correct destination did not process courier delivery");
+            if (mission.Status != MissionStatus.Completed || !mission.ObjectiveComplete ||
+                mission.MissionCargoLoaded || mission.DeliveredQuantity != 1 ||
+                ctx.Player.CargoHold.GetMissionCargoReservations().Count != 0 ||
+                ctx.Player.CargoHold.GetCommodityQuantity(package.Name) != 0)
+            {
+                return Fail("courier delivery did not remove the package exactly once");
+            }
+
+            int creditsBefore = ctx.Credits.Credits;
+            if (ctx.WorldManager.NotifyStationDocked(destination))
+                return Fail("duplicate courier docking reported a second delivery");
+            if (!ctx.MissionManager.TryClaimReward(mission, ctx.Origin, out _) ||
+                ctx.Credits.Credits != creditsBefore + mission.Reward)
+            {
+                return Fail("courier reward could not be claimed exactly once at origin");
+            }
+            if (ctx.MissionManager.TryClaimReward(mission, ctx.Origin, out _))
+                return Fail("courier reward was claimable twice");
+
+            MissionSmokeContext fullContext = CreateCourierContext();
+            Commodity water = CommodityCatalog.GetById("water");
+            if (water == null || !fullContext.Player.CargoHold.AddCommodity(water, fullContext.Player.CargoHold.MaxCapacity))
+                return Fail("could not stage full cargo hold for capacity rejection");
+            Mission rejected = Mission.FromDefinition(MissionCatalog.GetById(MissionCatalog.PriorityDispatchId));
+            if (fullContext.MissionManager.AcceptMission(rejected, fullContext.Origin))
+                return Fail("courier accepted despite insufficient capacity");
+            if (fullContext.MissionManager.ActiveMission != null || rejected.Status != MissionStatus.Available ||
+                fullContext.Player.CargoHold.GetMissionCargoReservations().Count != 0 ||
+                fullContext.Player.CargoHold.UsedCapacity != fullContext.Player.CargoHold.MaxCapacity)
+            {
+                return Fail("insufficient courier capacity rejection was not atomic");
+            }
+
+            return Pass();
+        }
+
+        private (bool Success, string FailureReason) ValidateCourierSaveLoad()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), $"roguelancer-courier-smoke-{Guid.NewGuid():N}");
+            string savePath = Path.Combine(directory, "courier-save.json");
+            try
+            {
+                MissionSmokeContext source = CreateCourierContext();
+                Mission courier = Mission.FromDefinition(MissionCatalog.GetById(MissionCatalog.PriorityDispatchId));
+                if (!source.MissionManager.AcceptMission(courier, source.Origin))
+                    return Fail("courier could not be accepted before save");
+
+                SaveGameManager saveManager = new(savePath);
+                SaveGameData data = new()
+                {
+                    PlayerCredits = source.Credits.Credits,
+                    CurrentSystemIndex = source.Origin.Config.SystemIndex,
+                    Cargo = saveManager.CaptureCargo(source.Player.CargoHold),
+                    ActiveMissions = saveManager.CaptureMissions(source.MissionManager.ActiveMissions)
+                };
+                if (data.Cargo.Count != 1 || data.Cargo[0].MissionId != courier.Id || !data.Cargo[0].MissionBound)
+                    return Fail("courier save did not encode one mission-bound package");
+                string saveFailure = string.Empty;
+                string loadFailure = string.Empty;
+                SaveGameData loaded = null;
+                if (!saveManager.TrySave(data, out saveFailure) || !saveManager.TryLoad(out loaded, out loadFailure))
+                    return Fail($"courier save/load failed: {saveFailure} {loadFailure}");
+
+                MissionSmokeContext resumed = CreateCourierContext();
+                saveManager.ApplyCargo(resumed.Player.CargoHold, loaded, out List<string> cargoWarnings);
+                saveManager.ApplyMissions(resumed.MissionManager, loaded, out List<string> missionWarnings);
+                resumed.WorldManager.RebindActiveMissions(resumed.MissionManager.ActiveMissions);
+                if (cargoWarnings.Count != 0 || missionWarnings.Count != 0)
+                    return Fail($"courier reload warnings: {string.Join("; ", cargoWarnings.Concat(missionWarnings))}");
+                Mission resumedMission = resumed.MissionManager.ActiveMission;
+                if (resumedMission == null || resumedMission.Type != MissionType.CourierDelivery ||
+                    !resumedMission.MissionCargoLoaded ||
+                    !resumed.Player.CargoHold.HasMissionCargo(resumedMission.Id, resumedMission.PackageId, 1) ||
+                    resumed.Player.CargoHold.GetMissionCargoReservations().Count != 1)
+                {
+                    return Fail("courier mission/package did not survive reload");
+                }
+
+                SaveGameData secondData = new()
+                {
+                    PlayerCredits = resumed.Credits.Credits,
+                    Cargo = saveManager.CaptureCargo(resumed.Player.CargoHold),
+                    ActiveMissions = saveManager.CaptureMissions(resumed.MissionManager.ActiveMissions)
+                };
+                resumed.Player.CargoHold.Clear();
+                resumed.MissionManager.ClearState();
+                saveManager.ApplyCargo(resumed.Player.CargoHold, secondData, out cargoWarnings);
+                saveManager.ApplyMissions(resumed.MissionManager, secondData, out missionWarnings);
+                resumed.WorldManager.RebindActiveMissions(resumed.MissionManager.ActiveMissions);
+                if (cargoWarnings.Count != 0 || missionWarnings.Count != 0 ||
+                    resumed.Player.CargoHold.GetMissionCargoReservations().Count != 1 ||
+                    resumed.Player.CargoHold.GetMissionCargoQuantity(resumedMission.Id) != 1)
+                {
+                    return Fail("repeated courier save/load multiplied or lost the package");
+                }
+
+                return Pass();
+            }
+            finally
+            {
+                TryCleanupDirectory(directory);
+            }
         }
 
         private (bool Success, string FailureReason) ValidateBoardAndAcceptance()
@@ -351,7 +506,7 @@ namespace Roguelancer
             return Pass();
         }
 
-        private static MissionSmokeContext CreateContext()
+        private static MissionSmokeContext CreateContext(string originName = "Pueblo Station", int originSystemIndex = 3)
         {
             MissionSmokeContext ctx = new()
             {
@@ -361,8 +516,8 @@ namespace Roguelancer
 
             ctx.Origin = new Station(new StationConfig
             {
-                Description = "Pueblo Station",
-                SystemIndex = 3,
+                Description = originName,
+                SystemIndex = originSystemIndex,
                 StartupPositionX = 0f,
                 StartupPositionY = 0f,
                 StartupPositionZ = 0f,
@@ -387,6 +542,28 @@ namespace Roguelancer
             ctx.MissionManager.SetWaypointSystem(ctx.WaypointSystem);
             ctx.MissionManager.SetWorldManager(ctx.WorldManager);
             return ctx;
+        }
+
+        private static MissionSmokeContext CreateCourierContext()
+        {
+            MissionSmokeContext ctx = CreateContext("Newark Station", 1);
+            ctx.Stations.Add(CreateStation("Buffalo Base", 1, -30000f, -1200f, 36000f));
+            return ctx;
+        }
+
+        private static Station CreateStation(string name, int systemIndex, float x, float y, float z)
+        {
+            return new Station(new StationConfig
+            {
+                Description = name,
+                SystemIndex = systemIndex,
+                StartupPositionX = x,
+                StartupPositionY = y,
+                StartupPositionZ = z,
+                Radius = 900f,
+                DockingRange = 700f,
+                FactionId = FactionManager.LibertyCorporations
+            }, null);
         }
 
         private static (bool Success, string FailureReason) Pass() => (true, string.Empty);

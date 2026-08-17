@@ -55,6 +55,8 @@ namespace Roguelancer
         public void SetReputationManager(ReputationManager reputationManager) => _reputationManager = reputationManager;
         public void SetWaypointSystem(MissionWaypointSystem waypointSystem) => _waypointSystem = waypointSystem;
         public void SetWorldManager(MissionWorldManager worldManager) => _worldManager = worldManager;
+        public void ShowNotification(string message, float durationSeconds = 3f) =>
+            _notificationManager?.ShowMessage(message, durationSeconds);
 
         public void ClearState()
         {
@@ -100,7 +102,10 @@ namespace Roguelancer
         {
             string faction = originStation?.FactionId ?? FactionManager.LibertyCorporations;
             List<Mission> missions = MissionCatalog.CreateRuntimeMissions("Mission Board", faction);
-            return missions;
+            return missions.Where(mission => mission != null &&
+                (mission.Type != MissionType.CourierDelivery ||
+                 string.Equals(mission.SourceStationName, originStation?.Name, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
         }
 
         /// <summary>
@@ -195,23 +200,38 @@ namespace Roguelancer
             if (mission.Type == MissionType.ReachLocation && string.IsNullOrWhiteSpace(mission.TargetLocation))
                 return RejectAcceptance(mission, "patrol target metadata is invalid");
 
+            if (mission.Type == MissionType.CourierDelivery &&
+                (string.IsNullOrWhiteSpace(mission.PackageId) || mission.PackageQuantity <= 0 ||
+                 string.IsNullOrWhiteSpace(mission.SourceStationName) || string.IsNullOrWhiteSpace(mission.Destination)))
+            {
+                return RejectAcceptance(mission, "courier metadata is invalid");
+            }
+
             mission.SetOrigin(originStation);
+            if (mission.Type == MissionType.CourierDelivery &&
+                !string.Equals(mission.SourceStationName, mission.OriginStationName, StringComparison.OrdinalIgnoreCase))
+            {
+                return RejectAcceptance(mission, $"courier must be accepted at {mission.SourceStationName}");
+            }
+
             mission.AcceptedAtUtc = DateTime.UtcNow;
             mission.Status = MissionStatus.Accepted;
-            _activeMissions.Add(mission);
-            _waypointSystem?.RegisterMission(mission);
 
             if (_worldManager != null && !_worldManager.TryAcceptMission(mission, out string failureReason))
             {
-                _waypointSystem?.UnregisterMission(mission);
-                _activeMissions.Remove(mission);
                 mission.Status = MissionStatus.Available;
                 _worldManager.OnMissionFinished(mission);
                 return RejectAcceptance(mission, $"mission unavailable: {failureReason}");
             }
 
+            _activeMissions.Add(mission);
+            _waypointSystem?.RegisterMission(mission);
             mission.Status = MissionStatus.InProgress;
             _notificationManager?.ShowMessage($"Mission accepted: {mission.Title}", 3f);
+            if (mission.Type == MissionType.CourierDelivery)
+            {
+                _notificationManager?.ShowMessage($"Mission cargo loaded: {mission.GetCargoLabel()}", 3f);
+            }
             Console.WriteLine($"[MISSION] Accepted: {mission.GetSummary()} | Origin: {mission.OriginStationName}");
             return true;
         }
@@ -239,9 +259,10 @@ namespace Roguelancer
             _completedMissions.Add(mission);
             _waypointSystem?.UnregisterMission(mission);
             _worldManager?.OnMissionFinished(mission);
-            _notificationManager?.ShowMessage(
-                $"Objective complete - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR",
-                4f);
+            string completionMessage = mission.Type == MissionType.CourierDelivery
+                ? $"Cargo delivered - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR"
+                : $"Objective complete - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR";
+            _notificationManager?.ShowMessage(completionMessage, 4f);
             Console.WriteLine($"[MISSION] Objective complete: {mission.Title} | Reward pending: {mission.Reward:N0} CR");
         }
 

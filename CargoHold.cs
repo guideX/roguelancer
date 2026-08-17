@@ -5,11 +5,33 @@ using System.Linq;
 namespace Roguelancer
 {
     /// <summary>
+    /// Authoritative metadata for cargo reserved by an active mission.
+    /// </summary>
+    public sealed class MissionCargoReservation
+    {
+        public int MissionId { get; set; }
+        public string CommodityId { get; set; } = string.Empty;
+        public string CommodityName { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public int VolumePerUnit { get; set; }
+
+        public MissionCargoReservation Clone() => new()
+        {
+            MissionId = MissionId,
+            CommodityId = CommodityId,
+            CommodityName = CommodityName,
+            Quantity = Quantity,
+            VolumePerUnit = VolumePerUnit
+        };
+    }
+
+    /// <summary>
     /// Manages a ship's cargo hold and commodity inventory
     /// </summary>
     public class CargoHold
     {
         private Dictionary<string, int> _commodities = new Dictionary<string, int>();
+        private readonly Dictionary<int, MissionCargoReservation> _missionCargo = new();
         
         public int MaxCapacity { get; private set; }
         public int UsedCapacity { get; private set; }
@@ -37,6 +59,50 @@ namespace Roguelancer
             return new Dictionary<string, int>(_commodities);
         }
 
+        public IReadOnlyList<MissionCargoReservation> GetMissionCargoReservations()
+        {
+            return _missionCargo.Values.Select(reservation => reservation.Clone()).ToList();
+        }
+
+        public int GetMissionCargoQuantity(int missionId)
+        {
+            return _missionCargo.TryGetValue(missionId, out MissionCargoReservation reservation)
+                ? reservation.Quantity
+                : 0;
+        }
+
+        public bool HasMissionCargo(int missionId, string commodityId, int quantity)
+        {
+            if (missionId <= 0 || quantity <= 0 || !_missionCargo.TryGetValue(missionId, out MissionCargoReservation reservation))
+            {
+                return false;
+            }
+
+            return reservation.Quantity == quantity &&
+                (string.IsNullOrWhiteSpace(commodityId) ||
+                 string.Equals(reservation.CommodityId, commodityId, StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(reservation.CommodityName, commodityId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public int GetMissionReservedQuantity(string commodityName)
+        {
+            if (string.IsNullOrWhiteSpace(commodityName))
+            {
+                return 0;
+            }
+
+            return _missionCargo.Values
+                .Where(reservation =>
+                    string.Equals(reservation.CommodityName, commodityName, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(reservation.CommodityId, commodityName, StringComparison.OrdinalIgnoreCase))
+                .Sum(reservation => reservation.Quantity);
+        }
+
+        public int GetSellableCommodityQuantity(string commodityName)
+        {
+            return Math.Max(0, GetCommodityQuantity(commodityName) - GetMissionReservedQuantity(commodityName));
+        }
+
         /// <summary>
         /// Check if cargo hold can accommodate additional units of a commodity
         /// </summary>
@@ -51,7 +117,7 @@ namespace Roguelancer
         /// </summary>
         public bool AddCommodity(Commodity commodity, int quantity)
         {
-            if (!CanFit(commodity, quantity))
+            if (commodity == null || quantity <= 0 || !CanFit(commodity, quantity))
                 return false;
 
             if (_commodities.ContainsKey(commodity.Name))
@@ -68,15 +134,76 @@ namespace Roguelancer
         }
 
         /// <summary>
+        /// Adds package cargo and binds it to one mission. Normal trading APIs
+        /// cannot remove this quantity; delivery must use RemoveMissionCargo.
+        /// </summary>
+        public bool AddMissionCargo(int missionId, Commodity commodity, int quantity)
+        {
+            if (missionId <= 0 || commodity == null || quantity <= 0 || _missionCargo.ContainsKey(missionId) ||
+                !CanFit(commodity, quantity))
+            {
+                return false;
+            }
+
+            if (!AddCommodity(commodity, quantity))
+            {
+                return false;
+            }
+
+            _missionCargo[missionId] = new MissionCargoReservation
+            {
+                MissionId = missionId,
+                CommodityId = commodity.Id ?? string.Empty,
+                CommodityName = commodity.Name ?? string.Empty,
+                Quantity = quantity,
+                VolumePerUnit = commodity.VolumePerUnit
+            };
+            return true;
+        }
+
+        /// <summary>
+        /// Removes exactly one mission's reserved package. This is intentionally
+        /// separate from RemoveCommodity so market/trading code cannot bypass
+        /// mission-cargo protection.
+        /// </summary>
+        public bool RemoveMissionCargo(int missionId, Commodity commodity, int quantity)
+        {
+            if (missionId <= 0 || commodity == null || quantity <= 0 ||
+                !_missionCargo.TryGetValue(missionId, out MissionCargoReservation reservation) ||
+                reservation.Quantity != quantity ||
+                (!string.Equals(reservation.CommodityId, commodity.Id, StringComparison.OrdinalIgnoreCase) &&
+                 !string.Equals(reservation.CommodityName, commodity.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+
+            if (!_commodities.TryGetValue(reservation.CommodityName, out int currentQuantity) || currentQuantity < quantity)
+            {
+                return false;
+            }
+
+            _commodities[reservation.CommodityName] -= quantity;
+            if (_commodities[reservation.CommodityName] == 0)
+            {
+                _commodities.Remove(reservation.CommodityName);
+            }
+
+            UsedCapacity -= reservation.VolumePerUnit * quantity;
+            _missionCargo.Remove(missionId);
+            return true;
+        }
+
+        /// <summary>
         /// Remove commodity from cargo hold
         /// </summary>
         public bool RemoveCommodity(Commodity commodity, int quantity)
         {
-            if (!_commodities.ContainsKey(commodity.Name))
+            if (commodity == null || quantity <= 0 || !_commodities.ContainsKey(commodity.Name))
                 return false;
 
             int currentQuantity = _commodities[commodity.Name];
-            if (currentQuantity < quantity)
+            int sellableQuantity = currentQuantity - GetMissionReservedQuantity(commodity.Name);
+            if (sellableQuantity < quantity)
                 return false;
 
             _commodities[commodity.Name] -= quantity;
@@ -119,6 +246,7 @@ namespace Roguelancer
         public void Clear()
         {
             _commodities.Clear();
+            _missionCargo.Clear();
             UsedCapacity = 0;
         }
 
@@ -128,6 +256,11 @@ namespace Roguelancer
         /// </summary>
         public bool TransferTo(CargoHold newCargoHold, Dictionary<Commodity, int> commodityRegistry)
         {
+            if (newCargoHold == null || commodityRegistry == null)
+            {
+                return false;
+            }
+
             // Check if everything fits
             int totalRequiredSpace = 0;
             foreach (var kvp in _commodities)
@@ -142,13 +275,30 @@ namespace Roguelancer
             if (totalRequiredSpace > newCargoHold.MaxCapacity)
                 return false;
 
-            // Transfer all commodities
+            // Transfer ordinary cargo first, excluding quantities already
+            // reserved by missions. Then copy the reservations through the
+            // mission-aware API so they remain protected after transfer.
             foreach (var kvp in _commodities)
             {
                 var commodity = commodityRegistry.FirstOrDefault(c => c.Key.Name == kvp.Key).Key;
                 if (commodity != null)
                 {
-                    newCargoHold.AddCommodity(commodity, kvp.Value);
+                    int ordinaryQuantity = Math.Max(0, kvp.Value - GetMissionReservedQuantity(kvp.Key));
+                    if (ordinaryQuantity > 0 && !newCargoHold.AddCommodity(commodity, ordinaryQuantity))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            foreach (MissionCargoReservation reservation in _missionCargo.Values)
+            {
+                Commodity commodity = commodityRegistry.Keys.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Id, reservation.CommodityId, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(candidate.Name, reservation.CommodityName, StringComparison.OrdinalIgnoreCase));
+                if (commodity == null || !newCargoHold.AddMissionCargo(reservation.MissionId, commodity, reservation.Quantity))
+                {
+                    return false;
                 }
             }
 
@@ -166,7 +316,7 @@ namespace Roguelancer
                 var commodity = commodityRegistry.FirstOrDefault(c => c.Key.Name == kvp.Key).Key;
                 if (commodity != null)
                 {
-                    totalValue += commodity.BasePrice * kvp.Value;
+                    totalValue += commodity.BasePrice * GetSellableCommodityQuantity(kvp.Key);
                 }
             }
             return totalValue;
