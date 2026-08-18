@@ -39,7 +39,7 @@ namespace Roguelancer
 
         public CargoHold(int maxCapacity)
         {
-            MaxCapacity = maxCapacity;
+            MaxCapacity = Math.Max(0, maxCapacity);
             UsedCapacity = 0;
         }
 
@@ -108,8 +108,13 @@ namespace Roguelancer
         /// </summary>
         public bool CanFit(Commodity commodity, int quantity)
         {
-            int requiredSpace = commodity.VolumePerUnit * quantity;
-            return AvailableCapacity >= requiredSpace;
+            if (commodity == null || quantity <= 0 || commodity.VolumePerUnit <= 0)
+            {
+                return false;
+            }
+
+            long requiredSpace = (long)commodity.VolumePerUnit * quantity;
+            return requiredSpace <= AvailableCapacity;
         }
 
         /// <summary>
@@ -117,12 +122,17 @@ namespace Roguelancer
         /// </summary>
         public bool AddCommodity(Commodity commodity, int quantity)
         {
-            if (commodity == null || quantity <= 0 || !CanFit(commodity, quantity))
+            if (commodity == null || string.IsNullOrWhiteSpace(commodity.Name) || quantity <= 0 || !CanFit(commodity, quantity))
                 return false;
 
-            if (_commodities.ContainsKey(commodity.Name))
+            if (_commodities.TryGetValue(commodity.Name, out int currentQuantity))
             {
-                _commodities[commodity.Name] += quantity;
+                if ((long)currentQuantity + quantity > int.MaxValue)
+                {
+                    return false;
+                }
+
+                _commodities[commodity.Name] = currentQuantity + quantity;
             }
             else
             {
@@ -327,7 +337,7 @@ namespace Roguelancer
         /// </summary>
         public void SetMaxCapacity(int newMaxCapacity)
         {
-            MaxCapacity = newMaxCapacity;
+            MaxCapacity = Math.Max(0, newMaxCapacity);
         }
     }
 }

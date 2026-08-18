@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using System;
 
 namespace Roguelancer
 {
@@ -15,6 +16,13 @@ namespace Roguelancer
         public bool IsContraband { get; set; }
         public string Category { get; set; }
         public Color DisplayColor { get; set; }
+
+        /// <summary>
+        /// Mission-bound package definitions are catalogued with the same
+        /// commodity type as ordinary cargo, but are never valid market goods.
+        /// The CargoHold reservation remains the authoritative per-unit guard.
+        /// </summary>
+        public bool IsMissionCargo => string.Equals(Category, "Mission Cargo", StringComparison.OrdinalIgnoreCase);
 
         public CommodityDefinition()
         {

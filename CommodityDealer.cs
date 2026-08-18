@@ -111,13 +111,13 @@ namespace Roguelancer
         public bool CanAfford(Commodity commodity, int quantity, PlayerCredits credits)
         {
             var listing = ResolveListing(commodity);
-            if (listing == null || credits == null)
+            if (listing == null || credits == null || quantity <= 0 || listing.BuyPrice <= 0)
             {
                 return false;
             }
 
-            int totalCost = listing.BuyPrice * quantity;
-            return credits.CanAfford(totalCost);
+            long totalCost = (long)listing.BuyPrice * quantity;
+            return totalCost <= int.MaxValue && credits.CanAfford((int)totalCost);
         }
 
         public bool HasSpace(Commodity commodity, int quantity, CargoHold cargoHold)
@@ -127,7 +127,8 @@ namespace Roguelancer
                 return false;
             }
 
-            return cargoHold.CanFit(commodity, quantity);
+            StationMarketListing listing = ResolveListing(commodity);
+            return listing != null && cargoHold.CanFit(listing.Commodity, quantity);
         }
 
         public bool BuyCommodity(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold)
@@ -197,20 +198,34 @@ namespace Roguelancer
                 return false;
             }
 
+            var listing = ResolveListing(commodity);
+            if (listing == null || !listing.IsAvailable || listing.BuyPrice <= 0)
+            {
+                message = "Commodity unavailable at this station.";
+                return false;
+            }
+
             if (quantity <= 0)
             {
                 message = "Quantity must be at least 1.";
                 return false;
             }
 
-            int totalCost = commodity.BasePrice * quantity;
+            long totalCostLong = (long)listing.BuyPrice * quantity;
+            if (totalCostLong > int.MaxValue)
+            {
+                message = "Purchase total is invalid.";
+                return false;
+            }
+
+            int totalCost = (int)totalCostLong;
             if (!credits.CanAfford(totalCost))
             {
                 message = "Not enough credits.";
                 return false;
             }
 
-            if (!cargoHold.CanFit(commodity, quantity))
+            if (!cargoHold.CanFit(listing.Commodity, quantity))
             {
                 message = "Not enough cargo space.";
                 return false;
@@ -222,14 +237,14 @@ namespace Roguelancer
                 return false;
             }
 
-            if (!cargoHold.AddCommodity(commodity, quantity))
+            if (!cargoHold.AddCommodity(listing.Commodity, quantity))
             {
                 credits.AddCredits(totalCost);
                 message = "Cargo transfer failed.";
                 return false;
             }
 
-            message = $"Bought {quantity}x {commodity.Name} at fallback prices.";
+            message = $"Purchased {quantity} {listing.Commodity.Name} for {totalCost:N0} CR.";
             return true;
         }
 
@@ -248,27 +263,65 @@ namespace Roguelancer
                 return false;
             }
 
+            if (commodity.IsMissionCargo)
+            {
+                message = "Mission cargo cannot be sold.";
+                return false;
+            }
+
+            var listing = ResolveListing(commodity);
+            if (listing == null || !listing.IsAvailable || listing.SellPrice <= 0)
+            {
+                message = "Commodity unavailable at this station.";
+                return false;
+            }
+
+            if (listing.Commodity.IsMissionCargo)
+            {
+                message = "Mission cargo cannot be sold.";
+                return false;
+            }
+
             if (quantity <= 0)
             {
                 message = "Quantity must be at least 1.";
                 return false;
             }
 
-            if (cargoHold.GetCommodityQuantity(commodity.Name) < quantity)
+            int ownedQuantity = cargoHold.GetCommodityQuantity(listing.Commodity.Name);
+            int sellableQuantity = cargoHold.GetSellableCommodityQuantity(listing.Commodity.Name);
+            if (sellableQuantity < quantity)
             {
-                message = "You do not own enough quantity to sell.";
+                message = ownedQuantity > sellableQuantity
+                    ? "Mission cargo cannot be sold."
+                    : "You do not own enough quantity to sell.";
                 return false;
             }
 
-            if (!cargoHold.RemoveCommodity(commodity, quantity))
+            long totalValueLong = (long)listing.SellPrice * quantity;
+            if (totalValueLong > int.MaxValue)
             {
-                message = "Cargo removal failed.";
+                message = "Sale total is invalid.";
                 return false;
             }
 
-            int totalValue = commodity.BasePrice * quantity;
+            int totalValue = (int)totalValueLong;
+            if ((long)credits.Credits + totalValue > int.MaxValue)
+            {
+                message = "Credit total is invalid.";
+                return false;
+            }
+
+            if (!cargoHold.RemoveCommodity(listing.Commodity, quantity))
+            {
+                message = cargoHold.GetMissionReservedQuantity(listing.Commodity.Name) > 0
+                    ? "Mission cargo cannot be sold."
+                    : "Cargo removal failed.";
+                return false;
+            }
+
             credits.AddCredits(totalValue);
-            message = $"Sold {quantity}x {commodity.Name} at fallback prices.";
+            message = $"Sold {quantity} {listing.Commodity.Name} for {totalValue:N0} CR.";
             return true;
         }
 

@@ -54,6 +54,8 @@ public sealed class StationTestScene : IDisposable
     public Vector3 ShipDealerPosition { get; } = new(7.2f, 0.0f, 35.85f);
     public float ShipDealerYawDegrees { get; } = -90.0f;
     public Vector3 EquipmentInteractionPosition { get; } = new(7.2f, 0.0f, 42.0f);
+    public Vector3 CommodityTraderInteractionPosition { get; } = new(-3.9f, 0.0f, 42.0f);
+    public string CommodityTraderSignText => "COMMODITY TRADER";
     public Vector3 MissionBoardInteractionPosition { get; } = new(-12.9f, 0.0f, 56.0f);
     public string MissionBoardSignText => "MISSION BOARD";
     public Vector3 BarInteractionPosition => StationBarSocial.Layout.DoorPosition;
@@ -549,6 +551,13 @@ public sealed class StationTestScene : IDisposable
         AddBox(new Vector3(7.65f, 3.2f, 42.1f), new Vector3(2.6f, 0.10f, 0.12f), "glow", 1.0f, true, false, emissive: true);
         AddBox(new Vector3(6.05f, 0.9f, 42.1f), new Vector3(0.55f, 1.8f, 2.8f), "accent", 1.0f, false, true);
         AddBox(new Vector3(5.72f, 1.55f, 42.1f), new Vector3(0.08f, 0.8f, 1.3f), "glow", 1.0f, true, false, emissive: true);
+
+        // Commodity Trader: a separate concourse kiosk so trading is a
+        // physical service location rather than a hidden tab in Equipment.
+        AddBox(new Vector3(-2.75f, 0.72f, 42.1f), new Vector3(2.8f, 1.44f, 0.75f), "accent", 1.0f, false, true);
+        AddBox(new Vector3(-2.75f, 1.48f, 42.1f), new Vector3(2.25f, 0.08f, 0.55f), "glow", 1.0f, true, false, emissive: true);
+        AddBox(new Vector3(-1.75f, 2.15f, 42.35f), new Vector3(0.10f, 1.35f, 1.25f), "structure", 1.0f, false, true);
+        AddBox(new Vector3(-1.80f, 2.35f, 42.05f), new Vector3(0.06f, 0.72f, 0.86f), "glow", 1.0f, true, false, emissive: true);
 
         // Bar entrance: preserve the existing concourse placement while
         // replacing its closed panel with a visibly animated station door.

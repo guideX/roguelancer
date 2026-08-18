@@ -43,9 +43,10 @@ namespace Roguelancer {
         private bool _stationTestMode;
         private StationSession _stationSession;
         private readonly List<StationInteraction> _stationInteractions = new();
-    private StationShipDealerUI _stationShipDealerUI;
-    private StationEquipmentDealerUI _stationEquipmentDealerUI;
-    private StationMissionBoardUI _stationMissionBoardUI;
+        private StationShipDealerUI _stationShipDealerUI;
+        private StationEquipmentDealerUI _stationEquipmentDealerUI;
+        private StationCommodityTraderUI _stationCommodityTraderUI;
+        private StationMissionBoardUI _stationMissionBoardUI;
         private string _stationDialogueText = string.Empty;
         private float _stationDialogueRemaining;
         private bool _stationInteractionKeyHeld;
@@ -220,6 +221,7 @@ namespace Roguelancer {
         private Vector3 _lastPlayerPosition;
         private bool _firstFrame = true;
         private readonly bool _runMarketSmoke;
+        private readonly bool _runCommodityMarketSmoke;
         private readonly bool _runMissileSmoke;
         private readonly bool _runCountermeasureSmoke;
         private readonly bool _runMineSmoke;
@@ -286,6 +288,7 @@ namespace Roguelancer {
             _factionManager = new FactionManager();
             _reputationManager = new ReputationManager(_factionManager);
             _runMarketSmoke = args?.Any(arg => string.Equals(arg, "--market-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runCommodityMarketSmoke = args?.Any(arg => string.Equals(arg, "--commodity-market-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMissileSmoke = args?.Any(arg => string.Equals(arg, "--missile-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runCountermeasureSmoke = args?.Any(arg => string.Equals(arg, "--countermeasure-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMineSmoke = args?.Any(arg => string.Equals(arg, "--mine-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -953,6 +956,11 @@ namespace Roguelancer {
                     _pixel,
                     _equipmentDealer,
                     message => _notificationManager?.ShowMessage(message, 3f));
+                _stationCommodityTraderUI = new StationCommodityTraderUI(
+                    _font,
+                    _pixel,
+                    _commodityDealer,
+                    message => _notificationManager?.ShowMessage(message, 3f));
                 _stationMissionBoardUI = new StationMissionBoardUI(
                     _font,
                     _pixel,
@@ -1217,6 +1225,12 @@ namespace Roguelancer {
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
 
+            if (_runCommodityMarketSmoke)
+            {
+                var result = RunCommodityMarketSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+
             if (_runMissileSmoke)
             {
                 var result = RunMissileSmokeTest();
@@ -1255,6 +1269,7 @@ namespace Roguelancer {
 
             RunAllSmokeSuite("save smoke", RunSaveSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("missile smoke", RunMissileSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("countermeasure smoke", RunCountermeasureSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("mine smoke", RunMineSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1305,6 +1320,20 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[MARKET SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunCommodityMarketSmokeTest()
+        {
+            try
+            {
+                var harness = new CommodityMarketSmokeTest(_stationManager?.GetStations());
+                return harness.Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[COMMODITY MARKET SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -4235,6 +4264,7 @@ namespace Roguelancer {
             _stationInteractionKeyHeld = false;
             _stationShipDealerUI?.Close();
             _stationEquipmentDealerUI?.Close();
+            _stationCommodityTraderUI?.Close();
             _stationMissionBoardUI?.Close();
             _stationInteractions.Clear();
 
@@ -4407,6 +4437,13 @@ namespace Roguelancer {
                 "EQUIPMENT",
                 "Press E to browse",
                 OpenEquipmentDealer));
+            _stationInteractions.Add(new StationInteraction(
+                "commodity-trader",
+                _stationTestScene.CommodityTraderInteractionPosition,
+                2.0f,
+                _stationTestScene.CommodityTraderSignText,
+                "Press E to trade",
+                OpenCommodityTrader));
             if (_stationTestScene.IsBarDoorOpen)
             {
                 _stationInteractions.Add(new StationInteraction(
@@ -4512,6 +4549,29 @@ namespace Roguelancer {
             _stationDialogueRemaining = 0f;
         }
 
+        private void OpenCommodityTrader()
+        {
+            if (_stationCommodityTraderUI == null || _stationPlayerCharacter == null || _stationSession == null)
+            {
+                _notificationManager?.ShowMessage("Commodity Trader is unavailable", 2f);
+                return;
+            }
+
+            if (_stationSession.DockedStation == null)
+            {
+                _notificationManager?.ShowMessage("Commodity Trader requires a real docked station", 2f);
+                return;
+            }
+
+            _stationCommodityTraderUI.Open(
+                _stationSession.StationDisplayName,
+                _stationSession.DockedStation,
+                _playerCredits,
+                _playerShip);
+            _stationDialogueText = string.Empty;
+            _stationDialogueRemaining = 0f;
+        }
+
         private void OpenMissionBoard()
         {
             if (_stationMissionBoardUI == null || _stationPlayerCharacter == null || _stationSession == null)
@@ -4540,6 +4600,7 @@ namespace Roguelancer {
             _stationInteractionKeyHeld = false;
             _stationShipDealerUI?.Close();
             _stationEquipmentDealerUI?.Close();
+            _stationCommodityTraderUI?.Close();
             _stationMissionBoardUI?.Close();
             _stationInteractions.Clear();
             _stationDialogueText = string.Empty;
@@ -4558,6 +4619,7 @@ namespace Roguelancer {
             _notificationManager?.Update(gameTime);
             _stationShipDealerUI?.Update(deltaTime);
             _stationEquipmentDealerUI?.Update(deltaTime);
+            _stationCommodityTraderUI?.Update(deltaTime);
             _stationMissionBoardUI?.Update(deltaTime);
             if (_stationDialogueRemaining > 0.0f)
             {
@@ -4582,6 +4644,7 @@ namespace Roguelancer {
             // emergency-launch shortcut below.
             if (_stationShipDealerUI?.IsOpen == true ||
                 _stationEquipmentDealerUI?.IsOpen == true ||
+                _stationCommodityTraderUI?.IsOpen == true ||
                 _stationMissionBoardUI?.IsOpen == true)
             {
                 _stationTestScene?.Update(deltaTime);
@@ -4594,6 +4657,10 @@ namespace Roguelancer {
                 else if (_stationEquipmentDealerUI?.IsOpen == true)
                 {
                     _stationEquipmentDealerUI?.HandleInput(keyboardState, _prevKeys);
+                }
+                else if (_stationCommodityTraderUI?.IsOpen == true)
+                {
+                    _stationCommodityTraderUI?.HandleInput(keyboardState, _prevKeys);
                 }
                 else
                 {
@@ -5158,6 +5225,7 @@ namespace Roguelancer {
             DrawStationSignage();
             if (_stationShipDealerUI?.IsOpen == true ||
                 _stationEquipmentDealerUI?.IsOpen == true ||
+                _stationCommodityTraderUI?.IsOpen == true ||
                 _stationMissionBoardUI?.IsOpen == true)
             {
                 if (_stationShipDealerUI?.IsOpen == true)
@@ -5167,6 +5235,10 @@ namespace Roguelancer {
                 else if (_stationEquipmentDealerUI?.IsOpen == true)
                 {
                     _stationEquipmentDealerUI?.Draw(_spriteBatch, GraphicsDevice);
+                }
+                else if (_stationCommodityTraderUI?.IsOpen == true)
+                {
+                    _stationCommodityTraderUI?.Draw(_spriteBatch, GraphicsDevice);
                 }
                 else
                 {
@@ -5275,6 +5347,7 @@ namespace Roguelancer {
             DrawStationSign("MAIN CONCOURSE", new Vector3(0.0f, 7.25f, 30.1f), Color.Gold, 0.62f);
             DrawStationSign("SHIP DEALER", new Vector3(7.0f, 4.1f, 34.25f), Color.Gold, 0.62f);
             DrawStationSign("EQUIPMENT", new Vector3(7.4f, 4.0f, 41.2f), Color.LightSkyBlue, 0.58f);
+            DrawStationSign("COMMODITY TRADER", new Vector3(-2.75f, 4.0f, 41.1f), Color.LimeGreen, 0.48f);
             DrawStationSign("BAR", new Vector3(-7.25f, 5.55f, 39.9f), Color.LightSkyBlue, 0.62f);
             DrawStationSign("SOCIAL FLOOR", new Vector3(-7.25f, 3.55f, 48.95f), Color.Gold, 0.48f);
             DrawStationSign("MISSION BOARD", new Vector3(-14.05f, 3.75f, 56.0f), Color.Gold, 0.42f);

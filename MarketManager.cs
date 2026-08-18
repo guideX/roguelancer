@@ -104,6 +104,32 @@ namespace Roguelancer
                         continue;
                     }
 
+                    if (_marketConfigs.ContainsKey(key))
+                    {
+                        Console.WriteLine($"[MARKET] Skipped duplicate station market key '{key}': {Path.GetFileName(file)}");
+                        continue;
+                    }
+
+                    List<StationMarketGoodConfig> validGoods = new();
+                    HashSet<string> commodityIds = new(StringComparer.OrdinalIgnoreCase);
+                    foreach (var good in config.Goods ?? new List<StationMarketGoodConfig>())
+                    {
+                        if (!ValidateGoodConfig(good, commodityIds, out string failureReason))
+                        {
+                            Console.WriteLine($"[MARKET] Skipped invalid listing in {Path.GetFileName(file)}: {failureReason}");
+                            continue;
+                        }
+
+                        validGoods.Add(good);
+                    }
+
+                    config.Goods = validGoods;
+                    if (config.Goods.Count == 0)
+                    {
+                        Console.WriteLine($"[MARKET] Skipped market with no valid listings: {Path.GetFileName(file)}");
+                        continue;
+                    }
+
                     _marketConfigs[key] = config;
                     Console.WriteLine($"[MARKET] Loaded market config for {config.StationName ?? config.StationId} with {config.Goods?.Count ?? 0} goods");
                 }
@@ -175,7 +201,8 @@ namespace Roguelancer
                 return false;
             }
 
-            if (!listing.IsAvailable || listing.BuyPrice <= 0)
+            Commodity marketCommodity = listing.Commodity;
+            if (!IsValidCommodity(marketCommodity) || !listing.IsAvailable || listing.BuyPrice <= 0 || listing.Stock < 0)
             {
                 message = "Commodity unavailable at this station.";
                 return false;
@@ -195,14 +222,19 @@ namespace Roguelancer
                 return false;
             }
 
-            int totalCost = listing.BuyPrice * quantity;
+            if (!TryCalculateTotal(listing.BuyPrice, quantity, out int totalCost))
+            {
+                message = "Purchase total is invalid.";
+                return false;
+            }
+
             if (!credits.CanAfford(totalCost))
             {
                 message = "Not enough credits.";
                 return false;
             }
 
-            if (!cargoHold.CanFit(commodity, quantity))
+            if (!cargoHold.CanFit(marketCommodity, quantity))
             {
                 message = "Not enough cargo space.";
                 return false;
@@ -214,7 +246,7 @@ namespace Roguelancer
                 return false;
             }
 
-            if (!cargoHold.AddCommodity(commodity, quantity))
+            if (!cargoHold.AddCommodity(marketCommodity, quantity))
             {
                 credits.AddCredits(totalCost);
                 message = "Cargo transfer failed.";
@@ -222,7 +254,7 @@ namespace Roguelancer
             }
 
             listing.Stock -= quantity;
-            message = $"Bought {quantity}x {commodity.Name} at {station.Name}.";
+            message = $"Purchased {quantity} {marketCommodity.Name} for {totalCost:N0} CR.";
             return true;
         }
 
@@ -247,30 +279,72 @@ namespace Roguelancer
                 return false;
             }
 
+            if (commodity.IsMissionCargo)
+            {
+                message = "Mission cargo cannot be sold.";
+                return false;
+            }
+
             var stationKey = GetStationKey(station.Name, station.Config?.Description);
             var listing = GetMutableListing(stationKey, commodity);
-            if (listing == null || !listing.IsAvailable || listing.SellPrice <= 0)
+            if (listing == null)
             {
                 message = "Commodity unavailable at this station.";
                 return false;
             }
 
-            if (cargoHold.GetCommodityQuantity(commodity.Name) < quantity)
+            Commodity marketCommodity = listing.Commodity;
+            if (!IsValidCommodity(marketCommodity) || marketCommodity.IsMissionCargo)
             {
-                message = "You do not own enough quantity to sell.";
+                message = "Mission cargo cannot be sold.";
                 return false;
             }
 
-            if (!cargoHold.RemoveCommodity(commodity, quantity))
+            if (!listing.IsAvailable || listing.SellPrice <= 0)
             {
-                message = "Cargo removal failed.";
+                message = "Commodity unavailable at this station.";
                 return false;
             }
 
-            int totalValue = listing.SellPrice * quantity;
+            int ownedQuantity = cargoHold.GetCommodityQuantity(marketCommodity.Name);
+            int sellableQuantity = cargoHold.GetSellableCommodityQuantity(marketCommodity.Name);
+            if (sellableQuantity < quantity)
+            {
+                message = ownedQuantity > sellableQuantity
+                    ? "Mission cargo cannot be sold."
+                    : "You do not own enough quantity to sell.";
+                return false;
+            }
+
+            if (!TryCalculateTotal(listing.SellPrice, quantity, out int totalValue))
+            {
+                message = "Sale total is invalid.";
+                return false;
+            }
+
+            if ((long)credits.Credits + totalValue > int.MaxValue)
+            {
+                message = "Credit total is invalid.";
+                return false;
+            }
+
+            if ((long)listing.Stock + quantity > int.MaxValue)
+            {
+                message = "Station inventory cannot accept that sale.";
+                return false;
+            }
+
+            if (!cargoHold.RemoveCommodity(marketCommodity, quantity))
+            {
+                message = cargoHold.GetMissionReservedQuantity(marketCommodity.Name) > 0
+                    ? "Mission cargo cannot be sold."
+                    : "Cargo removal failed.";
+                return false;
+            }
+
             credits.AddCredits(totalValue);
             listing.Stock += quantity;
-            message = $"Sold {quantity}x {commodity.Name} at {station.Name}.";
+            message = $"Sold {quantity} {marketCommodity.Name} for {totalValue:N0} CR.";
             return true;
         }
 
@@ -350,6 +424,14 @@ namespace Roguelancer
                     continue;
                 }
 
+                Dictionary<string, StationMarketListing> configuredListings = null;
+                if (_marketConfigs.TryGetValue(stationKey, out var config))
+                {
+                    configuredListings = BuildRuntimeListings(config)
+                        .Where(listing => listing?.Commodity != null)
+                        .ToDictionary(listing => NormalizeKey(listing.Commodity.Id), StringComparer.OrdinalIgnoreCase);
+                }
+
                 var listings = new List<StationMarketListing>();
                 foreach (var listing in state.Listings ?? new List<SaveMarketListingData>())
                 {
@@ -364,13 +446,28 @@ namespace Roguelancer
                         continue;
                     }
 
+                    int buyPrice = listing.BuyPrice;
+                    int sellPrice = listing.SellPrice;
+                    bool isAvailable = listing.IsAvailable;
+                    if (configuredListings != null)
+                    {
+                        if (!configuredListings.TryGetValue(NormalizeKey(commodity.Id), out var configuredListing))
+                        {
+                            continue;
+                        }
+
+                        buyPrice = configuredListing.BuyPrice;
+                        sellPrice = configuredListing.SellPrice;
+                        isAvailable = configuredListing.IsAvailable;
+                    }
+
                     listings.Add(new StationMarketListing(
                         commodity,
-                        listing.BuyPrice,
-                        listing.SellPrice,
+                        buyPrice,
+                        sellPrice,
                         listing.Stock,
                         listing.DemandLevel,
-                        listing.IsAvailable));
+                        isAvailable));
                 }
 
                 if (listings.Count > 0)
@@ -385,9 +482,16 @@ namespace Roguelancer
         private List<StationMarketListing> BuildRuntimeListings(StationMarketConfig config)
         {
             var listings = new List<StationMarketListing>();
+            HashSet<string> commodityIds = new(StringComparer.OrdinalIgnoreCase);
 
             foreach (var good in config.Goods ?? new List<StationMarketGoodConfig>())
             {
+                if (!ValidateGoodConfig(good, commodityIds, out string failureReason))
+                {
+                    Console.WriteLine($"[MARKET] Ignored invalid runtime listing: {failureReason}");
+                    continue;
+                }
+
                 var commodity = ResolveCommodity(good.CommodityId);
                 if (commodity == null)
                 {
@@ -411,7 +515,11 @@ namespace Roguelancer
             var fallback = new List<StationMarketListing>();
             foreach (var commodity in _fallbackCatalog)
             {
-                fallback.Add(new StationMarketListing(commodity, commodity.BasePrice, commodity.BasePrice, 9999, 0, true));
+                int sellPrice = commodity.BasePrice > 1
+                    ? Math.Max(1, (int)Math.Floor(commodity.BasePrice * 0.75d))
+                    : 0;
+                bool available = IsValidCommodity(commodity) && !commodity.IsMissionCargo && commodity.BasePrice > 0;
+                fallback.Add(new StationMarketListing(commodity, commodity.BasePrice, sellPrice, 9999, 0, available));
             }
 
             return fallback;
@@ -449,6 +557,85 @@ namespace Roguelancer
             return listings.FirstOrDefault(l =>
                 string.Equals(l.Commodity.Id, commodity.Id, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(l.Commodity.Name, commodity.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private bool ValidateGoodConfig(
+            StationMarketGoodConfig good,
+            HashSet<string> commodityIds,
+            out string failureReason)
+        {
+            failureReason = string.Empty;
+            if (good == null || string.IsNullOrWhiteSpace(good.CommodityId))
+            {
+                failureReason = "commodity id is missing";
+                return false;
+            }
+
+            Commodity commodity = ResolveCommodity(good.CommodityId);
+            if (!IsValidCommodity(commodity))
+            {
+                failureReason = $"unknown or invalid commodity '{good.CommodityId}'";
+                return false;
+            }
+
+            string commodityId = commodity.Id.Trim();
+            if (!commodityIds.Add(commodityId))
+            {
+                failureReason = $"duplicate commodity listing '{commodityId}'";
+                return false;
+            }
+
+            if (good.BuyPrice < 0 || good.SellPrice < 0 || good.Stock < 0 || good.DemandLevel < 0)
+            {
+                failureReason = $"negative market data for '{commodityId}'";
+                return false;
+            }
+
+            if (commodity.IsMissionCargo)
+            {
+                failureReason = $"mission cargo '{commodityId}' cannot be listed";
+                return false;
+            }
+
+            if (good.IsAvailable && (good.BuyPrice <= 0 || good.SellPrice <= 0))
+            {
+                failureReason = $"available listing '{commodityId}' needs positive buy and sell prices";
+                return false;
+            }
+
+            if (good.IsAvailable && good.BuyPrice < good.SellPrice)
+            {
+                failureReason = $"same-station arbitrage on '{commodityId}'";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsValidCommodity(Commodity commodity)
+        {
+            return commodity != null &&
+                !string.IsNullOrWhiteSpace(commodity.Id) &&
+                !string.IsNullOrWhiteSpace(commodity.Name) &&
+                commodity.VolumePerUnit > 0;
+        }
+
+        private static bool TryCalculateTotal(int unitPrice, int quantity, out int total)
+        {
+            total = 0;
+            if (unitPrice <= 0 || quantity <= 0)
+            {
+                return false;
+            }
+
+            long value = (long)unitPrice * quantity;
+            if (value > int.MaxValue)
+            {
+                return false;
+            }
+
+            total = (int)value;
+            return true;
         }
 
         private static Commodity CloneCommodity(Commodity commodity)
