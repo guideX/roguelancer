@@ -231,6 +231,7 @@ namespace Roguelancer {
         private readonly bool _runLootSmoke;
         private readonly bool _runMissionSmoke;
         private readonly bool _runFreightSmoke;
+        private readonly bool _runExportSmoke;
         private readonly bool _runNavSmoke;
         private readonly bool _runDockSmoke;
         private readonly bool _runShipSmoke;
@@ -299,6 +300,7 @@ namespace Roguelancer {
             _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMissionSmoke = args?.Any(arg => string.Equals(arg, "--mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFreightSmoke = args?.Any(arg => string.Equals(arg, "--freight-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runExportSmoke = args?.Any(arg => string.Equals(arg, "--export-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runNavSmoke = args?.Any(arg => string.Equals(arg, "--nav-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runDockSmoke = args?.Any(arg => string.Equals(arg, "--dock-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runShipSmoke = args?.Any(arg => string.Equals(arg, "--ship-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1197,6 +1199,11 @@ namespace Roguelancer {
                 var result = RunFreightSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runExportSmoke)
+            {
+                var result = RunExportSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runNavSmoke)
             {
                 var result = RunNavSmokeTest();
@@ -1291,6 +1298,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("loot smoke", RunLootSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("mission smoke", RunMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("freight smoke", RunFreightSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("export smoke", RunExportSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("nav smoke", RunNavSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("dock smoke", RunDockSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("ship smoke", RunShipSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1467,6 +1475,11 @@ namespace Roguelancer {
         private (int Passed, int Failed) RunFreightSmokeTest()
         {
             return new FreightContractSmokeTest().Run();
+        }
+
+        private (int Passed, int Failed) RunExportSmokeTest()
+        {
+            return new ExportContractSmokeTest().Run();
         }
 
         private void StartPerformanceMission()

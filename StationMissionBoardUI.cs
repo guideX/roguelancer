@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Roguelancer;
 
@@ -24,6 +25,7 @@ public sealed class StationMissionBoardUI
     private bool _inputGate;
     private string _statusMessage = string.Empty;
     private float _statusRemaining;
+    private IReadOnlyList<MarketOpportunity> _marketOpportunities = Array.Empty<MarketOpportunity>();
 
     public StationMissionBoardUI(
         SpriteFont font,
@@ -48,6 +50,7 @@ public sealed class StationMissionBoardUI
         _stationName = string.IsNullOrWhiteSpace(stationName) ? "Station" : stationName;
         _station = station;
         _jobBoard.RefreshMissions(6, station?.FactionId, station);
+        _marketOpportunities = _missionManager.GetMarketOpportunities(5);
         _statusMessage = string.Empty;
         _statusRemaining = 0f;
         _inputGate = true;
@@ -81,6 +84,21 @@ public sealed class StationMissionBoardUI
         if (Pressed(current, previous, Keys.Escape))
         {
             Close();
+            return true;
+        }
+
+        if (Pressed(current, previous, Keys.C) && _missionManager.ActiveMission?.Type == MissionType.ExportContract)
+        {
+            if (_missionManager.CancelMission(_missionManager.ActiveMission, out string cancelMessage))
+            {
+                SetStatus(cancelMessage, success: true);
+                Close();
+            }
+            else
+            {
+                SetStatus(cancelMessage, success: false);
+                _showMessage(cancelMessage);
+            }
             return true;
         }
 
@@ -156,8 +174,9 @@ public sealed class StationMissionBoardUI
         DrawBorder(spriteBatch, panel, Color.Gold, 3);
 
         spriteBatch.DrawString(_font, $"MISSION BOARD - {_stationName}", new Vector2(panel.X + 24, panel.Y + 18), Color.Gold);
+        DrawMarketOpportunityStrip(spriteBatch, panel);
 
-        int contentTop = panel.Y + 64;
+        int contentTop = panel.Y + 84;
         int contentBottom = panel.Bottom - 86;
         int dividerX = panel.X + (int)(panel.Width * 0.38f);
         Rectangle listPanel = new(panel.X + 18, contentTop, dividerX - panel.X - 28, contentBottom - contentTop);
@@ -195,6 +214,8 @@ public sealed class StationMissionBoardUI
         string activeLine = active != null
             ? active.Type == MissionType.FreightContract
                 ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - Reserved {_cargoHold?.GetMissionCargoQuantity(active.Id) ?? 0}/{active.RequiredQuantity} - {active.GetDestinationLabel()}"
+            : active.Type == MissionType.ExportContract
+                ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - Loaded {_cargoHold?.GetMissionCargoQuantity(active.Id) ?? 0}/{active.RequiredQuantity} - {active.GetDestinationLabel()}"
                 : $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - {active.GetHudProgressLine()}"
             : completed != null
                 ? $"MISSION COMPLETE: {completed.Title} - {completed.Reward:N0} CR"
@@ -202,6 +223,8 @@ public sealed class StationMissionBoardUI
         spriteBatch.DrawString(_font, Shorten(activeLine, 94), new Vector2(panel.X + 24, statusY), completed != null ? Color.Lime : Color.Cyan);
 
         string footer = "UP/DOWN or W/S: Select    ENTER/E: Accept or Claim    ESC: Back";
+        if (_missionManager.ActiveMission?.Type == MissionType.ExportContract)
+            footer = "UP/DOWN or W/S: Select    C: Cancel export    ESC: Back";
         spriteBatch.DrawString(_font, footer, new Vector2(panel.X + 24, panel.Bottom - 42), Color.LightGray);
         if (!string.IsNullOrWhiteSpace(_statusMessage))
         {
@@ -262,11 +285,38 @@ public sealed class StationMissionBoardUI
             spriteBatch.DrawString(_font, $"Owned total: {owned:N0}   Volume: {(commodity?.VolumePerUnit ?? 0)} / unit", new Vector2(x, y), Color.Cyan);
             y += 26;
         }
+        else if (mission.Type == MissionType.ExportContract)
+        {
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+            int requiredVolume = (commodity?.VolumePerUnit ?? 0) * mission.RequiredQuantity;
+            int freeSpace = _cargoHold?.AvailableCapacity ?? 0;
+            spriteBatch.DrawString(_font, $"Origin: {mission.OriginStationName}", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Destination: {mission.GetDestinationLabel()}", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Cargo supplied on acceptance: {mission.GetTargetLabel()} ({requiredVolume} space)", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Free cargo space: {freeSpace} space", new Vector2(x, y),
+                freeSpace >= requiredVolume ? Color.Cyan : Color.OrangeRed);
+            y += 26;
+        }
         spriteBatch.DrawString(_font, $"Reward: {mission.Reward:N0} CR", new Vector2(x, y), Color.Yellow);
         y += 30;
         string action = _missionManager.ActiveMission == null ? "[ENTER] ACCEPT" : "ACTIVE MISSION BLOCKS ACCEPT";
         if (_missionManager.UnclaimedCompletedMission != null) action = "[ENTER] CLAIM REWARD";
         spriteBatch.DrawString(_font, action, new Vector2(x, Math.Min(y + 40, detailPanel.Bottom - 34)), Color.Lime);
+    }
+
+    private void DrawMarketOpportunityStrip(SpriteBatch spriteBatch, Rectangle panel)
+    {
+        if (_marketOpportunities == null || _marketOpportunities.Count == 0)
+        {
+            spriteBatch.DrawString(_font, "MARKET OPPORTUNITIES: No strong live signals", new Vector2(panel.X + 24, panel.Y + 44), Color.Gray);
+            return;
+        }
+
+        string summary = string.Join("  |  ", _marketOpportunities.Take(3).Select(opportunity => opportunity.GetDisplayText()));
+        spriteBatch.DrawString(_font, $"MARKET OPPORTUNITIES: {Shorten(summary, 122)}", new Vector2(panel.X + 24, panel.Y + 44), Color.LightGreen);
     }
 
     private void SetStatus(string message, bool success)
@@ -306,6 +356,7 @@ public sealed class StationMissionBoardUI
         MissionType.DestroyHostiles => Color.IndianRed,
         MissionType.CourierDelivery => Color.LimeGreen,
         MissionType.FreightContract => Color.LightSkyBlue,
+        MissionType.ExportContract => Color.LightGreen,
         MissionType.Bounty => Color.Red,
         MissionType.Escort => Color.Yellow,
         _ => Color.White

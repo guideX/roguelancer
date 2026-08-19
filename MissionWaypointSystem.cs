@@ -166,6 +166,7 @@ namespace Roguelancer
                 case MissionType.Delivery:
                 case MissionType.CourierDelivery:
                 case MissionType.FreightContract:
+                case MissionType.ExportContract:
                     // Find station/space object matching destination name
                     var destObj = FindSpaceObjectByName(spaceObjects, mission.Destination);
                     if (destObj != null)
@@ -309,6 +310,7 @@ namespace Roguelancer
                 MissionType.Bounty => data.Mission.Target,
                 MissionType.CourierDelivery => data.Mission.GetDestinationLabel(),
                 MissionType.FreightContract => data.Mission.GetDestinationLabel(),
+                MissionType.ExportContract => data.Mission.GetDestinationLabel(),
                 _ => data.Mission.Destination
             };
 

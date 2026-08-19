@@ -80,6 +80,8 @@ namespace Roguelancer
                     return TryBindCourierMission(state, out failureReason);
                 case MissionType.FreightContract:
                     return TryBindFreightMission(state, out failureReason);
+                case MissionType.ExportContract:
+                    return TryBindExportMission(state, out failureReason);
                 case MissionType.Escort:
                     return TryBindEscortMission(state, out failureReason);
                 default:
@@ -209,6 +211,19 @@ namespace Roguelancer
                     mission.TargetPosition = state.DeliveryDestination.Position;
                 }
             }
+            else if (mission.Type == MissionType.ExportContract)
+            {
+                state.DeliveryDestination ??= ResolveCourierDestination(mission);
+                state.DeliveryCommodity ??= CommodityCatalog.GetByIdOrName(mission.CommodityId);
+                state.DeliveryQuantity = mission.RequiredQuantity;
+
+                if (state.DeliveryDestination != null)
+                {
+                    mission.DestinationStationId = Mission.BuildStationIdentity(state.DeliveryDestination);
+                    mission.TargetSpaceObject = state.DeliveryDestination;
+                    mission.TargetPosition = state.DeliveryDestination.Position;
+                }
+            }
             else if (mission.Type == MissionType.Escort)
             {
                 if (state.EscortTarget != null &&
@@ -322,7 +337,7 @@ namespace Roguelancer
                 }
 
                 Station resolvedStation = state.DeliveryDestination ??
-                    (mission.Type == MissionType.CourierDelivery
+                    (mission.Type is MissionType.CourierDelivery or MissionType.ExportContract
                         ? ResolveCourierDestination(mission)
                         : ResolveDeliveryDestination(mission));
                 if (resolvedStation == null)
@@ -330,7 +345,7 @@ namespace Roguelancer
                     continue;
                 }
 
-                string expectedIdentity = mission.Type is MissionType.CourierDelivery or MissionType.FreightContract
+                string expectedIdentity = mission.Type is MissionType.CourierDelivery or MissionType.FreightContract or MissionType.ExportContract
                     ? mission.DestinationStationId
                     : string.Empty;
                 if (!IsStationMatch(station, resolvedStation, mission.Destination, expectedIdentity))
@@ -341,6 +356,15 @@ namespace Roguelancer
                 if (mission.Type == MissionType.FreightContract)
                 {
                     if (!TryCompleteFreightDelivery(state, station))
+                        continue;
+
+                    completedAny = true;
+                    continue;
+                }
+
+                if (mission.Type == MissionType.ExportContract)
+                {
+                    if (!TryCompleteExportDelivery(state, station))
                         continue;
 
                     completedAny = true;
@@ -851,6 +875,50 @@ namespace Roguelancer
             return true;
         }
 
+        private bool TryBindExportMission(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            if (mission == null || _marketManager == null)
+            {
+                failureReason = "export market authority is unavailable";
+                return false;
+            }
+
+            Station destination = ResolveCourierDestination(mission);
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+            if (destination == null)
+            {
+                failureReason = $"destination '{mission.Destination}' could not be resolved";
+                return false;
+            }
+
+            if (commodity == null || commodity.IsMissionCargo || commodity.IsContraband ||
+                commodity.VolumePerUnit <= 0 || mission.RequiredQuantity <= 0 ||
+                mission.IssuedCargoQuantity != mission.RequiredQuantity ||
+                _playerShip?.CargoHold == null ||
+                !_playerShip.CargoHold.HasMissionCargo(mission.Id, commodity.Id, mission.RequiredQuantity))
+            {
+                failureReason = "issued export cargo is missing or invalid";
+                return false;
+            }
+
+            if (_marketManager.GetListingForCommodity(destination, commodity) == null)
+            {
+                failureReason = $"{commodity.Name} is not traded at {destination.Name}";
+                return false;
+            }
+
+            mission.DestinationStationId = Mission.BuildStationIdentity(destination);
+            mission.RequiredProgress = mission.RequiredQuantity;
+            state.DeliveryDestination = destination;
+            state.DeliveryCommodity = commodity;
+            state.DeliveryQuantity = mission.RequiredQuantity;
+            mission.TargetSpaceObject = destination;
+            mission.TargetPosition = destination.Position;
+            return true;
+        }
+
         private bool TryBindEscortMission(MissionRuntimeState state, out string failureReason)
         {
             failureReason = string.Empty;
@@ -1042,6 +1110,63 @@ namespace Roguelancer
             }
 
             Console.WriteLine($"[MISSION] Freight delivered: {commodity.Name} x{quantity} -> {station.Name} (mission #{mission.Id})");
+            return true;
+        }
+
+        private bool TryCompleteExportDelivery(MissionRuntimeState state, Station station)
+        {
+            Mission mission = state?.Mission;
+            Commodity commodity = state?.DeliveryCommodity ?? CommodityCatalog.GetByIdOrName(mission?.CommodityId);
+            CargoHold cargo = _playerShip?.CargoHold;
+            int quantity = mission?.RequiredQuantity ?? 0;
+            if (mission == null || commodity == null || cargo == null || quantity <= 0 ||
+                mission.IssuedCargoQuantity != quantity ||
+                !cargo.HasMissionCargo(mission.Id, commodity.Id, quantity) ||
+                cargo.GetMissionCargoQuantity(mission.Id) != quantity)
+            {
+                return false;
+            }
+
+            string marketFailure = string.Empty;
+            if (_marketManager == null ||
+                !_marketManager.CanAddSupply(station, commodity, quantity, out marketFailure) ||
+                _missionManager == null)
+            {
+                if (!string.IsNullOrWhiteSpace(marketFailure))
+                    Console.WriteLine($"[MISSION] Export delivery held: {marketFailure}");
+                return false;
+            }
+
+            if (!_missionManager.CanPayExportReward(mission, out string rewardPreflightFailure))
+            {
+                Console.WriteLine($"[MISSION] Export delivery held: {rewardPreflightFailure}");
+                return false;
+            }
+
+            if (!cargo.RemoveMissionCargo(mission.Id, commodity, quantity))
+                return false;
+
+            if (!_marketManager.TryAddSupply(station, commodity, quantity, out string addFailure))
+            {
+                cargo.AddMissionCargo(mission.Id, commodity, quantity);
+                Console.WriteLine($"[MISSION] Export delivery rolled back: {addFailure}");
+                return false;
+            }
+
+            mission.DeliveredQuantity = quantity;
+            mission.MissionCargoLoaded = false;
+            mission.ObjectiveComplete = true;
+            if (!_missionManager.CompleteExportMission(mission, out string rewardFailure))
+            {
+                _marketManager.TryRemoveSupply(station, commodity, quantity, 0, out _);
+                cargo.AddMissionCargo(mission.Id, commodity, quantity);
+                mission.MissionCargoLoaded = true;
+                mission.DeliveredQuantity = 0;
+                Console.WriteLine($"[MISSION] Export reward failed after delivery: {rewardFailure}");
+                return false;
+            }
+
+            Console.WriteLine($"[MISSION] Export delivered: {commodity.Name} x{quantity} -> {station.Name} (mission #{mission.Id})");
             return true;
         }
 

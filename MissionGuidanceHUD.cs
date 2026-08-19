@@ -133,6 +133,7 @@ namespace Roguelancer
                 MissionType.Delivery => $"Destination: {data.Mission.GetDestinationLabel()}",
                 MissionType.CourierDelivery => $"Destination: {data.Mission.GetDestinationLabel()}",
                 MissionType.FreightContract => $"Destination: {data.Mission.GetDestinationLabel()}",
+                MissionType.ExportContract => $"Destination: {data.Mission.GetDestinationLabel()}",
                 MissionType.Escort => data.TargetObject is NpcShip
                     ? $"Escort: {data.Mission.GetTargetLabel()}"
                     : $"Destination: {data.Mission.GetDestinationLabel()}",
@@ -250,6 +251,7 @@ namespace Roguelancer
                 MissionType.Delivery => "[DELIVER]",
                 MissionType.CourierDelivery => "[COURIER]",
                 MissionType.FreightContract => "[FREIGHT]",
+                MissionType.ExportContract => "[EXPORT]",
                 MissionType.Bounty => "[BOUNTY]",
                 MissionType.Escort => "[ESCORT]",
                 _ => "[MISSION]"
@@ -262,6 +264,7 @@ namespace Roguelancer
                 MissionType.Escort => data.Mission.GetDestinationLabel(),
                 MissionType.CourierDelivery => data.Mission.GetDestinationLabel(),
                 MissionType.FreightContract => data.Mission.GetDestinationLabel(),
+                MissionType.ExportContract => data.Mission.GetDestinationLabel(),
                 _ => data.Mission.Destination
             };
 
@@ -394,6 +397,7 @@ namespace Roguelancer
                 MissionType.Delivery => "D",
                 MissionType.CourierDelivery => "C",
                 MissionType.FreightContract => "F",
+                MissionType.ExportContract => "X",
                 MissionType.Bounty => "B",
                 MissionType.Escort => "E",
                 _ => "M"
@@ -414,6 +418,7 @@ namespace Roguelancer
                 MissionType.Delivery => ">> APPROACHING DESTINATION <<",
                 MissionType.CourierDelivery => ">> APPROACHING DELIVERY STATION <<",
                 MissionType.FreightContract => ">> APPROACHING FREIGHT DESTINATION <<",
+                MissionType.ExportContract => ">> APPROACHING EXPORT DESTINATION <<",
                 MissionType.Bounty => ">> TARGET NEARBY <<",
                 MissionType.Escort => ">> NEAR ESCORT WAYPOINT <<",
                 _ => ">> NEAR OBJECTIVE <<"
@@ -512,6 +517,7 @@ namespace Roguelancer
                 MissionType.Delivery => new Color(80, 200, 255),
                 MissionType.CourierDelivery => new Color(80, 255, 190),
                 MissionType.FreightContract => new Color(100, 210, 255),
+                MissionType.ExportContract => new Color(120, 255, 150),
                 MissionType.Bounty => new Color(255, 80, 80),
                 MissionType.Escort => new Color(255, 200, 50),
                 _ => Color.White
@@ -566,6 +572,7 @@ namespace Roguelancer
                 MissionType.Escort => data.Mission.GetDestinationLabel(),
                 MissionType.CourierDelivery => data.Mission.GetDestinationLabel(),
                 MissionType.FreightContract => data.Mission.GetDestinationLabel(),
+                MissionType.ExportContract => data.Mission.GetDestinationLabel(),
                 _ => data.Mission.GetDestinationLabel()
             };
             if (label.Length > 20) label = label.Substring(0, 17) + "...";

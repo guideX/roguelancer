@@ -422,6 +422,34 @@ namespace Roguelancer
         }
 
         /// <summary>
+        /// Validates removal of real station inventory without changing state.
+        /// Export contracts use this to keep a shipment above its normal stock
+        /// floor while the terms are being accepted.
+        /// </summary>
+        public bool CanRemoveSupply(
+            Station station,
+            Commodity commodity,
+            int quantity,
+            int minimumRemainingStock,
+            out string message)
+        {
+            message = string.Empty;
+            if (!TryResolveSupplyListing(station, commodity, quantity, out StationMarketListing listing, out message))
+            {
+                return false;
+            }
+
+            minimumRemainingStock = Math.Max(0, minimumRemainingStock);
+            if (listing.Stock - quantity < minimumRemainingStock)
+            {
+                message = $"Station inventory can export only {Math.Max(0, listing.Stock - minimumRemainingStock)} units.";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Adds delivered freight to the authoritative destination market.
         /// Prices are recomputed from the resulting stock immediately.
         /// </summary>
@@ -444,6 +472,40 @@ namespace Roguelancer
             listing.RecoveryRemainderMilliseconds = 0;
             RefreshPrices(listing);
             message = $"Delivered {quantity} {listing.Commodity.Name}; station stock is now {listing.Stock:N0}.";
+            return true;
+        }
+
+        /// <summary>
+        /// Removes real stock from a station and immediately recomputes its
+        /// dynamic prices. This is intentionally separate from player sales so
+        /// export cargo can be issued without charging the player.
+        /// </summary>
+        public bool TryRemoveSupply(
+            Station station,
+            Commodity commodity,
+            int quantity,
+            int minimumRemainingStock,
+            out string message)
+        {
+            message = string.Empty;
+            if (!CanRemoveSupply(station, commodity, quantity, minimumRemainingStock, out message))
+            {
+                return false;
+            }
+
+            string stationKey = GetStationKey(station.Name, station.Config?.Description);
+            StationMarketListing listing = GetMutableListing(stationKey, commodity);
+            if (listing == null)
+            {
+                message = "Commodity unavailable at this station.";
+                return false;
+            }
+
+            listing.Stock -= quantity;
+            listing.ImmediateSellPriceCeiling = 0;
+            listing.RecoveryRemainderMilliseconds = 0;
+            RefreshPrices(listing);
+            message = $"Exported {quantity} {listing.Commodity.Name}; station stock is now {listing.Stock:N0}.";
             return true;
         }
 

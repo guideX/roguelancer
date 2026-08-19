@@ -47,6 +47,7 @@ namespace Roguelancer
         private MissionManager _missionManager;
         private MissionWorldManager _missionWorldManager;
         private ReputationManager _reputationManager;
+        private IReadOnlyList<MarketOpportunity> _marketOpportunities = Array.Empty<MarketOpportunity>();
         public string LastDockingDeniedReason { get; private set; } = string.Empty;
 
         public bool IsDocked => _isDocked;
@@ -130,6 +131,7 @@ namespace Roguelancer
             }
 
             _jobBoard?.RefreshMissions(6, _dockedStation?.FactionId, _dockedStation);
+            _marketOpportunities = _missionManager?.GetMarketOpportunities(4) ?? Array.Empty<MarketOpportunity>();
 
             // Notify mission manager we docked (for delivery missions)
             _missionWorldManager?.NotifyStationDocked(station);
@@ -1142,6 +1144,13 @@ namespace Roguelancer
             Vector2 titleSize = _font.MeasureString(title);
             spriteBatch.DrawString(_font, title, new Vector2(centerX - titleSize.X / 2, 100), Color.Lime);
 
+            string opportunityText = _marketOpportunities.Count == 0
+                ? "MARKET OPPORTUNITIES: No strong live signals"
+                : $"MARKET OPPORTUNITIES: {string.Join(" | ", _marketOpportunities.Take(2).Select(opportunity => opportunity.GetDisplayText()))}";
+            opportunityText = opportunityText.Length > 118 ? opportunityText.Substring(0, 115) + "..." : opportunityText;
+            Vector2 opportunitySize = _font.MeasureString(opportunityText);
+            spriteBatch.DrawString(_font, opportunityText, new Vector2(centerX - opportunitySize.X / 2, 126), Color.LightGreen);
+
             var missions = _jobBoard.AvailableMissions;
             if (missions.Count == 0)
             {
@@ -1170,6 +1179,7 @@ namespace Roguelancer
                         MissionType.Delivery => Color.Cyan,
                         MissionType.CourierDelivery => Color.LimeGreen,
                         MissionType.FreightContract => Color.LightSkyBlue,
+                        MissionType.ExportContract => Color.LightGreen,
                         MissionType.Bounty => Color.Red,
                         MissionType.Escort => Color.Yellow,
                         _ => Color.White
@@ -1250,6 +1260,7 @@ namespace Roguelancer
                     MissionType.Delivery => Color.Cyan,
                     MissionType.CourierDelivery => Color.LimeGreen,
                     MissionType.FreightContract => Color.LightSkyBlue,
+                    MissionType.ExportContract => Color.LightGreen,
                     MissionType.Bounty => Color.Red,
                     MissionType.Escort => Color.Yellow,
                     _ => Color.White
@@ -1283,6 +1294,10 @@ namespace Roguelancer
                     else if (m.Type == MissionType.FreightContract)
                     {
                         rewardStr += $" | Cargo: {m.GetTargetLabel()}";
+                    }
+                    else if (m.Type == MissionType.ExportContract)
+                    {
+                        rewardStr += $" | Loaded: {m.GetTargetLabel()}";
                     }
                     if (m.TimeLimit > 0)
                     {
@@ -1449,6 +1464,7 @@ namespace Roguelancer
                 prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.R))
             {
                 _jobBoard.RefreshMissions(MissionCatalog.All.Count, _dockedStation?.FactionId, _dockedStation);
+                _marketOpportunities = _missionManager?.GetMarketOpportunities(4) ?? Array.Empty<MarketOpportunity>();
                 return true;
             }
 

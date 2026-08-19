@@ -12,6 +12,7 @@ namespace Roguelancer
         Delivery,
         CourierDelivery,
         FreightContract,
+        ExportContract,
         Bounty,
         Escort
     }
@@ -232,6 +233,7 @@ namespace Roguelancer
         public int DeliveredQuantity { get; set; }
         public string CommodityId { get; set; } = string.Empty;
         public int RequiredQuantity { get; set; }
+        public int IssuedCargoQuantity { get; set; }
         public DateTime AcceptedAtUtc { get; set; }
         public bool RewardPaid { get; set; }
 
@@ -321,6 +323,51 @@ namespace Roguelancer
             return mission;
         }
 
+        public static Mission CreateExportContract(
+            Station origin,
+            Commodity commodity,
+            Station destination,
+            int quantity,
+            int reward,
+            int targetSystemIndex,
+            string offeredBy = "Mission Board",
+            string factionId = null)
+        {
+            if (origin == null || commodity == null || destination == null ||
+                quantity <= 0 || reward <= 0 ||
+                string.Equals(BuildStationIdentity(origin), BuildStationIdentity(destination), StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            Mission mission = new Mission(
+                MissionType.ExportContract,
+                quantity >= 20 ? MissionDifficulty.Medium : MissionDifficulty.Easy,
+                commodity.Name,
+                destination.Name,
+                reward,
+                0f,
+                $"{origin.Name} has excess {commodity.Name}. Transport {quantity} {commodity.Name} to {destination.Name}. Cargo supplied on acceptance.",
+                factionId ?? destination.FactionId,
+                title: "Bulk Export Contract")
+            {
+                OfferedBy = offeredBy ?? "Mission Board",
+                OriginStationId = BuildStationIdentity(origin),
+                OriginStationName = origin.Name ?? string.Empty,
+                OriginSystemIndex = origin.Config?.SystemIndex ?? 0,
+                SourceStationName = origin.Name ?? string.Empty,
+                CommodityId = commodity.Id,
+                RequiredQuantity = quantity,
+                TargetLocation = destination.Name,
+                TargetSystemIndex = Math.Max(0, targetSystemIndex),
+                DestinationStationId = BuildStationIdentity(destination),
+                RequiredProgress = quantity,
+                TargetCount = quantity
+            };
+
+            return mission;
+        }
+
         private Mission(
             int id,
             string definitionId,
@@ -355,7 +402,8 @@ namespace Roguelancer
             bool missionCargoLoaded = false,
             int deliveredQuantity = 0,
             string commodityId = "",
-            int requiredQuantity = 0)
+            int requiredQuantity = 0,
+            int issuedCargoQuantity = 0)
         {
             Id = id > 0 ? id : _nextId++;
             if (_nextId <= Id) _nextId = Id + 1;
@@ -392,6 +440,7 @@ namespace Roguelancer
             DeliveredQuantity = Math.Max(0, deliveredQuantity);
             CommodityId = commodityId ?? string.Empty;
             RequiredQuantity = Math.Max(0, requiredQuantity);
+            IssuedCargoQuantity = Math.Max(0, issuedCargoQuantity);
             AcceptedAtUtc = acceptedAtUtc;
             RewardPaid = rewardPaid;
         }
@@ -515,7 +564,8 @@ namespace Roguelancer
             bool missionCargoLoaded = false,
             int deliveredQuantity = 0,
             string commodityId = "",
-            int requiredQuantity = 0)
+            int requiredQuantity = 0,
+            int issuedCargoQuantity = 0)
         {
             Mission mission = new Mission(
                 id,
@@ -551,7 +601,8 @@ namespace Roguelancer
                 missionCargoLoaded,
                 deliveredQuantity,
                 commodityId,
-                requiredQuantity);
+                requiredQuantity,
+                issuedCargoQuantity);
             mission.ElapsedTime = Math.Max(0f, elapsedTime);
             mission.ObjectiveRadius = Math.Clamp(objectiveRadius <= 0 ? 500 : objectiveRadius, 1, 10000);
             return mission;
@@ -577,8 +628,8 @@ namespace Roguelancer
         public string GetDetailedDescription() =>
             $"Type: {GetTypeLabel()}\nObjective: {GetObjectiveText()}\nReward: {Reward:N0} CR\nClient: {GetClientLabel()}\nStatus: {GetStatusLabel()}";
 
-        public static bool IsDeliveryType(MissionType type) =>
-            type is MissionType.Delivery or MissionType.CourierDelivery or MissionType.FreightContract;
+    public static bool IsDeliveryType(MissionType type) =>
+            type is MissionType.Delivery or MissionType.CourierDelivery or MissionType.FreightContract or MissionType.ExportContract;
 
         public string GetTypeLabel() => Type switch
         {
@@ -587,6 +638,7 @@ namespace Roguelancer
             MissionType.Delivery => "DELIVERY",
             MissionType.CourierDelivery => "COURIER",
             MissionType.FreightContract => "FREIGHT CONTRACT",
+            MissionType.ExportContract => "BULK EXPORT",
             MissionType.Bounty => "BOUNTY",
             MissionType.Escort => "ESCORT",
             _ => "MISSION"
@@ -649,6 +701,13 @@ namespace Roguelancer
                     ? $"{RequiredQuantity:N0} units"
                     : $"{commodity.Name} x{RequiredQuantity:N0}";
             }
+            if (Type == MissionType.ExportContract)
+            {
+                Commodity commodity = CommodityCatalog.GetByIdOrName(CommodityId);
+                return commodity == null
+                    ? $"{RequiredQuantity:N0} units"
+                    : $"{commodity.Name} x{RequiredQuantity:N0}";
+            }
             if (!string.IsNullOrWhiteSpace(Target))
             {
                 if (Type == MissionType.Escort && TargetSpaceObject is NpcShip escortShip && !escortShip.IsDestroyed)
@@ -667,7 +726,7 @@ namespace Roguelancer
 
         public string GetDestinationLabel() => !string.IsNullOrWhiteSpace(Destination)
             ? Destination.Trim()
-            : Type is MissionType.Escort or MissionType.Delivery or MissionType.CourierDelivery or MissionType.FreightContract ? "Destination unavailable" : "Location unavailable";
+            : Type is MissionType.Escort or MissionType.Delivery or MissionType.CourierDelivery or MissionType.FreightContract or MissionType.ExportContract ? "Destination unavailable" : "Location unavailable";
 
         public string GetTargetFactionLabel() => FactionManager.GetFactionDisplayName(
             string.IsNullOrWhiteSpace(BountyTargetFactionId) ? FactionId : BountyTargetFactionId);
@@ -679,6 +738,7 @@ namespace Roguelancer
             MissionType.Delivery => $"Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
             MissionType.CourierDelivery => $"Deliver package to {GetDestinationLabel()}",
             MissionType.FreightContract => $"Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
+            MissionType.ExportContract => $"Haul {GetTargetLabel()} from {OriginStationName} to {GetDestinationLabel()}",
             MissionType.Bounty => $"Destroy {GetTargetLabel()}",
             MissionType.Escort => $"Escort {GetTargetLabel()} to {GetDestinationLabel()}",
             _ => Description
@@ -694,6 +754,7 @@ namespace Roguelancer
             MissionType.Delivery => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty,
             MissionType.CourierDelivery => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : "Deliver package to destination",
             MissionType.FreightContract => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : $"Deliver {GetTargetLabel()} to destination",
+            MissionType.ExportContract => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : $"Haul {GetTargetLabel()} to destination",
             MissionType.Escort => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty,
             _ => string.Empty
         };
@@ -704,6 +765,7 @@ namespace Roguelancer
             MissionType.ReachLocation => $"Reach {GetDestinationLabel()}",
             MissionType.CourierDelivery => ObjectiveComplete ? "Cargo delivered" : $"Deliver package to {GetDestinationLabel()}",
             MissionType.FreightContract => ObjectiveComplete ? "Freight delivered" : $"Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
+            MissionType.ExportContract => ObjectiveComplete ? "Export delivered" : $"Haul {GetTargetLabel()} to {GetDestinationLabel()}",
             _ => GetObjectiveText()
         };
     }

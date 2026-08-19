@@ -20,6 +20,7 @@ namespace Roguelancer
         private readonly MarketManager _marketManager;
         private readonly CargoHold _cargoHold;
         private readonly Dictionary<string, Mission> _freightOffers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Mission> _exportOffers = new(StringComparer.OrdinalIgnoreCase);
         private ReputationManager _reputationManager;
         private MissionWaypointSystem _waypointSystem;
         private MissionWorldManager _worldManager;
@@ -45,6 +46,14 @@ namespace Roguelancer
         public const int FreightMaximumCargoVolume = 40;
         public const int FreightMaximumUnits = 40;
         public const int FreightMaximumReward = 100_000;
+
+        public const int ExportSurplusThresholdPercent = 150;
+        public const int ExportMinimumSurplusUnits = 20;
+        public const int ExportSurplusSharePercent = 40;
+        public const int ExportMaximumCargoVolume = 40;
+        public const int ExportMaximumUnits = 40;
+        public const int ExportMaximumReward = 100_000;
+        public const int MarketOpportunityMaximumEntries = 8;
 
         public IReadOnlyList<Mission> ActiveMissions => _activeMissions.AsReadOnly();
         public IReadOnlyList<Mission> CompletedMissions => _completedMissions.AsReadOnly();
@@ -77,6 +86,9 @@ namespace Roguelancer
             foreach (Mission mission in _activeMissions.Where(candidate => candidate?.Type == MissionType.FreightContract))
                 ReleaseFreightReservation(mission);
 
+            foreach (Mission mission in _activeMissions.Where(candidate => candidate?.Type == MissionType.ExportContract))
+                _cargoHold?.ReleaseMissionCargoReservation(mission.Id);
+
             foreach (Mission mission in _activeMissions)
                 _waypointSystem?.UnregisterMission(mission);
 
@@ -84,6 +96,7 @@ namespace Roguelancer
             _completedMissions.Clear();
             _countedHostileKills.Clear();
             _freightOffers.Clear();
+            _exportOffers.Clear();
             _worldManager?.ClearState();
         }
 
@@ -128,6 +141,7 @@ namespace Roguelancer
                  string.Equals(mission.SourceStationName, originStation?.Name, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
             missions.AddRange(GenerateFreightContracts(originStation));
+            missions.AddRange(GenerateExportContracts(originStation));
             return missions;
         }
 
@@ -189,9 +203,118 @@ namespace Roguelancer
                 .ToList();
         }
 
+        /// <summary>
+        /// Returns a deterministic, bounded snapshot of meaningful live market
+        /// conditions. Reading this list never creates missions or cargo.
+        /// </summary>
+        public IReadOnlyList<MarketOpportunity> GetMarketOpportunities(int count = MarketOpportunityMaximumEntries)
+        {
+            int boundedCount = Math.Clamp(count, 0, MarketOpportunityMaximumEntries);
+            if (boundedCount == 0 || _marketManager == null || _worldManager == null)
+                return Array.Empty<MarketOpportunity>();
+
+            List<MarketOpportunity> opportunities = new();
+            IReadOnlyList<Station> stations = _worldManager.GetKnownStations();
+            foreach (Station station in stations)
+            {
+                foreach (StationMarketListing listing in _marketManager.GetListingsForStation(station) ?? new List<StationMarketListing>())
+                {
+                    Commodity commodity = listing?.Commodity;
+                    if (!IsExportCommodity(commodity) || !listing.IsAvailable || listing.BaselineStock <= 0 ||
+                        listing.Stock < 0 || listing.BaseBuyPrice <= 0 || listing.BaseSellPrice <= 0)
+                    {
+                        continue;
+                    }
+
+                    long shortage = (long)listing.BaselineStock - listing.Stock;
+                    long surplus = (long)listing.Stock - listing.BaselineStock;
+                    if (shortage >= FreightMinimumShortageUnits &&
+                        listing.Stock < (long)listing.BaselineStock * FreightShortageThresholdPercent / 100L)
+                    {
+                        long severity = Math.Clamp(shortage * 10_000L / listing.BaselineStock, 0L, 10_000L);
+                        int score = (int)Math.Clamp(severity * 100L + listing.DemandLevel * 10L, 0L, int.MaxValue);
+                        opportunities.Add(new MarketOpportunity(
+                            MarketOpportunityType.Shortage,
+                            commodity,
+                            station.Name,
+                            string.Empty,
+                            string.Empty,
+                            score,
+                            (int)Math.Min(shortage, int.MaxValue),
+                            "SHORTAGE",
+                            Math.Max(0, listing.BuyPrice - listing.SellPrice)));
+                    }
+
+                    if (surplus >= ExportMinimumSurplusUnits &&
+                        listing.Stock > (long)listing.BaselineStock * ExportSurplusThresholdPercent / 100L)
+                    {
+                        long severity = Math.Clamp(surplus * 10_000L / listing.BaselineStock, 0L, 10_000L);
+                        int score = (int)Math.Clamp(severity * 100L + listing.DemandLevel * 10L, 0L, int.MaxValue);
+                        opportunities.Add(new MarketOpportunity(
+                            MarketOpportunityType.Surplus,
+                            commodity,
+                            station.Name,
+                            string.Empty,
+                            string.Empty,
+                            score,
+                            (int)Math.Min(surplus, int.MaxValue),
+                            "SURPLUS",
+                            Math.Max(0, listing.BuyPrice - listing.SellPrice)));
+
+                        if (TryBuildExportTerms(
+                                station,
+                                listing,
+                                out Commodity exportCommodity,
+                                out Station destination,
+                                out int quantity,
+                                out _))
+                        {
+                            StationMarketListing destinationListing = _marketManager.GetListingForCommodity(destination, exportCommodity);
+                            long destinationShortage = destinationListing == null
+                                ? 0L
+                                : Math.Max(0L, (long)destinationListing.BaselineStock - destinationListing.Stock);
+                            long destinationSeverity = destinationListing?.BaselineStock > 0
+                                ? destinationShortage * 10_000L / destinationListing.BaselineStock
+                                : 0L;
+                            int pairingScore = (int)Math.Clamp(
+                                severity * 100L + destinationSeverity * 125L + (destinationListing?.DemandLevel ?? 0) * 20L,
+                                0L,
+                                int.MaxValue);
+                            opportunities.Add(new MarketOpportunity(
+                                MarketOpportunityType.Pairing,
+                                exportCommodity,
+                                string.Empty,
+                                station.Name,
+                                destination.Name,
+                                pairingScore,
+                                quantity,
+                                "FAVORABLE SPREAD",
+                                Math.Max(0, (destinationListing?.SellPrice ?? 0) - listing.BuyPrice)));
+                        }
+                    }
+                }
+            }
+
+            return opportunities
+                .OrderByDescending(opportunity => opportunity.Score)
+                .ThenBy(opportunity => opportunity.CommodityName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(opportunity => opportunity.OriginStationName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(opportunity => opportunity.StationName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(opportunity => opportunity.DestinationStationName, StringComparer.OrdinalIgnoreCase)
+                .Take(boundedCount)
+                .ToList();
+        }
+
         public int GetFreightReservedQuantity(Mission mission)
         {
             return mission?.Type == MissionType.FreightContract && _cargoHold != null
+                ? _cargoHold.GetMissionCargoQuantity(mission.Id)
+                : 0;
+        }
+
+        public int GetExportIssuedQuantity(Mission mission)
+        {
+            return mission?.Type == MissionType.ExportContract && _cargoHold != null
                 ? _cargoHold.GetMissionCargoQuantity(mission.Id)
                 : 0;
         }
@@ -239,6 +362,187 @@ namespace Roguelancer
                 _freightOffers.Remove(key);
 
             return offers;
+        }
+
+        private List<Mission> GenerateExportContracts(Station origin)
+        {
+            List<Mission> offers = new();
+            if (origin == null || _marketManager == null || _worldManager == null)
+                return offers;
+
+            IReadOnlyList<StationMarketListing> listings = _marketManager.GetListingsForStation(origin);
+            HashSet<string> eligibleKeys = new(StringComparer.OrdinalIgnoreCase);
+            foreach (StationMarketListing listing in listings ?? Array.Empty<StationMarketListing>())
+            {
+                if (!TryBuildExportTerms(
+                        origin,
+                        listing,
+                        out Commodity commodity,
+                        out Station destination,
+                        out int quantity,
+                        out int reward))
+                {
+                    continue;
+                }
+
+                string key = BuildExportOfferKey(origin, commodity, destination);
+                eligibleKeys.Add(key);
+                if (_activeMissions.Any(mission => IsMatchingExport(mission, origin, commodity, destination)))
+                    continue;
+
+                if (!_exportOffers.TryGetValue(key, out Mission offer) ||
+                    offer == null ||
+                    offer.Status != MissionStatus.Available ||
+                    offer.RequiredQuantity != quantity ||
+                    offer.Reward != reward ||
+                    !string.Equals(offer.DestinationStationId, Mission.BuildStationIdentity(destination), StringComparison.OrdinalIgnoreCase))
+                {
+                    offer = Mission.CreateExportContract(
+                        origin,
+                        commodity,
+                        destination,
+                        quantity,
+                        reward,
+                        destination.Config?.SystemIndex ?? origin.Config?.SystemIndex ?? 0,
+                        offeredBy: $"{origin.Name} Authority",
+                        factionId: destination.FactionId);
+                    _exportOffers[key] = offer;
+                }
+
+                if (offer != null)
+                    offers.Add(offer);
+            }
+
+            foreach (string key in _exportOffers.Keys.Where(key => !eligibleKeys.Contains(key)).ToList())
+                _exportOffers.Remove(key);
+
+            return offers;
+        }
+
+        private bool TryBuildExportTerms(
+            Station origin,
+            StationMarketListing listing,
+            out Commodity commodity,
+            out Station destination,
+            out int quantity,
+            out int reward)
+        {
+            commodity = listing?.Commodity;
+            destination = null;
+            quantity = 0;
+            reward = 0;
+            if (origin == null || listing == null || !IsExportCommodity(commodity) ||
+                !listing.IsAvailable || listing.BaseBuyPrice <= 0 || listing.BaseSellPrice <= 0 ||
+                listing.BaselineStock <= 0 || listing.Stock < 0)
+            {
+                return false;
+            }
+
+            long surplus = (long)listing.Stock - listing.BaselineStock;
+            long thresholdStock = (long)listing.BaselineStock * ExportSurplusThresholdPercent / 100L;
+            if (surplus < ExportMinimumSurplusUnits || listing.Stock <= thresholdStock)
+                return false;
+
+            long requested = (surplus * ExportSurplusSharePercent + 99L) / 100L;
+            int volumeBound = ExportMaximumCargoVolume / commodity.VolumePerUnit;
+            long bounded = Math.Min(Math.Min(requested, ExportMaximumUnits), volumeBound);
+            bounded = Math.Min(bounded, surplus);
+            bounded = Math.Min(bounded, (long)listing.Stock - listing.BaselineStock);
+            if (bounded <= 0)
+                return false;
+
+            quantity = (int)bounded;
+            destination = FindBestExportDestination(origin, commodity, quantity);
+            if (destination == null)
+                return false;
+
+            StationMarketListing destinationListing = _marketManager.GetListingForCommodity(destination, commodity);
+            if (destinationListing == null)
+                return false;
+
+            reward = CalculateExportReward(listing, destinationListing, commodity, quantity);
+            return reward > 0;
+        }
+
+        private Station FindBestExportDestination(Station origin, Commodity commodity, int quantity)
+        {
+            Station bestStation = null;
+            long bestScore = long.MinValue;
+            foreach (Station station in _worldManager.GetKnownStations())
+            {
+                if (station == null || string.Equals(
+                        Mission.BuildStationIdentity(station),
+                        Mission.BuildStationIdentity(origin),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                StationMarketListing listing = _marketManager.GetListingForCommodity(station, commodity);
+                if (listing == null || !IsExportCommodity(listing.Commodity) ||
+                    !listing.IsAvailable || listing.BaselineStock <= 0 ||
+                    listing.Stock < 0 || listing.Stock >= listing.BaselineStock ||
+                    listing.BaseBuyPrice <= 0 || listing.BaseSellPrice <= 0 ||
+                    (long)listing.Stock + quantity > listing.MaximumStock)
+                {
+                    continue;
+                }
+
+                long shortageBasisPoints = ((long)listing.BaselineStock - listing.Stock) * 10_000L / listing.BaselineStock;
+                long score = shortageBasisPoints * 1_000L + (long)listing.DemandLevel * 100L + listing.BuyPrice;
+                if (score > bestScore ||
+                    (score == bestScore && string.Compare(station.Name, bestStation?.Name, StringComparison.OrdinalIgnoreCase) < 0))
+                {
+                    bestScore = score;
+                    bestStation = station;
+                }
+            }
+
+            return bestStation;
+        }
+
+        private static int CalculateExportReward(
+            StationMarketListing originListing,
+            StationMarketListing destinationListing,
+            Commodity commodity,
+            int quantity)
+        {
+            long originSurplus = Math.Max(0L, (long)originListing.Stock - originListing.BaselineStock);
+            long destinationShortage = Math.Max(0L, (long)destinationListing.BaselineStock - destinationListing.Stock);
+            long originSeverity = originListing.BaselineStock > 0
+                ? Math.Clamp(originSurplus * 10_000L / originListing.BaselineStock, 0L, 10_000L)
+                : 0L;
+            long destinationSeverity = destinationListing.BaselineStock > 0
+                ? Math.Clamp(destinationShortage * 10_000L / destinationListing.BaselineStock, 0L, 10_000L)
+                : 0L;
+            long premiumPercent = 35L + destinationSeverity * 25L / 10_000L + originSeverity * 15L / 10_000L +
+                Math.Clamp(destinationListing.DemandLevel, 0, 10) * 2L;
+            premiumPercent = Math.Clamp(premiumPercent, 35L, 100L);
+            long rawReward = (long)commodity.BasePrice * quantity * (100L + premiumPercent) / 100L;
+            return (int)Math.Clamp(rawReward, 500L, ExportMaximumReward);
+        }
+
+        private static string BuildExportOfferKey(Station origin, Commodity commodity, Station destination) =>
+            $"{Mission.BuildStationIdentity(origin)}:{commodity?.Id ?? string.Empty}:{Mission.BuildStationIdentity(destination)}";
+
+        private static bool IsMatchingExport(Mission mission, Station origin, Commodity commodity, Station destination)
+        {
+            return mission != null &&
+                mission.Type == MissionType.ExportContract &&
+                string.Equals(mission.OriginStationId, Mission.BuildStationIdentity(origin), StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(mission.DestinationStationId, Mission.BuildStationIdentity(destination), StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(mission.CommodityId, commodity?.Id, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsExportCommodity(Commodity commodity)
+        {
+            return commodity != null &&
+                !string.IsNullOrWhiteSpace(commodity.Id) &&
+                !string.IsNullOrWhiteSpace(commodity.Name) &&
+                commodity.VolumePerUnit > 0 &&
+                commodity.BasePrice > 0 &&
+                !commodity.IsMissionCargo &&
+                !commodity.IsContraband;
         }
 
         private bool TryBuildFreightTerms(
@@ -349,6 +653,30 @@ namespace Roguelancer
                     return RejectAcceptance(mission, "freight contract metadata or cargo authority is invalid");
                 }
             }
+            else if (mission.Type == MissionType.ExportContract)
+            {
+                Commodity exportCommodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+                if (exportCommodity == null || !IsExportCommodity(exportCommodity) ||
+                    mission.RequiredQuantity <= 0 ||
+                    mission.RequiredQuantity > ExportMaximumUnits ||
+                    (long)mission.RequiredQuantity * exportCommodity.VolumePerUnit > ExportMaximumCargoVolume ||
+                    string.IsNullOrWhiteSpace(mission.Destination) ||
+                    string.IsNullOrWhiteSpace(mission.DestinationStationId) ||
+                    _cargoHold == null || _marketManager == null || _worldManager == null ||
+                    originStation == null)
+                {
+                    return RejectAcceptance(mission, "export contract metadata or cargo authority is invalid");
+                }
+
+                string acceptedOriginIdentity = Mission.BuildStationIdentity(originStation);
+                if ((!string.IsNullOrWhiteSpace(mission.OriginStationId) &&
+                     !string.Equals(mission.OriginStationId, acceptedOriginIdentity, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrWhiteSpace(mission.SourceStationName) &&
+                     !string.Equals(mission.SourceStationName, originStation.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return RejectAcceptance(mission, "export cargo must be collected at its origin station");
+                }
+            }
 
             mission.SetOrigin(originStation);
             if (mission.Type == MissionType.CourierDelivery &&
@@ -360,11 +688,21 @@ namespace Roguelancer
             if (mission.Type == MissionType.FreightContract && !RegisterFreightReservation(mission))
                 return RejectAcceptance(mission, "freight reservation could not be registered");
 
+            if (mission.Type == MissionType.ExportContract &&
+                !TryIssueExportCargo(mission, originStation, out string exportFailureReason))
+            {
+                return RejectAcceptance(mission, exportFailureReason);
+            }
+
             mission.AcceptedAtUtc = DateTime.UtcNow;
             mission.Status = MissionStatus.Accepted;
 
             if (_worldManager != null && !_worldManager.TryAcceptMission(mission, out string failureReason))
             {
+                if (mission.Type == MissionType.ExportContract)
+                {
+                    TryRestoreExportShipment(mission, out _);
+                }
                 ReleaseFreightReservation(mission);
                 mission.Status = MissionStatus.Available;
                 _worldManager.OnMissionFinished(mission);
@@ -385,6 +723,12 @@ namespace Roguelancer
                     $"Freight reserved: {GetFreightReservedQuantity(mission)}/{mission.RequiredQuantity} units",
                     3f);
             }
+            else if (mission.Type == MissionType.ExportContract)
+            {
+                _notificationManager?.ShowMessage(
+                    $"Export cargo loaded: {GetExportIssuedQuantity(mission)}/{mission.RequiredQuantity} units",
+                    3f);
+            }
             Console.WriteLine($"[MISSION] Accepted: {mission.GetSummary()} | Origin: {mission.OriginStationName}");
             return true;
         }
@@ -394,6 +738,135 @@ namespace Roguelancer
             _notificationManager?.ShowMessage(reason, 3f);
             Console.WriteLine($"[MISSION] Rejected: {mission?.Title ?? "<null>"} | Reason: {reason}");
             return false;
+        }
+
+        private bool TryIssueExportCargo(Mission mission, Station origin, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission?.CommodityId);
+            CargoHold cargo = _cargoHold;
+            int quantity = mission?.RequiredQuantity ?? 0;
+            if (mission == null || origin == null || commodity == null || cargo == null || quantity <= 0)
+            {
+                failureReason = "export cargo metadata is invalid";
+                return false;
+            }
+
+            if (!cargo.CanFit(commodity, quantity))
+            {
+                failureReason = $"not enough cargo space for {commodity.Name} x{quantity}";
+                return false;
+            }
+
+            StationMarketListing originListing = _marketManager.GetListingForCommodity(origin, commodity);
+            if (originListing == null ||
+                !_marketManager.CanRemoveSupply(origin, commodity, quantity, originListing.BaselineStock, out failureReason))
+            {
+                if (string.IsNullOrWhiteSpace(failureReason))
+                    failureReason = $"{commodity.Name} surplus is no longer available at {origin.Name}";
+                return false;
+            }
+
+            if (!_marketManager.TryRemoveSupply(origin, commodity, quantity, originListing.BaselineStock, out failureReason))
+                return false;
+
+            if (!cargo.AddMissionCargo(mission.Id, commodity, quantity))
+            {
+                _marketManager.TryAddSupply(origin, commodity, quantity, out _);
+                failureReason = "export cargo could not be loaded; origin stock was restored";
+                return false;
+            }
+
+            mission.IssuedCargoQuantity = quantity;
+            mission.MissionCargoLoaded = true;
+            mission.DeliveredQuantity = 0;
+            return true;
+        }
+
+        private bool TryRestoreExportShipment(Mission mission, out string failureReason)
+        {
+            failureReason = string.Empty;
+            if (mission?.Type != MissionType.ExportContract || _marketManager == null || _cargoHold == null)
+            {
+                failureReason = "export restoration authority is unavailable";
+                return false;
+            }
+
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+            Station origin = ResolveKnownStation(mission.OriginStationId, mission.OriginStationName);
+            int quantity = mission.IssuedCargoQuantity > 0 ? mission.IssuedCargoQuantity : mission.RequiredQuantity;
+            if (commodity == null || origin == null || quantity <= 0 ||
+                !_cargoHold.HasMissionCargo(mission.Id, commodity.Id, quantity) ||
+                _cargoHold.GetMissionCargoQuantity(mission.Id) != quantity)
+            {
+                failureReason = "issued export cargo is missing or corrupt";
+                return false;
+            }
+
+            if (!_marketManager.CanAddSupply(origin, commodity, quantity, out failureReason))
+                return false;
+
+            if (!_cargoHold.RemoveMissionCargo(mission.Id, commodity, quantity))
+            {
+                failureReason = "issued export cargo could not be removed";
+                return false;
+            }
+
+            if (!_marketManager.TryAddSupply(origin, commodity, quantity, out string restoreFailure))
+            {
+                _cargoHold.AddMissionCargo(mission.Id, commodity, quantity);
+                failureReason = string.IsNullOrWhiteSpace(restoreFailure)
+                    ? "origin stock could not be restored"
+                    : restoreFailure;
+                return false;
+            }
+
+            mission.MissionCargoLoaded = false;
+            return true;
+        }
+
+        private Station ResolveKnownStation(string stationIdentity, string stationName)
+        {
+            IReadOnlyList<Station> stations = _worldManager?.GetKnownStations() ?? Array.Empty<Station>();
+            if (!string.IsNullOrWhiteSpace(stationIdentity))
+            {
+                Station byIdentity = stations.FirstOrDefault(station =>
+                    string.Equals(Mission.BuildStationIdentity(station), stationIdentity, StringComparison.OrdinalIgnoreCase));
+                if (byIdentity != null)
+                    return byIdentity;
+            }
+
+            return stations.FirstOrDefault(station =>
+                !string.IsNullOrWhiteSpace(stationName) &&
+                string.Equals(station.Name, stationName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public bool CancelMission(Mission mission, out string message)
+        {
+            message = string.Empty;
+            if (mission == null || !ReferenceEquals(ActiveMission, mission) || !mission.IsActive)
+            {
+                message = "mission is not active";
+                return false;
+            }
+
+            if (mission.Type == MissionType.ExportContract && !TryRestoreExportShipment(mission, out string restoreFailure))
+            {
+                message = string.IsNullOrWhiteSpace(restoreFailure)
+                    ? "export shipment could not be restored; mission remains active"
+                    : restoreFailure;
+                return false;
+            }
+
+            ReleaseFreightReservation(mission);
+            mission.Status = MissionStatus.Failed;
+            _activeMissions.Remove(mission);
+            _completedMissions.Add(mission);
+            _waypointSystem?.UnregisterMission(mission);
+            _worldManager?.OnMissionFinished(mission);
+            _notificationManager?.ShowMessage($"Mission cancelled: {mission.Title}", 4f);
+            message = "Mission cancelled.";
+            return true;
         }
 
         /// <summary>
@@ -416,9 +889,11 @@ namespace Roguelancer
                 ? $"Cargo delivered - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR"
                 : mission.Type == MissionType.FreightContract
                     ? $"Freight delivered - +{mission.Reward:N0} CR"
+                : mission.Type == MissionType.ExportContract
+                    ? $"Export delivered - +{mission.Reward:N0} CR"
                 : $"Objective complete - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR";
             _notificationManager?.ShowMessage(completionMessage, 4f);
-            Console.WriteLine($"[MISSION] Objective complete: {mission.Title} | Reward {(mission.Type == MissionType.FreightContract ? "paid" : "pending")}: {mission.Reward:N0} CR");
+            Console.WriteLine($"[MISSION] Objective complete: {mission.Title} | Reward {(mission.Type is MissionType.FreightContract or MissionType.ExportContract ? "paid" : "pending")}: {mission.Reward:N0} CR");
         }
 
         public bool CompleteFreightMission(Mission mission, out string message)
@@ -453,6 +928,46 @@ namespace Roguelancer
                 !ReferenceEquals(ActiveMission, mission) || mission.Reward <= 0 || _playerCredits == null)
             {
                 message = "freight reward transaction is invalid";
+                return false;
+            }
+
+            if ((long)_playerCredits.Credits + mission.Reward > int.MaxValue)
+            {
+                message = "credit total is invalid";
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool CompleteExportMission(Mission mission, out string message)
+        {
+            message = string.Empty;
+            if (mission == null || mission.Type != MissionType.ExportContract ||
+                !ReferenceEquals(ActiveMission, mission) || !mission.IsActive)
+            {
+                message = "export mission is not active";
+                return false;
+            }
+
+            if (!CanPayExportReward(mission, out message))
+                return false;
+
+            CompleteMission(mission);
+            mission.RewardPaid = true;
+            _playerCredits.AddCredits(mission.Reward);
+            _notificationManager?.ShowMessage($"Export reward received: {mission.Reward:N0} CR", 4f);
+            message = $"Export reward received: {mission.Reward:N0} CR";
+            return true;
+        }
+
+        public bool CanPayExportReward(Mission mission, out string message)
+        {
+            message = string.Empty;
+            if (mission == null || mission.Type != MissionType.ExportContract ||
+                !ReferenceEquals(ActiveMission, mission) || mission.Reward <= 0 || _playerCredits == null)
+            {
+                message = "export reward transaction is invalid";
                 return false;
             }
 
@@ -548,6 +1063,13 @@ namespace Roguelancer
         {
             if (mission == null || !ReferenceEquals(ActiveMission, mission) || !mission.IsActive)
                 return;
+
+            if (mission.Type == MissionType.ExportContract &&
+                !TryRestoreExportShipment(mission, out string restoreFailure))
+            {
+                Console.WriteLine($"[MISSION] Export failure held: {restoreFailure}");
+                return;
+            }
 
             ReleaseFreightReservation(mission);
             mission.Status = MissionStatus.Failed;
