@@ -785,7 +785,7 @@ namespace Roguelancer
                 spriteBatch.DrawString(_font, statusText, new Vector2(commodityPanel.Right - 150, yOffset + 20), statusColor);
 
                 // Price and cargo info
-                string priceText = $"BUY: {(listing.BuyPrice > 0 ? $"{listing.BuyPrice:N0}" : "N/A")} CR  |  SELL: {(listing.SellPrice > 0 ? $"{listing.SellPrice:N0}" : "N/A")} CR  |  STOCK: {listing.Stock:N0}  |  CARGO: {commodity.VolumePerUnit}/unit";
+                string priceText = $"BUY: {(listing.BuyPrice > 0 ? $"{listing.BuyPrice:N0}" : "N/A")} CR  |  SELL: {(listing.SellPrice > 0 ? $"{listing.SellPrice:N0}" : "N/A")} CR  |  STOCK: {listing.Stock:N0}/{listing.MaximumStock:N0} {listing.MarketCondition}  |  CARGO: {commodity.VolumePerUnit}/unit";
                 spriteBatch.DrawString(_font, priceText, 
                     new Vector2(commodityPanel.X + 15, yOffset + 68), Color.Yellow);
 
@@ -796,9 +796,9 @@ namespace Roguelancer
                     spriteBatch.DrawString(_font, quantityText, 
                         new Vector2(commodityPanel.X + 15, yOffset + 92), Color.White);
 
-                    int totalCost = listing.BuyPrice * _purchaseQuantity;
-                    int totalValue = listing.SellPrice * _purchaseQuantity;
-                    int totalSpace = commodity.VolumePerUnit * _purchaseQuantity;
+                    int totalCost = SafeTotal(listing.BuyPrice, _purchaseQuantity);
+                    int totalValue = SafeTotal(listing.SellPrice, _purchaseQuantity);
+                    long totalSpace = (long)Math.Max(0, commodity.VolumePerUnit) * Math.Max(0, _purchaseQuantity);
                     int spread = listing.SellPrice - listing.BuyPrice;
                     string spreadText = spread >= 0
                         ? $"LOCAL SPREAD: +{spread:N0} CR"
@@ -863,6 +863,12 @@ namespace Roguelancer
             {
                 _purchaseQuantity = 1;
             }
+        }
+
+        private static int SafeTotal(int unitPrice, int quantity)
+        {
+            long total = (long)Math.Max(0, unitPrice) * Math.Max(0, quantity);
+            return total > int.MaxValue ? int.MaxValue : (int)total;
         }
 
         private void SyncEquipmentSelection(IReadOnlyList<EquipmentDefinition> equipment)

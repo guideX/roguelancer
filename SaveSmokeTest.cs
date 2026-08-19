@@ -535,11 +535,11 @@ namespace Roguelancer
                 var expectedListing = expected.Listings[i];
                 var actualListing = actual.Listings[i];
                 if (!string.Equals(expectedListing.CommodityId, actualListing.CommodityId, StringComparison.OrdinalIgnoreCase) ||
-                    expectedListing.BuyPrice != actualListing.BuyPrice ||
-                    expectedListing.SellPrice != actualListing.SellPrice ||
                     expectedListing.Stock != actualListing.Stock ||
                     expectedListing.DemandLevel != actualListing.DemandLevel ||
-                    expectedListing.IsAvailable != actualListing.IsAvailable)
+                    expectedListing.IsAvailable != actualListing.IsAvailable ||
+                    expectedListing.RecoveryRemainderMilliseconds != actualListing.RecoveryRemainderMilliseconds ||
+                    expectedListing.ImmediateSellPriceCeiling != actualListing.ImmediateSellPriceCeiling)
                 {
                     return false;
                 }

@@ -606,6 +606,8 @@ namespace Roguelancer
                 return false;
             }
 
+            int currentSellPrice = updatedListing.SellPrice;
+
             string sellMessage = string.Empty;
             bool sellSuccess = RunSilenced(() => _commodityDealer.TrySellCommodity(commodity, 1, _tempCredits, _tempShip.CargoHold, out sellMessage));
             if (!sellSuccess)
@@ -614,7 +616,7 @@ namespace Roguelancer
                 return false;
             }
 
-            if (_tempCredits.Credits != startingCredits - listing.BuyPrice + listing.SellPrice)
+            if (_tempCredits.Credits != startingCredits - listing.BuyPrice + currentSellPrice)
             {
                 failureReason = $"credits did not increase correctly after selling {commodity.Name}";
                 return false;

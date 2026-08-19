@@ -1795,6 +1795,11 @@ namespace Roguelancer {
             MouseState mouseState = Mouse.GetState();
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
+            // Market recovery is driven by elapsed simulation time, not update
+            // call count. The dealer advances even while the station terminal
+            // is closed, and applies work lazily only to accessed markets.
+            _commodityDealer?.AdvanceTime(gameTime.ElapsedGameTime.TotalSeconds);
+
             if (_performanceAutoStation && !_stationTestMode && gameTime.TotalGameTime.TotalSeconds >= 2.0)
             {
                 EnterStationTestMode(keyboardState);

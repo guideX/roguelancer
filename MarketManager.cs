@@ -18,6 +18,24 @@ namespace Roguelancer
         private readonly Dictionary<string, List<StationMarketListing>> _runtimeMarkets = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Commodity> _commodityIndex = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<Commodity> _fallbackCatalog = new();
+        private long _elapsedMilliseconds;
+
+        // Dynamic pricing uses integer basis points and a conservative bounded
+        // response around the configured station anchors:
+        //   buy  = base buy  * (1 + pressure * 35%), clamped to 65%-135%
+        //   sell = base sell * (1 + pressure * 50%), clamped to 50%-150%
+        // where pressure is (baseline stock - current stock) / baseline stock.
+        // A five-percent minimum spread (or the configured spread when smaller)
+        // prevents same-station price inversion. A player's immediate buy is
+        // also protected from becoming a round-trip profit after its stock impact.
+        private const int BuyPressureResponsePercent = 35;
+        private const int SellPressureResponsePercent = 50;
+        private const int BuyPriceFloorPercent = 65;
+        private const int BuyPriceCeilingPercent = 135;
+        private const int SellPriceFloorPercent = 50;
+        private const int SellPriceCeilingPercent = 150;
+        private const int MinimumSpreadPercent = 5;
+        private const int BasisPoints = 10_000;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -37,6 +55,29 @@ namespace Roguelancer
         }
 
         public IReadOnlyList<Commodity> FallbackCatalog => _fallbackCatalog;
+
+        /// <summary>
+        /// Advances the economy using elapsed simulation time. No market is
+        /// iterated here; accessed runtime listings lazily consume the elapsed
+        /// time when read or transacted against.
+        /// </summary>
+        public void AdvanceTime(double elapsedSeconds)
+        {
+            if (double.IsNaN(elapsedSeconds) || double.IsInfinity(elapsedSeconds) || elapsedSeconds <= 0d)
+            {
+                return;
+            }
+
+            long elapsedMilliseconds = (long)Math.Min(long.MaxValue / 2d, Math.Round(elapsedSeconds * 1000d, MidpointRounding.AwayFromZero));
+            if (elapsedMilliseconds <= 0)
+            {
+                return;
+            }
+
+            _elapsedMilliseconds = _elapsedMilliseconds > long.MaxValue - elapsedMilliseconds
+                ? long.MaxValue
+                : _elapsedMilliseconds + elapsedMilliseconds;
+        }
 
         public bool HasMarketConfigForStation(Station station)
         {
@@ -157,6 +198,7 @@ namespace Roguelancer
 
             if (_runtimeMarkets.TryGetValue(stationKey, out var runtimeListings))
             {
+                AdvanceListings(runtimeListings);
                 return CloneListings(runtimeListings);
             }
 
@@ -214,11 +256,12 @@ namespace Roguelancer
                 return false;
             }
 
-            if (listing.Stock < quantity)
+            int availableStock = Math.Max(0, listing.Stock - listing.MinimumStock);
+            if (availableStock < quantity)
             {
-                message = listing.Stock <= 0
+                message = availableStock <= 0
                     ? "Out of stock."
-                    : $"Only {listing.Stock} units of {commodity.Name} are in stock.";
+                    : $"Only {availableStock} units of {commodity.Name} are available.";
                 return false;
             }
 
@@ -253,7 +296,13 @@ namespace Roguelancer
                 return false;
             }
 
-            listing.Stock -= quantity;
+            int paidPrice = listing.BuyPrice;
+            listing.Stock = Math.Max(listing.MinimumStock, listing.Stock - quantity);
+            listing.ImmediateSellPriceCeiling = listing.ImmediateSellPriceCeiling > 0
+                ? Math.Min(listing.ImmediateSellPriceCeiling, paidPrice)
+                : paidPrice;
+            listing.RecoveryRemainderMilliseconds = 0;
+            RefreshPrices(listing);
             message = $"Purchased {quantity} {marketCommodity.Name} for {totalCost:N0} CR.";
             return true;
         }
@@ -328,9 +377,9 @@ namespace Roguelancer
                 return false;
             }
 
-            if ((long)listing.Stock + quantity > int.MaxValue)
+            if ((long)listing.Stock + quantity > listing.MaximumStock)
             {
-                message = "Station inventory cannot accept that sale.";
+                message = $"Station inventory can hold only {Math.Max(0, listing.MaximumStock - listing.Stock)} more units.";
                 return false;
             }
 
@@ -343,7 +392,10 @@ namespace Roguelancer
             }
 
             credits.AddCredits(totalValue);
-            listing.Stock += quantity;
+            listing.Stock = Math.Min(listing.MaximumStock, listing.Stock + quantity);
+            listing.ImmediateSellPriceCeiling = 0;
+            listing.RecoveryRemainderMilliseconds = 0;
+            RefreshPrices(listing);
             message = $"Sold {quantity} {marketCommodity.Name} for {totalValue:N0} CR.";
             return true;
         }
@@ -380,6 +432,8 @@ namespace Roguelancer
                     continue;
                 }
 
+                AdvanceListings(kvp.Value);
+
                 states.Add(new SaveMarketStateData
                 {
                     StationKey = kvp.Key,
@@ -389,11 +443,11 @@ namespace Roguelancer
                         .Select(listing => new SaveMarketListingData
                         {
                             CommodityId = listing.Commodity.Id,
-                            BuyPrice = listing.BuyPrice,
-                            SellPrice = listing.SellPrice,
-                            Stock = listing.Stock,
+                            Stock = Math.Clamp(listing.Stock, listing.MinimumStock, listing.MaximumStock),
                             DemandLevel = listing.DemandLevel,
-                            IsAvailable = listing.IsAvailable
+                            IsAvailable = listing.IsAvailable,
+                            RecoveryRemainderMilliseconds = Math.Max(0, listing.RecoveryRemainderMilliseconds),
+                            ImmediateSellPriceCeiling = Math.Max(0, listing.ImmediateSellPriceCeiling)
                         })
                         .ToList()
                 });
@@ -446,9 +500,6 @@ namespace Roguelancer
                         continue;
                     }
 
-                    int buyPrice = listing.BuyPrice;
-                    int sellPrice = listing.SellPrice;
-                    bool isAvailable = listing.IsAvailable;
                     if (configuredListings != null)
                     {
                         if (!configuredListings.TryGetValue(NormalizeKey(commodity.Id), out var configuredListing))
@@ -456,18 +507,24 @@ namespace Roguelancer
                             continue;
                         }
 
-                        buyPrice = configuredListing.BuyPrice;
-                        sellPrice = configuredListing.SellPrice;
-                        isAvailable = configuredListing.IsAvailable;
+                        var restoredListing = new StationMarketListing(configuredListing)
+                        {
+                            Stock = Math.Clamp(listing.Stock, configuredListing.MinimumStock, configuredListing.MaximumStock),
+                            RecoveryRemainderMilliseconds = Math.Max(0, listing.RecoveryRemainderMilliseconds),
+                            ImmediateSellPriceCeiling = Math.Clamp(
+                                listing.ImmediateSellPriceCeiling,
+                                0,
+                                configuredListing.BaseBuyPrice),
+                            LastAdvancedMilliseconds = _elapsedMilliseconds
+                        };
+                        RefreshPrices(restoredListing);
+                        listings.Add(restoredListing);
+                        continue;
                     }
 
-                    listings.Add(new StationMarketListing(
-                        commodity,
-                        buyPrice,
-                        sellPrice,
-                        listing.Stock,
-                        listing.DemandLevel,
-                        isAvailable));
+                    // A legacy snapshot for a station that no longer has a
+                    // configured market is ignored rather than becoming a
+                    // second, non-authoritative economy.
                 }
 
                 if (listings.Count > 0)
@@ -499,7 +556,12 @@ namespace Roguelancer
                     continue;
                 }
 
-                listings.Add(new StationMarketListing(commodity, good));
+                StationMarketListing listing = new(commodity, good)
+                {
+                    LastAdvancedMilliseconds = _elapsedMilliseconds
+                };
+                RefreshPrices(listing);
+                listings.Add(listing);
             }
 
             if (listings.Count == 0)
@@ -530,7 +592,7 @@ namespace Roguelancer
             var clones = new List<StationMarketListing>(listings.Count);
             foreach (var listing in listings)
             {
-                clones.Add(new StationMarketListing(listing.Commodity, listing.BuyPrice, listing.SellPrice, listing.Stock, listing.DemandLevel, listing.IsAvailable));
+                clones.Add(new StationMarketListing(listing));
             }
 
             return clones;
@@ -554,9 +616,133 @@ namespace Roguelancer
                 _runtimeMarkets[stationKey] = listings;
             }
 
+            AdvanceListings(listings);
             return listings.FirstOrDefault(l =>
                 string.Equals(l.Commodity.Id, commodity.Id, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(l.Commodity.Name, commodity.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void AdvanceListings(List<StationMarketListing> listings)
+        {
+            if (listings == null)
+            {
+                return;
+            }
+
+            foreach (StationMarketListing listing in listings)
+            {
+                AdvanceListing(listing);
+            }
+        }
+
+        private void AdvanceListing(StationMarketListing listing)
+        {
+            if (listing == null)
+            {
+                return;
+            }
+
+            if (listing.LastAdvancedMilliseconds > _elapsedMilliseconds)
+            {
+                listing.LastAdvancedMilliseconds = _elapsedMilliseconds;
+            }
+
+            long elapsedMilliseconds = _elapsedMilliseconds - listing.LastAdvancedMilliseconds;
+            if (elapsedMilliseconds <= 0)
+            {
+                return;
+            }
+
+            RecoverStock(listing, elapsedMilliseconds);
+            listing.LastAdvancedMilliseconds = _elapsedMilliseconds;
+            RefreshPrices(listing);
+        }
+
+        private static void RecoverStock(StationMarketListing listing, long elapsedMilliseconds)
+        {
+            if (listing.BaselineStock <= 0 || listing.Stock == listing.BaselineStock || elapsedMilliseconds <= 0)
+            {
+                listing.RecoveryRemainderMilliseconds = 0;
+                return;
+            }
+
+            long recoveryPeriodMilliseconds = Math.Max(1L, (long)listing.RecoverySeconds * 1000L);
+            // A fixed stock-unit rate makes the result independent of whether
+            // elapsed time arrives as one large interval or many small ones.
+            // The gap only determines when the bounded movement stops.
+            long gap = Math.Abs((long)listing.BaselineStock - listing.Stock);
+            decimal work = (decimal)listing.BaselineStock * elapsedMilliseconds + listing.RecoveryRemainderMilliseconds;
+            long recoveredUnits = (long)(work / recoveryPeriodMilliseconds);
+            listing.RecoveryRemainderMilliseconds = (long)(work % recoveryPeriodMilliseconds);
+
+            if (recoveredUnits <= 0)
+            {
+                return;
+            }
+
+            recoveredUnits = Math.Min(recoveredUnits, gap);
+            if (listing.Stock < listing.BaselineStock)
+            {
+                listing.Stock = (int)Math.Min(listing.BaselineStock, (long)listing.Stock + recoveredUnits);
+            }
+            else
+            {
+                listing.Stock = (int)Math.Max(listing.BaselineStock, (long)listing.Stock - recoveredUnits);
+            }
+
+            if (listing.Stock == listing.BaselineStock)
+            {
+                listing.RecoveryRemainderMilliseconds = 0;
+            }
+        }
+
+        private static void RefreshPrices(StationMarketListing listing)
+        {
+            if (listing == null)
+            {
+                return;
+            }
+
+            listing.Stock = Math.Clamp(listing.Stock, listing.MinimumStock, listing.MaximumStock);
+            if (!listing.IsAvailable || listing.BaselineStock <= 0 || listing.BaseBuyPrice <= 0 || listing.BaseSellPrice <= 0)
+            {
+                listing.BuyPrice = listing.BaseBuyPrice;
+                listing.SellPrice = listing.BaseSellPrice;
+                return;
+            }
+
+            long pressureBasisPoints = ((long)listing.BaselineStock - listing.Stock) * BasisPoints / listing.BaselineStock;
+            pressureBasisPoints = Math.Clamp(pressureBasisPoints, -BasisPoints, BasisPoints);
+
+            int buyMultiplier = Math.Clamp(
+                BasisPoints + (int)(pressureBasisPoints * BuyPressureResponsePercent / 100L),
+                BuyPriceFloorPercent * 100,
+                BuyPriceCeilingPercent * 100);
+            int sellMultiplier = Math.Clamp(
+                BasisPoints + (int)(pressureBasisPoints * SellPressureResponsePercent / 100L),
+                SellPriceFloorPercent * 100,
+                SellPriceCeilingPercent * 100);
+
+            int buyPrice = ScalePrice(listing.BaseBuyPrice, buyMultiplier);
+            int sellPrice = ScalePrice(listing.BaseSellPrice, sellMultiplier);
+
+            int configuredSpread = Math.Max(1, listing.BaseBuyPrice - listing.BaseSellPrice);
+            int minimumSpread = Math.Max(1, Math.Min(configuredSpread, (int)Math.Ceiling(listing.BaseBuyPrice * MinimumSpreadPercent / 100m)));
+            int maximumSellPrice = Math.Max(1, buyPrice - minimumSpread);
+            maximumSellPrice = Math.Min(maximumSellPrice, Math.Max(1, listing.BaseBuyPrice - minimumSpread));
+            if (listing.ImmediateSellPriceCeiling > 0)
+            {
+                maximumSellPrice = Math.Min(maximumSellPrice, listing.ImmediateSellPriceCeiling);
+            }
+
+            listing.BuyPrice = Math.Max(1, buyPrice);
+            listing.SellPrice = Math.Clamp(sellPrice, 1, Math.Max(1, maximumSellPrice));
+        }
+
+        private static int ScalePrice(int basePrice, int multiplierBasisPoints)
+        {
+            long scaled = ((long)basePrice * multiplierBasisPoints + BasisPoints / 2) / BasisPoints;
+            return (int)Math.Clamp(scaled, 1L, int.MaxValue);
         }
 
         private bool ValidateGoodConfig(
@@ -585,9 +771,24 @@ namespace Roguelancer
                 return false;
             }
 
-            if (good.BuyPrice < 0 || good.SellPrice < 0 || good.Stock < 0 || good.DemandLevel < 0)
+            if (good.BuyPrice < 0 || good.SellPrice < 0 || good.Stock < 0 || good.Stock > 1_000_000 || good.DemandLevel < 0 ||
+                (good.MinimumStock.HasValue && good.MinimumStock.Value < 0) ||
+                (good.MaximumStock.HasValue && (good.MaximumStock.Value <= 0 || good.MaximumStock.Value > 1_000_000)) ||
+                good.RecoverySeconds < 0)
             {
                 failureReason = $"negative market data for '{commodityId}'";
+                return false;
+            }
+
+            if (good.MinimumStock.HasValue && good.MinimumStock.Value > good.Stock)
+            {
+                failureReason = $"minimum stock exceeds baseline stock for '{commodityId}'";
+                return false;
+            }
+
+            if (good.MaximumStock.HasValue && good.MaximumStock.Value < good.Stock)
+            {
+                failureReason = $"maximum stock is below baseline stock for '{commodityId}'";
                 return false;
             }
 

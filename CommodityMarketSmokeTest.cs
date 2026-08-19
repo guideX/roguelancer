@@ -30,12 +30,25 @@ internal sealed class CommodityMarketSmokeTest
         int failed = 0;
         RunCase("terminal placement", ValidateTerminalPlacement, ref passed, ref failed);
         RunCase("catalog and station listings", ValidateCatalog, ref passed, ref failed);
+        RunCase("baseline prices and stock", ValidateBaselineConfiguration, ref passed, ref failed);
         RunCase("buy transaction", ValidateBuy, ref passed, ref failed);
+        RunCase("buy scarcity response", ValidateBuyScarcityResponse, ref passed, ref failed);
+        RunCase("sell oversupply response", ValidateSellOversupplyResponse, ref passed, ref failed);
+        RunCase("bounded price floor and ceiling", ValidatePriceBounds, ref passed, ref failed);
+        RunCase("stock bounds and buy limits", ValidateStockAndBuyLimits, ref passed, ref failed);
         RunCase("buy rejection atomicity", ValidateBuyRejections, ref passed, ref failed);
         RunCase("sell transaction and repeat guard", ValidateSell, ref passed, ref failed);
+        RunCase("sell quantity and overflow guard", ValidateSellLimits, ref passed, ref failed);
         RunCase("protected and mixed cargo", ValidateProtectedCargo, ref passed, ref failed);
         RunCase("two-station trade route", ValidateTradeRoute, ref passed, ref failed);
+        RunCase("repeated route diminishing returns", ValidateDiminishingRoute, ref passed, ref failed);
+        RunCase("market recovery and no overshoot", ValidateRecovery, ref passed, ref failed);
+        RunCase("elapsed-time determinism", ValidateElapsedTimeDeterminism, ref passed, ref failed);
+        RunCase("station identity remains distinct", ValidateStationIdentity, ref passed, ref failed);
+        RunCase("unrelated market isolation", ValidateUnrelatedMarketIsolation, ref passed, ref failed);
         RunCase("save/load cargo and market state", ValidateSaveLoad, ref passed, ref failed);
+        RunCase("derived prices after save/load", ValidateDerivedPricesAfterLoad, ref passed, ref failed);
+        RunCase("old/default save initialization", ValidateOldSaveInitialization, ref passed, ref failed);
         RunCase("ship dealer normal cargo preservation", ValidateShipDealerCargo, ref passed, ref failed);
         Console.WriteLine($"[COMMODITY MARKET SMOKE] RESULT: {passed} passed, {failed} failed");
         return (passed, failed);
@@ -124,6 +137,153 @@ internal sealed class CommodityMarketSmokeTest
         return Pass();
     }
 
+    private (bool Success, string FailureReason) ValidateBaselineConfiguration()
+    {
+        MarketManager manager = new();
+        Commodity food = CommodityCatalog.GetById("food-rations");
+        Station fortBush = ResolveStation("Fort Bush");
+        Station newark = ResolveStation("Newark Station");
+        StationMarketListing fort = manager.GetListingForCommodity(fortBush, food);
+        StationMarketListing destination = manager.GetListingForCommodity(newark, food);
+
+        if (fort == null || destination == null)
+        {
+            return Fail("baseline food listings were not available");
+        }
+
+        if (fort.BuyPrice != 85 || fort.SellPrice != 60 || fort.Stock != 450 ||
+            fort.BaselineStock != 450 || fort.BaseBuyPrice != 85 || fort.BaseSellPrice != 60)
+        {
+            return Fail($"Fort Bush baseline changed: {fort.BuyPrice}/{fort.SellPrice} at {fort.Stock}");
+        }
+
+        if (destination.BuyPrice != 150 || destination.SellPrice != 115 || destination.Stock != 220 ||
+            destination.BaselineStock != 220)
+        {
+            return Fail("Newark baseline configuration was not preserved");
+        }
+
+        return Pass();
+    }
+
+    private (bool Success, string FailureReason) ValidateBuyScarcityResponse()
+    {
+        Station station = ResolveStation("Fort Bush");
+        Commodity food = CommodityCatalog.GetById("food-rations");
+        CommodityDealer dealer = DockedDealer(station);
+        CargoHold cargo = new(1_000);
+        PlayerCredits credits = new(100_000);
+        StationMarketListing baseline = FindListing(dealer, food);
+
+        if (!dealer.TryBuyCommodity(food, 300, credits, cargo, out string message))
+        {
+            return Fail($"meaningful scarcity buy failed: {message}");
+        }
+
+        StationMarketListing scarce = FindListing(dealer, food);
+        if (scarce.Stock != 150 || scarce.BuyPrice <= baseline.BuyPrice || scarce.MarketCondition == "NORMAL")
+        {
+            return Fail($"buy did not create bounded scarcity: stock={scarce.Stock}, buy={scarce.BuyPrice}, condition={scarce.MarketCondition}");
+        }
+
+        return scarce.SellPrice <= scarce.BuyPrice ? Pass() : Fail("scarcity inverted the local buy/sell spread");
+    }
+
+    private (bool Success, string FailureReason) ValidateSellOversupplyResponse()
+    {
+        Station station = ResolveStation("Newark Station");
+        Commodity food = CommodityCatalog.GetById("food-rations");
+        CommodityDealer dealer = DockedDealer(station);
+        CargoHold cargo = new(200);
+        PlayerCredits credits = new(1_000);
+        StationMarketListing baseline = FindListing(dealer, food);
+        string message = string.Empty;
+        if (!cargo.AddCommodity(food, 100) || !dealer.TrySellCommodity(food, 100, credits, cargo, out message))
+        {
+            return Fail($"meaningful oversupply sale failed: {message}");
+        }
+
+        StationMarketListing glutted = FindListing(dealer, food);
+        if (glutted.Stock != 320 || glutted.SellPrice >= baseline.SellPrice || glutted.BuyPrice >= baseline.BuyPrice)
+        {
+            return Fail($"sale did not lower oversupply prices: stock={glutted.Stock}, buy={glutted.BuyPrice}, sell={glutted.SellPrice}");
+        }
+
+        return Pass();
+    }
+
+    private (bool Success, string FailureReason) ValidatePriceBounds()
+    {
+        Station station = ResolveStation("Fort Bush");
+        Commodity food = CommodityCatalog.GetById("food-rations");
+
+        CommodityDealer shortageDealer = DockedDealer(station);
+        CargoHold shortageCargo = new(1_000);
+        PlayerCredits shortageCredits = new(1_000_000);
+        StationMarketListing baseline = FindListing(shortageDealer, food);
+        if (!shortageDealer.TryBuyCommodity(food, baseline.Stock, shortageCredits, shortageCargo, out _))
+        {
+            return Fail("could not drain a market to test the price ceiling");
+        }
+
+        StationMarketListing shortage = FindListing(shortageDealer, food);
+        int buyCeiling = (int)Math.Ceiling(baseline.BaseBuyPrice * 1.35m);
+        int sellCeiling = (int)Math.Ceiling(baseline.BaseSellPrice * 1.50m);
+        if (shortage.Stock < 0 || shortage.BuyPrice > buyCeiling || shortage.SellPrice > sellCeiling || shortage.SellPrice >= shortage.BuyPrice)
+        {
+            return Fail($"scarcity bounds failed: stock={shortage.Stock}, buy={shortage.BuyPrice}, sell={shortage.SellPrice}");
+        }
+
+        CommodityDealer surplusDealer = DockedDealer(station);
+        StationMarketListing surplusBaseline = FindListing(surplusDealer, food);
+        int saleQuantity = surplusBaseline.MaximumStock - surplusBaseline.Stock;
+        CargoHold surplusCargo = new(saleQuantity + 10);
+        PlayerCredits surplusCredits = new(0);
+        string saleMessage = string.Empty;
+        if (!surplusCargo.AddCommodity(food, saleQuantity) ||
+            !surplusDealer.TrySellCommodity(food, saleQuantity, surplusCredits, surplusCargo, out saleMessage))
+        {
+            return Fail($"could not fill a market to test the price floor: {saleMessage}");
+        }
+
+        StationMarketListing surplus = FindListing(surplusDealer, food);
+        int buyFloor = (int)Math.Floor(surplus.BaseBuyPrice * 0.65m);
+        int sellFloor = (int)Math.Floor(surplus.BaseSellPrice * 0.50m);
+        if (surplus.Stock > surplus.MaximumStock || surplus.BuyPrice < buyFloor || surplus.SellPrice < Math.Max(1, sellFloor))
+        {
+            return Fail($"oversupply bounds failed: stock={surplus.Stock}, buy={surplus.BuyPrice}, sell={surplus.SellPrice}");
+        }
+
+        return Pass();
+    }
+
+    private (bool Success, string FailureReason) ValidateStockAndBuyLimits()
+    {
+        Station station = ResolveStation("Fort Bush");
+        Commodity food = CommodityCatalog.GetById("food-rations");
+        CommodityDealer dealer = DockedDealer(station);
+        StationMarketListing before = FindListing(dealer, food);
+        CargoHold cargo = new(1_000);
+        PlayerCredits credits = new(1_000_000);
+        if (dealer.TryBuyCommodity(food, before.Stock + 1, credits, cargo, out _))
+        {
+            return Fail("buy above station stock unexpectedly succeeded");
+        }
+
+        if (FindListing(dealer, food).Stock != before.Stock || credits.Credits != 1_000_000 || cargo.UsedCapacity != 0)
+        {
+            return Fail("out-of-stock rejection mutated state");
+        }
+
+        if (!dealer.TryBuyCommodity(food, before.Stock, credits, cargo, out string message))
+        {
+            return Fail($"buying exactly available stock failed: {message}");
+        }
+
+        StationMarketListing drained = FindListing(dealer, food);
+        return drained.Stock == 0 && drained.BuyPrice > 0 ? Pass() : Fail("stock became negative or failed to reach zero");
+    }
+
     private (bool Success, string FailureReason) ValidateBuy()
     {
         Station station = ResolveStation("Fort Bush");
@@ -198,6 +358,40 @@ internal sealed class CommodityMarketSmokeTest
         if (dealer.TrySellCommodity(food, 0, credits, cargo, out _) || dealer.TrySellCommodity(food, -1, credits, cargo, out _))
             return Fail("zero/negative sale unexpectedly succeeded");
         return Pass();
+    }
+
+    private (bool Success, string FailureReason) ValidateSellLimits()
+    {
+        Station station = ResolveStation("Newark Station");
+        Commodity food = CommodityCatalog.GetById("food-rations");
+        CommodityDealer dealer = DockedDealer(station);
+        CargoHold cargo = new(10);
+        PlayerCredits credits = new(100);
+        if (!cargo.AddCommodity(food, 2))
+        {
+            return Fail("could not stage ordinary cargo for sell limit test");
+        }
+
+        StationMarketListing before = FindListing(dealer, food);
+        int creditsBefore = credits.Credits;
+        if (dealer.TrySellCommodity(food, 3, credits, cargo, out _))
+        {
+            return Fail("sale above ordinary owned quantity unexpectedly succeeded");
+        }
+
+        if (credits.Credits != creditsBefore || cargo.GetCommodityQuantity(food.Name) != 2 || FindListing(dealer, food).Stock != before.Stock)
+        {
+            return Fail("ordinary sell limit rejection was not atomic");
+        }
+
+        if (dealer.TrySellCommodity(food, int.MaxValue, credits, cargo, out _))
+        {
+            return Fail("overflow-sized sale unexpectedly succeeded");
+        }
+
+        return credits.Credits == creditsBefore && cargo.GetCommodityQuantity(food.Name) == 2
+            ? Pass()
+            : Fail("overflow-sized sale mutated state");
     }
 
     private (bool Success, string FailureReason) ValidateProtectedCargo()
@@ -276,6 +470,152 @@ internal sealed class CommodityMarketSmokeTest
         if (sameStationCredits.Credits >= 10_000 || sameListing.BuyPrice < sameListing.SellPrice)
             return Fail("same-station round trip created unintended profit");
         return Pass();
+    }
+
+    private (bool Success, string FailureReason) ValidateDiminishingRoute()
+    {
+        Station origin = ResolveStation("Fort Bush");
+        Station destination = ResolveStation("Newark Station");
+        Commodity food = CommodityCatalog.GetById("food-rations");
+        CommodityDealer dealer = new();
+        CargoHold cargo = new(20);
+        PlayerCredits credits = new(1_000_000);
+        List<int> margins = new();
+
+        for (int run = 0; run < 40; run++)
+        {
+            dealer.SetDockedStation(origin);
+            StationMarketListing originListing = FindListing(dealer, food);
+            int buyPrice = originListing.BuyPrice;
+            if (!dealer.TryBuyCommodity(food, 10, credits, cargo, out string buyMessage))
+            {
+                return Fail($"route run {run + 1} buy failed: {buyMessage}");
+            }
+
+            dealer.SetDockedStation(destination);
+            StationMarketListing destinationListing = FindListing(dealer, food);
+            int sellPrice = destinationListing.SellPrice;
+            if (!dealer.TrySellCommodity(food, 10, credits, cargo, out string sellMessage))
+            {
+                return Fail($"route run {run + 1} sale failed: {sellMessage}");
+            }
+
+            margins.Add(sellPrice - buyPrice);
+        }
+
+        if (margins.Count == 0 || margins[0] <= 0)
+        {
+            return Fail("representative Fort Bush/Newark route was not profitable at baseline");
+        }
+
+        if (!margins.Skip(1).Any(margin => margin < margins[0]))
+        {
+            return Fail("repeated route runs did not reduce the initial margin");
+        }
+
+        return margins.Any(margin => margin <= 0)
+            ? Pass()
+            : Fail($"route remained profitable after 40 unrecovered runs; final margin {margins[^1]}");
+    }
+
+    private (bool Success, string FailureReason) ValidateRecovery()
+    {
+        Station station = ResolveStation("Fort Bush");
+        Commodity food = CommodityCatalog.GetById("food-rations");
+        CommodityDealer dealer = DockedDealer(station);
+        CargoHold cargo = new(500);
+        PlayerCredits credits = new(100_000);
+        if (!dealer.TryBuyCommodity(food, 300, credits, cargo, out string buyMessage))
+        {
+            return Fail($"could not create recovery shortage: {buyMessage}");
+        }
+
+        int shortageStock = FindListing(dealer, food).Stock;
+        dealer.AdvanceTime(600);
+        int recoveringStock = FindListing(dealer, food).Stock;
+        if (recoveringStock <= shortageStock || recoveringStock >= 450)
+        {
+            return Fail($"recovery did not move gradually: {shortageStock} -> {recoveringStock}");
+        }
+
+        dealer.AdvanceTime(3_600);
+        StationMarketListing normalized = FindListing(dealer, food);
+        if (normalized.Stock != normalized.BaselineStock || normalized.Stock > normalized.MaximumStock)
+        {
+            return Fail($"recovery overshot or failed to normalize: {normalized.Stock}/{normalized.BaselineStock}");
+        }
+
+        return normalized.BuyPrice == normalized.BaseBuyPrice && normalized.SellPrice == normalized.BaseSellPrice
+            ? Pass()
+            : Fail("normalized market prices did not return to configured anchors");
+    }
+
+    private (bool Success, string FailureReason) ValidateElapsedTimeDeterminism()
+    {
+        Station station = ResolveStation("Fort Bush");
+        Commodity food = CommodityCatalog.GetById("food-rations");
+
+        CommodityDealer oneStep = DockedDealer(station);
+        CommodityDealer twoSteps = DockedDealer(station);
+        CargoHold oneCargo = new(500);
+        CargoHold twoCargo = new(500);
+        PlayerCredits oneCredits = new(100_000);
+        PlayerCredits twoCredits = new(100_000);
+        if (!oneStep.TryBuyCommodity(food, 300, oneCredits, oneCargo, out _) ||
+            !twoSteps.TryBuyCommodity(food, 300, twoCredits, twoCargo, out _))
+        {
+            return Fail("could not create deterministic recovery fixtures");
+        }
+
+        oneStep.AdvanceTime(1_800);
+        twoSteps.AdvanceTime(900);
+        twoSteps.AdvanceTime(900);
+        StationMarketListing one = FindListing(oneStep, food);
+        StationMarketListing two = FindListing(twoSteps, food);
+        return one.Stock == two.Stock && one.BuyPrice == two.BuyPrice && one.SellPrice == two.SellPrice
+            ? Pass()
+            : Fail($"same elapsed time diverged: {one.Stock}/{one.BuyPrice}/{one.SellPrice} vs {two.Stock}/{two.BuyPrice}/{two.SellPrice}");
+    }
+
+    private (bool Success, string FailureReason) ValidateStationIdentity()
+    {
+        Commodity food = CommodityCatalog.GetById("food-rations");
+        MarketManager manager = new();
+        StationMarketListing fort = manager.GetListingForCommodity(ResolveStation("Fort Bush"), food);
+        StationMarketListing newark = manager.GetListingForCommodity(ResolveStation("Newark Station"), food);
+        StationMarketListing rochester = manager.GetListingForCommodity(ResolveStation("Rochester Base"), food);
+
+        if (fort == null || newark == null || rochester == null ||
+            fort.BuyPrice != 85 || newark.BuyPrice != 150 || rochester.BuyPrice != 105 ||
+            fort.BaselineStock == newark.BaselineStock)
+        {
+            return Fail("station-specific food anchors were not distinct");
+        }
+
+        return Pass();
+    }
+
+    private (bool Success, string FailureReason) ValidateUnrelatedMarketIsolation()
+    {
+        Commodity food = CommodityCatalog.GetById("food-rations");
+        Commodity water = CommodityCatalog.GetById("water");
+        CommodityDealer dealer = new();
+        Station fort = ResolveStation("Fort Bush");
+        Station newark = ResolveStation("Newark Station");
+        dealer.SetDockedStation(newark);
+        StationMarketListing before = FindListing(dealer, water);
+        dealer.SetDockedStation(fort);
+        CargoHold cargo = new(100);
+        if (!dealer.TryBuyCommodity(food, 50, new PlayerCredits(100_000), cargo, out _))
+        {
+            return Fail("isolated Fort Bush transaction failed");
+        }
+
+        dealer.SetDockedStation(newark);
+        StationMarketListing after = FindListing(dealer, water);
+        return before.Stock == after.Stock && before.BuyPrice == after.BuyPrice && before.SellPrice == after.SellPrice
+            ? Pass()
+            : Fail("Fort Bush transaction changed an unrelated Newark water market");
     }
 
     private (bool Success, string FailureReason) ValidateSaveLoad()
@@ -360,19 +700,121 @@ internal sealed class CommodityMarketSmokeTest
         }
     }
 
+    private (bool Success, string FailureReason) ValidateDerivedPricesAfterLoad()
+    {
+        Station station = ResolveStation("Fort Bush");
+        Commodity food = CommodityCatalog.GetById("food-rations");
+        CommodityDealer dealer = DockedDealer(station);
+        CargoHold cargo = new(500);
+        PlayerCredits credits = new(100_000);
+        if (!dealer.TryBuyCommodity(food, 250, credits, cargo, out _))
+        {
+            return Fail("could not perturb market before derived-price save test");
+        }
+
+        StationMarketListing expected = FindListing(dealer, food);
+        List<SaveMarketStateData> state = dealer.CaptureMarketState();
+        SaveMarketListingData savedListing = state.SelectMany(snapshot => snapshot.Listings ?? new List<SaveMarketListingData>())
+            .FirstOrDefault(listing => string.Equals(listing.CommodityId, food.Id, StringComparison.OrdinalIgnoreCase));
+        if (savedListing == null || savedListing.BuyPrice != 0 || savedListing.SellPrice != 0)
+        {
+            return Fail("derived prices were serialized as authoritative state");
+        }
+
+        string json = JsonSerializer.Serialize(state);
+        if (json.Contains("\"buy_price\"", StringComparison.OrdinalIgnoreCase) || json.Contains("\"sell_price\"", StringComparison.OrdinalIgnoreCase))
+        {
+            return Fail("market save payload still contains duplicate derived price fields");
+        }
+
+        CommodityDealer resumed = DockedDealer(station);
+        resumed.RestoreMarketState(state);
+        StationMarketListing actual = FindListing(resumed, food);
+        return actual.Stock == expected.Stock && actual.BuyPrice == expected.BuyPrice && actual.SellPrice == expected.SellPrice &&
+            actual.BaseBuyPrice == 85 && actual.BaseSellPrice == 60
+            ? Pass()
+            : Fail("derived prices were not recomputed consistently after load");
+    }
+
+    private (bool Success, string FailureReason) ValidateOldSaveInitialization()
+    {
+        Station station = ResolveStation("Newark Station");
+        Commodity food = CommodityCatalog.GetById("food-rations");
+        CommodityDealer defaultDealer = DockedDealer(station);
+        StationMarketListing baseline = FindListing(defaultDealer, food);
+        if (baseline.Stock != 220 || baseline.BuyPrice != 150 || baseline.SellPrice != 115)
+        {
+            return Fail("default market did not initialize from current configuration");
+        }
+
+        CommodityDealer oldSaveDealer = DockedDealer(station);
+        oldSaveDealer.RestoreMarketState(new List<SaveMarketStateData>
+        {
+            new SaveMarketStateData
+            {
+                StationKey = "newarkstation",
+                Listings = new List<SaveMarketListingData>
+                {
+                    new SaveMarketListingData
+                    {
+                        CommodityId = food.Id,
+                        BuyPrice = 1,
+                        SellPrice = 1,
+                        Stock = 10,
+                        DemandLevel = 1,
+                        IsAvailable = true
+                    }
+                }
+            }
+        });
+
+        StationMarketListing restored = FindListing(oldSaveDealer, food);
+        return restored.Stock == 10 && restored.BaseBuyPrice == 150 && restored.BuyPrice != 1 && restored.SellPrice > 0
+            ? Pass()
+            : Fail("old/default save did not initialize dynamic state safely from configuration");
+    }
+
     private (bool Success, string FailureReason) ValidateShipDealerCargo()
     {
         ShipDealer dealer = new();
         Ship playerShip = new(Vector3.Zero);
         Commodity food = CommodityCatalog.GetById("food-rations");
+        Commodity package = CommodityCatalog.GetById("sealed-data-package");
+        CommodityDealer marketDealer = DockedDealer(ResolveStation("Fort Bush"));
+        int marketStockBefore = FindListing(marketDealer, food).Stock;
         if (!playerShip.CargoHold.AddCommodity(food, 5))
             return Fail("could not stage ordinary cargo for ship dealer regression");
+        if (!playerShip.CargoHold.AddMissionCargo(9901, package, 1))
+            return Fail("could not stage mission cargo for ship dealer regression");
         ShipDefinition upgrade = dealer.GetShipByName("Pirate Transport");
         PlayerCredits credits = new(dealer.GetTotalCost(upgrade));
         if (!dealer.TryPurchaseShip(upgrade, credits, playerShip, out string message))
             return Fail($"ship upgrade rejected ordinary cargo: {message}");
-        if (playerShip.CargoHold.GetCommodityQuantity(food.Name) != 5 || playerShip.CargoHold.UsedCapacity != food.VolumePerUnit * 5)
+        if (playerShip.CargoHold.GetCommodityQuantity(food.Name) != 5 ||
+            !playerShip.CargoHold.HasMissionCargo(9901, package.Id, 1) ||
+            playerShip.CargoHold.UsedCapacity != food.VolumePerUnit * 5 + package.VolumePerUnit)
             return Fail("ship upgrade lost or duplicated ordinary commodity cargo");
+
+        if (FindListing(marketDealer, food).Stock != marketStockBefore)
+            return Fail("unrelated ship purchase changed station market stock");
+
+        ShipDefinition tiny = new(
+            "Focused Tiny Ship",
+            "Regression fixture",
+            "SHIPS/scimitar/Scimitar2",
+            1000)
+        {
+            CargoCapacity = 1
+        };
+        Ship rejectedShip = new(Vector3.Zero);
+        if (!rejectedShip.CargoHold.AddMissionCargo(9902, package, 1))
+            return Fail("could not stage protected cargo for over-capacity test");
+        PlayerCredits rejectedCredits = new(10_000);
+        if (dealer.TryPurchaseShip(tiny, rejectedCredits, rejectedShip, out _))
+            return Fail("over-capacity ship purchase unexpectedly succeeded");
+        if (!rejectedShip.CargoHold.HasMissionCargo(9902, package.Id, 1) || rejectedCredits.Credits != 10_000)
+            return Fail("rejected over-capacity ship purchase mutated protected cargo or credits");
+
         return Pass();
     }
 

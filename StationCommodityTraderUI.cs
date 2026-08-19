@@ -223,7 +223,7 @@ public sealed class StationCommodityTraderUI
             Color labelColor = listing.IsAvailable ? Color.White : Color.Gray;
             spriteBatch.DrawString(_font, label, new Vector2(row.X + 10, row.Y + 7), labelColor);
             string price = listing.IsAvailable
-                ? $"B {listing.BuyPrice:N0} / S {listing.SellPrice:N0}"
+                ? $"B {listing.BuyPrice:N0} / S {listing.SellPrice:N0}  {FormatMovement(listing.BuyPriceMovementPercent)}"
                 : "UNAVAILABLE";
             Vector2 priceSize = _font.MeasureString(price);
             spriteBatch.DrawString(_font, price, new Vector2(row.Right - priceSize.X - 10, row.Y + 7), listing.IsAvailable ? Color.Yellow : Color.Gray);
@@ -280,8 +280,16 @@ public sealed class StationCommodityTraderUI
             y += 24;
         }
 
-        string stock = listing.IsAvailable ? $"Station stock: {listing.Stock:N0}" : "UNAVAILABLE HERE";
+        string stock = listing.IsAvailable
+            ? $"Station stock: {listing.Stock:N0}/{listing.MaximumStock:N0}   {listing.MarketCondition}"
+            : "UNAVAILABLE HERE";
         spriteBatch.DrawString(_font, stock, new Vector2(x, y), listing.IsAvailable ? Color.Cyan : Color.Gray);
+        y += 24;
+        if (listing.IsAvailable)
+        {
+            string movement = $"Normal: B {listing.BaseBuyPrice:N0} / S {listing.BaseSellPrice:N0}   Current: {FormatMovement(listing.BuyPriceMovementPercent)}";
+            spriteBatch.DrawString(_font, Shorten(movement, 58), new Vector2(x, y), Color.LightGray);
+        }
         y += 32;
         spriteBatch.DrawString(_font, $"Quantity: {_quantity}   Maximum now: {maximum}", new Vector2(x, y), Color.White);
         y += 28;
@@ -292,7 +300,7 @@ public sealed class StationCommodityTraderUI
         y += 34;
 
         string action = _buying
-            ? listing.IsAvailable && listing.BuyPrice > 0 && listing.Stock > 0 ? "[ENTER] BUY" : "BUY UNAVAILABLE"
+            ? listing.IsAvailable && listing.BuyPrice > 0 && listing.Stock > listing.MinimumStock ? "[ENTER] BUY" : "BUY UNAVAILABLE"
             : protectedQuantity > 0 && sellable == 0 ? "MISSION CARGO CANNOT BE SOLD" : sellable > 0 && listing.SellPrice > 0 ? "[ENTER] SELL" : "NOTHING SELLABLE";
         spriteBatch.DrawString(_font, Shorten(action, 58), new Vector2(x, Math.Min(y, detailPanel.Bottom - 42)), _buying ? Color.Lime : Color.Orange);
     }
@@ -341,7 +349,7 @@ public sealed class StationCommodityTraderUI
             return Math.Min(999, _playerShip?.CargoHold?.GetSellableCommodityQuantity(listing.Commodity.Name) ?? 0);
         }
 
-        int max = Math.Min(999, Math.Max(0, listing.Stock));
+        int max = Math.Min(999, Math.Max(0, listing.Stock - listing.MinimumStock));
         if (listing.BuyPrice <= 0 || _credits == null)
         {
             return 0;
@@ -411,6 +419,11 @@ public sealed class StationCommodityTraderUI
     {
         long total = (long)Math.Max(0, unitPrice) * Math.Max(0, quantity);
         return total > int.MaxValue ? int.MaxValue : (int)total;
+    }
+
+    private static string FormatMovement(int percent)
+    {
+        return percent == 0 ? "NORMAL" : percent > 0 ? $"+{percent}%" : $"{percent}%";
     }
 
     private static string Shorten(string value, int maxLength)

@@ -43,5 +43,24 @@ namespace Roguelancer.Configuration
 
         [JsonPropertyName("is_available")]
         public bool IsAvailable { get; set; } = true;
+
+        /// <summary>
+        /// Optional lower stock bound. Configured stock is the normal/equilibrium
+        /// stock, not a price multiplier.
+        /// </summary>
+        [JsonPropertyName("minimum_stock")]
+        public int? MinimumStock { get; set; }
+
+        /// <summary>
+        /// Optional practical inventory ceiling for player sales.
+        /// </summary>
+        [JsonPropertyName("maximum_stock")]
+        public int? MaximumStock { get; set; }
+
+        /// <summary>
+        /// Seconds required to recover one full stock gap toward baseline.
+        /// </summary>
+        [JsonPropertyName("recovery_seconds")]
+        public int RecoverySeconds { get; set; }
     }
 }

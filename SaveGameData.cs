@@ -10,7 +10,7 @@ namespace Roguelancer
     /// </summary>
     public sealed class SaveGameData
     {
-        public const int CurrentSchemaVersion = 3;
+        public const int CurrentSchemaVersion = 4;
 
         [JsonPropertyName("schema_version")]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -290,10 +290,19 @@ namespace Roguelancer
         [JsonPropertyName("commodity_id")]
         public string CommodityId { get; set; } = string.Empty;
 
-        [JsonPropertyName("buy_price")]
+        /// <summary>
+        /// Legacy Phase 13 field retained for source compatibility. Prices are
+        /// derived from current stock and station configuration in Phase 14 and
+        /// are intentionally not serialized.
+        /// </summary>
+        [JsonIgnore]
         public int BuyPrice { get; set; }
 
-        [JsonPropertyName("sell_price")]
+        /// <summary>
+        /// Legacy Phase 13 field retained for source compatibility. See
+        /// <see cref="BuyPrice"/>.
+        /// </summary>
+        [JsonIgnore]
         public int SellPrice { get; set; }
 
         [JsonPropertyName("stock")]
@@ -304,5 +313,11 @@ namespace Roguelancer
 
         [JsonPropertyName("is_available")]
         public bool IsAvailable { get; set; }
+
+        [JsonPropertyName("recovery_remainder_ms")]
+        public long RecoveryRemainderMilliseconds { get; set; }
+
+        [JsonPropertyName("immediate_sell_price_ceiling")]
+        public int ImmediateSellPriceCeiling { get; set; }
     }
 }

@@ -34,6 +34,16 @@ namespace Roguelancer
 
         public IReadOnlyList<StationMarketListing> CurrentMarketListings => GetCurrentListings();
 
+        /// <summary>
+        /// Advances station-market simulation time without requiring the trader
+        /// terminal to be open. MarketManager applies recovery lazily when a
+        /// listing is next accessed.
+        /// </summary>
+        public void AdvanceTime(double elapsedSeconds)
+        {
+            _marketManager.AdvanceTime(elapsedSeconds);
+        }
+
         public void SetDockedStation(Station station)
         {
             _currentStation = station;
