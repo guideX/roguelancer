@@ -400,6 +400,53 @@ namespace Roguelancer
             return true;
         }
 
+        /// <summary>
+        /// Validates whether a real shipment can enter a station's configured
+        /// market without changing any state.
+        /// </summary>
+        public bool CanAddSupply(Station station, Commodity commodity, int quantity, out string message)
+        {
+            message = string.Empty;
+            if (!TryResolveSupplyListing(station, commodity, quantity, out StationMarketListing listing, out message))
+            {
+                return false;
+            }
+
+            if ((long)listing.Stock + quantity > listing.MaximumStock)
+            {
+                message = $"Station inventory can hold only {Math.Max(0, listing.MaximumStock - listing.Stock)} more units.";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Adds delivered freight to the authoritative destination market.
+        /// Prices are recomputed from the resulting stock immediately.
+        /// </summary>
+        public bool TryAddSupply(Station station, Commodity commodity, int quantity, out string message)
+        {
+            message = string.Empty;
+            if (!TryResolveSupplyListing(station, commodity, quantity, out StationMarketListing listing, out message))
+            {
+                return false;
+            }
+
+            if ((long)listing.Stock + quantity > listing.MaximumStock)
+            {
+                message = $"Station inventory can hold only {Math.Max(0, listing.MaximumStock - listing.Stock)} more units.";
+                return false;
+            }
+
+            listing.Stock += quantity;
+            listing.ImmediateSellPriceCeiling = 0;
+            listing.RecoveryRemainderMilliseconds = 0;
+            RefreshPrices(listing);
+            message = $"Delivered {quantity} {listing.Commodity.Name}; station stock is now {listing.Stock:N0}.";
+            return true;
+        }
+
         public Commodity GetCommodityByIndex(int index, Station station = null)
         {
             var listings = GetListingsForStation(station);
@@ -620,6 +667,41 @@ namespace Roguelancer
             return listings.FirstOrDefault(l =>
                 string.Equals(l.Commodity.Id, commodity.Id, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(l.Commodity.Name, commodity.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private bool TryResolveSupplyListing(
+            Station station,
+            Commodity commodity,
+            int quantity,
+            out StationMarketListing listing,
+            out string message)
+        {
+            listing = null;
+            message = string.Empty;
+            if (station == null || commodity == null)
+            {
+                message = "No destination market selected.";
+                return false;
+            }
+
+            if (quantity <= 0)
+            {
+                message = "Quantity must be at least 1.";
+                return false;
+            }
+
+            string stationKey = GetStationKey(station.Name, station.Config?.Description);
+            listing = GetMutableListing(stationKey, commodity);
+            if (listing == null || !IsValidCommodity(listing.Commodity) ||
+                listing.Commodity.IsMissionCargo || listing.Commodity.IsContraband ||
+                !listing.IsAvailable || listing.BaseBuyPrice <= 0 || listing.BaseSellPrice <= 0 ||
+                listing.Stock < 0)
+            {
+                message = "Commodity is not a legitimate tradable good at this station.";
+                return false;
+            }
+
+            return true;
         }
 
         private void AdvanceListings(List<StationMarketListing> listings)

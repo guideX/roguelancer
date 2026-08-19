@@ -492,7 +492,9 @@ namespace Roguelancer
                     PackageQuantity = mission.PackageQuantity,
                     PackageVolume = mission.PackageVolume,
                     MissionCargoLoaded = mission.MissionCargoLoaded,
-                    DeliveredQuantity = mission.DeliveredQuantity
+                    DeliveredQuantity = mission.DeliveredQuantity,
+                    CommodityId = mission.CommodityId ?? string.Empty,
+                    RequiredQuantity = mission.RequiredQuantity
                 });
             }
 
@@ -674,7 +676,9 @@ namespace Roguelancer
                 data.PackageQuantity,
                 data.PackageVolume,
                 data.MissionCargoLoaded,
-                data.DeliveredQuantity);
+                data.DeliveredQuantity,
+                data.CommodityId,
+                data.RequiredQuantity);
         }
 
         private static float NormalizeStanding(float value)

@@ -17,6 +17,9 @@ namespace Roguelancer
         private readonly Random _random = new();
         private readonly PlayerCredits _playerCredits;
         private readonly NotificationManager _notificationManager;
+        private readonly MarketManager _marketManager;
+        private readonly CargoHold _cargoHold;
+        private readonly Dictionary<string, Mission> _freightOffers = new(StringComparer.OrdinalIgnoreCase);
         private ReputationManager _reputationManager;
         private MissionWaypointSystem _waypointSystem;
         private MissionWorldManager _worldManager;
@@ -36,6 +39,13 @@ namespace Roguelancer
             "Rogue Pilot", "Pirate Commander", "Outcast Smuggler", "Corsair Raider"
         };
 
+        public const int FreightShortageThresholdPercent = 40;
+        public const int FreightMinimumShortageUnits = 10;
+        public const int FreightShortageSharePercent = 25;
+        public const int FreightMaximumCargoVolume = 40;
+        public const int FreightMaximumUnits = 40;
+        public const int FreightMaximumReward = 100_000;
+
         public IReadOnlyList<Mission> ActiveMissions => _activeMissions.AsReadOnly();
         public IReadOnlyList<Mission> CompletedMissions => _completedMissions.AsReadOnly();
         public Mission ActiveMission => _activeMissions.FirstOrDefault();
@@ -45,11 +55,15 @@ namespace Roguelancer
         public MissionManager(
             PlayerCredits playerCredits,
             NotificationManager notificationManager,
-            ReputationManager reputationManager = null)
+            ReputationManager reputationManager = null,
+            MarketManager marketManager = null,
+            CargoHold cargoHold = null)
         {
             _playerCredits = playerCredits;
             _notificationManager = notificationManager;
             _reputationManager = reputationManager;
+            _marketManager = marketManager;
+            _cargoHold = cargoHold;
         }
 
         public void SetReputationManager(ReputationManager reputationManager) => _reputationManager = reputationManager;
@@ -60,12 +74,16 @@ namespace Roguelancer
 
         public void ClearState()
         {
+            foreach (Mission mission in _activeMissions.Where(candidate => candidate?.Type == MissionType.FreightContract))
+                ReleaseFreightReservation(mission);
+
             foreach (Mission mission in _activeMissions)
                 _waypointSystem?.UnregisterMission(mission);
 
             _activeMissions.Clear();
             _completedMissions.Clear();
             _countedHostileKills.Clear();
+            _freightOffers.Clear();
             _worldManager?.ClearState();
         }
 
@@ -79,6 +97,7 @@ namespace Roguelancer
             {
                 restoredActive.Status = MissionStatus.InProgress;
                 _activeMissions.Add(restoredActive);
+                RegisterFreightReservation(restoredActive);
                 _waypointSystem?.RegisterMission(restoredActive);
             }
 
@@ -86,7 +105,9 @@ namespace Roguelancer
             {
                 foreach (Mission mission in completedMissions)
                 {
-                    if (mission == null || mission.RewardPaid || mission.Status == MissionStatus.Rewarded)
+                    if (mission == null ||
+                        (mission.RewardPaid && mission.Type != MissionType.FreightContract) ||
+                        mission.Status == MissionStatus.Rewarded)
                         continue;
                     if (mission.Status == MissionStatus.Available || mission.Status == MissionStatus.InProgress)
                         mission.Status = MissionStatus.Completed;
@@ -102,10 +123,12 @@ namespace Roguelancer
         {
             string faction = originStation?.FactionId ?? FactionManager.LibertyCorporations;
             List<Mission> missions = MissionCatalog.CreateRuntimeMissions("Mission Board", faction);
-            return missions.Where(mission => mission != null &&
+            missions = missions.Where(mission => mission != null &&
                 (mission.Type != MissionType.CourierDelivery ||
                  string.Equals(mission.SourceStationName, originStation?.Name, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
+            missions.AddRange(GenerateFreightContracts(originStation));
+            return missions;
         }
 
         /// <summary>
@@ -162,8 +185,115 @@ namespace Roguelancer
         public List<Mission> GenerateJobBoardMissions(int count, string factionId = null, Station originStation = null)
         {
             return CreateBoardMissions(originStation)
-                .Take(Math.Clamp(count, 0, MissionCatalog.All.Count))
+                .Take(Math.Clamp(count, 0, 10))
                 .ToList();
+        }
+
+        public int GetFreightReservedQuantity(Mission mission)
+        {
+            return mission?.Type == MissionType.FreightContract && _cargoHold != null
+                ? _cargoHold.GetMissionCargoQuantity(mission.Id)
+                : 0;
+        }
+
+        private List<Mission> GenerateFreightContracts(Station destination)
+        {
+            List<Mission> offers = new();
+            if (destination == null || _marketManager == null)
+                return offers;
+
+            IReadOnlyList<StationMarketListing> listings = _marketManager.GetListingsForStation(destination);
+            HashSet<string> eligibleKeys = new(StringComparer.OrdinalIgnoreCase);
+            foreach (StationMarketListing listing in listings ?? Array.Empty<StationMarketListing>())
+            {
+                if (!TryBuildFreightTerms(destination, listing, out Commodity commodity, out int quantity, out int reward))
+                    continue;
+
+                string key = BuildFreightOfferKey(destination, commodity);
+                eligibleKeys.Add(key);
+                if (_activeMissions.Any(mission => IsMatchingFreight(mission, destination, commodity)))
+                    continue;
+
+                if (!_freightOffers.TryGetValue(key, out Mission offer) ||
+                    offer == null ||
+                    offer.Status != MissionStatus.Available ||
+                    offer.RequiredQuantity != quantity ||
+                    offer.Reward != reward)
+                {
+                    offer = Mission.CreateFreightContract(
+                        commodity,
+                        destination,
+                        quantity,
+                        reward,
+                        destination.Config?.SystemIndex ?? 0,
+                        offeredBy: $"{destination.Name} Authority",
+                        factionId: destination.FactionId);
+                    _freightOffers[key] = offer;
+                }
+
+                if (offer != null)
+                    offers.Add(offer);
+            }
+
+            foreach (string key in _freightOffers.Keys.Where(key => !eligibleKeys.Contains(key)).ToList())
+                _freightOffers.Remove(key);
+
+            return offers;
+        }
+
+        private bool TryBuildFreightTerms(
+            Station destination,
+            StationMarketListing listing,
+            out Commodity commodity,
+            out int quantity,
+            out int reward)
+        {
+            commodity = listing?.Commodity;
+            quantity = 0;
+            reward = 0;
+            if (destination == null || listing == null || commodity == null ||
+                string.IsNullOrWhiteSpace(commodity.Id) || string.IsNullOrWhiteSpace(commodity.Name) ||
+                commodity.VolumePerUnit <= 0 || commodity.BasePrice <= 0 ||
+                commodity.IsMissionCargo || commodity.IsContraband ||
+                !listing.IsAvailable || listing.BaseBuyPrice <= 0 || listing.BaseSellPrice <= 0 ||
+                listing.BaselineStock <= 0 || listing.Stock < 0)
+            {
+                return false;
+            }
+
+            long shortage = (long)listing.BaselineStock - listing.Stock;
+            long thresholdStock = (long)listing.BaselineStock * FreightShortageThresholdPercent / 100L;
+            if (shortage < FreightMinimumShortageUnits || listing.Stock >= thresholdStock)
+                return false;
+
+            long requested = (shortage * FreightShortageSharePercent + 99L) / 100L;
+            int volumeBound = FreightMaximumCargoVolume / commodity.VolumePerUnit;
+            long bounded = Math.Min(Math.Min(requested, FreightMaximumUnits), volumeBound);
+            if (bounded <= 0)
+                return false;
+            quantity = (int)bounded;
+
+            long severityBasisPoints = Math.Clamp(shortage * 10_000L / listing.BaselineStock, 0L, 10_000L);
+            long bonusPercent = 15L + severityBasisPoints * 30L / 10_000L;
+            long rawReward = (long)commodity.BasePrice * quantity * (100L + bonusPercent) / 100L;
+            rawReward = Math.Clamp(rawReward, 250L, FreightMaximumReward);
+
+            if (listing.Stock > listing.MinimumStock && listing.BuyPrice > 0)
+                rawReward = Math.Min(rawReward, Math.Max(1L, (long)listing.BuyPrice * quantity - 1L));
+
+            reward = (int)Math.Clamp(rawReward, 1L, int.MaxValue);
+            return reward > 0;
+        }
+
+        private static string BuildFreightOfferKey(Station station, Commodity commodity) =>
+            $"{Mission.BuildStationIdentity(station)}:{commodity?.Id ?? string.Empty}";
+
+        private static bool IsMatchingFreight(Mission mission, Station destination, Commodity commodity)
+        {
+            return mission != null &&
+                mission.Type == MissionType.FreightContract &&
+                string.Equals(mission.DestinationStationId, Mission.BuildStationIdentity(destination), StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(mission.CommodityId, commodity?.Id, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string PickDestination(IReadOnlyList<Station> stations, Station origin)
@@ -207,6 +337,19 @@ namespace Roguelancer
                 return RejectAcceptance(mission, "courier metadata is invalid");
             }
 
+            if (mission.Type == MissionType.FreightContract)
+            {
+                Commodity freightCommodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+                if (freightCommodity == null || freightCommodity.IsMissionCargo || freightCommodity.IsContraband ||
+                    freightCommodity.VolumePerUnit <= 0 || mission.RequiredQuantity <= 0 ||
+                    string.IsNullOrWhiteSpace(mission.Destination) ||
+                    string.IsNullOrWhiteSpace(mission.DestinationStationId) ||
+                    _cargoHold == null)
+                {
+                    return RejectAcceptance(mission, "freight contract metadata or cargo authority is invalid");
+                }
+            }
+
             mission.SetOrigin(originStation);
             if (mission.Type == MissionType.CourierDelivery &&
                 !string.Equals(mission.SourceStationName, mission.OriginStationName, StringComparison.OrdinalIgnoreCase))
@@ -214,11 +357,15 @@ namespace Roguelancer
                 return RejectAcceptance(mission, $"courier must be accepted at {mission.SourceStationName}");
             }
 
+            if (mission.Type == MissionType.FreightContract && !RegisterFreightReservation(mission))
+                return RejectAcceptance(mission, "freight reservation could not be registered");
+
             mission.AcceptedAtUtc = DateTime.UtcNow;
             mission.Status = MissionStatus.Accepted;
 
             if (_worldManager != null && !_worldManager.TryAcceptMission(mission, out string failureReason))
             {
+                ReleaseFreightReservation(mission);
                 mission.Status = MissionStatus.Available;
                 _worldManager.OnMissionFinished(mission);
                 return RejectAcceptance(mission, $"mission unavailable: {failureReason}");
@@ -231,6 +378,12 @@ namespace Roguelancer
             if (mission.Type == MissionType.CourierDelivery)
             {
                 _notificationManager?.ShowMessage($"Mission cargo loaded: {mission.GetCargoLabel()}", 3f);
+            }
+            else if (mission.Type == MissionType.FreightContract)
+            {
+                _notificationManager?.ShowMessage(
+                    $"Freight reserved: {GetFreightReservedQuantity(mission)}/{mission.RequiredQuantity} units",
+                    3f);
             }
             Console.WriteLine($"[MISSION] Accepted: {mission.GetSummary()} | Origin: {mission.OriginStationName}");
             return true;
@@ -261,9 +414,71 @@ namespace Roguelancer
             _worldManager?.OnMissionFinished(mission);
             string completionMessage = mission.Type == MissionType.CourierDelivery
                 ? $"Cargo delivered - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR"
+                : mission.Type == MissionType.FreightContract
+                    ? $"Freight delivered - +{mission.Reward:N0} CR"
                 : $"Objective complete - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR";
             _notificationManager?.ShowMessage(completionMessage, 4f);
-            Console.WriteLine($"[MISSION] Objective complete: {mission.Title} | Reward pending: {mission.Reward:N0} CR");
+            Console.WriteLine($"[MISSION] Objective complete: {mission.Title} | Reward {(mission.Type == MissionType.FreightContract ? "paid" : "pending")}: {mission.Reward:N0} CR");
+        }
+
+        public bool CompleteFreightMission(Mission mission, out string message)
+        {
+            message = string.Empty;
+            if (mission == null || mission.Type != MissionType.FreightContract ||
+                !ReferenceEquals(ActiveMission, mission) || !mission.IsActive)
+            {
+                message = "freight mission is not active";
+                return false;
+            }
+
+            if (mission.Reward <= 0 || _playerCredits == null ||
+                (long)_playerCredits.Credits + mission.Reward > int.MaxValue)
+            {
+                message = "freight reward transaction is invalid";
+                return false;
+            }
+
+            CompleteMission(mission);
+            mission.RewardPaid = true;
+            _playerCredits.AddCredits(mission.Reward);
+            _notificationManager?.ShowMessage($"Freight reward received: {mission.Reward:N0} CR", 4f);
+            message = $"Freight reward received: {mission.Reward:N0} CR";
+            return true;
+        }
+
+        public bool CanPayFreightReward(Mission mission, out string message)
+        {
+            message = string.Empty;
+            if (mission == null || mission.Type != MissionType.FreightContract ||
+                !ReferenceEquals(ActiveMission, mission) || mission.Reward <= 0 || _playerCredits == null)
+            {
+                message = "freight reward transaction is invalid";
+                return false;
+            }
+
+            if ((long)_playerCredits.Credits + mission.Reward > int.MaxValue)
+            {
+                message = "credit total is invalid";
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool RegisterFreightReservation(Mission mission)
+        {
+            if (mission?.Type != MissionType.FreightContract || _cargoHold == null)
+                return mission?.Type != MissionType.FreightContract;
+
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+            return commodity != null &&
+                _cargoHold.RegisterFreightReservation(mission.Id, commodity, mission.RequiredQuantity);
+        }
+
+        public void ReleaseFreightReservation(Mission mission)
+        {
+            if (mission?.Type == MissionType.FreightContract)
+                _cargoHold?.ReleaseMissionCargoReservation(mission.Id);
         }
 
         public bool TryClaimReward(Mission mission, Station station, out string message)
@@ -334,6 +549,7 @@ namespace Roguelancer
             if (mission == null || !ReferenceEquals(ActiveMission, mission) || !mission.IsActive)
                 return;
 
+            ReleaseFreightReservation(mission);
             mission.Status = MissionStatus.Failed;
             _activeMissions.Remove(mission);
             _completedMissions.Add(mission);

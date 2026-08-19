@@ -230,6 +230,7 @@ namespace Roguelancer {
         private readonly bool _runTrafficSmoke;
         private readonly bool _runLootSmoke;
         private readonly bool _runMissionSmoke;
+        private readonly bool _runFreightSmoke;
         private readonly bool _runNavSmoke;
         private readonly bool _runDockSmoke;
         private readonly bool _runShipSmoke;
@@ -297,6 +298,7 @@ namespace Roguelancer {
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMissionSmoke = args?.Any(arg => string.Equals(arg, "--mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runFreightSmoke = args?.Any(arg => string.Equals(arg, "--freight-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runNavSmoke = args?.Any(arg => string.Equals(arg, "--nav-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runDockSmoke = args?.Any(arg => string.Equals(arg, "--dock-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runShipSmoke = args?.Any(arg => string.Equals(arg, "--ship-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -922,7 +924,12 @@ namespace Roguelancer {
             MountedEquipmentRenderer.LoadContent(Content);
 
             // Initialize mission manager
-            _missionManager = new MissionManager(_playerCredits, _notificationManager, _reputationManager);
+            _missionManager = new MissionManager(
+                _playerCredits,
+                _notificationManager,
+                _reputationManager,
+                _commodityDealer?.MarketManager,
+                _playerShip?.CargoHold);
 
             // Initialize NPC weapon system
             _npcWeaponSystem = new NpcWeaponSystem(GraphicsDevice, _reputationManager);
@@ -1118,7 +1125,8 @@ namespace Roguelancer {
                 _npcShips,
                 _spaceObjects,
                 () => _stationManager?.GetStations() ?? new List<Station>(),
-                HandleNpcDestroyed);
+                HandleNpcDestroyed,
+                _commodityDealer?.MarketManager);
             _missionManager?.SetWorldManager(_missionWorldManager);
             _stationDockUI?.SetMissionWorldManager(_missionWorldManager);
             if (_performanceAutoMission)
@@ -1182,6 +1190,11 @@ namespace Roguelancer {
             else if (_runMissionSmoke)
             {
                 var result = RunMissionSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runFreightSmoke)
+            {
+                var result = RunFreightSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runNavSmoke)
@@ -1277,6 +1290,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("traffic smoke", RunTrafficSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("loot smoke", RunLootSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("mission smoke", RunMissionSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("freight smoke", RunFreightSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("nav smoke", RunNavSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("dock smoke", RunDockSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("ship smoke", RunShipSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1448,6 +1462,11 @@ namespace Roguelancer {
                 Console.WriteLine($"[MISSION SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
+        }
+
+        private (int Passed, int Failed) RunFreightSmokeTest()
+        {
+            return new FreightContractSmokeTest().Run();
         }
 
         private void StartPerformanceMission()

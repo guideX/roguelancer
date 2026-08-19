@@ -47,7 +47,7 @@ public sealed class StationMissionBoardUI
     {
         _stationName = string.IsNullOrWhiteSpace(stationName) ? "Station" : stationName;
         _station = station;
-        _jobBoard.RefreshMissions(MissionCatalog.All.Count, station?.FactionId, station);
+        _jobBoard.RefreshMissions(6, station?.FactionId, station);
         _statusMessage = string.Empty;
         _statusRemaining = 0f;
         _inputGate = true;
@@ -193,7 +193,9 @@ public sealed class StationMissionBoardUI
         Mission active = _missionManager.ActiveMission;
         Mission completed = _missionManager.UnclaimedCompletedMission;
         string activeLine = active != null
-            ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - {active.GetHudProgressLine()}"
+            ? active.Type == MissionType.FreightContract
+                ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - Reserved {_cargoHold?.GetMissionCargoQuantity(active.Id) ?? 0}/{active.RequiredQuantity} - {active.GetDestinationLabel()}"
+                : $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - {active.GetHudProgressLine()}"
             : completed != null
                 ? $"MISSION COMPLETE: {completed.Title} - {completed.Reward:N0} CR"
                 : "ACTIVE: None";
@@ -245,6 +247,21 @@ public sealed class StationMissionBoardUI
             spriteBatch.DrawString(_font, $"Free cargo space: {freeSpace}", new Vector2(x, y), Color.Cyan);
             y += 26;
         }
+        else if (mission.Type == MissionType.FreightContract)
+        {
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+            int reserved = _cargoHold?.GetMissionCargoQuantity(mission.Id) ?? 0;
+            int owned = commodity == null ? 0 : _cargoHold?.GetCommodityQuantity(commodity.Name) ?? 0;
+            int remaining = Math.Max(0, mission.RequiredQuantity - reserved);
+            spriteBatch.DrawString(_font, $"Destination: {mission.GetDestinationLabel()}", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Commodity: {commodity?.Name ?? mission.CommodityId}", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Required: {mission.RequiredQuantity:N0}   Reserved: {reserved:N0}   Remaining: {remaining:N0}", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Owned total: {owned:N0}   Volume: {(commodity?.VolumePerUnit ?? 0)} / unit", new Vector2(x, y), Color.Cyan);
+            y += 26;
+        }
         spriteBatch.DrawString(_font, $"Reward: {mission.Reward:N0} CR", new Vector2(x, y), Color.Yellow);
         y += 30;
         string action = _missionManager.ActiveMission == null ? "[ENTER] ACCEPT" : "ACTIVE MISSION BLOCKS ACCEPT";
@@ -288,6 +305,7 @@ public sealed class StationMissionBoardUI
         MissionType.ReachLocation => Color.Cyan,
         MissionType.DestroyHostiles => Color.IndianRed,
         MissionType.CourierDelivery => Color.LimeGreen,
+        MissionType.FreightContract => Color.LightSkyBlue,
         MissionType.Bounty => Color.Red,
         MissionType.Escort => Color.Yellow,
         _ => Color.White

@@ -129,7 +129,7 @@ namespace Roguelancer
                 npc.CurrentMission = null;
             }
 
-            _jobBoard?.RefreshMissions(MissionCatalog.All.Count, _dockedStation?.FactionId, _dockedStation);
+            _jobBoard?.RefreshMissions(6, _dockedStation?.FactionId, _dockedStation);
 
             // Notify mission manager we docked (for delivery missions)
             _missionWorldManager?.NotifyStationDocked(station);
@@ -1169,6 +1169,7 @@ namespace Roguelancer
                     {
                         MissionType.Delivery => Color.Cyan,
                         MissionType.CourierDelivery => Color.LimeGreen,
+                        MissionType.FreightContract => Color.LightSkyBlue,
                         MissionType.Bounty => Color.Red,
                         MissionType.Escort => Color.Yellow,
                         _ => Color.White
@@ -1248,6 +1249,7 @@ namespace Roguelancer
                 {
                     MissionType.Delivery => Color.Cyan,
                     MissionType.CourierDelivery => Color.LimeGreen,
+                    MissionType.FreightContract => Color.LightSkyBlue,
                     MissionType.Bounty => Color.Red,
                     MissionType.Escort => Color.Yellow,
                     _ => Color.White
@@ -1277,6 +1279,10 @@ namespace Roguelancer
                     if (m.Type == MissionType.CourierDelivery)
                     {
                         rewardStr += $" | Cargo: {m.GetCargoLabel()}";
+                    }
+                    else if (m.Type == MissionType.FreightContract)
+                    {
+                        rewardStr += $" | Cargo: {m.GetTargetLabel()}";
                     }
                     if (m.TimeLimit > 0)
                     {

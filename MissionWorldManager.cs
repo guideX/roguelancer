@@ -31,6 +31,7 @@ namespace Roguelancer
         private readonly List<SpaceObject> _spaceObjects;
         private readonly Func<IReadOnlyList<Station>> _stationProvider;
         private readonly Action<NpcShip> _spawnedNpcDestroyedCallback;
+        private readonly MarketManager _marketManager;
         private readonly Dictionary<int, MissionRuntimeState> _runtimeStates = new();
 
         public MissionWorldManager(
@@ -40,7 +41,8 @@ namespace Roguelancer
             List<NpcShip> npcShips,
             List<SpaceObject> spaceObjects,
             Func<IReadOnlyList<Station>> stationProvider,
-            Action<NpcShip> spawnedNpcDestroyedCallback = null)
+            Action<NpcShip> spawnedNpcDestroyedCallback = null,
+            MarketManager marketManager = null)
         {
             _missionManager = missionManager;
             _waypointSystem = waypointSystem;
@@ -49,6 +51,7 @@ namespace Roguelancer
             _spaceObjects = spaceObjects ?? new List<SpaceObject>();
             _stationProvider = stationProvider ?? (() => Array.Empty<Station>());
             _spawnedNpcDestroyedCallback = spawnedNpcDestroyedCallback;
+            _marketManager = marketManager;
         }
 
         public bool TryAcceptMission(Mission mission, out string failureReason)
@@ -75,6 +78,8 @@ namespace Roguelancer
                     return TryBindDeliveryMission(state, out failureReason);
                 case MissionType.CourierDelivery:
                     return TryBindCourierMission(state, out failureReason);
+                case MissionType.FreightContract:
+                    return TryBindFreightMission(state, out failureReason);
                 case MissionType.Escort:
                     return TryBindEscortMission(state, out failureReason);
                 default:
@@ -189,6 +194,19 @@ namespace Roguelancer
                 if (!mission.MissionCargoLoaded)
                 {
                     FailMission(mission, "mission package missing after load");
+                }
+            }
+            else if (mission.Type == MissionType.FreightContract)
+            {
+                state.DeliveryDestination ??= ResolveCourierDestination(mission);
+                state.DeliveryCommodity ??= CommodityCatalog.GetByIdOrName(mission.CommodityId);
+                state.DeliveryQuantity = mission.RequiredQuantity;
+
+                if (state.DeliveryDestination != null)
+                {
+                    mission.DestinationStationId = Mission.BuildStationIdentity(state.DeliveryDestination);
+                    mission.TargetSpaceObject = state.DeliveryDestination;
+                    mission.TargetPosition = state.DeliveryDestination.Position;
                 }
             }
             else if (mission.Type == MissionType.Escort)
@@ -312,11 +330,20 @@ namespace Roguelancer
                     continue;
                 }
 
-                string expectedIdentity = mission.Type == MissionType.CourierDelivery
+                string expectedIdentity = mission.Type is MissionType.CourierDelivery or MissionType.FreightContract
                     ? mission.DestinationStationId
                     : string.Empty;
                 if (!IsStationMatch(station, resolvedStation, mission.Destination, expectedIdentity))
                 {
+                    continue;
+                }
+
+                if (mission.Type == MissionType.FreightContract)
+                {
+                    if (!TryCompleteFreightDelivery(state, station))
+                        continue;
+
+                    completedAny = true;
                     continue;
                 }
 
@@ -783,6 +810,47 @@ namespace Roguelancer
             return true;
         }
 
+        private bool TryBindFreightMission(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            if (mission == null || _marketManager == null)
+            {
+                failureReason = "freight market authority is unavailable";
+                return false;
+            }
+
+            Station destination = ResolveCourierDestination(mission);
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+            if (destination == null)
+            {
+                failureReason = $"destination '{mission.Destination}' could not be resolved";
+                return false;
+            }
+
+            if (commodity == null || commodity.IsMissionCargo || commodity.IsContraband ||
+                commodity.VolumePerUnit <= 0 || mission.RequiredQuantity <= 0)
+            {
+                failureReason = "freight commodity metadata is invalid";
+                return false;
+            }
+
+            if (_marketManager.GetListingForCommodity(destination, commodity) == null)
+            {
+                failureReason = $"{commodity.Name} is not traded at {destination.Name}";
+                return false;
+            }
+
+            mission.DestinationStationId = Mission.BuildStationIdentity(destination);
+            mission.RequiredProgress = mission.RequiredQuantity;
+            state.DeliveryDestination = destination;
+            state.DeliveryCommodity = commodity;
+            state.DeliveryQuantity = mission.RequiredQuantity;
+            mission.TargetSpaceObject = destination;
+            mission.TargetPosition = destination.Position;
+            return true;
+        }
+
         private bool TryBindEscortMission(MissionRuntimeState state, out string failureReason)
         {
             failureReason = string.Empty;
@@ -918,6 +986,63 @@ namespace Roguelancer
 
             int quantity = mission.PackageQuantity > 0 ? mission.PackageQuantity : state.DeliveryQuantity;
             return _playerShip.CargoHold.RemoveMissionCargo(mission.Id, commodity, quantity);
+        }
+
+        private bool TryCompleteFreightDelivery(MissionRuntimeState state, Station station)
+        {
+            Mission mission = state?.Mission;
+            Commodity commodity = state?.DeliveryCommodity ?? CommodityCatalog.GetByIdOrName(mission?.CommodityId);
+            CargoHold cargo = _playerShip?.CargoHold;
+            int quantity = mission?.RequiredQuantity ?? 0;
+            if (mission == null || commodity == null || cargo == null || quantity <= 0 ||
+                !cargo.HasMissionCargo(mission.Id, commodity.Id, quantity) ||
+                cargo.GetMissionCargoQuantity(mission.Id) != quantity)
+            {
+                return false;
+            }
+
+            string marketFailure = string.Empty;
+            if (_marketManager == null ||
+                !_marketManager.CanAddSupply(station, commodity, quantity, out marketFailure) ||
+                _missionManager == null)
+            {
+                if (!string.IsNullOrWhiteSpace(marketFailure))
+                    Console.WriteLine($"[MISSION] Freight delivery held: {marketFailure}");
+                return false;
+            }
+
+            if (!_missionManager.CanPayFreightReward(mission, out string rewardPreflightFailure))
+            {
+                Console.WriteLine($"[MISSION] Freight delivery held: {rewardPreflightFailure}");
+                return false;
+            }
+
+            if (!cargo.RemoveMissionCargo(mission.Id, commodity, quantity))
+                return false;
+
+            if (!_marketManager.TryAddSupply(station, commodity, quantity, out string addFailure))
+            {
+                // The preflight above should make this unreachable in the
+                // single-threaded game loop. Restore the exact protected stack
+                // if the market authority rejects the commit defensively.
+                cargo.AddMissionCargo(mission.Id, commodity, quantity);
+                cargo.RegisterFreightReservation(mission.Id, commodity, quantity);
+                Console.WriteLine($"[MISSION] Freight delivery rolled back: {addFailure}");
+                return false;
+            }
+
+            mission.DeliveredQuantity = quantity;
+            mission.ObjectiveComplete = true;
+            if (!_missionManager.CompleteFreightMission(mission, out string rewardFailure))
+            {
+                cargo.AddMissionCargo(mission.Id, commodity, quantity);
+                cargo.RegisterFreightReservation(mission.Id, commodity, quantity);
+                Console.WriteLine($"[MISSION] Freight reward failed after delivery: {rewardFailure}");
+                return false;
+            }
+
+            Console.WriteLine($"[MISSION] Freight delivered: {commodity.Name} x{quantity} -> {station.Name} (mission #{mission.Id})");
+            return true;
         }
 
         private MissionRuntimeState GetOrCreateState(Mission mission)

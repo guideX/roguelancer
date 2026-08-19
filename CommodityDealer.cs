@@ -21,6 +21,7 @@ namespace Roguelancer
         /// Station currently hosting the market UI.
         /// </summary>
         public Station CurrentStation => _currentStation;
+        public MarketManager MarketManager => _marketManager;
 
         /// <summary>
         /// True when the current station is using the legacy fallback catalog instead of a station-specific config.

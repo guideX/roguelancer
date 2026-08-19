@@ -10,7 +10,7 @@ namespace Roguelancer
     /// </summary>
     public sealed class SaveGameData
     {
-        public const int CurrentSchemaVersion = 4;
+        public const int CurrentSchemaVersion = 5;
 
         [JsonPropertyName("schema_version")]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -265,6 +265,12 @@ namespace Roguelancer
 
         [JsonPropertyName("delivered_quantity")]
         public int DeliveredQuantity { get; set; }
+
+        [JsonPropertyName("commodity_id")]
+        public string CommodityId { get; set; } = string.Empty;
+
+        [JsonPropertyName("required_quantity")]
+        public int RequiredQuantity { get; set; }
     }
 
     /// <summary>
