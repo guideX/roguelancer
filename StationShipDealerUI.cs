@@ -11,8 +11,7 @@ namespace Roguelancer;
 /// overlay over the active station scene, so opening it never creates a second
 /// station or replaces the authoritative player state.
 /// </summary>
-public sealed class StationShipDealerUI
-{
+public sealed class StationShipDealerUI {
     private readonly SpriteFont _font;
     private readonly Texture2D _pixel;
     private readonly ShipDealer _shipDealer;
@@ -26,8 +25,7 @@ public sealed class StationShipDealerUI
     private string _statusMessage = string.Empty;
     private float _statusRemaining;
 
-    public StationShipDealerUI(SpriteFont font, Texture2D pixel, ShipDealer shipDealer, Action<string> showMessage = null)
-    {
+    public StationShipDealerUI(SpriteFont font, Texture2D pixel, ShipDealer shipDealer, Action<string> showMessage = null) {
         _font = font ?? throw new ArgumentNullException(nameof(font));
         _pixel = pixel ?? throw new ArgumentNullException(nameof(pixel));
         _shipDealer = shipDealer ?? throw new ArgumentNullException(nameof(shipDealer));
@@ -38,8 +36,7 @@ public sealed class StationShipDealerUI
 
     public event Action<ShipDefinition> OnShipPurchased;
 
-    public void Open(string stationName, PlayerCredits credits, Ship playerShip)
-    {
+    public void Open(string stationName, PlayerCredits credits, Ship playerShip) {
         _stationName = string.IsNullOrWhiteSpace(stationName) ? "Station" : stationName;
         _credits = credits;
         _playerShip = playerShip;
@@ -50,16 +47,14 @@ public sealed class StationShipDealerUI
         IsOpen = true;
     }
 
-    public void Close()
-    {
+    public void Close() {
         IsOpen = false;
         _inputGate = false;
         _statusMessage = string.Empty;
         _statusRemaining = 0f;
     }
 
-    public void Update(float deltaSeconds)
-    {
+    public void Update(float deltaSeconds) {
         if (_statusRemaining <= 0f) return;
         _statusRemaining = MathF.Max(0f, _statusRemaining - MathF.Max(0f, deltaSeconds));
         if (_statusRemaining <= 0f) _statusMessage = string.Empty;
@@ -69,36 +64,30 @@ public sealed class StationShipDealerUI
     /// Consume all station input while open. Every action is edge-triggered and
     /// the opening E press is gated until the key has been released.
     /// </summary>
-    public bool HandleInput(KeyboardState keyboardState, KeyboardState previousKeyboardState)
-    {
+    public bool HandleInput(KeyboardState keyboardState, KeyboardState previousKeyboardState) {
         if (!IsOpen) return false;
 
-        if (_inputGate)
-        {
+        if (_inputGate) {
             if (keyboardState.IsKeyUp(Keys.E)) _inputGate = false;
             return true;
         }
 
-        if (Pressed(keyboardState, previousKeyboardState, Keys.Escape))
-        {
+        if (Pressed(keyboardState, previousKeyboardState, Keys.Escape)) {
             Close();
             return true;
         }
 
-        if (Pressed(keyboardState, previousKeyboardState, Keys.Up) || Pressed(keyboardState, previousKeyboardState, Keys.W))
-        {
+        if (Pressed(keyboardState, previousKeyboardState, Keys.Up) || Pressed(keyboardState, previousKeyboardState, Keys.W)) {
             MoveSelection(-1);
             return true;
         }
 
-        if (Pressed(keyboardState, previousKeyboardState, Keys.Down) || Pressed(keyboardState, previousKeyboardState, Keys.S))
-        {
+        if (Pressed(keyboardState, previousKeyboardState, Keys.Down) || Pressed(keyboardState, previousKeyboardState, Keys.S)) {
             MoveSelection(1);
             return true;
         }
 
-        if (Pressed(keyboardState, previousKeyboardState, Keys.Enter) || Pressed(keyboardState, previousKeyboardState, Keys.E))
-        {
+        if (Pressed(keyboardState, previousKeyboardState, Keys.Enter) || Pressed(keyboardState, previousKeyboardState, Keys.E)) {
             PurchaseSelectedShip();
             return true;
         }
@@ -106,8 +95,7 @@ public sealed class StationShipDealerUI
         return true;
     }
 
-    public void Draw(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
-    {
+    public void Draw(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice) {
         if (!IsOpen || spriteBatch == null || graphicsDevice == null) return;
 
         int width = graphicsDevice.Viewport.Width;
@@ -142,8 +130,7 @@ public sealed class StationShipDealerUI
         IReadOnlyList<ShipDefinition> ships = _shipDealer.AvailableShips;
         int listY = listPanel.Y + 48;
         int rowHeight = 44;
-        for (int i = 0; i < ships.Count; i++)
-        {
+        for (int i = 0; i < ships.Count; i++) {
             int rowY = listY + i * rowHeight;
             if (rowY + rowHeight > listPanel.Bottom - 10) break;
 
@@ -156,8 +143,7 @@ public sealed class StationShipDealerUI
 
             string label = $"{(selected ? "> " : "  ")}{ship.Name}";
             spriteBatch.DrawString(_font, label, new Vector2(row.X + 10, row.Y + 8), current ? Color.Cyan : Color.White);
-            if (current)
-            {
+            if (current) {
                 string currentLabel = "CURRENT";
                 Vector2 currentSize = _font.MeasureString(currentLabel);
                 spriteBatch.DrawString(_font, currentLabel, new Vector2(row.Right - currentSize.X - 10, row.Y + 8), Color.Cyan);
@@ -166,19 +152,15 @@ public sealed class StationShipDealerUI
 
         ShipDefinition selectedShip = GetSelectedShip();
         spriteBatch.DrawString(_font, "SELECTED SHIP", new Vector2(detailPanel.X + 16, detailPanel.Y + 12), Color.LightSkyBlue);
-        if (selectedShip == null)
-        {
+        if (selectedShip == null) {
             spriteBatch.DrawString(_font, "No valid ship inventory.", new Vector2(detailPanel.X + 16, detailPanel.Y + 54), Color.OrangeRed);
-        }
-        else
-        {
+        } else {
             DrawSelectedShip(spriteBatch, detailPanel, selectedShip);
         }
 
         string footer = "UP/DOWN or W/S: Select    ENTER/E: Purchase    ESC: Back";
         spriteBatch.DrawString(_font, footer, new Vector2(panel.X + 24, panel.Bottom - 42), Color.LightGray);
-        if (!string.IsNullOrWhiteSpace(_statusMessage))
-        {
+        if (!string.IsNullOrWhiteSpace(_statusMessage)) {
             Vector2 statusSize = _font.MeasureString(_statusMessage);
             Color statusColor = _statusMessage.StartsWith("Purchased", StringComparison.OrdinalIgnoreCase)
                 ? Color.Lime
@@ -187,8 +169,7 @@ public sealed class StationShipDealerUI
         }
     }
 
-    private void DrawSelectedShip(SpriteBatch spriteBatch, Rectangle detailPanel, ShipDefinition ship)
-    {
+    private void DrawSelectedShip(SpriteBatch spriteBatch, Rectangle detailPanel, ShipDefinition ship) {
         int x = detailPanel.X + 16;
         int y = detailPanel.Y + 48;
         bool current = IsCurrentShip(ship);
@@ -226,17 +207,14 @@ public sealed class StationShipDealerUI
         spriteBatch.DrawString(_font, Shorten(action, 58), new Vector2(x, Math.Min(y, detailPanel.Bottom - 38)), actionColor);
     }
 
-    private void PurchaseSelectedShip()
-    {
+    private void PurchaseSelectedShip() {
         ShipDefinition selectedShip = GetSelectedShip();
-        if (selectedShip == null)
-        {
+        if (selectedShip == null) {
             SetStatus("No ship selected.");
             return;
         }
 
-        if (_shipDealer.TryPurchaseShip(selectedShip, _credits, _playerShip, out string message))
-        {
+        if (_shipDealer.TryPurchaseShip(selectedShip, _credits, _playerShip, out string message)) {
             OnShipPurchased?.Invoke(selectedShip);
             Close();
             return;
@@ -246,20 +224,16 @@ public sealed class StationShipDealerUI
         _showMessage(message);
     }
 
-    private int FindFirstReplacementIndex()
-    {
-        for (int i = 0; i < _shipDealer.AvailableShips.Count; i++)
-        {
+    private int FindFirstReplacementIndex() {
+        for (int i = 0; i < _shipDealer.AvailableShips.Count; i++) {
             if (!IsCurrentShip(_shipDealer.AvailableShips[i])) return i;
         }
         return 0;
     }
 
-    private void MoveSelection(int direction)
-    {
+    private void MoveSelection(int direction) {
         int count = _shipDealer.AvailableShips.Count;
-        if (count <= 0)
-        {
+        if (count <= 0) {
             _selectedIndex = 0;
             return;
         }
@@ -270,36 +244,30 @@ public sealed class StationShipDealerUI
         _statusRemaining = 0f;
     }
 
-    private ShipDefinition GetSelectedShip()
-    {
+    private ShipDefinition GetSelectedShip() {
         return _shipDealer.GetShipByIndex(_selectedIndex);
     }
 
-    private bool IsCurrentShip(ShipDefinition ship)
-    {
+    private bool IsCurrentShip(ShipDefinition ship) {
         return ship != null && _shipDealer.CurrentPlayerShip != null &&
             string.Equals(ship.Name, _shipDealer.CurrentPlayerShip.Name, StringComparison.OrdinalIgnoreCase);
     }
 
-    private void SetStatus(string message)
-    {
+    private void SetStatus(string message) {
         _statusMessage = string.IsNullOrWhiteSpace(message) ? "Transaction rejected." : message;
         _statusRemaining = 5f;
     }
 
-    private static bool Pressed(KeyboardState current, KeyboardState previous, Keys key)
-    {
+    private static bool Pressed(KeyboardState current, KeyboardState previous, Keys key) {
         return current.IsKeyDown(key) && previous.IsKeyUp(key);
     }
 
-    private static string Shorten(string value, int maxLength)
-    {
+    private static string Shorten(string value, int maxLength) {
         if (string.IsNullOrEmpty(value) || value.Length <= maxLength) return value ?? string.Empty;
         return value.Substring(0, Math.Max(0, maxLength - 3)) + "...";
     }
 
-    private void DrawBorder(SpriteBatch spriteBatch, Rectangle rectangle, Color color, int thickness)
-    {
+    private void DrawBorder(SpriteBatch spriteBatch, Rectangle rectangle, Color color, int thickness) {
         spriteBatch.Draw(_pixel, new Rectangle(rectangle.X, rectangle.Y, rectangle.Width, thickness), color);
         spriteBatch.Draw(_pixel, new Rectangle(rectangle.X, rectangle.Bottom - thickness, rectangle.Width, thickness), color);
         spriteBatch.Draw(_pixel, new Rectangle(rectangle.X, rectangle.Y, thickness, rectangle.Height), color);
