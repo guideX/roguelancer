@@ -10,7 +10,7 @@ namespace Roguelancer
     /// </summary>
     public sealed class SaveGameData
     {
-        public const int CurrentSchemaVersion = 6;
+        public const int CurrentSchemaVersion = 7;
 
         [JsonPropertyName("schema_version")]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -53,6 +53,12 @@ namespace Roguelancer
 
         [JsonPropertyName("station_markets")]
         public List<SaveMarketStateData> StationMarkets { get; set; } = new();
+
+        [JsonPropertyName("market_elapsed_ms")]
+        public long MarketElapsedMilliseconds { get; set; }
+
+        [JsonPropertyName("market_intelligence")]
+        public List<SaveMarketIntelligenceData> MarketIntelligence { get; set; } = new();
     }
 
     /// <summary>
@@ -328,5 +334,51 @@ namespace Roguelancer
 
         [JsonPropertyName("immediate_sell_price_ceiling")]
         public int ImmediateSellPriceCeiling { get; set; }
+    }
+
+    /// <summary>
+    /// A player's last observed quote. This is deliberately separate from the
+    /// authoritative runtime market snapshot above.
+    /// </summary>
+    public sealed class SaveMarketIntelligenceData
+    {
+        [JsonPropertyName("station_id")]
+        public string StationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("station_name")]
+        public string StationName { get; set; } = string.Empty;
+
+        [JsonPropertyName("system_index")]
+        public int SystemIndex { get; set; }
+
+        [JsonPropertyName("station_position")]
+        public SaveVector3Data StationPosition { get; set; } = new();
+
+        [JsonPropertyName("commodity_id")]
+        public string CommodityId { get; set; } = string.Empty;
+
+        [JsonPropertyName("stock")]
+        public int Stock { get; set; }
+
+        [JsonPropertyName("buy_price")]
+        public int BuyPrice { get; set; }
+
+        [JsonPropertyName("sell_price")]
+        public int SellPrice { get; set; }
+
+        [JsonPropertyName("baseline_stock")]
+        public int BaselineStock { get; set; }
+
+        [JsonPropertyName("demand_level")]
+        public int DemandLevel { get; set; }
+
+        [JsonPropertyName("market_condition")]
+        public string MarketCondition { get; set; } = string.Empty;
+
+        [JsonPropertyName("observed_at_ms")]
+        public long ObservedAtMilliseconds { get; set; }
+
+        [JsonPropertyName("source")]
+        public string Source { get; set; } = string.Empty;
     }
 }

@@ -55,6 +55,7 @@ public sealed class StationCommodityTraderUI
         _credits = credits;
         _playerShip = playerShip;
         _commodityDealer.SetDockedStation(station);
+        _commodityDealer.RefreshMarketIntelligence();
         _selectedIndex = 0;
         _quantity = 1;
         _buying = true;

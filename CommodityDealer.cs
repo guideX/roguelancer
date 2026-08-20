@@ -10,6 +10,7 @@ namespace Roguelancer
     public class CommodityDealer
     {
         private readonly MarketManager _marketManager;
+        private MarketIntelligence _marketIntelligence;
         private Station _currentStation;
 
         public CommodityDealer()
@@ -22,6 +23,15 @@ namespace Roguelancer
         /// </summary>
         public Station CurrentStation => _currentStation;
         public MarketManager MarketManager => _marketManager;
+
+        public void SetMarketIntelligence(MarketIntelligence marketIntelligence)
+        {
+            _marketIntelligence = marketIntelligence;
+            if (_currentStation != null)
+            {
+                _marketIntelligence?.SetCurrentStation(_currentStation);
+            }
+        }
 
         /// <summary>
         /// True when the current station is using the legacy fallback catalog instead of a station-specific config.
@@ -50,6 +60,7 @@ namespace Roguelancer
             _currentStation = station;
             if (station != null)
             {
+                _marketIntelligence?.SetCurrentStation(station);
                 string marketMode = _marketManager.HasMarketConfigForStation(station)
                     ? "station market"
                     : "legacy fallback catalog";
@@ -65,6 +76,12 @@ namespace Roguelancer
             }
 
             _currentStation = null;
+            _marketIntelligence?.ClearCurrentStation();
+        }
+
+        public void RefreshMarketIntelligence()
+        {
+            _marketIntelligence?.RefreshCurrentStation();
         }
 
         public IReadOnlyList<Commodity> GetCurrentMarketCommodities()
@@ -157,6 +174,7 @@ namespace Roguelancer
             }
 
             bool marketSuccess = _marketManager.TryBuy(_currentStation, commodity, quantity, credits, cargoHold, out message);
+            if (marketSuccess) _marketIntelligence?.RefreshCurrentStation();
             LogMarketResult(marketSuccess, message);
 
             return marketSuccess;
@@ -177,6 +195,7 @@ namespace Roguelancer
             }
 
             bool marketSuccess = _marketManager.TrySell(_currentStation, commodity, quantity, credits, cargoHold, out message);
+            if (marketSuccess) _marketIntelligence?.RefreshCurrentStation();
             LogMarketResult(marketSuccess, message);
 
             return marketSuccess;

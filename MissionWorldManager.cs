@@ -32,6 +32,7 @@ namespace Roguelancer
         private readonly Func<IReadOnlyList<Station>> _stationProvider;
         private readonly Action<NpcShip> _spawnedNpcDestroyedCallback;
         private readonly MarketManager _marketManager;
+        private readonly MarketIntelligence _marketIntelligence;
         private readonly Dictionary<int, MissionRuntimeState> _runtimeStates = new();
 
         public MissionWorldManager(
@@ -42,7 +43,8 @@ namespace Roguelancer
             List<SpaceObject> spaceObjects,
             Func<IReadOnlyList<Station>> stationProvider,
             Action<NpcShip> spawnedNpcDestroyedCallback = null,
-            MarketManager marketManager = null)
+            MarketManager marketManager = null,
+            MarketIntelligence marketIntelligence = null)
         {
             _missionManager = missionManager;
             _waypointSystem = waypointSystem;
@@ -52,6 +54,7 @@ namespace Roguelancer
             _stationProvider = stationProvider ?? (() => Array.Empty<Station>());
             _spawnedNpcDestroyedCallback = spawnedNpcDestroyedCallback;
             _marketManager = marketManager;
+            _marketIntelligence = marketIntelligence;
         }
 
         public bool TryAcceptMission(Mission mission, out string failureReason)
@@ -1099,6 +1102,8 @@ namespace Roguelancer
                 return false;
             }
 
+            _marketIntelligence?.ObserveStation(station, "CurrentStation");
+
             mission.DeliveredQuantity = quantity;
             mission.ObjectiveComplete = true;
             if (!_missionManager.CompleteFreightMission(mission, out string rewardFailure))
@@ -1152,6 +1157,8 @@ namespace Roguelancer
                 Console.WriteLine($"[MISSION] Export delivery rolled back: {addFailure}");
                 return false;
             }
+
+            _marketIntelligence?.ObserveStation(station, "CurrentStation");
 
             mission.DeliveredQuantity = quantity;
             mission.MissionCargoLoaded = false;

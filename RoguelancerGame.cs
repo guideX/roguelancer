@@ -179,6 +179,7 @@ namespace Roguelancer {
         private PlayerCredits _playerCredits;
         private ShipDealer _shipDealer;
         private CommodityDealer _commodityDealer;
+        private MarketIntelligence _marketIntelligence;
         private EquipmentDealer _equipmentDealer;
 
         // Mission system
@@ -238,6 +239,7 @@ namespace Roguelancer {
         private readonly bool _runEquipmentSmoke;
         private readonly bool _runHardpointSmoke;
         private readonly bool _runBarSmoke;
+        private readonly bool _runMarketIntelligenceSmoke;
         private readonly bool _runAllSmoke;
         private readonly bool _runPerformanceDiagnostics;
         private readonly bool _performanceAutoStation;
@@ -307,6 +309,7 @@ namespace Roguelancer {
             _runEquipmentSmoke = args?.Any(arg => string.Equals(arg, "--equipment-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runHardpointSmoke = args?.Any(arg => string.Equals(arg, "--hardpoint-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runBarSmoke = args?.Any(arg => string.Equals(arg, "--bar-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runMarketIntelligenceSmoke = args?.Any(arg => string.Equals(arg, "--market-intelligence-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPerformanceDiagnostics = args?.Any(arg => string.Equals(arg, "--perf-diagnostics", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceAutoStation = args?.Any(arg => string.Equals(arg, "--perf-station", StringComparison.OrdinalIgnoreCase)) == true;
@@ -920,6 +923,8 @@ namespace Roguelancer {
 
             // Initialize commodity dealer
             _commodityDealer = new CommodityDealer();
+            _marketIntelligence = new MarketIntelligence(_commodityDealer.MarketManager);
+            _commodityDealer.SetMarketIntelligence(_marketIntelligence);
 
             // Initialize equipment dealer
             _equipmentDealer = new EquipmentDealer();
@@ -931,7 +936,9 @@ namespace Roguelancer {
                 _notificationManager,
                 _reputationManager,
                 _commodityDealer?.MarketManager,
-                _playerShip?.CargoHold);
+                _playerShip?.CargoHold,
+                _marketIntelligence);
+            _missionManager.SetRouteAuthority(new MarketRouteAuthority(_config.JumpHoles));
 
             // Initialize NPC weapon system
             _npcWeaponSystem = new NpcWeaponSystem(GraphicsDevice, _reputationManager);
@@ -1128,7 +1135,8 @@ namespace Roguelancer {
                 _spaceObjects,
                 () => _stationManager?.GetStations() ?? new List<Station>(),
                 HandleNpcDestroyed,
-                _commodityDealer?.MarketManager);
+                _commodityDealer?.MarketManager,
+                _marketIntelligence);
             _missionManager?.SetWorldManager(_missionWorldManager);
             _stationDockUI?.SetMissionWorldManager(_missionWorldManager);
             if (_performanceAutoMission)
@@ -1234,6 +1242,11 @@ namespace Roguelancer {
                 var result = RunBarSocialSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runMarketIntelligenceSmoke)
+            {
+                var result = RunMarketIntelligenceSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else
             {
                 TryAutoLoadSavedGame();
@@ -1305,6 +1318,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("equipment smoke", RunEquipmentSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("hardpoint smoke", RunHardpointSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("bar social smoke", RunBarSocialSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("market intelligence smoke", RunMarketIntelligenceSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1580,6 +1594,19 @@ namespace Roguelancer {
             return new StationBarSocialSmokeTest().Run();
         }
 
+        private (int Passed, int Failed) RunMarketIntelligenceSmokeTest()
+        {
+            try
+            {
+                return new MarketIntelligenceSmokeTest(_stationManager?.GetStations()).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MARKET INTELLIGENCE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
         private bool HandleSaveLoadHotkeys(KeyboardState keyboardState)
         {
             if (keyboardState.IsKeyDown(Keys.F6) && _prevKeys.IsKeyUp(Keys.F6))
@@ -1679,6 +1706,8 @@ namespace Roguelancer {
             saveData.ActiveMissions = _saveGameManager?.CaptureMissions(_missionManager?.ActiveMissions) ?? new List<SaveMissionData>();
             saveData.CompletedMissions = _saveGameManager?.CaptureMissions(_missionManager?.CompletedMissions) ?? new List<SaveMissionData>();
             saveData.StationMarkets = _commodityDealer?.CaptureMarketState() ?? new List<SaveMarketStateData>();
+            saveData.MarketElapsedMilliseconds = _commodityDealer?.MarketManager?.ElapsedMilliseconds ?? 0L;
+            saveData.MarketIntelligence = _marketIntelligence?.CaptureState() ?? new List<SaveMarketIntelligenceData>();
 
             return saveData;
         }
@@ -1721,7 +1750,10 @@ namespace Roguelancer {
 
             _playerCredits?.SetCredits(saveData.PlayerCredits);
             _reputationManager?.LoadStandings(ToStandingDictionary(saveData));
+            _commodityDealer?.MarketManager?.RestoreElapsedMilliseconds(saveData.MarketElapsedMilliseconds);
             _commodityDealer?.RestoreMarketState(saveData.StationMarkets);
+            _marketIntelligence?.Clear();
+            _marketIntelligence?.RestoreState(saveData.MarketIntelligence);
 
             if (_saveGameManager != null)
             {

@@ -131,7 +131,7 @@ namespace Roguelancer
             }
 
             _jobBoard?.RefreshMissions(6, _dockedStation?.FactionId, _dockedStation);
-            _marketOpportunities = _missionManager?.GetMarketOpportunities(4) ?? Array.Empty<MarketOpportunity>();
+            _marketOpportunities = _missionManager?.GetKnownMarketOpportunities(4) ?? Array.Empty<MarketOpportunity>();
 
             // Notify mission manager we docked (for delivery missions)
             _missionWorldManager?.NotifyStationDocked(station);
@@ -1145,7 +1145,7 @@ namespace Roguelancer
             spriteBatch.DrawString(_font, title, new Vector2(centerX - titleSize.X / 2, 100), Color.Lime);
 
             string opportunityText = _marketOpportunities.Count == 0
-                ? "MARKET OPPORTUNITIES: No strong live signals"
+                ? "MARKET OPPORTUNITIES: No known routes or signals"
                 : $"MARKET OPPORTUNITIES: {string.Join(" | ", _marketOpportunities.Take(2).Select(opportunity => opportunity.GetDisplayText()))}";
             opportunityText = opportunityText.Length > 118 ? opportunityText.Substring(0, 115) + "..." : opportunityText;
             Vector2 opportunitySize = _font.MeasureString(opportunityText);
@@ -1464,7 +1464,7 @@ namespace Roguelancer
                 prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.R))
             {
                 _jobBoard.RefreshMissions(MissionCatalog.All.Count, _dockedStation?.FactionId, _dockedStation);
-                _marketOpportunities = _missionManager?.GetMarketOpportunities(4) ?? Array.Empty<MarketOpportunity>();
+                _marketOpportunities = _missionManager?.GetKnownMarketOpportunities(4) ?? Array.Empty<MarketOpportunity>();
                 return true;
             }
 

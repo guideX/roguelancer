@@ -57,6 +57,17 @@ namespace Roguelancer
         public IReadOnlyList<Commodity> FallbackCatalog => _fallbackCatalog;
 
         /// <summary>
+        /// Simulation time used by dynamic markets and market intelligence.
+        /// This is game time, never wall-clock time.
+        /// </summary>
+        public long ElapsedMilliseconds => _elapsedMilliseconds;
+
+        public void RestoreElapsedMilliseconds(long elapsedMilliseconds)
+        {
+            _elapsedMilliseconds = Math.Max(0L, elapsedMilliseconds);
+        }
+
+        /// <summary>
         /// Advances the economy using elapsed simulation time. No market is
         /// iterated here; accessed runtime listings lazily consume the elapsed
         /// time when read or transacted against.
@@ -112,6 +123,31 @@ namespace Roguelancer
 
             _commodityIndex.TryGetValue(NormalizeKey(commodityIdOrName), out var commodity);
             return commodity;
+        }
+
+        /// <summary>
+        /// Returns the stable station id from the authoritative station market
+        /// configuration. Stations without a configured market are not market
+        /// intelligence stations.
+        /// </summary>
+        public string GetStationId(Station station) => GetStationIdByName(station?.Name);
+
+        public string GetStationIdByName(string stationName)
+        {
+            string key = NormalizeKey(stationName);
+            if (string.IsNullOrWhiteSpace(key)) return string.Empty;
+
+            if (_marketConfigs.TryGetValue(key, out StationMarketConfig config))
+                return config.StationId ?? key;
+
+            return _marketConfigs.Values
+                .FirstOrDefault(candidate => NormalizeKey(candidate?.StationName) == key)?.StationId ?? string.Empty;
+        }
+
+        public bool IsKnownStationId(string stationId)
+        {
+            string key = NormalizeKey(stationId);
+            return !string.IsNullOrWhiteSpace(key) && _marketConfigs.ContainsKey(key);
         }
 
         public void LoadMarketConfigs()

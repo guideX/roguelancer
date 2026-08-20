@@ -18,6 +18,8 @@ namespace Roguelancer
         private readonly PlayerCredits _playerCredits;
         private readonly NotificationManager _notificationManager;
         private readonly MarketManager _marketManager;
+        private MarketIntelligence _marketIntelligence;
+        private MarketRouteAuthority _routeAuthority = new();
         private readonly CargoHold _cargoHold;
         private readonly Dictionary<string, Mission> _freightOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _exportOffers = new(StringComparer.OrdinalIgnoreCase);
@@ -66,18 +68,22 @@ namespace Roguelancer
             NotificationManager notificationManager,
             ReputationManager reputationManager = null,
             MarketManager marketManager = null,
-            CargoHold cargoHold = null)
+            CargoHold cargoHold = null,
+            MarketIntelligence marketIntelligence = null)
         {
             _playerCredits = playerCredits;
             _notificationManager = notificationManager;
             _reputationManager = reputationManager;
             _marketManager = marketManager;
             _cargoHold = cargoHold;
+            _marketIntelligence = marketIntelligence;
         }
 
         public void SetReputationManager(ReputationManager reputationManager) => _reputationManager = reputationManager;
         public void SetWaypointSystem(MissionWaypointSystem waypointSystem) => _waypointSystem = waypointSystem;
         public void SetWorldManager(MissionWorldManager worldManager) => _worldManager = worldManager;
+        public void SetMarketIntelligence(MarketIntelligence marketIntelligence) => _marketIntelligence = marketIntelligence;
+        public void SetRouteAuthority(MarketRouteAuthority routeAuthority) => _routeAuthority = routeAuthority ?? new MarketRouteAuthority();
         public void ShowNotification(string message, float durationSeconds = 3f) =>
             _notificationManager?.ShowMessage(message, durationSeconds);
 
@@ -304,6 +310,185 @@ namespace Roguelancer
                 .Take(boundedCount)
                 .ToList();
         }
+
+        /// <summary>
+        /// Player-facing market knowledge query. It compares only exact quotes
+        /// the player has observed at visited stations. The older
+        /// GetMarketOpportunities method above remains the bounded omniscient
+        /// diagnostic path used by Phase 16 tests and development tooling.
+        /// </summary>
+        public IReadOnlyList<MarketOpportunity> GetKnownMarketOpportunities(int count = MarketOpportunityMaximumEntries)
+        {
+            int boundedCount = Math.Clamp(count, 0, MarketOpportunityMaximumEntries);
+            if (boundedCount == 0 || _marketManager == null || _marketIntelligence == null)
+                return Array.Empty<MarketOpportunity>();
+
+            _marketIntelligence.RefreshCurrentStation();
+            long now = _marketManager.ElapsedMilliseconds;
+            List<MarketOpportunity> opportunities = new();
+            IReadOnlyList<MarketKnowledgeStation> stations = _marketIntelligence.KnownStations;
+
+            foreach (MarketKnowledgeStation station in stations)
+            {
+                foreach (MarketObservation observation in station.Observations)
+                {
+                    if (!IsExportCommodity(observation?.Commodity) || observation.BaselineStock <= 0 ||
+                        observation.Stock < 0 || observation.BuyPrice <= 0 || observation.SellPrice <= 0)
+                        continue;
+
+                    long shortage = Math.Max(0L, (long)observation.BaselineStock - observation.Stock);
+                    long surplus = Math.Max(0L, (long)observation.Stock - observation.BaselineStock);
+                    MarketObservationAgeBand age = observation.GetAgeBand(now);
+                    int ageFactor = GetAgeFactor(age);
+                    if (shortage >= FreightMinimumShortageUnits &&
+                        observation.Stock < (long)observation.BaselineStock * FreightShortageThresholdPercent / 100L)
+                    {
+                        int score = (int)Math.Clamp(
+                            shortage * 100L * ageFactor / 100L + observation.DemandLevel * 10L,
+                            0L,
+                            int.MaxValue);
+                        opportunities.Add(new MarketOpportunity(
+                            MarketOpportunityType.Shortage,
+                            observation.Commodity,
+                            observation.StationName,
+                            string.Empty,
+                            string.Empty,
+                            score,
+                            (int)Math.Min(shortage, int.MaxValue),
+                            $"SHORTAGE ({age.ToString().ToUpperInvariant()})",
+                            Math.Max(0, observation.BuyPrice - observation.SellPrice),
+                            station.StationId,
+                            string.Empty,
+                            age.ToString().ToUpperInvariant(),
+                            string.Empty));
+                    }
+
+                    if (surplus >= ExportMinimumSurplusUnits &&
+                        observation.Stock > (long)observation.BaselineStock * ExportSurplusThresholdPercent / 100L)
+                    {
+                        int score = (int)Math.Clamp(
+                            surplus * 100L * ageFactor / 100L + observation.DemandLevel * 10L,
+                            0L,
+                            int.MaxValue);
+                        opportunities.Add(new MarketOpportunity(
+                            MarketOpportunityType.Surplus,
+                            observation.Commodity,
+                            observation.StationName,
+                            string.Empty,
+                            string.Empty,
+                            score,
+                            (int)Math.Min(surplus, int.MaxValue),
+                            $"SURPLUS ({age.ToString().ToUpperInvariant()})",
+                            Math.Max(0, observation.BuyPrice - observation.SellPrice),
+                            station.StationId,
+                            string.Empty,
+                            age.ToString().ToUpperInvariant(),
+                            string.Empty));
+                    }
+                }
+            }
+
+            foreach (MarketKnowledgeStation origin in stations)
+            {
+                foreach (MarketKnowledgeStation destination in stations)
+                {
+                    if (origin == null || destination == null ||
+                        string.Equals(origin.StationId, destination.StationId, StringComparison.OrdinalIgnoreCase) ||
+                        !_routeAuthority.TryGetRoute(origin, destination, out MarketRouteMetric route))
+                        continue;
+
+                    foreach (MarketObservation source in origin.Observations)
+                    {
+                        if (!IsExportCommodity(source?.Commodity) || source.BaselineStock <= 0 ||
+                            source.Stock < (long)source.BaselineStock * 25L / 100L || source.BuyPrice <= 0)
+                            continue;
+                        if (!destination.TryGetObservation(source.Commodity.Id, out MarketObservation target) ||
+                            !IsExportCommodity(target.Commodity) || target.SellPrice <= 0 || target.DemandLevel <= 0)
+                            continue;
+
+                        int spread = target.SellPrice - source.BuyPrice;
+                        int minimumSpread = Math.Max(10, (int)Math.Ceiling(source.BuyPrice * 0.05d));
+                        if (spread < minimumSpread) continue;
+
+                        MarketObservationAgeBand sourceAge = source.GetAgeBand(now);
+                        MarketObservationAgeBand destinationAge = target.GetAgeBand(now);
+                        int score = CalculateKnownRouteScore(source, target, route, sourceAge, destinationAge);
+                        opportunities.Add(new MarketOpportunity(
+                            MarketOpportunityType.TradeRoute,
+                            source.Commodity,
+                            string.Empty,
+                            origin.StationName,
+                            destination.StationName,
+                            score,
+                            Math.Max(1, Math.Min(source.Stock, source.BaselineStock)),
+                            "TRADE ROUTE",
+                            spread,
+                            origin.StationId,
+                            destination.StationId,
+                            sourceAge.ToString().ToUpperInvariant(),
+                            destinationAge.ToString().ToUpperInvariant(),
+                            (long)Math.Max(0f, route.DistanceUnits),
+                            route.JumpCount));
+                    }
+                }
+            }
+
+            foreach (MarketMissionIntel intel in _marketIntelligence.MissionIntel)
+            {
+                Commodity commodity = _marketManager.ResolveCommodity(intel.CommodityId);
+                if (commodity == null || commodity.IsMissionCargo) continue;
+                opportunities.Add(new MarketOpportunity(
+                    intel.Condition.Equals("SURPLUS", StringComparison.OrdinalIgnoreCase)
+                        ? MarketOpportunityType.Surplus
+                        : MarketOpportunityType.Shortage,
+                    commodity,
+                    intel.StationName,
+                    string.Empty,
+                    string.Empty,
+                    50 + intel.Reward / 100,
+                    intel.Quantity,
+                    $"MISSION INTEL: {intel.Condition}",
+                    0,
+                    intel.StationId));
+            }
+
+            return opportunities
+                .GroupBy(opportunity => $"{opportunity.Type}|{opportunity.CommodityId}|{opportunity.OriginStationId}|{opportunity.DestinationStationId}", StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.OrderByDescending(opportunity => opportunity.Score).First())
+                .OrderByDescending(opportunity => opportunity.Score)
+                .ThenBy(opportunity => opportunity.CommodityName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(opportunity => opportunity.OriginStationName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(opportunity => opportunity.DestinationStationName, StringComparer.OrdinalIgnoreCase)
+                .Take(boundedCount)
+                .ToList();
+        }
+
+        private static int CalculateKnownRouteScore(
+            MarketObservation source,
+            MarketObservation target,
+            MarketRouteMetric route,
+            MarketObservationAgeBand sourceAge,
+            MarketObservationAgeBand destinationAge)
+        {
+            int stockFactor = source.BaselineStock > 0
+                ? Math.Clamp(source.Stock * 100 / source.BaselineStock, 50, 150)
+                : 50;
+            int demandFactor = 100 + Math.Clamp(target.DemandLevel, 0, 10) * 5;
+            int volumeFactor = Math.Clamp(100 / Math.Max(1, source.Commodity.VolumePerUnit), 25, 100);
+            int ageFactor = GetAgeFactor(sourceAge) * GetAgeFactor(destinationAge) / 100;
+            long distancePenalty = 100L + (long)Math.Ceiling(Math.Max(0f, route.DistanceUnits) / 1000f) * 2L + route.JumpCount * 40L;
+            long numerator = (long)Math.Max(0, target.SellPrice - source.BuyPrice) * stockFactor *
+                demandFactor * volumeFactor * ageFactor * 1000L;
+            long denominator = 100L * 100L * 100L * 100L * Math.Max(1L, distancePenalty);
+            return (int)Math.Clamp(numerator / Math.Max(1L, denominator), 1L, int.MaxValue);
+        }
+
+        private static int GetAgeFactor(MarketObservationAgeBand age) => age switch
+        {
+            MarketObservationAgeBand.Current => 100,
+            MarketObservationAgeBand.Recent => 85,
+            _ => 60
+        };
 
         public int GetFreightReservedQuantity(Mission mission)
         {
@@ -712,6 +897,7 @@ namespace Roguelancer
             _activeMissions.Add(mission);
             _waypointSystem?.RegisterMission(mission);
             mission.Status = MissionStatus.InProgress;
+            _marketIntelligence?.RecordMissionIntel(mission);
             _notificationManager?.ShowMessage($"Mission accepted: {mission.Title}", 3f);
             if (mission.Type == MissionType.CourierDelivery)
             {

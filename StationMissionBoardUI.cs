@@ -50,7 +50,7 @@ public sealed class StationMissionBoardUI
         _stationName = string.IsNullOrWhiteSpace(stationName) ? "Station" : stationName;
         _station = station;
         _jobBoard.RefreshMissions(6, station?.FactionId, station);
-        _marketOpportunities = _missionManager.GetMarketOpportunities(5);
+        _marketOpportunities = _missionManager.GetKnownMarketOpportunities(5);
         _statusMessage = string.Empty;
         _statusRemaining = 0f;
         _inputGate = true;
@@ -311,7 +311,7 @@ public sealed class StationMissionBoardUI
     {
         if (_marketOpportunities == null || _marketOpportunities.Count == 0)
         {
-            spriteBatch.DrawString(_font, "MARKET OPPORTUNITIES: No strong live signals", new Vector2(panel.X + 24, panel.Y + 44), Color.Gray);
+            spriteBatch.DrawString(_font, "MARKET OPPORTUNITIES: No known routes or signals", new Vector2(panel.X + 24, panel.Y + 44), Color.Gray);
             return;
         }
 

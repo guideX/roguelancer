@@ -6,7 +6,8 @@ namespace Roguelancer
     {
         Shortage,
         Surplus,
-        Pairing
+        TradeRoute,
+        Pairing = TradeRoute
     }
 
     /// <summary>
@@ -24,7 +25,13 @@ namespace Roguelancer
             int score,
             int quantity,
             string reason,
-            int currentSpread)
+            int currentSpread,
+            string originStationId = "",
+            string destinationStationId = "",
+            string sourceAgeBand = "",
+            string destinationAgeBand = "",
+            long routeDistanceUnits = 0,
+            int routeHops = 0)
         {
             Type = type;
             CommodityId = commodity?.Id ?? string.Empty;
@@ -36,6 +43,12 @@ namespace Roguelancer
             Quantity = Math.Max(0, quantity);
             Reason = reason ?? string.Empty;
             CurrentSpread = currentSpread;
+            OriginStationId = originStationId ?? string.Empty;
+            DestinationStationId = destinationStationId ?? string.Empty;
+            SourceAgeBand = sourceAgeBand ?? string.Empty;
+            DestinationAgeBand = destinationAgeBand ?? string.Empty;
+            RouteDistanceUnits = Math.Max(0L, routeDistanceUnits);
+            RouteHops = Math.Max(0, routeHops);
         }
 
         public MarketOpportunityType Type { get; }
@@ -48,15 +61,31 @@ namespace Roguelancer
         public int Quantity { get; }
         public string Reason { get; }
         public int CurrentSpread { get; }
+        public string OriginStationId { get; }
+        public string DestinationStationId { get; }
+        public string SourceAgeBand { get; }
+        public string DestinationAgeBand { get; }
+        public long RouteDistanceUnits { get; }
+        public int RouteHops { get; }
 
         public string GetDisplayText()
         {
             return Type switch
             {
-                MarketOpportunityType.Pairing =>
-                    $"{CommodityName}: {OriginStationName} -> {DestinationStationName}",
+                MarketOpportunityType.TradeRoute =>
+                    $"{CommodityName} | {OriginStationName} -> {DestinationStationName} | +{CurrentSpread:N0} CR | {FormatRoute()} | {SourceAgeBand}/{DestinationAgeBand}",
                 _ => $"{CommodityName} - {Reason} - {StationName}"
             };
+        }
+
+        private string FormatRoute()
+        {
+            string route = RouteHops > 0
+                ? $"{RouteHops} jump{(RouteHops == 1 ? string.Empty : "s")}"
+                : RouteDistanceUnits > 0
+                    ? $"{RouteDistanceUnits / 1000f:0.0}k route units"
+                    : "ROUTE UNKNOWN";
+            return route;
         }
     }
 }
