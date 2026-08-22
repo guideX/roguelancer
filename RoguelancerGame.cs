@@ -246,6 +246,7 @@ namespace Roguelancer {
         private readonly bool _runMarketIntelligenceSmoke;
         private readonly bool _runTradePlanSmoke;
         private readonly bool _runCrossSystemTradeRouteSmoke;
+        private readonly bool _runProductionMultiSystemTradeRouteSmoke;
         private readonly bool _runAllSmoke;
         private readonly bool _runPerformanceDiagnostics;
         private readonly bool _performanceAutoStation;
@@ -318,6 +319,7 @@ namespace Roguelancer {
             _runMarketIntelligenceSmoke = args?.Any(arg => string.Equals(arg, "--market-intelligence-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTradePlanSmoke = args?.Any(arg => string.Equals(arg, "--trade-plan-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runCrossSystemTradeRouteSmoke = args?.Any(arg => string.Equals(arg, "--cross-system-trade-route-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runProductionMultiSystemTradeRouteSmoke = args?.Any(arg => string.Equals(arg, "--production-multi-system-trade-route-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPerformanceDiagnostics = args?.Any(arg => string.Equals(arg, "--perf-diagnostics", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceAutoStation = args?.Any(arg => string.Equals(arg, "--perf-station", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1275,6 +1277,11 @@ namespace Roguelancer {
                 var result = RunCrossSystemTradeRouteSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runProductionMultiSystemTradeRouteSmoke)
+            {
+                var result = RunProductionMultiSystemTradeRouteSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else
             {
                 TryAutoLoadSavedGame();
@@ -1349,6 +1356,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("market intelligence smoke", RunMarketIntelligenceSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("trade plan smoke", RunTradePlanSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("cross-system trade route smoke", RunCrossSystemTradeRouteSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("production multi-system trade route smoke", RunProductionMultiSystemTradeRouteSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1659,6 +1667,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[CROSS-SYSTEM TRADE ROUTE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunProductionMultiSystemTradeRouteSmokeTest()
+        {
+            try
+            {
+                return new ProductionMultiSystemTradeRouteSmokeTest(_config).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PRODUCTION ROUTE SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }

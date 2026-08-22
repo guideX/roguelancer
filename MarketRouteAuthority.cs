@@ -236,7 +236,7 @@ public sealed class MarketRouteAuthority
     }
 
     private static string GetTransitionId(JumpHoleConfig config) =>
-        config == null ? string.Empty : $"{config.SystemIndex}:{config.Name}";
+        config?.TransitionId ?? string.Empty;
 
     private static bool IsPositiveFinite(float value) =>
         !float.IsNaN(value) && !float.IsInfinity(value) && value > 0f;

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
-using System.Text.Json.Serialization;
 using Microsoft.Xna.Framework;
+using System.Linq;
 
 namespace Roguelancer.Configuration {
     /// <summary>
@@ -21,6 +21,20 @@ namespace Roguelancer.Configuration {
 
         [JsonPropertyName("target_jumphole_name")]
         public string TargetJumpHoleName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Stable transition identity. The system index is part of the key so
+        /// equal display names in different systems cannot collide.
+        /// </summary>
+        [JsonIgnore]
+        public string TransitionId => $"{SystemIndex}:{Name ?? string.Empty}";
+
+        /// <summary>
+        /// Canonical slug used by topology diagnostics without changing the
+        /// existing user-facing transition name.
+        /// </summary>
+        [JsonIgnore]
+        public string CanonicalId => $"system-{SystemIndex}/jump-hole/{NormalizeName(Name)}";
 
         [JsonPropertyName("position_x")]
         public float PositionX { get; set; } = 0f;
@@ -75,5 +89,11 @@ namespace Roguelancer.Configuration {
         /// </summary>
         [JsonIgnore]
         public Color CoreColor => new Color(CoreColorR, CoreColorG, CoreColorB);
+
+        private static string NormalizeName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "unnamed";
+            return string.Concat(value.Trim().ToLowerInvariant().Where(char.IsLetterOrDigit));
+        }
     }
 }

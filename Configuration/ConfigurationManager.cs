@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Roguelancer;
@@ -44,6 +46,16 @@ namespace Roguelancer.Configuration {
             Console.WriteLine("[CONFIG] Loading configuration files...");
             Console.WriteLine($"[CONFIG] Current Directory: {Directory.GetCurrentDirectory()}");
             Console.WriteLine($"[CONFIG] Looking for config path: {Path.GetFullPath(ConfigurationPath)}");
+
+            // System transitions reload configuration. Keep the authoritative
+            // collections idempotent so canonical numeric identities remain
+            // stable after every jump-hole arrival.
+            Models.Clear();
+            Ships.Clear();
+            Systems.Clear();
+            Stations.Clear();
+            JumpHoles.Clear();
+            TrafficZones.Clear();
 
             LoadModels();
             LoadSystems();
@@ -89,14 +101,15 @@ namespace Roguelancer.Configuration {
                 return;
             }
 
-            foreach (string file in Directory.GetFiles(systemsDir, "*.json")) {
+            foreach (string file in Directory.GetFiles(systemsDir, "*.json").OrderBy(path => path, StringComparer.OrdinalIgnoreCase)) {
                 try {
                     string json = File.ReadAllText(file);
                     var system = JsonSerializer.Deserialize<SystemConfig>(json, JsonOptions);
                     if (system != null) {
+                        system.SystemIndex = ParseSystemIndex(Path.GetFileName(file), Systems.Count + 1);
                         NormalizeSystemConfig(system);
                         Systems.Add(system);
-                        Console.WriteLine($"[CONFIG] Loaded system: {system.Description} from {Path.GetFileName(file)}");
+                        Console.WriteLine($"[CONFIG] Loaded system {system.SystemIndex} ({system.CanonicalId}): {system.Description} from {Path.GetFileName(file)}");
                     }
                 } catch (Exception ex) {
                     Console.WriteLine($"[CONFIG] Error loading system {file}: {ex.Message}");
@@ -229,7 +242,24 @@ namespace Roguelancer.Configuration {
                 Console.WriteLine($"[CONFIG] Invalid system index: {index}");
                 return null;
             }
-            return Systems[index - 1];
+            return Systems.FirstOrDefault(system => system != null && system.SystemIndex == index);
+        }
+
+        /// <summary>
+        /// Resolves a canonical production system id to its stable numeric
+        /// routing identity. Display names are intentionally not accepted.
+        /// </summary>
+        public bool TryGetSystemIndex(string canonicalId, out int systemIndex)
+        {
+            systemIndex = 0;
+            if (string.IsNullOrWhiteSpace(canonicalId)) return false;
+
+            SystemConfig system = Systems.FirstOrDefault(candidate =>
+                candidate != null && string.Equals(candidate.CanonicalId, canonicalId.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (system == null) return false;
+
+            systemIndex = system.SystemIndex;
+            return systemIndex > 0;
         }
 
         /// <summary>
@@ -308,6 +338,14 @@ namespace Roguelancer.Configuration {
 
                 patrol.FactionId = FactionManager.NormalizeFactionId(patrol.FactionId);
             }
+        }
+
+        private static int ParseSystemIndex(string fileName, int fallback)
+        {
+            Match match = Regex.Match(fileName ?? string.Empty, @"^system_(\d+)_", RegexOptions.IgnoreCase);
+            return match.Success && int.TryParse(match.Groups[1].Value, out int index) && index > 0
+                ? index
+                : fallback;
         }
     }
 }

@@ -6,6 +6,14 @@ namespace Roguelancer.Configuration {
     /// Configuration for a star system
     /// </summary>
     public class SystemConfig {
+        /// <summary>
+        /// Stable one-based identity used by stations and jump-hole configs.
+        /// ConfigurationManager derives this from the system filename so the
+        /// routing identity does not depend on directory enumeration order.
+        /// </summary>
+        [JsonIgnore]
+        public int SystemIndex { get; internal set; }
+
         [JsonPropertyName("description")]
         public string Description { get; set; } = string.Empty;
 
@@ -41,5 +49,15 @@ namespace Roguelancer.Configuration {
         /// </summary>
         [JsonPropertyName("jump_holes")]
         public List<string> JumpHoles { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Canonical human-independent system label for diagnostics and tools.
+        /// Gameplay routing continues to use SystemIndex, which is the stable
+        /// identity shared by production station and jump-hole data.
+        /// </summary>
+        [JsonIgnore]
+        public string CanonicalId => string.IsNullOrWhiteSpace(Path)
+            ? $"system-{SystemIndex}"
+            : Path.Trim().ToLowerInvariant();
     }
 }

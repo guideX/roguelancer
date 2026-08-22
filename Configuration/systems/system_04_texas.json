@@ -1,0 +1,48 @@
+{
+  "description": "Texas System",
+  "path": "texas",
+  "sun_position_x": 0.0,
+  "sun_position_y": 0.0,
+  "sun_position_z": 0.0,
+  "sun_scale": 1700.0,
+  "sun_intensity": 1.85,
+  "sun_rotation_speed": 0.04,
+  "npc_patrols": [],
+  "jump_holes": [
+    "jumphole_texas_to_ny.json",
+    "jumphole_texas_to_california.json",
+    "jumphole_kepler_to_colorado.json"
+  ],
+  "planets": [
+    {
+      "name": "Planet Houston",
+      "radius": 140.0,
+      "orbit_radius": 0.0,
+      "orbit_speed": 0.0,
+      "position_x": 5000.0,
+      "position_y": 0.0,
+      "position_z": 4500.0,
+      "surface_model_asset": "Models/planet_surface",
+      "clouds_model_asset": "Models/planet_clouds",
+      "atmosphere_model_asset": "Models/planet_atmosphere",
+      "surface_texture_asset": "Textures/planets/planet_02_diffuse",
+      "clouds_texture_asset": "Textures/planets/planet_02_clouds",
+      "atmosphere_texture_asset": "Textures/planets/planet_02_atmosphere"
+    },
+    {
+      "name": "Planet Austin",
+      "radius": 105.0,
+      "orbit_radius": 0.0,
+      "orbit_speed": 0.0,
+      "position_x": -5500.0,
+      "position_y": 0.0,
+      "position_z": -3500.0,
+      "surface_model_asset": "Models/planet_surface",
+      "clouds_model_asset": "Models/planet_clouds",
+      "atmosphere_model_asset": "Models/planet_atmosphere",
+      "surface_texture_asset": "Textures/planets/planet_03_diffuse",
+      "clouds_texture_asset": "Textures/planets/planet_03_clouds",
+      "atmosphere_texture_asset": "Textures/planets/planet_03_atmosphere"
+    }
+  ]
+}
