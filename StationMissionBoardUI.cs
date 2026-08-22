@@ -16,6 +16,7 @@ public sealed class StationMissionBoardUI
     private readonly SpriteFont _font;
     private readonly Texture2D _pixel;
     private readonly MissionManager _missionManager;
+    private readonly ReputationManager _reputationManager;
     private readonly JobBoard _jobBoard;
     private readonly CargoHold _cargoHold;
     private readonly Action<string> _showMessage;
@@ -31,6 +32,7 @@ public sealed class StationMissionBoardUI
     private IReadOnlyList<MarketOpportunity> _marketOpportunities = Array.Empty<MarketOpportunity>();
     private int _marketSelection;
     private bool _marketFocus;
+    private bool _showReputationOverview;
 
     public StationMissionBoardUI(
         SpriteFont font,
@@ -40,11 +42,13 @@ public sealed class StationMissionBoardUI
         Action<string> showMessage = null,
         TradePlanManager tradePlanManager = null,
         Action<bool> plotTradePlan = null,
-        Action clearTradePlanNavigation = null)
+        Action clearTradePlanNavigation = null,
+        ReputationManager reputationManager = null)
     {
         _font = font ?? throw new ArgumentNullException(nameof(font));
         _pixel = pixel ?? throw new ArgumentNullException(nameof(pixel));
         _missionManager = missionManager ?? throw new ArgumentNullException(nameof(missionManager));
+        _reputationManager = reputationManager;
         _jobBoard = new JobBoard(missionManager);
         _cargoHold = cargoHold;
         _showMessage = showMessage ?? (_ => { });
@@ -66,6 +70,7 @@ public sealed class StationMissionBoardUI
         _marketFocus = false;
         _statusMessage = string.Empty;
         _statusRemaining = 0f;
+        _showReputationOverview = false;
         _inputGate = true;
         IsOpen = true;
     }
@@ -97,6 +102,12 @@ public sealed class StationMissionBoardUI
         if (Pressed(current, previous, Keys.Escape))
         {
             Close();
+            return true;
+        }
+
+        if (Pressed(current, previous, Keys.P))
+        {
+            _showReputationOverview = !_showReputationOverview;
             return true;
         }
 
@@ -227,6 +238,21 @@ public sealed class StationMissionBoardUI
         DrawBorder(spriteBatch, panel, Color.Gold, 3);
 
         spriteBatch.DrawString(_font, $"MISSION BOARD - {_stationName}", new Vector2(panel.X + 24, panel.Y + 18), Color.Gold);
+        spriteBatch.DrawString(_font, ReputationPresentation.BuildStationFactionLine(_station, _reputationManager), new Vector2(panel.X + 360, panel.Y + 18), Color.LightSkyBlue);
+        Color stationStandingColor = _reputationManager?.GetBand(_station?.FactionId) switch
+        {
+            ReputationBand.Hostile => Color.IndianRed,
+            ReputationBand.Unfriendly => Color.Orange,
+            ReputationBand.Friendly => Color.LightGreen,
+            ReputationBand.Allied => Color.LimeGreen,
+            _ => Color.LightGray
+        };
+        spriteBatch.DrawString(_font, ReputationPresentation.BuildStationStandingLine(_station, _reputationManager), new Vector2(panel.X + 360, panel.Y + 44), stationStandingColor);
+        if (_showReputationOverview)
+        {
+            DrawReputationOverview(spriteBatch, panel);
+            return;
+        }
         DrawMarketOpportunityStrip(spriteBatch, panel);
 
         int contentTop = panel.Y + 166;
@@ -275,11 +301,11 @@ public sealed class StationMissionBoardUI
                 : "ACTIVE: None";
         spriteBatch.DrawString(_font, Shorten(activeLine, 94), new Vector2(panel.X + 24, statusY), completed != null ? Color.Lime : Color.Cyan);
 
-        string footer = "M: Market focus   M + UP/DOWN: Select route   R/ENTER: Plot   C: Cancel plan   ESC: Back";
+        string footer = "M: Market focus   P: Reputation   M + UP/DOWN: Select route   R/ENTER: Plot   C: Cancel plan   ESC: Back";
         if (!_marketFocus)
-            footer = "UP/DOWN or W/S: Select job   ENTER/E: Accept or Claim   M: Market focus   R: Plot route   ESC: Back";
+            footer = "UP/DOWN or W/S: Select job   ENTER/E: Accept or Claim   P: Reputation   M: Market focus   R: Plot route   ESC: Back";
         if (_tradePlanManager?.ActivePlan == null && _missionManager.ActiveMission?.Type == MissionType.ExportContract)
-            footer = "UP/DOWN or W/S: Select job   ENTER/E: Accept   C: Cancel export   M: Market focus   ESC: Back";
+            footer = "UP/DOWN or W/S: Select job   ENTER/E: Accept   C: Cancel export   P: Reputation   M: Market focus   ESC: Back";
         spriteBatch.DrawString(_font, footer, new Vector2(panel.X + 24, panel.Bottom - 42), Color.LightGray);
         if (!string.IsNullOrWhiteSpace(_statusMessage))
         {
@@ -305,6 +331,10 @@ public sealed class StationMissionBoardUI
         int y = detailPanel.Y + 52;
         spriteBatch.DrawString(_font, mission.Title, new Vector2(x, y), Color.White);
         y += 32;
+        spriteBatch.DrawString(_font, ReputationPresentation.BuildMissionEmployerLine(mission, _reputationManager), new Vector2(x, y), Color.LightSkyBlue);
+        y += 22;
+        spriteBatch.DrawString(_font, ReputationPresentation.BuildMissionStandingLine(mission, _reputationManager), new Vector2(x, y), Color.LightGray);
+        y += 26;
         foreach (string line in Wrap(mission.Description, 54))
         {
             spriteBatch.DrawString(_font, line, new Vector2(x, y), Color.LightGray);
@@ -360,6 +390,30 @@ public sealed class StationMissionBoardUI
         string action = _missionManager.ActiveMission == null ? "[ENTER] ACCEPT" : "ACTIVE MISSION BLOCKS ACCEPT";
         if (_missionManager.UnclaimedCompletedMission != null) action = "[ENTER] CLAIM REWARD";
         spriteBatch.DrawString(_font, action, new Vector2(x, Math.Min(y + 40, detailPanel.Bottom - 34)), Color.Lime);
+    }
+
+    private void DrawReputationOverview(SpriteBatch spriteBatch, Rectangle panel)
+    {
+        Rectangle overview = new(panel.X + 48, panel.Y + 90, panel.Width - 96, panel.Height - 180);
+        spriteBatch.Draw(_pixel, overview, new Color(12, 20, 32) * 0.98f);
+        DrawBorder(spriteBatch, overview, Color.Gold, 2);
+        spriteBatch.DrawString(_font, "REPUTATION OVERVIEW", new Vector2(overview.X + 22, overview.Y + 18), Color.Gold);
+        int y = overview.Y + 66;
+        foreach (ReputationOverviewLine line in ReputationPresentation.BuildOverview(_reputationManager))
+        {
+            Color bandColor = line.BandLabel switch
+            {
+                "HOSTILE" => Color.IndianRed,
+                "UNFRIENDLY" => Color.Orange,
+                "FRIENDLY" => Color.LightGreen,
+                "ALLIED" => Color.LimeGreen,
+                _ => Color.LightGray
+            };
+            spriteBatch.DrawString(_font, line.DisplayName, new Vector2(overview.X + 28, y), Color.White);
+            spriteBatch.DrawString(_font, line.BandLabel, new Vector2(overview.X + 430, y), bandColor);
+            y += 34;
+        }
+        spriteBatch.DrawString(_font, "P: Return to mission board", new Vector2(overview.X + 28, overview.Bottom - 48), Color.LightGray);
     }
 
     private void DrawMarketOpportunityStrip(SpriteBatch spriteBatch, Rectangle panel)

@@ -378,6 +378,9 @@ namespace Roguelancer
         {
             player = new Ship(Vector3.Zero);
             reputationManager = new ReputationManager(new FactionManager());
+            // Traffic encounter coverage exercises the hostile branch explicitly;
+            // the normal new-game profile is friendly with Liberty Rogues.
+            reputationManager.SetReputation(FactionManager.LibertyRogues, -0.70f);
             scanSystem = new PoliceScanSystem();
 
             var npcShips = new List<NpcShip>();

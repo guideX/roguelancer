@@ -270,7 +270,7 @@ namespace Roguelancer
                     continue;
                 }
 
-                standings[FactionManager.NormalizeFactionId(entry.FactionId)] = NormalizeStanding(entry.Standing);
+                standings[FactionManager.NormalizeFactionId(entry.FactionId)] = entry.Standing;
             }
 
             reputationManager.LoadStandings(standings);
@@ -485,6 +485,8 @@ namespace Roguelancer
                     OriginSystemIndex = mission.OriginSystemIndex,
                     AcceptedAtUtc = mission.AcceptedAtUtc == DateTime.MinValue ? string.Empty : mission.AcceptedAtUtc.ToString("O"),
                     RewardPaid = mission.RewardPaid,
+                    ReputationReward = NormalizeStanding(mission.ReputationReward),
+                    ReputationRewardApplied = mission.ReputationRewardApplied,
                     TargetPosition = mission.TargetPosition.HasValue ? SaveVector3Data.From(mission.TargetPosition.Value) : null,
                     SourceStationName = mission.SourceStationName ?? string.Empty,
                     DestinationStationId = mission.DestinationStationId ?? string.Empty,
@@ -680,7 +682,9 @@ namespace Roguelancer
                 data.DeliveredQuantity,
                 data.CommodityId,
                 data.RequiredQuantity,
-                data.IssuedCargoQuantity);
+                data.IssuedCargoQuantity,
+                data.ReputationReward,
+                data.ReputationRewardApplied);
         }
 
         private static float NormalizeStanding(float value)

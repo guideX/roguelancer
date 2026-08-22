@@ -10,7 +10,7 @@ namespace Roguelancer
     /// </summary>
     public sealed class SaveGameData
     {
-        public const int CurrentSchemaVersion = 8;
+        public const int CurrentSchemaVersion = 9;
 
         [JsonPropertyName("schema_version")]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -254,6 +254,12 @@ namespace Roguelancer
 
         [JsonPropertyName("reward_paid")]
         public bool RewardPaid { get; set; }
+
+        [JsonPropertyName("reputation_reward")]
+        public float ReputationReward { get; set; }
+
+        [JsonPropertyName("reputation_reward_applied")]
+        public bool ReputationRewardApplied { get; set; }
 
         [JsonPropertyName("target_position")]
         public SaveVector3Data TargetPosition { get; set; }

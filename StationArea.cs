@@ -28,6 +28,11 @@ namespace Roguelancer
         /// <summary>
         /// Job board for browsing and accepting missions
         /// </summary>
-        JobBoard
+        JobBoard,
+
+        /// <summary>
+        /// Compact player faction-standing overview.
+        /// </summary>
+        Reputation
     }
 }

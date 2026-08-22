@@ -236,6 +236,12 @@ namespace Roguelancer
         public int IssuedCargoQuantity { get; set; }
         public DateTime AcceptedAtUtc { get; set; }
         public bool RewardPaid { get; set; }
+        /// <summary>
+        /// Fixed when the mission is accepted. Older saves with no field use
+        /// MissionManager's deterministic type/difficulty fallback.
+        /// </summary>
+        public float ReputationReward { get; set; }
+        public bool ReputationRewardApplied { get; set; }
 
         public bool ObjectiveComplete { get; set; }
         public Vector3? TargetPosition { get; set; }
@@ -403,7 +409,9 @@ namespace Roguelancer
             int deliveredQuantity = 0,
             string commodityId = "",
             int requiredQuantity = 0,
-            int issuedCargoQuantity = 0)
+            int issuedCargoQuantity = 0,
+            float reputationReward = 0f,
+            bool reputationRewardApplied = false)
         {
             Id = id > 0 ? id : _nextId++;
             if (_nextId <= Id) _nextId = Id + 1;
@@ -443,6 +451,8 @@ namespace Roguelancer
             IssuedCargoQuantity = Math.Max(0, issuedCargoQuantity);
             AcceptedAtUtc = acceptedAtUtc;
             RewardPaid = rewardPaid;
+            ReputationReward = reputationReward;
+            ReputationRewardApplied = reputationRewardApplied;
         }
 
         public static Mission FromDefinition(MissionDefinition definition, string offeredBy = "Mission Board", string factionId = null)
@@ -565,7 +575,9 @@ namespace Roguelancer
             int deliveredQuantity = 0,
             string commodityId = "",
             int requiredQuantity = 0,
-            int issuedCargoQuantity = 0)
+            int issuedCargoQuantity = 0,
+            float reputationReward = 0f,
+            bool reputationRewardApplied = false)
         {
             Mission mission = new Mission(
                 id,
@@ -602,7 +614,9 @@ namespace Roguelancer
                 deliveredQuantity,
                 commodityId,
                 requiredQuantity,
-                issuedCargoQuantity);
+                issuedCargoQuantity,
+                reputationReward,
+                reputationRewardApplied);
             mission.ElapsedTime = Math.Max(0f, elapsedTime);
             mission.ObjectiveRadius = Math.Clamp(objectiveRadius <= 0 ? 500 : objectiveRadius, 1, 10000);
             return mission;

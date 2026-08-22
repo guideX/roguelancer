@@ -231,6 +231,7 @@ namespace Roguelancer {
         private readonly bool _runCountermeasureSmoke;
         private readonly bool _runMineSmoke;
         private readonly bool _runSaveSmoke;
+        private readonly bool _runReputationSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runTrafficSmoke;
         private readonly bool _runLootSmoke;
@@ -310,6 +311,7 @@ namespace Roguelancer {
             _runCountermeasureSmoke = args?.Any(arg => string.Equals(arg, "--countermeasure-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMineSmoke = args?.Any(arg => string.Equals(arg, "--mine-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runSaveSmoke = args?.Any(arg => string.Equals(arg, "--save-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runReputationSmoke = args?.Any(arg => string.Equals(arg, "--reputation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1013,7 +1015,8 @@ namespace Roguelancer {
                     message => _notificationManager?.ShowMessage(message, 3f),
                     _tradePlanManager,
                     show => { PlotTradePlanNavigation(show); },
-                    ClearTradePlanNavigation);
+                    ClearTradePlanNavigation,
+                    _reputationManager);
             }
 
             // Load ship model
@@ -1153,6 +1156,7 @@ namespace Roguelancer {
 
             // Initialize notification manager
             _notificationManager = new NotificationManager(_font, GraphicsDevice.Viewport);
+            _reputationManager.OnReputationChanged += HandleReputationChanged;
             _lootManager = new LootManager(GraphicsDevice, null, _font, _pixel);
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
@@ -1226,6 +1230,11 @@ namespace Roguelancer {
             if (_runSaveSmoke)
             {
                 var result = RunSaveSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runReputationSmoke)
+            {
+                var result = RunReputationSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runLootSmoke)
@@ -1362,6 +1371,7 @@ namespace Roguelancer {
             int suitesFailed = 0;
 
             RunAllSmokeSuite("save smoke", RunSaveSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("reputation smoke", RunReputationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("missile smoke", RunMissileSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1492,6 +1502,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[SAVE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunReputationSmokeTest()
+        {
+            try
+            {
+                return new ReputationSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[REPUTATION SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -1875,7 +1898,7 @@ namespace Roguelancer {
             _playerShip.SetLoadout(loadout);
 
             _playerCredits?.SetCredits(saveData.PlayerCredits);
-            _reputationManager?.LoadStandings(ToStandingDictionary(saveData));
+            _saveGameManager?.ApplyReputation(_reputationManager, saveData);
             _commodityDealer?.MarketManager?.RestoreElapsedMilliseconds(saveData.MarketElapsedMilliseconds);
             _commodityDealer?.RestoreMarketState(saveData.StationMarkets);
             _marketIntelligence?.Clear();
@@ -1940,29 +1963,6 @@ namespace Roguelancer {
             PlotTradePlanNavigation(showNotification: false);
             failureReason = string.Empty;
             return true;
-        }
-
-        private static Dictionary<string, float> ToStandingDictionary(SaveGameData saveData)
-        {
-            var standings = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
-            if (saveData?.FactionReputation == null)
-            {
-                return standings;
-            }
-
-            foreach (var entry in saveData.FactionReputation)
-            {
-                if (entry == null || string.IsNullOrWhiteSpace(entry.FactionId))
-                {
-                    continue;
-                }
-
-                standings[FactionManager.NormalizeFactionId(entry.FactionId)] = float.IsNaN(entry.Standing) || float.IsInfinity(entry.Standing)
-                    ? 0f
-                    : Math.Clamp(entry.Standing, -1f, 1f);
-            }
-
-            return standings;
         }
 
         protected override void Update(GameTime gameTime)
@@ -2615,6 +2615,8 @@ namespace Roguelancer {
         }
 
         private void HandleNpcDestroyed(NpcShip destroyedShip) {
+            _reputationManager?.ApplyPlayerShipDestroyed(destroyedShip);
+
             // Trigger explosion effect
             _explosionParticles.TriggerExplosion(destroyedShip.Position, destroyedShip.Velocity, intensity: 1.0f);
 
@@ -2650,6 +2652,25 @@ namespace Roguelancer {
             // Clean up NPC weapon system tracking
             _npcWeaponSystem?.RemoveNpc(destroyedShip);
             _trafficManager?.NotifyNpcDestroyed(destroyedShip);
+        }
+
+        private void HandleReputationChanged(ReputationChangeResult change)
+        {
+            if (change == null || change.IsSecondaryEffect)
+                return;
+
+            if (change.BandChanged)
+            {
+                _notificationManager?.ShowMessage(
+                    $"{change.FactionDisplayName.ToUpperInvariant()} NOW {ReputationPresentation.FormatBand(change.NewBand)}",
+                    3.5f);
+                return;
+            }
+
+            string direction = change.Increased ? "INCREASED" : "DECREASED";
+            _notificationManager?.ShowMessage(
+                $"REPUTATION {direction}: {change.FactionDisplayName} {ReputationManager.FormatStanding(change.Delta)}",
+                3f);
         }
 
         /// <summary>
@@ -3628,6 +3649,8 @@ namespace Roguelancer {
                 _stationDockUI?.NavigateToArea(StationArea.ShipDealer);
             } else if (keyboardState.IsKeyDown(Keys.D5) && _prevKeys.IsKeyUp(Keys.D5)) {
                 _stationDockUI?.NavigateToArea(StationArea.JobBoard);
+            } else if (keyboardState.IsKeyDown(Keys.D6) && _prevKeys.IsKeyUp(Keys.D6)) {
+                _stationDockUI?.NavigateToArea(StationArea.Reputation);
             }
 
             // Undock with U key (only from hangar)

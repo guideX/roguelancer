@@ -173,7 +173,7 @@ namespace Roguelancer
             }
 
             string factionId = FactionManager.NormalizeFactionId(station.FactionId);
-            if (reputationManager != null && reputationManager.IsHostile(factionId))
+            if (reputationManager != null && !reputationManager.CanDockWithFaction(factionId))
             {
                 return false;
             }

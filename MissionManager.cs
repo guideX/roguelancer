@@ -56,6 +56,40 @@ namespace Roguelancer
         public const int ExportMaximumUnits = 40;
         public const int ExportMaximumReward = 100_000;
         public const int MarketOpportunityMaximumEntries = 8;
+        public const float MissionFailureReputationPenalty = -0.02f;
+
+        public static float GetMissionReputationReward(Mission mission)
+        {
+            if (mission == null)
+                return 0.01f;
+
+            if (mission.ReputationReward > 0f &&
+                !float.IsNaN(mission.ReputationReward) &&
+                !float.IsInfinity(mission.ReputationReward))
+            {
+                return Math.Clamp(MathF.Round(mission.ReputationReward, 4, MidpointRounding.AwayFromZero), 0.01f, 0.05f);
+            }
+
+            float baseReward = mission.Type switch
+            {
+                MissionType.Bounty or MissionType.DestroyHostiles => 0.035f,
+                MissionType.Escort => 0.030f,
+                MissionType.FreightContract or MissionType.ExportContract => 0.025f,
+                MissionType.CourierDelivery => 0.020f,
+                MissionType.Delivery => 0.018f,
+                _ => 0.015f
+            };
+
+            float difficultyBonus = mission.Difficulty switch
+            {
+                MissionDifficulty.Medium => 0.005f,
+                MissionDifficulty.Hard => 0.010f,
+                MissionDifficulty.Deadly => 0.015f,
+                _ => 0f
+            };
+
+            return Math.Clamp(MathF.Round(baseReward + difficultyBonus, 4, MidpointRounding.AwayFromZero), 0.01f, 0.05f);
+        }
 
         public IReadOnlyList<Mission> ActiveMissions => _activeMissions.AsReadOnly();
         public IReadOnlyList<Mission> CompletedMissions => _completedMissions.AsReadOnly();
@@ -84,6 +118,8 @@ namespace Roguelancer
         public void SetWorldManager(MissionWorldManager worldManager) => _worldManager = worldManager;
         public void SetMarketIntelligence(MarketIntelligence marketIntelligence) => _marketIntelligence = marketIntelligence;
         public void SetRouteAuthority(MarketRouteAuthority routeAuthority) => _routeAuthority = routeAuthority ?? new MarketRouteAuthority();
+        public bool MeetsReputationRequirement(string factionId, float minimumStanding) =>
+            _reputationManager?.MeetsReputationRequirement(factionId, minimumStanding) ?? true;
         public void ShowNotification(string message, float durationSeconds = 3f) =>
             _notificationManager?.ShowMessage(message, durationSeconds);
 
@@ -590,7 +626,7 @@ namespace Roguelancer
                         reward,
                         destination.Config?.SystemIndex ?? origin.Config?.SystemIndex ?? 0,
                         offeredBy: $"{origin.Name} Authority",
-                        factionId: destination.FactionId);
+                        factionId: origin.FactionId);
                     _exportOffers[key] = offer;
                 }
 
@@ -880,6 +916,8 @@ namespace Roguelancer
             }
 
             mission.AcceptedAtUtc = DateTime.UtcNow;
+            mission.ReputationReward = GetMissionReputationReward(mission);
+            mission.ReputationRewardApplied = false;
             mission.Status = MissionStatus.Accepted;
 
             if (_worldManager != null && !_worldManager.TryAcceptMission(mission, out string failureReason))
@@ -1102,6 +1140,7 @@ namespace Roguelancer
             CompleteMission(mission);
             mission.RewardPaid = true;
             _playerCredits.AddCredits(mission.Reward);
+            ApplyMissionReputationReward(mission);
             _notificationManager?.ShowMessage($"Freight reward received: {mission.Reward:N0} CR", 4f);
             message = $"Freight reward received: {mission.Reward:N0} CR";
             return true;
@@ -1142,6 +1181,7 @@ namespace Roguelancer
             CompleteMission(mission);
             mission.RewardPaid = true;
             _playerCredits.AddCredits(mission.Reward);
+            ApplyMissionReputationReward(mission);
             _notificationManager?.ShowMessage($"Export reward received: {mission.Reward:N0} CR", 4f);
             message = $"Export reward received: {mission.Reward:N0} CR";
             return true;
@@ -1212,10 +1252,7 @@ namespace Roguelancer
             _playerCredits.AddCredits(mission.Reward);
             mission.Status = MissionStatus.Rewarded;
             _completedMissions.Remove(mission);
-            _reputationManager?.AddReputation(
-                mission.FactionId,
-                0.12f,
-                $"Mission rewarded: {mission.Title}");
+            ApplyMissionReputationReward(mission);
             _notificationManager?.ShowMessage($"Mission reward received: {mission.Reward:N0} CR", 4f);
             Console.WriteLine($"[MISSION] Rewarded: {mission.Title} | +{mission.Reward:N0} CR");
             message = $"Mission reward received: {mission.Reward:N0} CR";
@@ -1263,6 +1300,10 @@ namespace Roguelancer
             _completedMissions.Add(mission);
             _waypointSystem?.UnregisterMission(mission);
             _worldManager?.OnMissionFinished(mission);
+            _reputationManager?.AdjustReputation(
+                mission.FactionId,
+                MissionFailureReputationPenalty,
+                ReputationChangeReason.MissionFailed);
             _notificationManager?.ShowMessage($"Mission failed: {reason}", 4f);
             Console.WriteLine($"[MISSION] Failed: {mission.Title} | Reason: {reason}");
         }
@@ -1322,6 +1363,19 @@ namespace Roguelancer
                 CompleteMission(mission);
             }
             return true;
+        }
+
+        private void ApplyMissionReputationReward(Mission mission)
+        {
+            if (mission == null || mission.ReputationRewardApplied)
+                return;
+
+            mission.ReputationReward = GetMissionReputationReward(mission);
+            mission.ReputationRewardApplied = true;
+            _reputationManager?.AdjustReputation(
+                mission.FactionId,
+                mission.ReputationReward,
+                ReputationChangeReason.MissionCompleted);
         }
 
         /// <summary>Legacy delivery arrival hook; it now waits for reward claim.</summary>

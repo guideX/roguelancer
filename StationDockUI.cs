@@ -101,9 +101,9 @@ namespace Roguelancer
             }
 
             string stationFactionId = FactionManager.NormalizeFactionId(station.FactionId);
-            if (_reputationManager != null && _reputationManager.IsHostile(stationFactionId))
+            if (_reputationManager != null && !_reputationManager.CanDockWithFaction(stationFactionId))
             {
-                LastDockingDeniedReason = $"Docking denied: {station.Name} is hostile ({stationFactionId}).";
+                LastDockingDeniedReason = $"Docking denied — hostile reputation at {station.Name}.";
                 Console.WriteLine($"[DOCK] Docking denied at {station.Name} because faction '{stationFactionId}' is hostile.");
                 return false;
             }
@@ -209,6 +209,9 @@ namespace Roguelancer
                     break;
                 case StationArea.JobBoard:
                     DrawJobBoard(spriteBatch, screenWidth, screenHeight);
+                    break;
+                case StationArea.Reputation:
+                    DrawReputationOverview(spriteBatch, screenWidth, screenHeight);
                     break;
             }
 
@@ -485,6 +488,19 @@ namespace Roguelancer
             spriteBatch.Draw(_pixel, new Rectangle(headerPanel.X, headerPanel.Bottom - 3, headerPanel.Width, 3), Color.Cyan);
             
             spriteBatch.DrawString(_font, stationName, titlePos, Color.Cyan);
+
+            string factionLine = ReputationPresentation.BuildStationFactionLine(_dockedStation, _reputationManager);
+            string standingLine = ReputationPresentation.BuildStationStandingLine(_dockedStation, _reputationManager);
+            spriteBatch.DrawString(_font, factionLine, new Vector2(titlePos.X, titlePos.Y + titleSize.Y + 14), Color.LightSkyBlue);
+            Color standingColor = _reputationManager?.GetBand(_dockedStation?.FactionId) switch
+            {
+                ReputationBand.Hostile => Color.IndianRed,
+                ReputationBand.Unfriendly => Color.Orange,
+                ReputationBand.Friendly => Color.LightGreen,
+                ReputationBand.Allied => Color.LimeGreen,
+                _ => Color.LightGray
+            };
+            spriteBatch.DrawString(_font, standingLine, new Vector2(titlePos.X, titlePos.Y + titleSize.Y + 38), standingColor);
         }
 
         private void DrawCreditsDisplay(SpriteBatch spriteBatch, int screenWidth, PlayerCredits credits)
@@ -1344,6 +1360,34 @@ namespace Roguelancer
             }
         }
 
+        private void DrawReputationOverview(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
+        {
+            int centerX = screenWidth / 2;
+            int centerY = screenHeight / 2;
+            string title = "== REPUTATION ==";
+            Vector2 titleSize = _font.MeasureString(title);
+            spriteBatch.DrawString(_font, title, new Vector2(centerX - titleSize.X / 2, centerY - 240), Color.Gold);
+
+            IReadOnlyList<ReputationOverviewLine> lines = ReputationPresentation.BuildOverview(_reputationManager);
+            int y = centerY - 180;
+            foreach (ReputationOverviewLine line in lines)
+            {
+                Color bandColor = line.BandLabel switch
+                {
+                    "HOSTILE" => Color.IndianRed,
+                    "UNFRIENDLY" => Color.Orange,
+                    "FRIENDLY" => Color.LightGreen,
+                    "ALLIED" => Color.LimeGreen,
+                    _ => Color.LightGray
+                };
+                spriteBatch.DrawString(_font, line.DisplayName, new Vector2(centerX - 300, y), Color.White);
+                spriteBatch.DrawString(_font, line.BandLabel, new Vector2(centerX + 170, y), bandColor);
+                y += 34;
+            }
+
+            spriteBatch.DrawString(_font, "Standing persists until your actions change it.", new Vector2(centerX - 300, y + 18), Color.Gray);
+        }
+
         private void DrawActiveTradePlan(SpriteBatch spriteBatch, int screenWidth)
         {
             if (_tradePlanManager?.ActivePlan == null) return;
@@ -1552,8 +1596,8 @@ namespace Roguelancer
             spriteBatch.Draw(_pixel, new Rectangle(menuPanel.X, menuPanel.Y, menuPanel.Width, 2), Color.Cyan);
 
             // Menu buttons
-            string[] menuItems = { "[1] Hangar", "[2] Bar", "[3] Equipment", "[4] Ships", "[5] Jobs" };
-            StationArea[] areas = { StationArea.Hangar, StationArea.Bar, StationArea.Dealer, StationArea.ShipDealer, StationArea.JobBoard };
+            string[] menuItems = { "[1] Hangar", "[2] Bar", "[3] Equipment", "[4] Ships", "[5] Jobs", "[6] Reputation" };
+            StationArea[] areas = { StationArea.Hangar, StationArea.Bar, StationArea.Dealer, StationArea.ShipDealer, StationArea.JobBoard, StationArea.Reputation };
 
             int buttonWidth = menuWidth / menuItems.Length;
             for (int i = 0; i < menuItems.Length; i++)
