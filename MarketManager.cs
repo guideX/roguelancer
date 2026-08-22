@@ -62,6 +62,17 @@ namespace Roguelancer
         /// </summary>
         public long ElapsedMilliseconds => _elapsedMilliseconds;
 
+        /// <summary>
+        /// Clears only the in-memory runtime economy. Configuration files and
+        /// the caller's save data are never changed. Developer validation uses
+        /// this to make a deliberately isolated run repeatable.
+        /// </summary>
+        public void ResetRuntimeState()
+        {
+            _runtimeMarkets.Clear();
+            _elapsedMilliseconds = 0L;
+        }
+
         public void RestoreElapsedMilliseconds(long elapsedMilliseconds)
         {
             _elapsedMilliseconds = Math.Max(0L, elapsedMilliseconds);

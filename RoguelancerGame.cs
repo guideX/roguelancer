@@ -247,6 +247,8 @@ namespace Roguelancer {
         private readonly bool _runTradePlanSmoke;
         private readonly bool _runCrossSystemTradeRouteSmoke;
         private readonly bool _runProductionMultiSystemTradeRouteSmoke;
+        private readonly bool _runTradeRouteValidationSmoke;
+        private readonly bool _devTradeRouteValidation;
         private readonly bool _runAllSmoke;
         private readonly bool _runPerformanceDiagnostics;
         private readonly bool _performanceAutoStation;
@@ -257,6 +259,9 @@ namespace Roguelancer {
         private readonly string _characterSkinningMode;
         private readonly PerformanceDiagnostics _performanceDiagnostics;
         private SaveGameManager _saveGameManager;
+        private TradeRouteValidationBootstrap _tradeRouteValidationBootstrap;
+        private TradeRouteValidationIdentity _tradeRouteValidationIdentity;
+        private TradeRouteValidationDiagnostics _tradeRouteValidation;
         private const float FirstDockHintAutoSelectDelaySeconds = 4f;
         private float _firstDockHintElapsedSeconds = 0f;
         private bool _firstDockHintAutoSelectAttempted = false;
@@ -320,6 +325,8 @@ namespace Roguelancer {
             _runTradePlanSmoke = args?.Any(arg => string.Equals(arg, "--trade-plan-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runCrossSystemTradeRouteSmoke = args?.Any(arg => string.Equals(arg, "--cross-system-trade-route-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runProductionMultiSystemTradeRouteSmoke = args?.Any(arg => string.Equals(arg, "--production-multi-system-trade-route-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runTradeRouteValidationSmoke = args?.Any(arg => string.Equals(arg, "--trade-route-validation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _devTradeRouteValidation = TradeRouteValidationBootstrap.IsRequested(args);
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPerformanceDiagnostics = args?.Any(arg => string.Equals(arg, "--perf-diagnostics", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceAutoStation = args?.Any(arg => string.Equals(arg, "--perf-station", StringComparison.OrdinalIgnoreCase)) == true;
@@ -956,6 +963,7 @@ namespace Roguelancer {
                 _playerShip?.CargoHold,
                 _playerCredits);
             _commodityDealer.TransactionCompleted += HandleCommodityTransaction;
+            _tradePlanManager.PlanChanged += HandleTradePlanChanged;
 
             // Initialize NPC weapon system
             _npcWeaponSystem = new NpcWeaponSystem(GraphicsDevice, _reputationManager);
@@ -1199,8 +1207,13 @@ namespace Roguelancer {
             _gotoAutopilot.OnDockingComplete += HandleDockingCompleted;
             _playerShip.SetGotoAutopilot(_gotoAutopilot);
 
-            _saveGameManager = new SaveGameManager();
+            _saveGameManager = new SaveGameManager(
+                _devTradeRouteValidation ? TradeRouteValidationBootstrap.GetValidationSavePath() : null);
             _performanceDiagnostics.LogGraphicsConfiguration(this, _graphics, "initial");
+            if (_devTradeRouteValidation)
+            {
+                InitializeTradeRouteValidation();
+            }
             if (_runAllSmoke)
             {
                 var result = RunAllSmokeTests();
@@ -1282,6 +1295,11 @@ namespace Roguelancer {
                 var result = RunProductionMultiSystemTradeRouteSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runTradeRouteValidationSmoke)
+            {
+                var result = RunTradeRouteValidationSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else
             {
                 TryAutoLoadSavedGame();
@@ -1357,6 +1375,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("trade plan smoke", RunTradePlanSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("cross-system trade route smoke", RunCrossSystemTradeRouteSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("production multi-system trade route smoke", RunProductionMultiSystemTradeRouteSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("trade route validation bootstrap smoke", RunTradeRouteValidationSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1680,6 +1699,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PRODUCTION ROUTE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunTradeRouteValidationSmokeTest()
+        {
+            try
+            {
+                return new TradeRouteValidationBootstrapSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TRADE ROUTE VALIDATION SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2845,6 +2877,8 @@ namespace Roguelancer {
                 return;
             }
 
+            _tradeRouteValidation?.RecordDocking(station);
+
             if (_tradePlanManager?.NotifyDocked(station, out string tradeGuidance) == true &&
                 !string.IsNullOrWhiteSpace(tradeGuidance))
             {
@@ -2866,8 +2900,75 @@ namespace Roguelancer {
             Console.WriteLine($"[DOCK] Real docked station session active: {station.Name} / system {session.SystemIndex} / ship {_playerShip.DisplayName}");
         }
 
+        private void InitializeTradeRouteValidation()
+        {
+            _tradeRouteValidationBootstrap = new TradeRouteValidationBootstrap(_config);
+            if (!_tradeRouteValidationBootstrap.TryPrepare(
+                    _commodityDealer,
+                    _marketIntelligence,
+                    _missionManager,
+                    _playerCredits,
+                    _playerShip,
+                    _stationManager?.GetStations(),
+                    out _tradeRouteValidationIdentity,
+                    out string failureReason))
+            {
+                string message = $"[TRADE VALIDATION] BOOTSTRAP FAILED: {failureReason}";
+                Console.WriteLine(message);
+                throw new InvalidOperationException(message);
+            }
+
+            _tradeRouteValidation = new TradeRouteValidationDiagnostics(_tradeRouteValidationIdentity);
+            _currentSystemIndex = _tradeRouteValidationIdentity.NewYork.SystemIndex;
+            _playerShip.Position = _tradeRouteValidationIdentity.FortBush.GetDockingPoint();
+            _playerShip.Velocity = Vector3.Zero;
+            _playerShip.SetFacing(Vector3.Forward);
+            _playerShip.Reset();
+
+            if (_stationDockUI?.DockAtStation(_tradeRouteValidationIdentity.FortBush) != true)
+            {
+                string failure = _stationDockUI?.LastDockingDeniedReason;
+                throw new InvalidOperationException(
+                    $"[TRADE VALIDATION] BOOTSTRAP FAILED: Fort Bush could not enter the real station dock boundary. {failure}");
+            }
+
+            _stationSession = StationSession.CreateRealDocked(
+                _tradeRouteValidationIdentity.FortBush,
+                _playerShip,
+                _currentSystemIndex);
+            if (!EnterStationSession(_stationSession, Keyboard.GetState()))
+            {
+                _stationDockUI.Undock();
+                throw new InvalidOperationException(
+                    "[TRADE VALIDATION] BOOTSTRAP FAILED: the real Fort Bush station session could not initialize.");
+            }
+
+            MarkFirstDockHintCompleted();
+            Console.WriteLine("[TRADE VALIDATION] Deterministic start prepared at real Fort Bush / New York.");
+            Console.WriteLine("[TRADE VALIDATION] Ship: " + _playerShip.DisplayName +
+                $" | cargo={_playerShip.CargoHold.UsedCapacity}/{_playerShip.CargoHold.MaxCapacity} | credits={_playerCredits.Credits:N0}");
+            Console.WriteLine("[TRADE VALIDATION] Real IDs: " +
+                $"station={_tradeRouteValidationIdentity.FortBushId}, destination={_tradeRouteValidationIdentity.RiversideId}, commodity={_tradeRouteValidationIdentity.FoodRations.Id}, " +
+                $"transitions={_tradeRouteValidationIdentity.FirstTransition.TransitionId} -> {_tradeRouteValidationIdentity.SecondTransition.TransitionId}");
+            Console.WriteLine("TRADE ROUTE VALIDATION");
+            Console.WriteLine("1. Press 5 for Jobs, then M for Market Opportunities.");
+            Console.WriteLine("2. Select Food Rations: Fort Bush -> Riverside Station; press R to Plot Route.");
+            Console.WriteLine("3. Press 3 for Equipment, Tab to Commodity Trader, and buy Food Rations normally.");
+            Console.WriteLine("4. Return to Hangar, press U to undock, follow GOTO, and press F4 at each real jump hole.");
+            Console.WriteLine("5. Dock Riverside normally, open the trader, and sell the ordinary cargo.");
+            _notificationManager?.ShowMessage("TRADE VALIDATION: 5=Jobs, M=market, R=plot; buy Food Rations", 12f);
+        }
+
+        private void HandleTradePlanChanged(TradePlan plan)
+        {
+            _tradeRouteValidation?.RecordPlanCreated(plan);
+            _tradeRouteValidation?.RecordPlanChanged(plan);
+            _tradeRouteValidation?.TryEmitPass();
+        }
+
         private void HandleCommodityTransaction(CommodityTransaction transaction)
         {
+            _tradeRouteValidation?.RecordTransaction(transaction, _commodityDealer, _playerCredits);
             if (_tradePlanManager?.ObserveTransaction(transaction, out string tradeMessage) != true)
             {
                 return;
@@ -2887,6 +2988,8 @@ namespace Roguelancer {
                 ClearTradePlanNavigation();
                 _notificationManager?.ShowMessage("TRADE ROUTE COMPLETE", 4f);
             }
+
+            _tradeRouteValidation?.TryEmitPass();
         }
 
         private bool PlotTradePlanNavigation(bool showNotification = true)
@@ -4995,6 +5098,16 @@ namespace Roguelancer {
                 return;
             }
 
+            // The explicit validation mode keeps the normal on-foot
+            // interaction path intact while providing the requested M-key
+            // entry point to the real Market Opportunities UI. Normal station
+            // sessions still require the physical mission-board interaction.
+            if (_devTradeRouteValidation && keyboardState.IsKeyDown(Keys.M) && _prevKeys.IsKeyUp(Keys.M))
+            {
+                OpenMissionBoard();
+                return;
+            }
+
             _stationTestScene?.Update(deltaTime);
             if (keyboardState.IsKeyDown(Keys.F12) && _prevKeys.IsKeyUp(Keys.F12)) {
                 _stationPlayerCharacter.CapsuleDebugVisible = !_stationPlayerCharacter.CapsuleDebugVisible;
@@ -5872,7 +5985,9 @@ namespace Roguelancer {
         /// Handle system change triggered by jump hole transit
         /// </summary>
         private void HandleSystemChange(int newSystemIndex, string arrivalJumpHoleName) {
-            Console.WriteLine($"[SYSTEM CHANGE] Switching from system {_currentSystemIndex} to system {newSystemIndex}");
+            int oldSystemIndex = _currentSystemIndex;
+            Console.WriteLine($"[SYSTEM CHANGE] Switching from system {oldSystemIndex} to system {newSystemIndex}");
+            _tradeRouteValidation?.RecordSystemChange(oldSystemIndex, newSystemIndex, arrivalJumpHoleName);
 
             // A jump completion invalidates the old-system world object. Only
             // cancel the GOTO owned by the trade route; mission/user state is

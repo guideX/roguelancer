@@ -23,6 +23,8 @@ namespace Roguelancer
         public float MaxReverseSpeed { get; set; } = 150f;
         public float CruiseSpeed { get; set; } = 600f;
         public float AfterburnerSpeed { get; set; } = 500f;
+        /// <summary>Developer-only travel convenience; normal gameplay keeps this at one.</summary>
+        public float ValidationTravelMultiplier { get; set; } = 1f;
         public float Acceleration { get; set; } = 150f;
         public float TurnSpeed { get; set; } = 1.5f;
         public float BankAmount { get; set; } = 1.2f;
@@ -190,7 +192,9 @@ namespace Roguelancer
         /// </summary>
         public void SetAutopilotTargetSpeed(float speed)
         {
-            _autopilotTargetSpeed = speed;
+            _autopilotTargetSpeed = speed < 0f
+                ? speed
+                : speed * MathHelper.Clamp(ValidationTravelMultiplier, 1f, 20f);
         }
 
         /// <summary>
@@ -726,13 +730,14 @@ namespace Roguelancer
             
             if (IsCruiseCharging)
             {
-                if (_cruiseChargeTimer < CruiseLungeTime) Speed = MathHelper.Lerp(Speed, MaxSpeed * 3f, deltaTime * 20f);
-                else if (_cruiseChargeTimer < CruiseChargePhase) Speed = MathHelper.Lerp(Speed, MaxSpeed * 3.5f, deltaTime * 6f);
-                else Speed = MathHelper.Lerp(Speed, CruiseSpeed, deltaTime * 30f);
+                float validationMultiplier = MathHelper.Clamp(ValidationTravelMultiplier, 1f, 20f);
+                if (_cruiseChargeTimer < CruiseLungeTime) Speed = MathHelper.Lerp(Speed, MaxSpeed * 3f * validationMultiplier, deltaTime * 20f);
+                else if (_cruiseChargeTimer < CruiseChargePhase) Speed = MathHelper.Lerp(Speed, MaxSpeed * 3.5f * validationMultiplier, deltaTime * 6f);
+                else Speed = MathHelper.Lerp(Speed, CruiseSpeed * validationMultiplier, deltaTime * 30f);
             }
             else if (IsCruiseActive) 
             {
-                Speed = MathHelper.Lerp(Speed, CruiseSpeed, deltaTime * 10f);
+                Speed = MathHelper.Lerp(Speed, CruiseSpeed * MathHelper.Clamp(ValidationTravelMultiplier, 1f, 20f), deltaTime * 10f);
             }
             else if (EnginesKilled) 
             {
