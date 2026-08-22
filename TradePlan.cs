@@ -23,8 +23,10 @@ public sealed class TradePlan
 
     public string SourceStationId { get; internal set; } = string.Empty;
     public string SourceStationName { get; internal set; } = string.Empty;
+    public int SourceSystemIndex { get; internal set; }
     public string DestinationStationId { get; internal set; } = string.Empty;
     public string DestinationStationName { get; internal set; } = string.Empty;
+    public int DestinationSystemIndex { get; internal set; }
     public string CommodityId { get; internal set; } = string.Empty;
     public string CommodityName { get; internal set; } = string.Empty;
 
@@ -75,6 +77,13 @@ public sealed class TradePlan
         TradePlanStage.GoToDestination => DestinationStationName,
         _ => string.Empty
     };
+
+    public int NextStationSystemIndex => Stage switch
+    {
+        TradePlanStage.GoToSource => SourceSystemIndex,
+        TradePlanStage.GoToDestination => DestinationSystemIndex,
+        _ => 0
+    };
 }
 
 /// <summary>Authoritative details for one normal commodity transaction.</summary>
@@ -116,10 +125,26 @@ public sealed class TradePlanManager
 
     public TradePlan ActivePlan { get; private set; }
     public TradePlan LastCompletedPlan { get; private set; }
+    public TradePlanNavigationState NavigationState { get; private set; }
 
     public event Action<TradePlan> PlanChanged;
 
     public string NextNavigationStationId => ActivePlan?.NextStationId ?? string.Empty;
+
+    public bool TryPlanNavigation(int currentSystemIndex, out TradePlanNavigationState state, out string failureReason)
+    {
+        bool success = TradePlanNavigation.TryPlanNextLeg(
+            ActivePlan,
+            currentSystemIndex,
+            _marketIntelligence,
+            _routeAuthority,
+            out state,
+            out failureReason);
+        NavigationState = state;
+        return success;
+    }
+
+    public void ClearNavigationState() => NavigationState = null;
 
     public int GetTradableQuantity(string commodityIdOrName)
     {
@@ -192,8 +217,10 @@ public sealed class TradePlanManager
         {
             SourceStationId = sourceStation.StationId,
             SourceStationName = sourceStation.StationName,
+            SourceSystemIndex = sourceStation.SystemIndex,
             DestinationStationId = destinationStation.StationId,
             DestinationStationName = destinationStation.StationName,
+            DestinationSystemIndex = destinationStation.SystemIndex,
             CommodityId = commodity.Id,
             CommodityName = commodity.Name,
             SourceBuyPriceSnapshot = sourceObservation.BuyPrice,
@@ -226,6 +253,7 @@ public sealed class TradePlanManager
 
         // Validate the complete candidate before replacing an existing plan so
         // failed selections are atomic and do not disturb player state.
+        NavigationState = null;
         ActivePlan = candidate;
         LastCompletedPlan = null;
         UpdateGuidance();
@@ -247,6 +275,7 @@ public sealed class TradePlanManager
         }
 
         ActivePlan = null;
+        NavigationState = null;
         PlanChanged?.Invoke(null);
         message = "Trade plan cancelled. Cargo, credits, markets, and missions unchanged.";
         return true;
@@ -295,6 +324,7 @@ public sealed class TradePlanManager
                 : "Destination reached. No tradable cargo aboard.";
         }
 
+        NavigationState = null;
         UpdateGuidance();
         PlanChanged?.Invoke(ActivePlan);
         return true;
@@ -336,6 +366,7 @@ public sealed class TradePlanManager
                 LastCompletedPlan = ActivePlan;
                 TradePlan completed = ActivePlan;
                 ActivePlan = null;
+                NavigationState = null;
                 PlanChanged?.Invoke(completed);
                 message = "TRADE ROUTE COMPLETE. No mission reward or cargo reservation was created.";
                 return true;
@@ -348,6 +379,7 @@ public sealed class TradePlanManager
             return false;
         }
 
+        NavigationState = null;
         UpdateGuidance();
         PlanChanged?.Invoke(ActivePlan);
         return true;
@@ -358,20 +390,33 @@ public sealed class TradePlanManager
         if (ActivePlan == null) return new List<string>();
 
         int ordinaryQuantity = GetTradableQuantity(ActivePlan.CommodityId);
+        string nextLine = ActivePlan.Stage switch
+        {
+            TradePlanStage.GoToSource => $"Next: {ActivePlan.SourceStationName}",
+            TradePlanStage.AcquireCommodity => $"Next: Buy at {ActivePlan.SourceStationName}",
+            TradePlanStage.GoToDestination => $"Cargo: {ordinaryQuantity:N0} {ActivePlan.CommodityName} | Next: {ActivePlan.DestinationStationName}",
+            TradePlanStage.SellCommodity => ordinaryQuantity > 0
+                ? $"Next: Sell {ordinaryQuantity:N0} at {ActivePlan.DestinationStationName}"
+                : "No tradable cargo aboard",
+            _ => "Complete"
+        };
+
+        if (NavigationState?.FinalStationId == ActivePlan.NextStationId)
+        {
+            nextLine = NavigationState.Status switch
+            {
+                TradePlanRouteStatus.TransitionRequired => $"Next: {NavigationState.NextTransition.TransitionName} | {NavigationState.RemainingHopCount} jumps",
+                TradePlanRouteStatus.Unavailable => "Next: NO KNOWN ROUTE",
+                TradePlanRouteStatus.LocalStation => nextLine,
+                _ => nextLine
+            };
+        }
+
         List<string> lines = new()
         {
             $"TRADE: {ActivePlan.CommodityName}",
             $"{ActivePlan.SourceStationName} -> {ActivePlan.DestinationStationName}",
-            ActivePlan.Stage switch
-            {
-                TradePlanStage.GoToSource => $"Next: {ActivePlan.SourceStationName}",
-                TradePlanStage.AcquireCommodity => $"Next: Buy at {ActivePlan.SourceStationName}",
-                TradePlanStage.GoToDestination => $"Cargo: {ordinaryQuantity:N0} {ActivePlan.CommodityName} | Next: {ActivePlan.DestinationStationName}",
-                TradePlanStage.SellCommodity => ordinaryQuantity > 0
-                    ? $"Next: Sell {ordinaryQuantity:N0} at {ActivePlan.DestinationStationName}"
-                    : "No tradable cargo aboard",
-                _ => "Complete"
-            },
+            nextLine,
             $"Known margin: {FormatSigned(ActivePlan.CurrentKnownSpread)} CR/unit",
             $"Projected gross spread: {ActivePlan.ProjectedGrossResult:N0} CR"
         };
@@ -395,8 +440,10 @@ public sealed class TradePlanManager
         {
             SourceStationId = ActivePlan.SourceStationId,
             SourceStationName = ActivePlan.SourceStationName,
+            SourceSystemIndex = ActivePlan.SourceSystemIndex,
             DestinationStationId = ActivePlan.DestinationStationId,
             DestinationStationName = ActivePlan.DestinationStationName,
+            DestinationSystemIndex = ActivePlan.DestinationSystemIndex,
             CommodityId = ActivePlan.CommodityId,
             CommodityName = ActivePlan.CommodityName,
             SourceBuyPrice = ActivePlan.SourceBuyPriceSnapshot,
@@ -422,6 +469,7 @@ public sealed class TradePlanManager
     {
         ActivePlan = null;
         LastCompletedPlan = null;
+        NavigationState = null;
         if (saved == null || !IsValidSavedPlan(saved))
         {
             PlanChanged?.Invoke(null);
@@ -433,8 +481,14 @@ public sealed class TradePlanManager
         {
             SourceStationId = saved.SourceStationId,
             SourceStationName = saved.SourceStationName ?? saved.SourceStationId,
+            SourceSystemIndex = saved.SourceSystemIndex > 0
+                ? saved.SourceSystemIndex
+                : ResolveSavedStationSystem(saved.SourceStationId),
             DestinationStationId = saved.DestinationStationId,
             DestinationStationName = saved.DestinationStationName ?? saved.DestinationStationId,
+            DestinationSystemIndex = saved.DestinationSystemIndex > 0
+                ? saved.DestinationSystemIndex
+                : ResolveSavedStationSystem(saved.DestinationStationId),
             CommodityId = commodity.Id,
             CommodityName = commodity.Name,
             SourceBuyPriceSnapshot = saved.SourceBuyPrice,
@@ -464,6 +518,7 @@ public sealed class TradePlanManager
     {
         ActivePlan = null;
         LastCompletedPlan = null;
+        NavigationState = null;
         PlanChanged?.Invoke(null);
     }
 
@@ -557,6 +612,13 @@ public sealed class TradePlanManager
 
     private static string FormatSigned(int value) => value >= 0 ? $"+{value:N0}" : value.ToString("N0");
 
+    private int ResolveSavedStationSystem(string stationId)
+    {
+        return _marketIntelligence.TryGetKnownStation(stationId, out MarketKnowledgeStation station)
+            ? Math.Max(0, station.SystemIndex)
+            : 0;
+    }
+
     private MarketObservationAgeBand GetSavedAgeBand(long observedAt)
     {
         return observedAt > _marketManager.ElapsedMilliseconds
@@ -572,7 +634,7 @@ public sealed class TradePlanManager
 /// Resolves the next trade-plan station from the live current-system station
 /// collection. Actual route construction remains GotoAutopilot's authority.
 /// </summary>
-public static class TradePlanNavigation
+public static partial class TradePlanNavigation
 {
     public static bool TryResolveNextStation(
         TradePlan plan,

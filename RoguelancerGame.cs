@@ -135,7 +135,9 @@ namespace Roguelancer {
         private int _selectedSpaceObjectIndex = -1;
         private object _selectedNavTarget;
         private string _selectedNavTargetContextLabel = string.Empty;
-        private Station _tradePlanNavigationTarget;
+        private SpaceObject _tradePlanNavigationTarget;
+        private bool _tradePlanNavigationRetryQueued;
+        private int _tradePlanNavigationRetryAttempts;
         /// <summary>
         /// Npc Ships
         /// </summary>
@@ -243,6 +245,7 @@ namespace Roguelancer {
         private readonly bool _runBarSmoke;
         private readonly bool _runMarketIntelligenceSmoke;
         private readonly bool _runTradePlanSmoke;
+        private readonly bool _runCrossSystemTradeRouteSmoke;
         private readonly bool _runAllSmoke;
         private readonly bool _runPerformanceDiagnostics;
         private readonly bool _performanceAutoStation;
@@ -314,6 +317,7 @@ namespace Roguelancer {
             _runBarSmoke = args?.Any(arg => string.Equals(arg, "--bar-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMarketIntelligenceSmoke = args?.Any(arg => string.Equals(arg, "--market-intelligence-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTradePlanSmoke = args?.Any(arg => string.Equals(arg, "--trade-plan-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runCrossSystemTradeRouteSmoke = args?.Any(arg => string.Equals(arg, "--cross-system-trade-route-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPerformanceDiagnostics = args?.Any(arg => string.Equals(arg, "--perf-diagnostics", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceAutoStation = args?.Any(arg => string.Equals(arg, "--perf-station", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1266,6 +1270,11 @@ namespace Roguelancer {
                 var result = RunTradePlanSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runCrossSystemTradeRouteSmoke)
+            {
+                var result = RunCrossSystemTradeRouteSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else
             {
                 TryAutoLoadSavedGame();
@@ -1339,6 +1348,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("bar social smoke", RunBarSocialSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market intelligence smoke", RunMarketIntelligenceSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("trade plan smoke", RunTradePlanSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("cross-system trade route smoke", RunCrossSystemTradeRouteSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1636,6 +1646,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[TRADE PLAN SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunCrossSystemTradeRouteSmokeTest()
+        {
+            try
+            {
+                return new CrossSystemTradeRouteSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CROSS-SYSTEM TRADE ROUTE SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2138,6 +2161,16 @@ namespace Roguelancer {
             // Update StationManager (if needed)
             _stationManager?.Update(gameTime);
 
+            // Station worlds are populated at a lifecycle boundary. Give a
+            // missing final trade station one bounded post-load retry rather
+            // than allocating or scanning for it every frame.
+            if (_tradePlanNavigationRetryQueued)
+            {
+                _tradePlanNavigationRetryQueued = false;
+                _tradePlanNavigationRetryAttempts++;
+                PlotTradePlanNavigation(showNotification: false);
+            }
+
             // Toggle turret view with H
             if (keyboardState.IsKeyDown(Keys.H) && _prevKeys.IsKeyUp(Keys.H)) {
                 _camera.ToggleTurretView();
@@ -2567,6 +2600,13 @@ namespace Roguelancer {
             bool f5Pressed = keyboardState.IsKeyDown(Keys.F5) && _prevKeys.IsKeyUp(Keys.F5);
             bool f7Pressed = keyboardState.IsKeyDown(Keys.F7) && _prevKeys.IsKeyUp(Keys.F7);
             bool gPressed = keyboardState.IsKeyDown(Keys.G) && _prevKeys.IsKeyUp(Keys.G);
+            bool rPressed = keyboardState.IsKeyDown(Keys.R) && _prevKeys.IsKeyUp(Keys.R);
+
+            if (rPressed && HasTradePlanResumeAvailable())
+            {
+                PlotTradePlanNavigation(showNotification: true);
+                return;
+            }
 
             // T key: Cycle to next target
             if (tPressed && !shiftT && !ctrlT && _spaceObjects.Count > 0) {
@@ -2600,6 +2640,23 @@ namespace Roguelancer {
             if (gPressed) {
                 TryGotoSelectedTarget();
             }
+        }
+
+        private bool HasTradePlanResumeAvailable()
+        {
+            if (_tradePlanManager?.ActivePlan == null) return false;
+
+            SpaceObject selected = GetSelectedNavTarget() as SpaceObject;
+            if (_tradePlanNavigationTarget != null &&
+                ReferenceEquals(selected, _tradePlanNavigationTarget) &&
+                _playerShip?.IsGotoActive == true)
+            {
+                return false;
+            }
+
+            return _tradePlanNavigationTarget == null ||
+                !ReferenceEquals(selected, _tradePlanNavigationTarget) ||
+                _playerShip?.IsGotoActive != true;
         }
 
         private object GetSelectedNavTarget()
@@ -2825,22 +2882,74 @@ namespace Roguelancer {
                 return false;
             }
 
+            if (!_tradePlanManager.TryPlanNavigation(
+                    _currentSystemIndex,
+                    out TradePlanNavigationState routeState,
+                    out string failureReason))
+            {
+                string routeMessage = routeState?.Status == TradePlanRouteStatus.Unavailable
+                    ? "NO KNOWN ROUTE"
+                    : failureReason;
+                _notificationManager?.ShowMessage($"Trade route held: {routeMessage}.", 3f);
+                Console.WriteLine($"[TRADE PLAN] Navigation held: {routeMessage}; final={plan.NextStationId}; system={_currentSystemIndex}");
+                return false;
+            }
+
+            if (routeState.Status == TradePlanRouteStatus.TransitionRequired)
+            {
+                JumpHole jumpHole = _jumpHoleManager?.GetJumpHoles()?.FirstOrDefault(candidate =>
+                    candidate != null && string.Equals(candidate.Config?.Name, routeState.NextTransition?.TransitionName, StringComparison.OrdinalIgnoreCase));
+                if (jumpHole == null)
+                {
+                    const string missingTransition = "next jump connection is unavailable";
+                    _notificationManager?.ShowMessage($"Trade route held: {missingTransition}.", 3f);
+                    Console.WriteLine($"[TRADE PLAN] Missing transition {routeState.CurrentTransitionId} in system {_currentSystemIndex}; final={plan.NextStationId}");
+                    return false;
+                }
+
+                SelectSpaceObjectTarget(jumpHole, "Trade plan", "TRADE ROUTE", showNotification);
+                _tradePlanNavigationTarget = jumpHole;
+                _tradePlanNavigationRetryQueued = false;
+                _tradePlanNavigationRetryAttempts = 0;
+                _playerShip?.ActivateGoto(jumpHole);
+                if (showNotification)
+                {
+                    _notificationManager?.ShowMessage(
+                        $"NEXT JUMP: {jumpHole.Name} ({routeState.RemainingHopCount} jumps remaining)",
+                        3f);
+                }
+                return true;
+            }
+
             if (!TradePlanNavigation.TryResolveNextStation(
                     plan,
                     _stationManager?.GetStations(),
                     _commodityDealer?.MarketManager,
                     out Station station,
-                    out string failureReason))
+                    out failureReason))
             {
-                _notificationManager?.ShowMessage($"Trade route held: {failureReason}.", 3f);
-                Console.WriteLine($"[TRADE PLAN] Navigation held: {failureReason}");
+                _notificationManager?.ShowMessage($"Trade route waiting for station load: {plan.NextStationName}.", 3f);
+                Console.WriteLine($"[TRADE PLAN] Final station not yet loaded: {plan.NextStationId}; {failureReason}");
+                QueueTradePlanNavigationRetry();
                 return false;
             }
 
             SelectSpaceObjectTarget(station, "Trade plan", "TRADE ROUTE", showNotification);
             _tradePlanNavigationTarget = station;
+            _tradePlanNavigationRetryQueued = false;
+            _tradePlanNavigationRetryAttempts = 0;
             _playerShip?.ActivateGoto(station);
+            if (showNotification && routeState.Status == TradePlanRouteStatus.LocalStation)
+            {
+                _notificationManager?.ShowMessage($"FINAL SYSTEM REACHED: {station.Name}", 3f);
+            }
             return true;
+        }
+
+        private void QueueTradePlanNavigationRetry()
+        {
+            if (_tradePlanNavigationRetryAttempts >= 1) return;
+            _tradePlanNavigationRetryQueued = true;
         }
 
         private void ClearTradePlanNavigation()
@@ -2858,6 +2967,9 @@ namespace Roguelancer {
             }
 
             _tradePlanNavigationTarget = null;
+            _tradePlanNavigationRetryQueued = false;
+            _tradePlanNavigationRetryAttempts = 0;
+            _tradePlanManager?.ClearNavigationState();
         }
 
         private bool HasActiveMissionObjective()
@@ -5709,6 +5821,10 @@ namespace Roguelancer {
 
             List<string> lines = _tradePlanManager.GetCompactDisplayLines(5);
             if (lines.Count == 0) return;
+            if (HasTradePlanResumeAvailable())
+            {
+                lines.Add("R: RESUME TRADE ROUTE");
+            }
 
             int panelWidth = 390;
             int panelX = Math.Max(10, GraphicsDevice.Viewport.Width - panelWidth - 20);
@@ -5736,6 +5852,18 @@ namespace Roguelancer {
         /// </summary>
         private void HandleSystemChange(int newSystemIndex, string arrivalJumpHoleName) {
             Console.WriteLine($"[SYSTEM CHANGE] Switching from system {_currentSystemIndex} to system {newSystemIndex}");
+
+            // A jump completion invalidates the old-system world object. Only
+            // cancel the GOTO owned by the trade route; mission/user state is
+            // kept independent and is rebound below as before.
+            if (_tradePlanNavigationTarget != null &&
+                ReferenceEquals(_playerShip?.CurrentGotoTarget, _tradePlanNavigationTarget))
+            {
+                _playerShip.CancelGoto(showNotification: false);
+            }
+            _tradePlanNavigationTarget = null;
+            _tradePlanNavigationRetryQueued = false;
+            _tradePlanNavigationRetryAttempts = 0;
             _currentSystemIndex = newSystemIndex;
 
             // Get arrival position
@@ -5888,6 +6016,10 @@ namespace Roguelancer {
             _selectedNavTarget = null;
 
             _missionWorldManager?.RebindActiveMissions(_missionManager?.ActiveMissions ?? Array.Empty<Mission>());
+
+            // This runs after station and jump-hole population so a remote
+            // Trade Plan can immediately select its next leg or final station.
+            PlotTradePlanNavigation(showNotification: true);
 
             Console.WriteLine($"[SYSTEM CHANGE] Player positioned at {arrivalPos}");
         }

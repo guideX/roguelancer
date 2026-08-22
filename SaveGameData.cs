@@ -397,11 +397,17 @@ namespace Roguelancer
         [JsonPropertyName("source_station_name")]
         public string SourceStationName { get; set; } = string.Empty;
 
+        [JsonPropertyName("source_system_index")]
+        public int SourceSystemIndex { get; set; }
+
         [JsonPropertyName("destination_station_id")]
         public string DestinationStationId { get; set; } = string.Empty;
 
         [JsonPropertyName("destination_station_name")]
         public string DestinationStationName { get; set; } = string.Empty;
+
+        [JsonPropertyName("destination_system_index")]
+        public int DestinationSystemIndex { get; set; }
 
         [JsonPropertyName("commodity_id")]
         public string CommodityId { get; set; } = string.Empty;
