@@ -47,6 +47,7 @@ namespace Roguelancer
         private MissionManager _missionManager;
         private MissionWorldManager _missionWorldManager;
         private ReputationManager _reputationManager;
+        private readonly TradePlanManager _tradePlanManager;
         private IReadOnlyList<MarketOpportunity> _marketOpportunities = Array.Empty<MarketOpportunity>();
         public string LastDockingDeniedReason { get; private set; } = string.Empty;
 
@@ -58,7 +59,7 @@ namespace Roguelancer
         public event Action? OnUndock;
         public event Action<ShipDefinition>? OnShipPurchased;
 
-        public StationDockUI(SpriteFont font, Texture2D pixel, ShipDealer shipDealer, CommodityDealer commodityDealer, MissionManager missionManager, ReputationManager reputationManager = null, EquipmentDealer equipmentDealer = null)
+        public StationDockUI(SpriteFont font, Texture2D pixel, ShipDealer shipDealer, CommodityDealer commodityDealer, MissionManager missionManager, ReputationManager reputationManager = null, EquipmentDealer equipmentDealer = null, TradePlanManager tradePlanManager = null)
         {
             _font = font;
             _pixel = pixel;
@@ -66,6 +67,7 @@ namespace Roguelancer
             _commodityDealer = commodityDealer;
             _missionManager = missionManager;
             _reputationManager = reputationManager;
+            _tradePlanManager = tradePlanManager;
             _equipmentDealer = equipmentDealer ?? new EquipmentDealer();
             _jobBoard = new JobBoard(missionManager);
             _isDocked = false;
@@ -210,6 +212,7 @@ namespace Roguelancer
 
             // Active missions panel (always visible at top-right when docked)
             DrawActiveMissions(spriteBatch, screenWidth);
+            DrawActiveTradePlan(spriteBatch, screenWidth);
 
             // Navigation menu
             DrawNavigationMenu(spriteBatch, screenWidth, screenHeight);
@@ -1307,6 +1310,34 @@ namespace Roguelancer
                     yOff += lineHeight + 10;
                 }
             }
+        }
+
+        private void DrawActiveTradePlan(SpriteBatch spriteBatch, int screenWidth)
+        {
+            if (_tradePlanManager?.ActivePlan == null) return;
+
+            List<string> lines = _tradePlanManager.GetCompactDisplayLines(4);
+            if (lines.Count == 0) return;
+
+            int panelWidth = 390;
+            int panelX = Math.Max(20, screenWidth - panelWidth - 20);
+            int panelY = 110;
+            int lineHeight = 22;
+            Rectangle panel = new(panelX, panelY, panelWidth, 30 + lines.Count * lineHeight);
+            spriteBatch.Draw(_pixel, panel, Color.Black * 0.72f);
+            spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 2), Color.LimeGreen);
+            spriteBatch.DrawString(_font, "ACTIVE TRADE PLAN", new Vector2(panelX + 10, panelY + 5), Color.LimeGreen);
+
+            for (int i = 0; i < lines.Count; i++)
+            {
+                spriteBatch.DrawString(_font, TruncateTradePlanLine(lines[i], 46), new Vector2(panelX + 10, panelY + 30 + i * lineHeight), Color.White);
+            }
+        }
+
+        private static string TruncateTradePlanLine(string value, int maxLength)
+        {
+            if (string.IsNullOrEmpty(value) || value.Length <= maxLength) return value ?? string.Empty;
+            return value.Substring(0, Math.Max(0, maxLength - 3)) + "...";
         }
 
         /// <summary>

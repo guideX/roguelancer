@@ -19,6 +19,9 @@ public sealed class StationMissionBoardUI
     private readonly JobBoard _jobBoard;
     private readonly CargoHold _cargoHold;
     private readonly Action<string> _showMessage;
+    private readonly TradePlanManager _tradePlanManager;
+    private readonly Action<bool> _plotTradePlan;
+    private readonly Action _clearTradePlanNavigation;
 
     private string _stationName = "Station";
     private Station _station;
@@ -26,13 +29,18 @@ public sealed class StationMissionBoardUI
     private string _statusMessage = string.Empty;
     private float _statusRemaining;
     private IReadOnlyList<MarketOpportunity> _marketOpportunities = Array.Empty<MarketOpportunity>();
+    private int _marketSelection;
+    private bool _marketFocus;
 
     public StationMissionBoardUI(
         SpriteFont font,
         Texture2D pixel,
         MissionManager missionManager,
         CargoHold cargoHold = null,
-        Action<string> showMessage = null)
+        Action<string> showMessage = null,
+        TradePlanManager tradePlanManager = null,
+        Action<bool> plotTradePlan = null,
+        Action clearTradePlanNavigation = null)
     {
         _font = font ?? throw new ArgumentNullException(nameof(font));
         _pixel = pixel ?? throw new ArgumentNullException(nameof(pixel));
@@ -40,6 +48,9 @@ public sealed class StationMissionBoardUI
         _jobBoard = new JobBoard(missionManager);
         _cargoHold = cargoHold;
         _showMessage = showMessage ?? (_ => { });
+        _tradePlanManager = tradePlanManager;
+        _plotTradePlan = plotTradePlan;
+        _clearTradePlanNavigation = clearTradePlanNavigation;
     }
 
     public bool IsOpen { get; private set; }
@@ -51,6 +62,8 @@ public sealed class StationMissionBoardUI
         _station = station;
         _jobBoard.RefreshMissions(6, station?.FactionId, station);
         _marketOpportunities = _missionManager.GetKnownMarketOpportunities(5);
+        _marketSelection = Math.Clamp(_marketSelection, 0, Math.Max(0, _marketOpportunities.Count - 1));
+        _marketFocus = false;
         _statusMessage = string.Empty;
         _statusRemaining = 0f;
         _inputGate = true;
@@ -87,6 +100,29 @@ public sealed class StationMissionBoardUI
             return true;
         }
 
+        if (Pressed(current, previous, Keys.M))
+        {
+            _marketFocus = !_marketFocus;
+            return true;
+        }
+
+        if (Pressed(current, previous, Keys.C) && _tradePlanManager?.ActivePlan != null)
+        {
+            if (_tradePlanManager.CancelActivePlan(out string tradeCancelMessage))
+            {
+                _clearTradePlanNavigation?.Invoke();
+                SetStatus(tradeCancelMessage, success: true);
+                _showMessage(tradeCancelMessage);
+            }
+            return true;
+        }
+
+        if (Pressed(current, previous, Keys.R))
+        {
+            PlotSelectedTradePlan();
+            return true;
+        }
+
         if (Pressed(current, previous, Keys.C) && _missionManager.ActiveMission?.Type == MissionType.ExportContract)
         {
             if (_missionManager.CancelMission(_missionManager.ActiveMission, out string cancelMessage))
@@ -99,6 +135,18 @@ public sealed class StationMissionBoardUI
                 SetStatus(cancelMessage, success: false);
                 _showMessage(cancelMessage);
             }
+            return true;
+        }
+
+        if (_marketFocus && (Pressed(current, previous, Keys.Up) || Pressed(current, previous, Keys.W)))
+        {
+            MoveMarketSelection(-1);
+            return true;
+        }
+
+        if (_marketFocus && (Pressed(current, previous, Keys.Down) || Pressed(current, previous, Keys.S)))
+        {
+            MoveMarketSelection(1);
             return true;
         }
 
@@ -116,6 +164,11 @@ public sealed class StationMissionBoardUI
 
         if (Pressed(current, previous, Keys.Enter) || Pressed(current, previous, Keys.E))
         {
+            if (_marketFocus)
+            {
+                PlotSelectedTradePlan();
+                return true;
+            }
             ActivateSelection();
             return true;
         }
@@ -176,7 +229,7 @@ public sealed class StationMissionBoardUI
         spriteBatch.DrawString(_font, $"MISSION BOARD - {_stationName}", new Vector2(panel.X + 24, panel.Y + 18), Color.Gold);
         DrawMarketOpportunityStrip(spriteBatch, panel);
 
-        int contentTop = panel.Y + 84;
+        int contentTop = panel.Y + 108;
         int contentBottom = panel.Bottom - 86;
         int dividerX = panel.X + (int)(panel.Width * 0.38f);
         Rectangle listPanel = new(panel.X + 18, contentTop, dividerX - panel.X - 28, contentBottom - contentTop);
@@ -222,9 +275,11 @@ public sealed class StationMissionBoardUI
                 : "ACTIVE: None";
         spriteBatch.DrawString(_font, Shorten(activeLine, 94), new Vector2(panel.X + 24, statusY), completed != null ? Color.Lime : Color.Cyan);
 
-        string footer = "UP/DOWN or W/S: Select    ENTER/E: Accept or Claim    ESC: Back";
-        if (_missionManager.ActiveMission?.Type == MissionType.ExportContract)
-            footer = "UP/DOWN or W/S: Select    C: Cancel export    ESC: Back";
+        string footer = "M: Market focus   M + UP/DOWN: Select route   R/ENTER: Plot   C: Cancel plan   ESC: Back";
+        if (!_marketFocus)
+            footer = "UP/DOWN or W/S: Select job   ENTER/E: Accept or Claim   M: Market focus   R: Plot route   ESC: Back";
+        if (_tradePlanManager?.ActivePlan == null && _missionManager.ActiveMission?.Type == MissionType.ExportContract)
+            footer = "UP/DOWN or W/S: Select job   ENTER/E: Accept   C: Cancel export   M: Market focus   ESC: Back";
         spriteBatch.DrawString(_font, footer, new Vector2(panel.X + 24, panel.Bottom - 42), Color.LightGray);
         if (!string.IsNullOrWhiteSpace(_statusMessage))
         {
@@ -315,8 +370,45 @@ public sealed class StationMissionBoardUI
             return;
         }
 
-        string summary = string.Join("  |  ", _marketOpportunities.Take(3).Select(opportunity => opportunity.GetDisplayText()));
-        spriteBatch.DrawString(_font, $"MARKET OPPORTUNITIES: {Shorten(summary, 122)}", new Vector2(panel.X + 24, panel.Y + 44), Color.LightGreen);
+        _marketSelection = Math.Clamp(_marketSelection, 0, _marketOpportunities.Count - 1);
+        MarketOpportunity selected = _marketOpportunities[_marketSelection];
+        string summary = Shorten(selected.GetDisplayText(), 122);
+        Color focusColor = _marketFocus ? Color.Orange : Color.LightGreen;
+        spriteBatch.DrawString(_font, $"MARKET OPPORTUNITIES [{_marketSelection + 1}/{_marketOpportunities.Count}]", new Vector2(panel.X + 24, panel.Y + 44), focusColor);
+        spriteBatch.DrawString(_font, $"{(_marketFocus ? "> " : "  ")}{summary}", new Vector2(panel.X + 24, panel.Y + 67), Color.White);
+        if (_tradePlanManager?.ActivePlan != null)
+        {
+            TradePlan plan = _tradePlanManager.ActivePlan;
+            spriteBatch.DrawString(_font, $"ACTIVE PLAN: {Shorten(plan.CommodityName, 18)} {plan.SourceStationName} -> {plan.DestinationStationName}", new Vector2(panel.X + 24, panel.Y + 89), Color.LimeGreen);
+        }
+    }
+
+    private void MoveMarketSelection(int direction)
+    {
+        if (_marketOpportunities == null || _marketOpportunities.Count == 0) return;
+        _marketSelection = (_marketSelection + direction) % _marketOpportunities.Count;
+        if (_marketSelection < 0) _marketSelection += _marketOpportunities.Count;
+    }
+
+    private void PlotSelectedTradePlan()
+    {
+        if (_tradePlanManager == null || _marketOpportunities == null || _marketOpportunities.Count == 0)
+        {
+            SetStatus("No exact market route is known.", success: false);
+            return;
+        }
+
+        MarketOpportunity selected = _marketOpportunities[Math.Clamp(_marketSelection, 0, _marketOpportunities.Count - 1)];
+        if (!_tradePlanManager.TryCreatePlan(selected, out string message))
+        {
+            SetStatus(message, success: false);
+            _showMessage(message);
+            return;
+        }
+
+        SetStatus(message, success: true);
+        _showMessage(message);
+        _plotTradePlan?.Invoke(true);
     }
 
     private void SetStatus(string message, bool success)

@@ -24,6 +24,12 @@ namespace Roguelancer
         public Station CurrentStation => _currentStation;
         public MarketManager MarketManager => _marketManager;
 
+        /// <summary>
+        /// Fires only after the authoritative market, credits, and cargo state
+        /// have committed a normal transaction.
+        /// </summary>
+        public event Action<CommodityTransaction> TransactionCompleted;
+
         public void SetMarketIntelligence(MarketIntelligence marketIntelligence)
         {
             _marketIntelligence = marketIntelligence;
@@ -168,13 +174,20 @@ namespace Roguelancer
         {
             if (_currentStation == null || !_marketManager.HasMarketConfigForStation(_currentStation))
             {
+                int fallbackUnitPrice = ResolveListing(commodity)?.BuyPrice ?? 0;
                 bool fallbackSuccess = BuyWithFallback(commodity, quantity, credits, cargoHold, out message);
+                if (fallbackSuccess) PublishTransaction(commodity, quantity, fallbackUnitPrice, isPurchase: true);
                 LogMarketResult(fallbackSuccess, message);
                 return fallbackSuccess;
             }
 
+            int unitPrice = ResolveListing(commodity)?.BuyPrice ?? 0;
             bool marketSuccess = _marketManager.TryBuy(_currentStation, commodity, quantity, credits, cargoHold, out message);
-            if (marketSuccess) _marketIntelligence?.RefreshCurrentStation();
+            if (marketSuccess)
+            {
+                _marketIntelligence?.RefreshCurrentStation();
+                PublishTransaction(commodity, quantity, unitPrice, isPurchase: true);
+            }
             LogMarketResult(marketSuccess, message);
 
             return marketSuccess;
@@ -189,13 +202,20 @@ namespace Roguelancer
         {
             if (_currentStation == null || !_marketManager.HasMarketConfigForStation(_currentStation))
             {
+                int fallbackUnitPrice = ResolveListing(commodity)?.SellPrice ?? 0;
                 bool fallbackSuccess = SellWithFallback(commodity, quantity, credits, cargoHold, out message);
+                if (fallbackSuccess) PublishTransaction(commodity, quantity, fallbackUnitPrice, isPurchase: false);
                 LogMarketResult(fallbackSuccess, message);
                 return fallbackSuccess;
             }
 
+            int unitPrice = ResolveListing(commodity)?.SellPrice ?? 0;
             bool marketSuccess = _marketManager.TrySell(_currentStation, commodity, quantity, credits, cargoHold, out message);
-            if (marketSuccess) _marketIntelligence?.RefreshCurrentStation();
+            if (marketSuccess)
+            {
+                _marketIntelligence?.RefreshCurrentStation();
+                PublishTransaction(commodity, quantity, unitPrice, isPurchase: false);
+            }
             LogMarketResult(marketSuccess, message);
 
             return marketSuccess;
@@ -364,6 +384,19 @@ namespace Roguelancer
 
             string prefix = success ? "[MARKET]" : "[MARKET][FAIL]";
             Console.WriteLine($"{prefix} {message}");
+        }
+
+        private void PublishTransaction(Commodity commodity, int quantity, int unitPrice, bool isPurchase)
+        {
+            if (commodity == null || quantity <= 0) return;
+            TransactionCompleted?.Invoke(new CommodityTransaction
+            {
+                StationId = _marketManager.GetStationId(_currentStation),
+                CommodityId = commodity.Id ?? string.Empty,
+                Quantity = quantity,
+                UnitPrice = Math.Max(0, unitPrice),
+                IsPurchase = isPurchase
+            });
         }
     }
 }

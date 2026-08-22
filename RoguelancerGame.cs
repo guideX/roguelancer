@@ -135,6 +135,7 @@ namespace Roguelancer {
         private int _selectedSpaceObjectIndex = -1;
         private object _selectedNavTarget;
         private string _selectedNavTargetContextLabel = string.Empty;
+        private Station _tradePlanNavigationTarget;
         /// <summary>
         /// Npc Ships
         /// </summary>
@@ -180,6 +181,7 @@ namespace Roguelancer {
         private ShipDealer _shipDealer;
         private CommodityDealer _commodityDealer;
         private MarketIntelligence _marketIntelligence;
+        private TradePlanManager _tradePlanManager;
         private EquipmentDealer _equipmentDealer;
 
         // Mission system
@@ -240,6 +242,7 @@ namespace Roguelancer {
         private readonly bool _runHardpointSmoke;
         private readonly bool _runBarSmoke;
         private readonly bool _runMarketIntelligenceSmoke;
+        private readonly bool _runTradePlanSmoke;
         private readonly bool _runAllSmoke;
         private readonly bool _runPerformanceDiagnostics;
         private readonly bool _performanceAutoStation;
@@ -310,6 +313,7 @@ namespace Roguelancer {
             _runHardpointSmoke = args?.Any(arg => string.Equals(arg, "--hardpoint-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runBarSmoke = args?.Any(arg => string.Equals(arg, "--bar-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMarketIntelligenceSmoke = args?.Any(arg => string.Equals(arg, "--market-intelligence-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runTradePlanSmoke = args?.Any(arg => string.Equals(arg, "--trade-plan-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runAllSmoke = args?.Any(arg => string.Equals(arg, "--all-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPerformanceDiagnostics = args?.Any(arg => string.Equals(arg, "--perf-diagnostics", StringComparison.OrdinalIgnoreCase)) == true;
             _performanceAutoStation = args?.Any(arg => string.Equals(arg, "--perf-station", StringComparison.OrdinalIgnoreCase)) == true;
@@ -939,6 +943,13 @@ namespace Roguelancer {
                 _playerShip?.CargoHold,
                 _marketIntelligence);
             _missionManager.SetRouteAuthority(new MarketRouteAuthority(_config.JumpHoles));
+            _tradePlanManager = new TradePlanManager(
+                _commodityDealer.MarketManager,
+                _marketIntelligence,
+                new MarketRouteAuthority(_config.JumpHoles),
+                _playerShip?.CargoHold,
+                _playerCredits);
+            _commodityDealer.TransactionCompleted += HandleCommodityTransaction;
 
             // Initialize NPC weapon system
             _npcWeaponSystem = new NpcWeaponSystem(GraphicsDevice, _reputationManager);
@@ -958,7 +969,7 @@ namespace Roguelancer {
 
             // Initialize station dock UI
             if (_font != null) {
-                _stationDockUI = new StationDockUI(_font, _pixel, _shipDealer, _commodityDealer, _missionManager, _reputationManager, _equipmentDealer);
+                _stationDockUI = new StationDockUI(_font, _pixel, _shipDealer, _commodityDealer, _missionManager, _reputationManager, _equipmentDealer, _tradePlanManager);
                 _stationDockUI.OnUndock += HandleUndock;
                 _stationDockUI.OnShipPurchased += HandleShipPurchased;
                 _stationShipDealerUI = new StationShipDealerUI(
@@ -982,7 +993,10 @@ namespace Roguelancer {
                     _pixel,
                     _missionManager,
                     _playerShip?.CargoHold,
-                    message => _notificationManager?.ShowMessage(message, 3f));
+                    message => _notificationManager?.ShowMessage(message, 3f),
+                    _tradePlanManager,
+                    show => { PlotTradePlanNavigation(show); },
+                    ClearTradePlanNavigation);
             }
 
             // Load ship model
@@ -1247,6 +1261,11 @@ namespace Roguelancer {
                 var result = RunMarketIntelligenceSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runTradePlanSmoke)
+            {
+                var result = RunTradePlanSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else
             {
                 TryAutoLoadSavedGame();
@@ -1319,6 +1338,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("hardpoint smoke", RunHardpointSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("bar social smoke", RunBarSocialSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market intelligence smoke", RunMarketIntelligenceSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("trade plan smoke", RunTradePlanSmokeTest, ref suitesPassed, ref suitesFailed);
 
             Console.WriteLine($"[ALL SMOKE] RESULT: {suitesPassed} suites passed, {suitesFailed} failed");
             return (suitesPassed, suitesFailed);
@@ -1607,6 +1627,19 @@ namespace Roguelancer {
             }
         }
 
+        private (int Passed, int Failed) RunTradePlanSmokeTest()
+        {
+            try
+            {
+                return new TradePlanSmokeTest(_stationManager?.GetStations()).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TRADE PLAN SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
         private bool HandleSaveLoadHotkeys(KeyboardState keyboardState)
         {
             if (keyboardState.IsKeyDown(Keys.F6) && _prevKeys.IsKeyUp(Keys.F6))
@@ -1708,6 +1741,7 @@ namespace Roguelancer {
             saveData.StationMarkets = _commodityDealer?.CaptureMarketState() ?? new List<SaveMarketStateData>();
             saveData.MarketElapsedMilliseconds = _commodityDealer?.MarketManager?.ElapsedMilliseconds ?? 0L;
             saveData.MarketIntelligence = _marketIntelligence?.CaptureState() ?? new List<SaveMarketIntelligenceData>();
+            saveData.TradePlan = _tradePlanManager?.CaptureState();
 
             return saveData;
         }
@@ -1727,6 +1761,8 @@ namespace Roguelancer {
             {
                 _stationDockUI.Undock();
             }
+
+            ClearTradePlanNavigation();
 
             HandleSystemChange(targetSystemIndex, null);
 
@@ -1778,6 +1814,8 @@ namespace Roguelancer {
                 }
             }
 
+            _tradePlanManager?.RestoreState(saveData.TradePlan);
+
             _playerShip.ApplySavedState(
                 saveData.PlayerPosition.ToVector3(_playerShip.Position),
                 saveData.PlayerVelocity.ToVector3(Vector3.Zero),
@@ -1809,6 +1847,7 @@ namespace Roguelancer {
             MarkFirstDockHintCompleted();
 
             _currentSystemIndex = targetSystemIndex;
+            PlotTradePlanNavigation(showNotification: false);
             failureReason = string.Empty;
             return true;
         }
@@ -2728,6 +2767,12 @@ namespace Roguelancer {
                 return;
             }
 
+            if (_tradePlanManager?.NotifyDocked(station, out string tradeGuidance) == true &&
+                !string.IsNullOrWhiteSpace(tradeGuidance))
+            {
+                _notificationManager?.ShowMessage(tradeGuidance, 4f);
+            }
+
             _stationSession = session;
             if (!EnterStationSession(session, Keyboard.GetState()))
             {
@@ -2741,6 +2786,78 @@ namespace Roguelancer {
 
             MarkFirstDockHintCompleted();
             Console.WriteLine($"[DOCK] Real docked station session active: {station.Name} / system {session.SystemIndex} / ship {_playerShip.DisplayName}");
+        }
+
+        private void HandleCommodityTransaction(CommodityTransaction transaction)
+        {
+            if (_tradePlanManager?.ObserveTransaction(transaction, out string tradeMessage) != true)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(tradeMessage))
+            {
+                _notificationManager?.ShowMessage(tradeMessage, 4f);
+            }
+
+            if (_tradePlanManager.ActivePlan?.Stage == TradePlanStage.GoToDestination)
+            {
+                PlotTradePlanNavigation(showNotification: true);
+            }
+            else if (_tradePlanManager.ActivePlan == null && _tradePlanManager.LastCompletedPlan != null)
+            {
+                ClearTradePlanNavigation();
+                _notificationManager?.ShowMessage("TRADE ROUTE COMPLETE", 4f);
+            }
+        }
+
+        private bool PlotTradePlanNavigation(bool showNotification = true)
+        {
+            TradePlan plan = _tradePlanManager?.ActivePlan;
+            if (plan == null || string.IsNullOrWhiteSpace(plan.NextStationId))
+            {
+                return false;
+            }
+
+            if (_stationDockUI?.IsDocked == true)
+            {
+                _notificationManager?.ShowMessage($"Trade route ready: undock to depart for {plan.NextStationName}.", 3f);
+                return false;
+            }
+
+            if (!TradePlanNavigation.TryResolveNextStation(
+                    plan,
+                    _stationManager?.GetStations(),
+                    _commodityDealer?.MarketManager,
+                    out Station station,
+                    out string failureReason))
+            {
+                _notificationManager?.ShowMessage($"Trade route held: {failureReason}.", 3f);
+                Console.WriteLine($"[TRADE PLAN] Navigation held: {failureReason}");
+                return false;
+            }
+
+            SelectSpaceObjectTarget(station, "Trade plan", "TRADE ROUTE", showNotification);
+            _tradePlanNavigationTarget = station;
+            _playerShip?.ActivateGoto(station);
+            return true;
+        }
+
+        private void ClearTradePlanNavigation()
+        {
+            bool ownsSelectedTarget = _tradePlanNavigationTarget != null &&
+                ReferenceEquals(_selectedNavTarget, _tradePlanNavigationTarget) &&
+                string.Equals(_selectedNavTargetContextLabel, "TRADE ROUTE", StringComparison.OrdinalIgnoreCase);
+
+            if (ownsSelectedTarget)
+            {
+                _selectedNavTarget = null;
+                _selectedSpaceObjectIndex = -1;
+                _selectedNavTargetContextLabel = string.Empty;
+                _playerShip?.CancelGoto(showNotification: false);
+            }
+
+            _tradePlanNavigationTarget = null;
         }
 
         private bool HasActiveMissionObjective()
@@ -4352,6 +4469,7 @@ namespace Roguelancer {
             _camera?.Follow(_playerShip.Position, _playerShip.Forward, _playerShip.Up, 1.0f);
             _notificationManager?.ShowMessage("Launched - Systems online", 2f);
             Console.WriteLine("[STATION] Returned to normal spaceflight from docked station session.");
+            PlotTradePlanNavigation(showNotification: false);
         }
 
         /// <summary>
@@ -5469,6 +5587,7 @@ namespace Roguelancer {
                     DrawCrosshair();
                     DrawCoordinates();
                     DrawActiveMissionsHUD();
+                    DrawActiveTradePlanHUD();
 
                     // Draw mission guidance overlay (distance, arrows, proximity alerts)
                     _missionGuidanceHUD?.Draw(_spriteBatch, GraphicsDevice, _camera, _playerShip.Position, _missionWaypointSystem);
@@ -5579,6 +5698,37 @@ namespace Roguelancer {
             _spriteBatch.DrawString(_font, activeMission.GetHudProgressLine(), new Vector2(panelX + 8, panelY + 30), Color.White);
             string origin = $"Return to: {activeMission.OriginStationName}";
             _spriteBatch.DrawString(_font, origin, new Vector2(panelX + 8, panelY + 52), Color.LightGray);
+        }
+
+        private void DrawActiveTradePlanHUD()
+        {
+            if (_font == null || _tradePlanManager?.ActivePlan == null)
+            {
+                return;
+            }
+
+            List<string> lines = _tradePlanManager.GetCompactDisplayLines(5);
+            if (lines.Count == 0) return;
+
+            int panelWidth = 390;
+            int panelX = Math.Max(10, GraphicsDevice.Viewport.Width - panelWidth - 20);
+            int panelY = 112;
+            int lineHeight = 21;
+            Rectangle panel = new(panelX, panelY, panelWidth, 24 + lines.Count * lineHeight);
+            _spriteBatch.Draw(_pixel, panel, Color.Black * 0.62f);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 2), Color.LimeGreen * 0.85f);
+
+            for (int i = 0; i < lines.Count; i++)
+            {
+                Color color = i == 0 ? Color.LimeGreen : i == lines.Count - 1 ? Color.Orange : Color.White;
+                _spriteBatch.DrawString(_font, TruncateTradePlanLine(lines[i], 48), new Vector2(panelX + 9, panelY + 5 + i * lineHeight), color);
+            }
+        }
+
+        private static string TruncateTradePlanLine(string value, int maxLength)
+        {
+            if (string.IsNullOrEmpty(value) || value.Length <= maxLength) return value ?? string.Empty;
+            return value.Substring(0, Math.Max(0, maxLength - 3)) + "...";
         }
 
         /// <summary>

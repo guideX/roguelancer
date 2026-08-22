@@ -10,7 +10,7 @@ namespace Roguelancer
     /// </summary>
     public sealed class SaveGameData
     {
-        public const int CurrentSchemaVersion = 7;
+        public const int CurrentSchemaVersion = 8;
 
         [JsonPropertyName("schema_version")]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -59,6 +59,13 @@ namespace Roguelancer
 
         [JsonPropertyName("market_intelligence")]
         public List<SaveMarketIntelligenceData> MarketIntelligence { get; set; } = new();
+
+        /// <summary>
+        /// Optional player-created trade route. Null keeps older saves fully
+        /// compatible and intentionally stores no UI formatting strings.
+        /// </summary>
+        [JsonPropertyName("trade_plan")]
+        public SaveTradePlanData TradePlan { get; set; }
     }
 
     /// <summary>
@@ -380,5 +387,74 @@ namespace Roguelancer
 
         [JsonPropertyName("source")]
         public string Source { get; set; } = string.Empty;
+    }
+
+    public sealed class SaveTradePlanData
+    {
+        [JsonPropertyName("source_station_id")]
+        public string SourceStationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("source_station_name")]
+        public string SourceStationName { get; set; } = string.Empty;
+
+        [JsonPropertyName("destination_station_id")]
+        public string DestinationStationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("destination_station_name")]
+        public string DestinationStationName { get; set; } = string.Empty;
+
+        [JsonPropertyName("commodity_id")]
+        public string CommodityId { get; set; } = string.Empty;
+
+        [JsonPropertyName("commodity_name")]
+        public string CommodityName { get; set; } = string.Empty;
+
+        [JsonPropertyName("source_buy_price")]
+        public int SourceBuyPrice { get; set; }
+
+        [JsonPropertyName("destination_sell_price")]
+        public int DestinationSellPrice { get; set; }
+
+        [JsonPropertyName("source_observed_at_ms")]
+        public long SourceObservedAtMilliseconds { get; set; }
+
+        [JsonPropertyName("destination_observed_at_ms")]
+        public long DestinationObservedAtMilliseconds { get; set; }
+
+        [JsonPropertyName("stage")]
+        public TradePlanStage Stage { get; set; }
+
+        [JsonPropertyName("route_distance_units")]
+        public float RouteDistanceUnits { get; set; }
+
+        [JsonPropertyName("route_hops")]
+        public int RouteHops { get; set; }
+
+        [JsonPropertyName("opportunity_score")]
+        public int OpportunityScore { get; set; }
+
+        [JsonPropertyName("suggested_quantity")]
+        public int SuggestedQuantity { get; set; }
+
+        [JsonPropertyName("initial_ordinary_quantity")]
+        public int InitialOrdinaryQuantity { get; set; }
+
+        [JsonPropertyName("acquired_quantity")]
+        public int AcquiredQuantity { get; set; }
+
+        [JsonPropertyName("purchased_quantity")]
+        public int PurchasedQuantity { get; set; }
+
+        [JsonPropertyName("sold_quantity")]
+        public int SoldQuantity { get; set; }
+
+        [JsonPropertyName("actual_source_buy_price")]
+        public int ActualSourceBuyPrice { get; set; }
+
+        [JsonPropertyName("actual_destination_sell_price")]
+        public int ActualDestinationSellPrice { get; set; }
+
+        [JsonPropertyName("cargo_acquired")]
+        public bool CargoAcquired { get; set; }
     }
 }
