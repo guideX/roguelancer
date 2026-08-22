@@ -276,6 +276,28 @@ namespace Roguelancer
             reputationManager.LoadStandings(standings);
         }
 
+        public void ApplyTemporaryHostility(ReputationManager reputationManager, SaveGameData data)
+        {
+            if (reputationManager == null || data == null)
+                return;
+
+            List<TemporaryHostilitySnapshot> snapshots = new();
+            foreach (SaveTemporaryHostilityData entry in data.TemporaryHostility ?? new List<SaveTemporaryHostilityData>())
+            {
+                if (entry == null || string.IsNullOrWhiteSpace(entry.FactionId) ||
+                    float.IsNaN(entry.RemainingSeconds) || float.IsInfinity(entry.RemainingSeconds) ||
+                    entry.RemainingSeconds <= 0f)
+                    continue;
+
+                snapshots.Add(new TemporaryHostilitySnapshot(
+                    FactionManager.NormalizeFactionId(entry.FactionId),
+                    entry.Reason ?? string.Empty,
+                    entry.RemainingSeconds));
+            }
+
+            reputationManager.TemporaryHostility.RestoreSnapshot(snapshots);
+        }
+
         public void ApplyMissions(MissionManager missionManager, SaveGameData data, out List<string> warnings)
         {
             warnings = new List<string>();
@@ -473,6 +495,8 @@ namespace Roguelancer
                     Description = mission.Description ?? string.Empty,
                     OfferedBy = mission.OfferedBy ?? string.Empty,
                     FactionId = FactionManager.NormalizeFactionId(mission.FactionId),
+                    MinimumEmployerReputation = NormalizeOptionalStanding(mission.MinimumEmployerReputation),
+                    MaximumEmployerReputation = NormalizeOptionalStanding(mission.MaximumEmployerReputation),
                     ObjectiveComplete = mission.ObjectiveComplete,
                     TargetLocation = mission.TargetLocation ?? string.Empty,
                     TargetSystemIndex = mission.TargetSystemIndex,
@@ -498,6 +522,29 @@ namespace Roguelancer
                     CommodityId = mission.CommodityId ?? string.Empty,
                     RequiredQuantity = mission.RequiredQuantity,
                     IssuedCargoQuantity = mission.IssuedCargoQuantity
+                });
+            }
+
+            return result;
+        }
+
+        public List<SaveTemporaryHostilityData> CaptureTemporaryHostility(ReputationManager reputationManager)
+        {
+            List<SaveTemporaryHostilityData> result = new();
+            if (reputationManager == null)
+                return result;
+
+            foreach (TemporaryHostilitySnapshot snapshot in reputationManager.TemporaryHostility.GetActiveSnapshot())
+            {
+                if (snapshot.RemainingSeconds <= 0f ||
+                    float.IsNaN(snapshot.RemainingSeconds) || float.IsInfinity(snapshot.RemainingSeconds))
+                    continue;
+
+                result.Add(new SaveTemporaryHostilityData
+                {
+                    FactionId = FactionManager.NormalizeFactionId(snapshot.FactionId),
+                    Reason = snapshot.Reason ?? string.Empty,
+                    RemainingSeconds = Math.Clamp(snapshot.RemainingSeconds, 0f, TemporaryHostilityManager.MaximumDurationSeconds)
                 });
             }
 
@@ -684,7 +731,9 @@ namespace Roguelancer
                 data.RequiredQuantity,
                 data.IssuedCargoQuantity,
                 data.ReputationReward,
-                data.ReputationRewardApplied);
+                data.ReputationRewardApplied,
+                data.MinimumEmployerReputation,
+                data.MaximumEmployerReputation);
         }
 
         private static float NormalizeStanding(float value)
@@ -695,6 +744,14 @@ namespace Roguelancer
             }
 
             return Math.Clamp(value, -1f, 1f);
+        }
+
+        private static float? NormalizeOptionalStanding(float? value)
+        {
+            if (!value.HasValue || float.IsNaN(value.Value) || float.IsInfinity(value.Value))
+                return null;
+
+            return Math.Clamp(value.Value, -1f, 1f);
         }
     }
 }

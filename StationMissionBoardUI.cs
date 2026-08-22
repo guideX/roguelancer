@@ -214,7 +214,9 @@ public sealed class StationMissionBoardUI
 
         if (!_jobBoard.AcceptSelectedMission())
         {
-            SetStatus("Mission acceptance rejected.", success: false);
+            string rejection = _missionManager.LastAcceptanceFailureReason;
+            SetStatus(string.IsNullOrWhiteSpace(rejection) ? "Mission acceptance rejected." : rejection, success: false);
+            _showMessage(_statusMessage);
             return;
         }
 
@@ -239,7 +241,9 @@ public sealed class StationMissionBoardUI
 
         spriteBatch.DrawString(_font, $"MISSION BOARD - {_stationName}", new Vector2(panel.X + 24, panel.Y + 18), Color.Gold);
         spriteBatch.DrawString(_font, ReputationPresentation.BuildStationFactionLine(_station, _reputationManager), new Vector2(panel.X + 360, panel.Y + 18), Color.LightSkyBlue);
-        Color stationStandingColor = _reputationManager?.GetBand(_station?.FactionId) switch
+        Color stationStandingColor = _reputationManager?.IsFactionCurrentlyHostile(_station?.FactionId) == true
+            ? Color.IndianRed
+            : _reputationManager?.GetBand(_station?.FactionId) switch
         {
             ReputationBand.Hostile => Color.IndianRed,
             ReputationBand.Unfriendly => Color.Orange,
@@ -272,10 +276,14 @@ public sealed class StationMissionBoardUI
             int rowHeight = 62;
             Rectangle row = new(listPanel.X + 8, listY + i * rowHeight, listPanel.Width - 16, rowHeight - 6);
             bool selected = i == _jobBoard.SelectedIndex;
-            if (selected) spriteBatch.Draw(_pixel, row, Color.Orange * 0.26f);
-            DrawBorder(spriteBatch, row, selected ? Color.Orange : Color.DarkSlateGray, selected ? 2 : 1);
-            spriteBatch.DrawString(_font, $"{(selected ? "> " : "  ")}{Shorten(mission.Title, 27)}", new Vector2(row.X + 10, row.Y + 8), Color.White);
-            spriteBatch.DrawString(_font, mission.GetTypeLabel(), new Vector2(row.X + 28, row.Y + 32), TypeColor(mission.Type));
+            MissionEligibilityResult eligibility = _missionManager.GetMissionEligibility(mission);
+            Color rowAccent = eligibility.IsEligible ? Color.Orange : Color.DarkOrange;
+            if (selected) spriteBatch.Draw(_pixel, row, rowAccent * 0.26f);
+            DrawBorder(spriteBatch, row, selected ? rowAccent : Color.DarkSlateGray, selected ? 2 : 1);
+            string lockLabel = eligibility.IsEligible ? string.Empty : "[LOCKED] ";
+            Color titleColor = eligibility.IsEligible ? Color.White : Color.Orange;
+            spriteBatch.DrawString(_font, $"{(selected ? "> " : "  ")}{lockLabel}{Shorten(mission.Title, 23)}", new Vector2(row.X + 10, row.Y + 8), titleColor);
+            spriteBatch.DrawString(_font, mission.GetTypeLabel(), new Vector2(row.X + 28, row.Y + 32), eligibility.IsEligible ? TypeColor(mission.Type) : Color.OrangeRed);
             string reward = $"{mission.Reward:N0} CR";
             Vector2 rewardSize = _font.MeasureString(reward);
             spriteBatch.DrawString(_font, reward, new Vector2(row.Right - rewardSize.X - 10, row.Y + 20), Color.Yellow);
@@ -335,6 +343,20 @@ public sealed class StationMissionBoardUI
         y += 22;
         spriteBatch.DrawString(_font, ReputationPresentation.BuildMissionStandingLine(mission, _reputationManager), new Vector2(x, y), Color.LightGray);
         y += 26;
+        spriteBatch.DrawString(_font, ReputationPresentation.BuildMissionRequirementLine(mission), new Vector2(x, y), Color.LightGreen);
+        y += 24;
+        spriteBatch.DrawString(_font, ReputationPresentation.BuildMissionRewardLine(mission), new Vector2(x, y), Color.MediumPurple);
+        y += 28;
+
+        MissionEligibilityResult eligibility = _missionManager.GetMissionEligibility(mission);
+        if (!eligibility.IsEligible)
+        {
+            spriteBatch.DrawString(_font, eligibility.Reason, new Vector2(x, y), Color.OrangeRed);
+            y += 28;
+            spriteBatch.DrawString(_font, "[LOCKED] Earn the required standing to accept this job.", new Vector2(x, y), Color.Orange);
+            return;
+        }
+
         foreach (string line in Wrap(mission.Description, 54))
         {
             spriteBatch.DrawString(_font, line, new Vector2(x, y), Color.LightGray);
@@ -410,7 +432,9 @@ public sealed class StationMissionBoardUI
                 _ => Color.LightGray
             };
             spriteBatch.DrawString(_font, line.DisplayName, new Vector2(overview.X + 28, y), Color.White);
-            spriteBatch.DrawString(_font, line.BandLabel, new Vector2(overview.X + 430, y), bandColor);
+            spriteBatch.DrawString(_font, $"{line.BandLabel} ({ReputationManager.FormatStanding(line.Value)})", new Vector2(overview.X + 390, y), bandColor);
+            if (!string.IsNullOrWhiteSpace(line.TransientLabel))
+                spriteBatch.DrawString(_font, line.TransientLabel, new Vector2(overview.X + 650, y), Color.OrangeRed);
             y += 34;
         }
         spriteBatch.DrawString(_font, "P: Return to mission board", new Vector2(overview.X + 28, overview.Bottom - 48), Color.LightGray);

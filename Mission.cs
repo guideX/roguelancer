@@ -56,7 +56,10 @@ namespace Roguelancer
             string destinationStationName = null,
             string packageId = null,
             int packageQuantity = 0,
-            int packageVolume = 0)
+            int packageVolume = 0,
+            MissionDifficulty difficulty = MissionDifficulty.Easy,
+            float? minimumEmployerReputation = null,
+            float? maximumEmployerReputation = null)
         {
             Id = id ?? string.Empty;
             Title = title ?? string.Empty;
@@ -72,6 +75,9 @@ namespace Roguelancer
             PackageId = packageId ?? string.Empty;
             PackageQuantity = packageQuantity;
             PackageVolume = packageVolume;
+            Difficulty = difficulty;
+            MinimumEmployerReputation = NormalizeRequirement(minimumEmployerReputation);
+            MaximumEmployerReputation = NormalizeRequirement(maximumEmployerReputation);
         }
 
         public string Id { get; }
@@ -88,6 +94,9 @@ namespace Roguelancer
         public string PackageId { get; }
         public int PackageQuantity { get; }
         public int PackageVolume { get; }
+        public MissionDifficulty Difficulty { get; }
+        public float? MinimumEmployerReputation { get; }
+        public float? MaximumEmployerReputation { get; }
 
         public bool IsValid(out string reason)
         {
@@ -114,6 +123,16 @@ namespace Roguelancer
 
             reason = string.Empty;
             return true;
+        }
+
+        private static float? NormalizeRequirement(float? value)
+        {
+            if (!value.HasValue || float.IsNaN(value.Value) || float.IsInfinity(value.Value))
+                return null;
+
+            return Math.Clamp(MathF.Round(value.Value, 4, MidpointRounding.AwayFromZero),
+                ReputationManager.MinimumStanding,
+                ReputationManager.MaximumStanding);
         }
     }
 
@@ -155,7 +174,9 @@ namespace Roguelancer
                 destinationStationName: "Buffalo Base",
                 packageId: "sealed-data-package",
                 packageQuantity: 1,
-                packageVolume: 1)
+                packageVolume: 1,
+                difficulty: MissionDifficulty.Hard,
+                minimumEmployerReputation: ReputationManager.FriendlyThreshold)
         };
 
         public static IReadOnlyList<MissionDefinition> All => Definitions;
@@ -213,6 +234,8 @@ namespace Roguelancer
         public string OfferedBy { get; set; }
         public string FactionId { get; set; }
         public string BountyTargetFactionId { get; set; }
+        public float? MinimumEmployerReputation { get; set; }
+        public float? MaximumEmployerReputation { get; set; }
 
         public string TargetLocation { get; set; }
         public int TargetSystemIndex { get; set; }
@@ -411,7 +434,9 @@ namespace Roguelancer
             int requiredQuantity = 0,
             int issuedCargoQuantity = 0,
             float reputationReward = 0f,
-            bool reputationRewardApplied = false)
+            bool reputationRewardApplied = false,
+            float? minimumEmployerReputation = null,
+            float? maximumEmployerReputation = null)
         {
             Id = id > 0 ? id : _nextId++;
             if (_nextId <= Id) _nextId = Id + 1;
@@ -453,6 +478,8 @@ namespace Roguelancer
             RewardPaid = rewardPaid;
             ReputationReward = reputationReward;
             ReputationRewardApplied = reputationRewardApplied;
+            MinimumEmployerReputation = NormalizeRequirement(minimumEmployerReputation);
+            MaximumEmployerReputation = NormalizeRequirement(maximumEmployerReputation);
         }
 
         public static Mission FromDefinition(MissionDefinition definition, string offeredBy = "Mission Board", string factionId = null)
@@ -463,7 +490,7 @@ namespace Roguelancer
                 definition.Id,
                 definition.Title,
                 definition.Type,
-                MissionDifficulty.Easy,
+                definition.Difficulty,
                 MissionStatus.Available,
                 definition.TargetLocation,
                 definition.TargetLocation,
@@ -490,7 +517,14 @@ namespace Roguelancer
                 definition.PackageQuantity,
                 definition.PackageVolume,
                 false,
-                0);
+                0,
+                string.Empty,
+                0,
+                0,
+                0f,
+                false,
+                definition.MinimumEmployerReputation,
+                definition.MaximumEmployerReputation);
         }
 
         public static Mission CreateRestored(
@@ -577,7 +611,9 @@ namespace Roguelancer
             int requiredQuantity = 0,
             int issuedCargoQuantity = 0,
             float reputationReward = 0f,
-            bool reputationRewardApplied = false)
+            bool reputationRewardApplied = false,
+            float? minimumEmployerReputation = null,
+            float? maximumEmployerReputation = null)
         {
             Mission mission = new Mission(
                 id,
@@ -616,7 +652,9 @@ namespace Roguelancer
                 requiredQuantity,
                 issuedCargoQuantity,
                 reputationReward,
-                reputationRewardApplied);
+                reputationRewardApplied,
+                minimumEmployerReputation,
+                maximumEmployerReputation);
             mission.ElapsedTime = Math.Max(0f, elapsedTime);
             mission.ObjectiveRadius = Math.Clamp(objectiveRadius <= 0 ? 500 : objectiveRadius, 1, 10000);
             return mission;
@@ -639,8 +677,20 @@ namespace Roguelancer
         public string GetSummary() =>
             $"[{GetTypeLabel()}] {GetObjectiveText()} | Reward: {Reward:N0} CR | Client: {GetClientLabel()}";
 
-        public string GetDetailedDescription() =>
+    public string GetDetailedDescription() =>
             $"Type: {GetTypeLabel()}\nObjective: {GetObjectiveText()}\nReward: {Reward:N0} CR\nClient: {GetClientLabel()}\nStatus: {GetStatusLabel()}";
+
+        public bool HasReputationRequirement => MinimumEmployerReputation.HasValue || MaximumEmployerReputation.HasValue;
+
+        private static float? NormalizeRequirement(float? value)
+        {
+            if (!value.HasValue || float.IsNaN(value.Value) || float.IsInfinity(value.Value))
+                return null;
+
+            return Math.Clamp(MathF.Round(value.Value, 4, MidpointRounding.AwayFromZero),
+                ReputationManager.MinimumStanding,
+                ReputationManager.MaximumStanding);
+        }
 
     public static bool IsDeliveryType(MissionType type) =>
             type is MissionType.Delivery or MissionType.CourierDelivery or MissionType.FreightContract or MissionType.ExportContract;

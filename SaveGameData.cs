@@ -10,7 +10,7 @@ namespace Roguelancer
     /// </summary>
     public sealed class SaveGameData
     {
-        public const int CurrentSchemaVersion = 9;
+        public const int CurrentSchemaVersion = 10;
 
         [JsonPropertyName("schema_version")]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -44,6 +44,9 @@ namespace Roguelancer
 
         [JsonPropertyName("faction_reputation")]
         public List<SaveFactionReputationData> FactionReputation { get; set; } = new();
+
+        [JsonPropertyName("temporary_hostility")]
+        public List<SaveTemporaryHostilityData> TemporaryHostility { get; set; } = new();
 
         [JsonPropertyName("active_missions")]
         public List<SaveMissionData> ActiveMissions { get; set; } = new();
@@ -173,6 +176,22 @@ namespace Roguelancer
     }
 
     /// <summary>
+    /// Short-lived faction aggression stored as remaining simulation seconds.
+    /// No wall-clock timestamp is serialized.
+    /// </summary>
+    public sealed class SaveTemporaryHostilityData
+    {
+        [JsonPropertyName("faction_id")]
+        public string FactionId { get; set; } = string.Empty;
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; } = string.Empty;
+
+        [JsonPropertyName("remaining_seconds")]
+        public float RemainingSeconds { get; set; }
+    }
+
+    /// <summary>
     /// Mission entry stored in a save file.
     /// </summary>
     public sealed class SaveMissionData
@@ -218,6 +237,12 @@ namespace Roguelancer
 
         [JsonPropertyName("faction_id")]
         public string FactionId { get; set; } = string.Empty;
+
+        [JsonPropertyName("minimum_employer_reputation")]
+        public float? MinimumEmployerReputation { get; set; }
+
+        [JsonPropertyName("maximum_employer_reputation")]
+        public float? MaximumEmployerReputation { get; set; }
 
         [JsonPropertyName("objective_complete")]
         public bool ObjectiveComplete { get; set; }

@@ -275,7 +275,7 @@ namespace Roguelancer
                 float pirateRangeSq = pirateRange * pirateRange;
 
                 NpcShip traderTarget = FindNearestTrafficTarget(pirate, traderShips, pirateRangeSq);
-                bool canAttackPlayer = playerShip != null && (reputationManager == null || reputationManager.IsHostile(pirate.FactionId));
+                bool canAttackPlayer = playerShip != null && (reputationManager == null || reputationManager.IsFactionCurrentlyHostile(pirate.FactionId));
                 float playerDistanceSq = canAttackPlayer ? Vector3.DistanceSquared(pirate.Position, playerShip.Position) : float.MaxValue;
                 bool playerInRange = playerDistanceSq <= pirateRangeSq;
 
@@ -519,7 +519,7 @@ namespace Roguelancer
                     continue;
                 }
 
-                bool hostile = reputationManager?.IsHostile(ship.FactionId) == true;
+                bool hostile = reputationManager?.IsFactionCurrentlyHostile(ship.FactionId) == true;
                 float distanceToPlayer = Vector3.Distance(ship.Position, playerShip.Position);
                 float combatHoldRange = Math.Max(5000f, runtime.Zone.Radius * 1.5f);
                 if (hostile && distanceToPlayer <= combatHoldRange)
@@ -558,7 +558,7 @@ namespace Roguelancer
                     continue;
                 }
 
-                bool hostile = reputationManager?.IsHostile(ship.FactionId) == true;
+                bool hostile = reputationManager?.IsFactionCurrentlyHostile(ship.FactionId) == true;
                 if (ship.TrafficLifetimeSeconds > 0f && ship.TrafficAgeSeconds >= ship.TrafficLifetimeSeconds && shipRuntime.CombatHoldTimer <= 0f && !ship.IsTrafficEngaged)
                 {
                     ReleaseShip(runtime, ship, log, "lifetime");

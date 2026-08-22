@@ -56,13 +56,18 @@ namespace Roguelancer
         public HullIntegrity Hull { get; private set; }
         public bool IsDestroyed => Hull.IsDestroyed;
         public bool WasDamagedByPlayer { get; private set; }
+        public int PlayerDamageSequence { get; private set; }
 
         /// <summary>
         /// Marks the authoritative player damage source used by bounded
         /// mission kill attribution. It is intentionally one-way for the
         /// lifetime of an NPC instance.
         /// </summary>
-        public void MarkDamagedByPlayer() => WasDamagedByPlayer = true;
+        public void MarkDamagedByPlayer()
+        {
+            WasDamagedByPlayer = true;
+            PlayerDamageSequence = PlayerDamageSequence == int.MaxValue ? 1 : PlayerDamageSequence + 1;
+        }
 
         // Shield system
         public ShieldSystem Shields { get; private set; }
@@ -389,7 +394,7 @@ namespace Roguelancer
 
         private void UpdatePirateAmbushBehavior(float deltaTime, Ship playerShip, ReputationManager reputationManager)
         {
-            bool isHostile = reputationManager == null || reputationManager.IsHostile(FactionId);
+            bool isHostile = reputationManager == null || reputationManager.IsFactionCurrentlyHostile(FactionId);
             if (playerShip != null && isHostile)
             {
                 float distanceToPlayer = Vector3.Distance(Position, playerShip.Position);

@@ -232,6 +232,7 @@ namespace Roguelancer {
         private readonly bool _runMineSmoke;
         private readonly bool _runSaveSmoke;
         private readonly bool _runReputationSmoke;
+        private readonly bool _runFactionConsequencesSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runTrafficSmoke;
         private readonly bool _runLootSmoke;
@@ -312,6 +313,7 @@ namespace Roguelancer {
             _runMineSmoke = args?.Any(arg => string.Equals(arg, "--mine-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runSaveSmoke = args?.Any(arg => string.Equals(arg, "--save-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runReputationSmoke = args?.Any(arg => string.Equals(arg, "--reputation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runFactionConsequencesSmoke = args?.Any(arg => string.Equals(arg, "--faction-consequences-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1157,6 +1159,7 @@ namespace Roguelancer {
             // Initialize notification manager
             _notificationManager = new NotificationManager(_font, GraphicsDevice.Viewport);
             _reputationManager.OnReputationChanged += HandleReputationChanged;
+            _reputationManager.OnTemporaryHostilityChanged += HandleTemporaryHostilityChanged;
             _lootManager = new LootManager(GraphicsDevice, null, _font, _pixel);
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
@@ -1235,6 +1238,11 @@ namespace Roguelancer {
             else if (_runReputationSmoke)
             {
                 var result = RunReputationSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runFactionConsequencesSmoke)
+            {
+                var result = RunFactionConsequencesSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runLootSmoke)
@@ -1372,6 +1380,7 @@ namespace Roguelancer {
 
             RunAllSmokeSuite("save smoke", RunSaveSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("reputation smoke", RunReputationSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("faction consequences smoke", RunFactionConsequencesSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("missile smoke", RunMissileSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1515,6 +1524,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[REPUTATION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunFactionConsequencesSmokeTest()
+        {
+            try
+            {
+                return new FactionConsequencesSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FACTION CONSEQUENCES SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -1849,6 +1871,7 @@ namespace Roguelancer {
             saveData.MountedEquipment = _saveGameManager?.CaptureMountedEquipment(_playerShip?.Loadout) ?? new List<SaveMountedEquipmentData>();
             saveData.Cargo = _saveGameManager?.CaptureCargo(_playerShip?.CargoHold) ?? new List<SaveCargoItemData>();
             saveData.FactionReputation = _saveGameManager?.CaptureReputation(_reputationManager) ?? new List<SaveFactionReputationData>();
+            saveData.TemporaryHostility = _saveGameManager?.CaptureTemporaryHostility(_reputationManager) ?? new List<SaveTemporaryHostilityData>();
             saveData.ActiveMissions = _saveGameManager?.CaptureMissions(_missionManager?.ActiveMissions) ?? new List<SaveMissionData>();
             saveData.CompletedMissions = _saveGameManager?.CaptureMissions(_missionManager?.CompletedMissions) ?? new List<SaveMissionData>();
             saveData.StationMarkets = _commodityDealer?.CaptureMarketState() ?? new List<SaveMarketStateData>();
@@ -1899,6 +1922,7 @@ namespace Roguelancer {
 
             _playerCredits?.SetCredits(saveData.PlayerCredits);
             _saveGameManager?.ApplyReputation(_reputationManager, saveData);
+            _saveGameManager?.ApplyTemporaryHostility(_reputationManager, saveData);
             _commodityDealer?.MarketManager?.RestoreElapsedMilliseconds(saveData.MarketElapsedMilliseconds);
             _commodityDealer?.RestoreMarketState(saveData.StationMarkets);
             _marketIntelligence?.Clear();
@@ -2083,6 +2107,10 @@ namespace Roguelancer {
                 _prevKeys = keyboardState;
                 return; // Don't update ship while docked
             }
+
+            // Temporary hostility advances only with gameplay simulation time.
+            // Station interiors intentionally pause flight simulation.
+            _reputationManager?.UpdateTemporaryHostility(deltaTime);
 
             // Skip normal update if in jump transit
             if (_jumpHoleManager?.IsInTransit == true) {
@@ -2325,7 +2353,7 @@ namespace Roguelancer {
                 List<MineSystem.MineDetonation> mineDetonations = _mineSystem.Update(
                     gameTime,
                     _npcShips,
-                    npc => npc != null && !npc.IsDestroyed && (_reputationManager == null || _reputationManager.IsHostile(npc.FactionId)));
+                    npc => npc != null && !npc.IsDestroyed && (_reputationManager == null || _reputationManager.IsFactionCurrentlyHostile(npc.FactionId)));
 
                 foreach (MineSystem.MineDetonation detonation in mineDetonations) {
                     _explosionParticles?.TriggerExplosion(detonation.Position, Vector3.Zero, intensity: 0.5f);
@@ -2441,6 +2469,15 @@ namespace Roguelancer {
                 foreach (var hit in missileHits) {
                     _hitImpactParticles.TriggerImpact(hit.Position, hit.Direction, hit.WeaponColor);
                 }
+            }
+
+            // Attribute every new actual player hit once. This is intentionally
+            // after all player weapon systems so missile/mine/beam hits share
+            // the same bounded hostility authority.
+            if (_reputationManager != null)
+            {
+                foreach (NpcShip npc in _npcShips)
+                    _reputationManager.RecordPlayerDamage(npc);
             }
 
             // Update mission manager
@@ -2615,6 +2652,7 @@ namespace Roguelancer {
         }
 
         private void HandleNpcDestroyed(NpcShip destroyedShip) {
+            _reputationManager?.RecordPlayerDamage(destroyedShip);
             _reputationManager?.ApplyPlayerShipDestroyed(destroyedShip);
 
             // Trigger explosion effect
@@ -2671,6 +2709,20 @@ namespace Roguelancer {
             _notificationManager?.ShowMessage(
                 $"REPUTATION {direction}: {change.FactionDisplayName} {ReputationManager.FormatStanding(change.Delta)}",
                 3f);
+        }
+
+        private void HandleTemporaryHostilityChanged(TemporaryHostilityChange change)
+        {
+            if (change == null || _notificationManager == null)
+                return;
+
+            string factionName = _reputationManager?.FactionManager.GetFaction(change.FactionId).DisplayName
+                ?? FactionManager.GetFactionDisplayName(change.FactionId);
+            _notificationManager.ShowMessage(
+                change.IsActive
+                    ? $"{factionName.ToUpperInvariant()} TEMPORARILY HOSTILE"
+                    : $"{factionName.ToUpperInvariant()} HOSTILITY CLEARED",
+                3.5f);
         }
 
         /// <summary>
@@ -2775,7 +2827,7 @@ namespace Roguelancer {
 
         private bool IsHostile(string factionId)
         {
-            return _reputationManager == null || _reputationManager.IsHostile(factionId);
+            return _reputationManager == null || _reputationManager.IsFactionCurrentlyHostile(factionId);
         }
 
         private Station GetSelectedStationTarget()
@@ -3558,7 +3610,7 @@ namespace Roguelancer {
         {
             if (GetSelectedSpaceObjectTarget() is not NpcShip npcTarget ||
                 npcTarget.IsDestroyed ||
-                (_reputationManager != null && !_reputationManager.IsHostile(npcTarget.FactionId)))
+                (_reputationManager != null && !_reputationManager.IsFactionCurrentlyHostile(npcTarget.FactionId)))
             {
                 return null;
             }
@@ -3855,7 +3907,7 @@ namespace Roguelancer {
 
             if (!string.IsNullOrWhiteSpace(hud.StandingLabel))
             {
-                Color standingColor = _reputationManager != null && _reputationManager.IsHostile(hud.FactionId) ? Color.IndianRed :
+                Color standingColor = _reputationManager != null && _reputationManager.IsFactionCurrentlyHostile(hud.FactionId) ? Color.IndianRed :
                     _reputationManager != null && _reputationManager.IsFriendly(hud.FactionId) ? Color.LightGreen : Color.LightGray;
                 _spriteBatch.DrawString(_font, $"Standing: {hud.StandingLabel}", cursor, standingColor);
                 cursor.Y += _font.MeasureString($"Standing: {hud.StandingLabel}").Y + 2f;
@@ -4412,7 +4464,7 @@ namespace Roguelancer {
                 }
 
                 // Only draw lead indicator for hostile targets
-                if (_reputationManager == null || _reputationManager.IsHostile(npc.FactionId)) {
+                if (_reputationManager == null || _reputationManager.IsFactionCurrentlyHostile(npc.FactionId)) {
                     DrawLeadingCrosshair(npc);
                 }
             }

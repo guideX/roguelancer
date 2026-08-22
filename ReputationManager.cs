@@ -81,6 +81,9 @@ namespace Roguelancer
         private readonly FactionManager _factionManager;
         private readonly Dictionary<string, float> _standing = new(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<NpcShip> _processedPlayerKills = new();
+        private readonly Dictionary<NpcShip, int> _observedPlayerDamage = new();
+
+        public TemporaryHostilityManager TemporaryHostility { get; } = new();
 
         public ReputationManager(FactionManager factionManager)
         {
@@ -92,6 +95,13 @@ namespace Roguelancer
 
         /// <summary>Raised only when a bounded value actually changes.</summary>
         public event Action<ReputationChangeResult> OnReputationChanged = delegate { };
+
+        /// <summary>Raised when faction-wide short-term hostility starts or clears.</summary>
+        public event Action<TemporaryHostilityChange> OnTemporaryHostilityChanged
+        {
+            add => TemporaryHostility.OnChanged += value;
+            remove => TemporaryHostility.OnChanged -= value;
+        }
 
         public IReadOnlyDictionary<string, float> GetStartingProfileSnapshot() =>
             new Dictionary<string, float>(StartingProfile, StringComparer.OrdinalIgnoreCase);
@@ -117,11 +127,41 @@ namespace Roguelancer
         public bool IsHostile(string? factionId) => GetBand(factionId) == ReputationBand.Hostile;
         public bool IsFriendly(string? factionId) => GetBand(factionId) is ReputationBand.Friendly or ReputationBand.Allied;
         public bool IsAllied(string? factionId) => GetBand(factionId) == ReputationBand.Allied;
+        public bool IsTemporarilyHostile(string? factionId) => TemporaryHostility.IsTemporarilyHostile(factionId);
+        public bool IsFactionCurrentlyHostile(string? factionId) => IsHostile(factionId) || IsTemporarilyHostile(factionId);
         public bool MeetsRequirement(string? factionId, float minimumStanding) =>
             GetStanding(factionId) + Precision >= NormalizeRequirement(minimumStanding);
         public bool MeetsReputationRequirement(string? factionId, float minimumStanding) =>
             MeetsRequirement(factionId, minimumStanding);
-        public bool CanDockWithFaction(string? factionId) => !IsHostile(factionId);
+        public bool MeetsMaximumRequirement(string? factionId, float maximumStanding) =>
+            GetStanding(factionId) - Precision <= NormalizeRequirement(maximumStanding);
+        public bool CanDockWithFaction(string? factionId) => !IsFactionCurrentlyHostile(factionId);
+
+        public float GetTemporaryHostilityRemainingSeconds(string? factionId) =>
+            TemporaryHostility.GetRemainingSeconds(factionId);
+
+        public void UpdateTemporaryHostility(float deltaSeconds) => TemporaryHostility.Update(deltaSeconds);
+
+        /// <summary>
+        /// Observes one actual player-caused hit. NpcShip increments its
+        /// sequence once per hit, so repeated frame scans refresh hostility
+        /// without producing duplicate work for the same hit.
+        /// </summary>
+        public bool RecordPlayerDamage(NpcShip damagedShip)
+        {
+            if (damagedShip == null || !damagedShip.WasDamagedByPlayer || damagedShip.PlayerDamageSequence <= 0)
+                return false;
+
+            if (_observedPlayerDamage.TryGetValue(damagedShip, out int observedSequence) &&
+                observedSequence >= damagedShip.PlayerDamageSequence)
+                return false;
+
+            _observedPlayerDamage[damagedShip] = damagedShip.PlayerDamageSequence;
+            TemporaryHostility.RecordHostileAction(
+                damagedShip.FactionId,
+                "player attack");
+            return true;
+        }
 
         /// <summary>
         /// Sets a standing directly for tests, migration, and controlled setup.
@@ -161,7 +201,13 @@ namespace Roguelancer
         /// </summary>
         public ReputationChangeResult? ApplyPlayerShipDestroyed(NpcShip destroyedShip)
         {
-            if (destroyedShip == null || !destroyedShip.WasDamagedByPlayer || !_processedPlayerKills.Add(destroyedShip))
+            if (destroyedShip == null || !destroyedShip.WasDamagedByPlayer)
+                return null;
+
+            // Destruction callbacks can run before the normal frame-level
+            // attribution sweep. Ensure the attack still activates hostility.
+            RecordPlayerDamage(destroyedShip);
+            if (!_processedPlayerKills.Add(destroyedShip))
                 return null;
 
             return AdjustReputation(
@@ -174,6 +220,8 @@ namespace Roguelancer
         {
             _standing.Clear();
             _processedPlayerKills.Clear();
+            _observedPlayerDamage.Clear();
+            TemporaryHostility.Clear();
 
             foreach (Faction faction in _factionManager.Factions.Values)
             {
@@ -231,6 +279,14 @@ namespace Roguelancer
             if (normalized < AlliedThreshold) return ReputationBand.Friendly;
             return ReputationBand.Allied;
         }
+
+        /// <summary>
+        /// Formats a minimum threshold as the first band that satisfies it.
+        /// A +0.20 requirement is therefore displayed as Friendly even though
+        /// the Neutral band includes the exact upper boundary.
+        /// </summary>
+        public static ReputationBand GetMinimumRequirementBand(float minimumStanding) =>
+            GetBandForStanding(Math.Min(MaximumStanding, NormalizeRequirement(minimumStanding) + Precision));
 
         public static string FormatStanding(float standing) =>
             NormalizeStoredStanding(standing).ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture);

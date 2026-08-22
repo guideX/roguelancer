@@ -20,7 +20,12 @@ namespace Roguelancer
         public static string BuildStationStandingLine(Station station, ReputationManager reputationManager)
         {
             string factionId = FactionManager.NormalizeFactionId(station?.FactionId);
-            return $"STANDING: {FormatBand(reputationManager?.GetBand(factionId) ?? ReputationBand.Neutral)}";
+            ReputationBand band = reputationManager?.GetBand(factionId) ?? ReputationBand.Neutral;
+            float value = reputationManager?.GetStanding(factionId) ?? 0f;
+            string transient = reputationManager?.IsTemporarilyHostile(factionId) == true
+                ? " | TEMPORARILY HOSTILE"
+                : string.Empty;
+            return $"STANDING: {FormatBand(band)} ({ReputationManager.FormatStanding(value)}){transient}";
         }
 
         public static string BuildMissionEmployerLine(Mission mission, ReputationManager reputationManager)
@@ -34,7 +39,39 @@ namespace Roguelancer
         public static string BuildMissionStandingLine(Mission mission, ReputationManager reputationManager)
         {
             string factionId = FactionManager.NormalizeFactionId(mission?.FactionId);
-            return $"YOUR STANDING: {FormatBand(reputationManager?.GetBand(factionId) ?? ReputationBand.Neutral)}";
+            ReputationBand band = reputationManager?.GetBand(factionId) ?? ReputationBand.Neutral;
+            float value = reputationManager?.GetStanding(factionId) ?? 0f;
+            string transient = reputationManager?.IsTemporarilyHostile(factionId) == true
+                ? " | TEMPORARILY HOSTILE"
+                : string.Empty;
+            return $"YOUR STANDING: {FormatBand(band)} ({ReputationManager.FormatStanding(value)}){transient}";
+        }
+
+        public static string BuildMissionRequirementLine(Mission mission)
+        {
+            if (mission == null || !mission.HasReputationRequirement)
+                return "REQUIRED STANDING: NONE";
+
+            if (mission.MinimumEmployerReputation.HasValue && mission.MaximumEmployerReputation.HasValue)
+            {
+                return $"REQUIRED STANDING: {FormatBand(ReputationManager.GetMinimumRequirementBand(mission.MinimumEmployerReputation.Value))} TO {FormatBand(ReputationManager.GetBandForStanding(mission.MaximumEmployerReputation.Value))}";
+            }
+
+            if (mission.MinimumEmployerReputation.HasValue)
+            {
+                return $"REQUIRED STANDING: {FormatBand(ReputationManager.GetMinimumRequirementBand(mission.MinimumEmployerReputation.Value))} ({ReputationManager.FormatStanding(mission.MinimumEmployerReputation.Value)} MIN)";
+            }
+
+            return $"REQUIRED STANDING: {FormatBand(ReputationManager.GetBandForStanding(mission.MaximumEmployerReputation!.Value))} OR LOWER ({ReputationManager.FormatStanding(mission.MaximumEmployerReputation.Value)} MAX)";
+        }
+
+        public static string BuildMissionRewardLine(Mission mission)
+        {
+            if (mission == null)
+                return "REPUTATION REWARD: NONE";
+
+            string employer = FactionManager.GetFactionDisplayName(mission.FactionId);
+            return $"REPUTATION: {ReputationManager.FormatStanding(MissionManager.GetMissionReputationReward(mission))} {employer}";
         }
 
         public static IReadOnlyList<ReputationOverviewLine> BuildOverview(ReputationManager reputationManager)
@@ -49,7 +86,10 @@ namespace Roguelancer
                     entry.FactionId,
                     entry.DisplayName,
                     FormatBand(entry.Band),
-                    entry.Value));
+                    entry.Value,
+                    reputationManager.IsTemporarilyHostile(entry.FactionId)
+                        ? "TEMPORARILY HOSTILE"
+                        : string.Empty));
             }
 
             return lines;
@@ -62,5 +102,6 @@ namespace Roguelancer
         string FactionId,
         string DisplayName,
         string BandLabel,
-        float Value);
+        float Value,
+        string TransientLabel);
 }

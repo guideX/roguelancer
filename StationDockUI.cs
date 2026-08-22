@@ -103,7 +103,10 @@ namespace Roguelancer
             string stationFactionId = FactionManager.NormalizeFactionId(station.FactionId);
             if (_reputationManager != null && !_reputationManager.CanDockWithFaction(stationFactionId))
             {
-                LastDockingDeniedReason = $"Docking denied — hostile reputation at {station.Name}.";
+                LastDockingDeniedReason = _reputationManager.IsTemporarilyHostile(stationFactionId) &&
+                    !_reputationManager.IsHostile(stationFactionId)
+                    ? "Docking denied — recent hostile action."
+                    : $"Docking denied — hostile reputation at {station.Name}.";
                 Console.WriteLine($"[DOCK] Docking denied at {station.Name} because faction '{stationFactionId}' is hostile.");
                 return false;
             }
@@ -492,7 +495,9 @@ namespace Roguelancer
             string factionLine = ReputationPresentation.BuildStationFactionLine(_dockedStation, _reputationManager);
             string standingLine = ReputationPresentation.BuildStationStandingLine(_dockedStation, _reputationManager);
             spriteBatch.DrawString(_font, factionLine, new Vector2(titlePos.X, titlePos.Y + titleSize.Y + 14), Color.LightSkyBlue);
-            Color standingColor = _reputationManager?.GetBand(_dockedStation?.FactionId) switch
+            Color standingColor = _reputationManager?.IsFactionCurrentlyHostile(_dockedStation?.FactionId) == true
+                ? Color.IndianRed
+                : _reputationManager?.GetBand(_dockedStation?.FactionId) switch
             {
                 ReputationBand.Hostile => Color.IndianRed,
                 ReputationBand.Unfriendly => Color.Orange,

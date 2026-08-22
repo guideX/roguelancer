@@ -289,7 +289,7 @@ namespace Roguelancer
                 typeLabel = "Ship";
                 statusLabel = npcTarget.IsDestroyed ? "Destroyed" : npcTarget.IsTrafficEngaged ? "Engaged" : "Active";
                 integrityLabel = $"Hull {npcTarget.Hull.HullPercentage:P0} | Shields {npcTarget.Shields.ShieldPercentage:P0}";
-                accentColor = reputationManager != null && reputationManager.IsHostile(factionId)
+                accentColor = reputationManager != null && reputationManager.IsFactionCurrentlyHostile(factionId)
                     ? Color.IndianRed
                     : reputationManager != null && reputationManager.IsFriendly(factionId)
                         ? Color.LightGreen

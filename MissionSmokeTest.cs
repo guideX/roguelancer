@@ -547,6 +547,13 @@ namespace Roguelancer
         private static MissionSmokeContext CreateCourierContext()
         {
             MissionSmokeContext ctx = CreateContext("Newark Station", 1);
+            // Priority Dispatch is the representative Friendly Corporation
+            // offer; put the regression harness at the exact eligible side
+            // of the gate so it continues testing courier transactions.
+            ctx.ReputationManager.SetReputation(
+                FactionManager.LibertyCorporations,
+                ReputationManager.FriendlyThreshold + 0.01f,
+                "courier smoke gate");
             ctx.Stations.Add(CreateStation("Buffalo Base", 1, -30000f, -1200f, 36000f));
             return ctx;
         }

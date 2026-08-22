@@ -5,6 +5,17 @@ using Microsoft.Xna.Framework;
 
 namespace Roguelancer
 {
+    public sealed class MissionEligibilityResult
+    {
+        public bool IsEligible { get; init; }
+        public bool IsReputationLocked { get; init; }
+        public string Reason { get; init; } = string.Empty;
+        public string EmployerFactionId { get; init; } = FactionManager.NeutralCivilians;
+        public float CurrentStanding { get; init; }
+        public float? MinimumStanding { get; init; }
+        public float? MaximumStanding { get; init; }
+    }
+
     /// <summary>
     /// Authoritative player mission state. Phase 11 intentionally keeps one
     /// active mission and separates objective completion from reward claiming.
@@ -26,6 +37,8 @@ namespace Roguelancer
         private ReputationManager _reputationManager;
         private MissionWaypointSystem _waypointSystem;
         private MissionWorldManager _worldManager;
+
+        public string LastAcceptanceFailureReason { get; private set; } = string.Empty;
 
         private static readonly string[] DeliveryTargets =
         {
@@ -120,6 +133,121 @@ namespace Roguelancer
         public void SetRouteAuthority(MarketRouteAuthority routeAuthority) => _routeAuthority = routeAuthority ?? new MarketRouteAuthority();
         public bool MeetsReputationRequirement(string factionId, float minimumStanding) =>
             _reputationManager?.MeetsReputationRequirement(factionId, minimumStanding) ?? true;
+        public MissionEligibilityResult GetMissionEligibility(Mission mission)
+        {
+            if (mission == null)
+            {
+                return new MissionEligibilityResult
+                {
+                    IsEligible = false,
+                    IsReputationLocked = false,
+                    Reason = "mission is unavailable"
+                };
+            }
+
+            string employerFactionId = FactionManager.NormalizeFactionId(mission.FactionId);
+            float currentStanding = _reputationManager?.GetStanding(employerFactionId) ?? 0f;
+            if (_reputationManager == null)
+            {
+                return new MissionEligibilityResult
+                {
+                    IsEligible = true,
+                    EmployerFactionId = employerFactionId,
+                    CurrentStanding = currentStanding,
+                    MinimumStanding = mission.MinimumEmployerReputation,
+                    MaximumStanding = mission.MaximumEmployerReputation
+                };
+            }
+
+            if (_reputationManager.IsHostile(employerFactionId))
+            {
+                return new MissionEligibilityResult
+                {
+                    IsEligible = false,
+                    IsReputationLocked = true,
+                    Reason = "NO WORK AVAILABLE — HOSTILE STANDING",
+                    EmployerFactionId = employerFactionId,
+                    CurrentStanding = currentStanding,
+                    MinimumStanding = mission.MinimumEmployerReputation,
+                    MaximumStanding = mission.MaximumEmployerReputation
+                };
+            }
+
+            if (mission.MinimumEmployerReputation.HasValue &&
+                !_reputationManager.MeetsRequirement(employerFactionId, mission.MinimumEmployerReputation.Value))
+            {
+                ReputationBand requiredBand = ReputationManager.GetMinimumRequirementBand(mission.MinimumEmployerReputation.Value);
+                return new MissionEligibilityResult
+                {
+                    IsEligible = false,
+                    IsReputationLocked = true,
+                    Reason = $"REPUTATION TOO LOW — REQUIRES {ReputationPresentation.FormatBand(requiredBand)}",
+                    EmployerFactionId = employerFactionId,
+                    CurrentStanding = currentStanding,
+                    MinimumStanding = mission.MinimumEmployerReputation,
+                    MaximumStanding = mission.MaximumEmployerReputation
+                };
+            }
+
+            if (mission.MaximumEmployerReputation.HasValue &&
+                !_reputationManager.MeetsMaximumRequirement(employerFactionId, mission.MaximumEmployerReputation.Value))
+            {
+                ReputationBand maximumBand = ReputationManager.GetBandForStanding(mission.MaximumEmployerReputation.Value);
+                return new MissionEligibilityResult
+                {
+                    IsEligible = false,
+                    IsReputationLocked = true,
+                    Reason = $"REPUTATION TOO HIGH — REQUIRES {ReputationPresentation.FormatBand(maximumBand)} OR LOWER",
+                    EmployerFactionId = employerFactionId,
+                    CurrentStanding = currentStanding,
+                    MinimumStanding = mission.MinimumEmployerReputation,
+                    MaximumStanding = mission.MaximumEmployerReputation
+                };
+            }
+
+            return new MissionEligibilityResult
+            {
+                IsEligible = true,
+                EmployerFactionId = employerFactionId,
+                CurrentStanding = currentStanding,
+                MinimumStanding = mission.MinimumEmployerReputation,
+                MaximumStanding = mission.MaximumEmployerReputation
+            };
+        }
+
+        /// <summary>
+        /// Single mission-acceptance authority used by both UI and mutation.
+        /// Reputation checks happen before any cargo, market, or mission state
+        /// changes are possible.
+        /// </summary>
+        public bool CanPlayerAcceptMission(Mission mission, out string reason, Station originStation = null)
+        {
+            reason = string.Empty;
+            if (mission == null || mission.Status != MissionStatus.Available)
+            {
+                reason = "mission is not available";
+                return false;
+            }
+            if (ActiveMission != null)
+            {
+                reason = "finish the active mission first";
+                return false;
+            }
+            if (mission.Reward <= 0)
+            {
+                reason = "reward is invalid";
+                return false;
+            }
+
+            MissionEligibilityResult eligibility = GetMissionEligibility(mission);
+            if (!eligibility.IsEligible)
+            {
+                reason = eligibility.Reason;
+                return false;
+            }
+
+            return true;
+        }
         public void ShowNotification(string message, float durationSeconds = 3f) =>
             _notificationManager?.ShowMessage(message, durationSeconds);
 
@@ -234,6 +362,7 @@ namespace Roguelancer
             {
                 OfferedBy = originStation?.Name ?? FactionManager.GetFactionDisplayName(factionId)
             };
+            ConfigureGeneratedReputationRequirement(mission);
             if (type == MissionType.Bounty) mission.BountyTargetFactionId = FactionManager.LibertyRogues;
             return mission;
         }
@@ -834,12 +963,8 @@ namespace Roguelancer
         /// </summary>
         public bool AcceptMission(Mission mission, Station originStation = null)
         {
-            if (mission == null || mission.Status != MissionStatus.Available)
-                return RejectAcceptance(mission, "mission is not available");
-            if (ActiveMission != null)
-                return RejectAcceptance(mission, "finish the active mission first");
-            if (mission.Reward <= 0)
-                return RejectAcceptance(mission, "reward is invalid");
+            if (!CanPlayerAcceptMission(mission, out string acceptanceReason, originStation))
+                return RejectAcceptance(mission, acceptanceReason);
 
             if (!string.IsNullOrWhiteSpace(mission.DefinitionId))
             {
@@ -954,14 +1079,27 @@ namespace Roguelancer
                     3f);
             }
             Console.WriteLine($"[MISSION] Accepted: {mission.GetSummary()} | Origin: {mission.OriginStationName}");
+            LastAcceptanceFailureReason = string.Empty;
             return true;
         }
 
         private bool RejectAcceptance(Mission mission, string reason)
         {
+            LastAcceptanceFailureReason = string.IsNullOrWhiteSpace(reason) ? "mission acceptance rejected" : reason;
             _notificationManager?.ShowMessage(reason, 3f);
             Console.WriteLine($"[MISSION] Rejected: {mission?.Title ?? "<null>"} | Reason: {reason}");
             return false;
+        }
+
+        private static void ConfigureGeneratedReputationRequirement(Mission mission)
+        {
+            if (mission == null || mission.HasReputationRequirement)
+                return;
+
+            if (mission.Difficulty == MissionDifficulty.Hard)
+                mission.MinimumEmployerReputation = ReputationManager.FriendlyThreshold;
+            else if (mission.Difficulty == MissionDifficulty.Deadly)
+                mission.MinimumEmployerReputation = ReputationManager.AlliedThreshold;
         }
 
         private bool TryIssueExportCargo(Mission mission, Station origin, out string failureReason)
