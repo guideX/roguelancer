@@ -454,6 +454,15 @@ namespace Roguelancer
         [JsonPropertyName("sold_quantity")]
         public int SoldQuantity { get; set; }
 
+        [JsonPropertyName("purchased_cost")]
+        public long PurchasedCost { get; set; }
+
+        [JsonPropertyName("sold_proceeds")]
+        public long SoldProceeds { get; set; }
+
+        [JsonPropertyName("average_source_purchase_price")]
+        public int AverageSourcePurchasePrice { get; set; }
+
         [JsonPropertyName("actual_source_buy_price")]
         public int ActualSourceBuyPrice { get; set; }
 
@@ -462,5 +471,8 @@ namespace Roguelancer
 
         [JsonPropertyName("cargo_acquired")]
         public bool CargoAcquired { get; set; }
+
+        [JsonPropertyName("ambiguous_provenance")]
+        public bool HasAmbiguousProvenance { get; set; }
     }
 }

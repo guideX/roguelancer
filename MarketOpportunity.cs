@@ -73,10 +73,28 @@ namespace Roguelancer
             return Type switch
             {
                 MarketOpportunityType.TradeRoute =>
-                    $"{CommodityName} | {OriginStationName} -> {DestinationStationName} | +{CurrentSpread:N0} CR | {FormatRoute()} | {SourceAgeBand}/{DestinationAgeBand}",
-                _ => $"{CommodityName} - {Reason} - {StationName}"
+                    $"[TRADE] {CommodityName} | {OriginStationName} -> {DestinationStationName} | {FormatSpread()} | {FormatRoute()} | {FormatIntel()}",
+                MarketOpportunityType.Shortage => $"[SHORTAGE] {CommodityName} | {StationName} | {Reason}",
+                MarketOpportunityType.Surplus => $"[SURPLUS] {CommodityName} | {StationName} | {Reason}",
+                _ => $"[{Type.ToString().ToUpperInvariant()}] {CommodityName} | {StationName}"
             };
         }
+
+        public string GetTypeLabel() => Type switch
+        {
+            MarketOpportunityType.TradeRoute => "TRADE",
+            MarketOpportunityType.Shortage => "SHORTAGE",
+            MarketOpportunityType.Surplus => "SURPLUS",
+            _ => Type.ToString().ToUpperInvariant()
+        };
+
+        private string FormatSpread() => CurrentSpread > 0
+            ? $"+{CurrentSpread:N0} CR/unit"
+            : "SPREAD UNKNOWN";
+
+        private string FormatIntel() => string.IsNullOrWhiteSpace(SourceAgeBand) && string.IsNullOrWhiteSpace(DestinationAgeBand)
+            ? "MARKET DATA UNKNOWN"
+            : $"{(string.IsNullOrWhiteSpace(SourceAgeBand) ? "UNKNOWN" : SourceAgeBand)}/{(string.IsNullOrWhiteSpace(DestinationAgeBand) ? "UNKNOWN" : DestinationAgeBand)}";
 
         private string FormatRoute()
         {

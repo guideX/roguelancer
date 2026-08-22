@@ -229,7 +229,7 @@ public sealed class StationMissionBoardUI
         spriteBatch.DrawString(_font, $"MISSION BOARD - {_stationName}", new Vector2(panel.X + 24, panel.Y + 18), Color.Gold);
         DrawMarketOpportunityStrip(spriteBatch, panel);
 
-        int contentTop = panel.Y + 108;
+        int contentTop = panel.Y + 166;
         int contentBottom = panel.Bottom - 86;
         int dividerX = panel.X + (int)(panel.Width * 0.38f);
         Rectangle listPanel = new(panel.X + 18, contentTop, dividerX - panel.X - 28, contentBottom - contentTop);
@@ -366,21 +366,94 @@ public sealed class StationMissionBoardUI
     {
         if (_marketOpportunities == null || _marketOpportunities.Count == 0)
         {
-            spriteBatch.DrawString(_font, "MARKET OPPORTUNITIES: No known routes or signals", new Vector2(panel.X + 24, panel.Y + 44), Color.Gray);
+            Rectangle emptyPanel = new(panel.X + 18, panel.Y + 42, panel.Width - 36, 112);
+            DrawBorder(spriteBatch, emptyPanel, Color.DarkSlateGray, 2);
+            spriteBatch.DrawString(_font, "MARKET OPPORTUNITIES", new Vector2(emptyPanel.X + 14, emptyPanel.Y + 10), Color.LightSkyBlue);
+            spriteBatch.DrawString(_font, "NO KNOWN MARKET DATA", new Vector2(emptyPanel.X + 14, emptyPanel.Y + 48), Color.Gray);
             return;
         }
 
         _marketSelection = Math.Clamp(_marketSelection, 0, _marketOpportunities.Count - 1);
         MarketOpportunity selected = _marketOpportunities[_marketSelection];
-        string summary = Shorten(selected.GetDisplayText(), 122);
-        Color focusColor = _marketFocus ? Color.Orange : Color.LightGreen;
-        spriteBatch.DrawString(_font, $"MARKET OPPORTUNITIES [{_marketSelection + 1}/{_marketOpportunities.Count}]", new Vector2(panel.X + 24, panel.Y + 44), focusColor);
-        spriteBatch.DrawString(_font, $"{(_marketFocus ? "> " : "  ")}{summary}", new Vector2(panel.X + 24, panel.Y + 67), Color.White);
-        if (_tradePlanManager?.ActivePlan != null)
+        Rectangle opportunityPanel = new(panel.X + 18, panel.Y + 42, panel.Width - 36, 112);
+        DrawBorder(spriteBatch, opportunityPanel, _marketFocus ? Color.Orange : Color.DarkSlateGray, 2);
+
+        int dividerX = opportunityPanel.X + (int)(opportunityPanel.Width * 0.58f);
+        Rectangle listPanel = new(opportunityPanel.X + 8, opportunityPanel.Y + 6, dividerX - opportunityPanel.X - 16, opportunityPanel.Height - 12);
+        Rectangle detailPanel = new(dividerX + 8, opportunityPanel.Y + 6, opportunityPanel.Right - dividerX - 16, opportunityPanel.Height - 12);
+        spriteBatch.DrawString(_font, $"MARKET OPPORTUNITIES [{_marketSelection + 1}/{_marketOpportunities.Count}]", new Vector2(listPanel.X + 4, listPanel.Y + 2), _marketFocus ? Color.Orange : Color.LightGreen);
+
+        int visibleRows = Math.Min(3, _marketOpportunities.Count);
+        int firstRow = Math.Clamp(_marketSelection - visibleRows / 2, 0, Math.Max(0, _marketOpportunities.Count - visibleRows));
+        int rowTop = listPanel.Y + 28;
+        for (int rowIndex = 0; rowIndex < visibleRows; rowIndex++)
         {
-            TradePlan plan = _tradePlanManager.ActivePlan;
-            spriteBatch.DrawString(_font, $"ACTIVE PLAN: {Shorten(plan.CommodityName, 18)} {plan.SourceStationName} -> {plan.DestinationStationName}", new Vector2(panel.X + 24, panel.Y + 89), Color.LimeGreen);
+            int opportunityIndex = firstRow + rowIndex;
+            MarketOpportunity opportunity = _marketOpportunities[opportunityIndex];
+            bool isSelected = opportunityIndex == _marketSelection;
+            Rectangle row = new(listPanel.X, rowTop + rowIndex * 23, listPanel.Width, 21);
+            if (isSelected) spriteBatch.Draw(_pixel, row, (_marketFocus ? Color.Orange : Color.LightGreen) * 0.24f);
+            string prefix = isSelected ? "> " : "  ";
+            spriteBatch.DrawString(_font, prefix + FormatOpportunityRow(opportunity), new Vector2(row.X + 4, row.Y + 2), isSelected ? Color.White : Color.LightGray);
         }
+
+        spriteBatch.DrawString(_font, "SELECTED OPPORTUNITY", new Vector2(detailPanel.X + 4, detailPanel.Y + 2), Color.LightSkyBlue);
+        int detailY = detailPanel.Y + 27;
+        foreach (string line in BuildMarketOpportunityDetailLines(selected).Take(4))
+        {
+            spriteBatch.DrawString(_font, Shorten(line, 43), new Vector2(detailPanel.X + 4, detailY), Color.White);
+            detailY += 20;
+        }
+    }
+
+    private string FormatOpportunityRow(MarketOpportunity opportunity)
+    {
+        if (opportunity == null) return "MARKET DATA UNKNOWN";
+        string route = opportunity.RouteHops == 1 ? "1 jump" : $"{Math.Max(0, opportunity.RouteHops):N0} jumps";
+        string spread = opportunity.Type == MarketOpportunityType.TradeRoute && opportunity.CurrentSpread > 0
+            ? $" +{opportunity.CurrentSpread:N0} CR/unit"
+            : string.Empty;
+        return Shorten($"{opportunity.GetTypeLabel()} {opportunity.CommodityName}: {opportunity.OriginStationName} -> {opportunity.DestinationStationName}{spread} | {route}", 68);
+    }
+
+    private IReadOnlyList<string> BuildMarketOpportunityDetailLines(MarketOpportunity opportunity)
+    {
+        if (opportunity == null) return new[] { "MARKET DATA UNKNOWN" };
+        if (opportunity.Type != MarketOpportunityType.TradeRoute)
+        {
+            return new[]
+            {
+                $"TYPE: {opportunity.GetTypeLabel()}",
+                $"COMMODITY: {Shorten(opportunity.CommodityName, 28)}",
+                $"STATION: {Shorten(opportunity.StationName, 28)}",
+                $"{Shorten(opportunity.Reason, 38)} | {opportunity.Quantity:N0} units",
+                "NO TRADE PLAN AVAILABLE"
+            };
+        }
+
+        string sourcePrice = "PRICE UNKNOWN";
+        string destinationPrice = "PRICE UNKNOWN";
+        if (_tradePlanManager?.MarketIntelligence != null)
+        {
+            if (_tradePlanManager.MarketIntelligence.TryGetObservation(opportunity.OriginStationId, opportunity.CommodityId, out MarketObservation source))
+                sourcePrice = source.BuyPrice > 0 ? $"BUY {source.BuyPrice:N0} CR" : "BUY PRICE UNKNOWN";
+            if (_tradePlanManager.MarketIntelligence.TryGetObservation(opportunity.DestinationStationId, opportunity.CommodityId, out MarketObservation destination))
+                destinationPrice = destination.SellPrice > 0 ? $"SELL {destination.SellPrice:N0} CR" : "SELL PRICE UNKNOWN";
+        }
+
+        string sourceAge = string.IsNullOrWhiteSpace(opportunity.SourceAgeBand) ? "UNKNOWN" : opportunity.SourceAgeBand;
+        string destinationAge = string.IsNullOrWhiteSpace(opportunity.DestinationAgeBand) ? "UNKNOWN" : opportunity.DestinationAgeBand;
+        string spread = opportunity.CurrentSpread > 0 ? $"+{opportunity.CurrentSpread:N0} CR/unit" : "UNKNOWN";
+        string active = _tradePlanManager?.ActivePlan != null ? "ACTIVE ROUTE" : "R/ENTER: PLOT";
+        return new[]
+        {
+            $"COMMODITY: {Shorten(opportunity.CommodityName, 28)}",
+            $"ROUTE: {Shorten(opportunity.OriginStationName, 17)} -> {Shorten(opportunity.DestinationStationName, 17)}",
+            $"PRICES: {sourcePrice} / {destinationPrice}",
+            $"SPREAD: {spread} | {opportunity.RouteHops:N0} jumps",
+            $"INTEL: {sourceAge} / {destinationAge} | SUGGESTED {opportunity.Quantity:N0}",
+            active
+        };
     }
 
     private void MoveMarketSelection(int direction)
@@ -399,6 +472,11 @@ public sealed class StationMissionBoardUI
         }
 
         MarketOpportunity selected = _marketOpportunities[Math.Clamp(_marketSelection, 0, _marketOpportunities.Count - 1)];
+        if (selected.Type != MarketOpportunityType.TradeRoute)
+        {
+            SetStatus("Select a trade route to plot.", success: false);
+            return;
+        }
         if (!_tradePlanManager.TryCreatePlan(selected, out string message))
         {
             SetStatus(message, success: false);

@@ -48,6 +48,7 @@ namespace Roguelancer
         private MissionWorldManager _missionWorldManager;
         private ReputationManager _reputationManager;
         private readonly TradePlanManager _tradePlanManager;
+        private readonly Func<int, string> _systemNameResolver;
         private IReadOnlyList<MarketOpportunity> _marketOpportunities = Array.Empty<MarketOpportunity>();
         public string LastDockingDeniedReason { get; private set; } = string.Empty;
 
@@ -59,7 +60,7 @@ namespace Roguelancer
         public event Action? OnUndock;
         public event Action<ShipDefinition>? OnShipPurchased;
 
-        public StationDockUI(SpriteFont font, Texture2D pixel, ShipDealer shipDealer, CommodityDealer commodityDealer, MissionManager missionManager, ReputationManager reputationManager = null, EquipmentDealer equipmentDealer = null, TradePlanManager tradePlanManager = null)
+        public StationDockUI(SpriteFont font, Texture2D pixel, ShipDealer shipDealer, CommodityDealer commodityDealer, MissionManager missionManager, ReputationManager reputationManager = null, EquipmentDealer equipmentDealer = null, TradePlanManager tradePlanManager = null, Func<int, string> systemNameResolver = null)
         {
             _font = font;
             _pixel = pixel;
@@ -68,6 +69,7 @@ namespace Roguelancer
             _missionManager = missionManager;
             _reputationManager = reputationManager;
             _tradePlanManager = tradePlanManager;
+            _systemNameResolver = systemNameResolver;
             _equipmentDealer = equipmentDealer ?? new EquipmentDealer();
             _jobBoard = new JobBoard(missionManager);
             _isDocked = false;
@@ -717,6 +719,8 @@ namespace Roguelancer
                 : "Legacy fallback market";
             spriteBatch.DrawString(_font, marketHint, new Vector2(centerX - _font.MeasureString(marketHint).X / 2, centerY - 230), Color.LightGray);
 
+            DrawTradePlanTraderContext(spriteBatch, centerX, centerY);
+
             // Draw commodity list
             int yOffset = centerY - 200;
             if (listings.Count == 0)
@@ -732,6 +736,7 @@ namespace Roguelancer
                 var listing = listings[i];
                 var commodity = listing.Commodity;
                 bool isSelected = (i == _selectedCommodityIndex);
+                bool isPlannedCommodity = IsPlannedTradeCommodity(commodity);
                 int playerQty = cargoHold?.GetCommodityQuantity(commodity.Name) ?? 0;
                 bool buyBlocked = !listing.IsAvailable || listing.BuyPrice <= 0 || listing.Stock <= 0;
                 bool sellUnavailable = !listing.IsAvailable || listing.SellPrice <= 0;
@@ -750,7 +755,8 @@ namespace Roguelancer
                 spriteBatch.Draw(_pixel, commodityPanel, panelColor);
 
                 // Border
-                Color borderColor = isSelected ? commodity.DisplayColor : (listing.IsAvailable ? Color.Gray : Color.DimGray);
+                Color borderColor = isSelected ? commodity.DisplayColor :
+                    isPlannedCommodity ? Color.LimeGreen : (listing.IsAvailable ? Color.Gray : Color.DimGray);
                 spriteBatch.Draw(_pixel, new Rectangle(commodityPanel.X, commodityPanel.Y, commodityPanel.Width, 3), borderColor);
                 spriteBatch.Draw(_pixel, new Rectangle(commodityPanel.X, commodityPanel.Bottom - 3, commodityPanel.Width, 3), borderColor);
                 spriteBatch.Draw(_pixel, new Rectangle(commodityPanel.X, commodityPanel.Y, 3, commodityPanel.Height), borderColor);
@@ -758,6 +764,10 @@ namespace Roguelancer
 
                 // Commodity name
                 string nameText = $"{commodity.Name}";
+                if (isPlannedCommodity)
+                {
+                    nameText += " [TRADE ROUTE]";
+                }
                 if (commodity.IsContraband)
                 {
                     nameText += " [CONTRABAND]";
@@ -851,6 +861,28 @@ namespace Roguelancer
             Vector2 instructSize = _font.MeasureString(instructions);
             spriteBatch.DrawString(_font, instructions, 
                 new Vector2(centerX - instructSize.X / 2, screenHeight - 150), Color.White);
+        }
+
+        private void DrawTradePlanTraderContext(SpriteBatch spriteBatch, int centerX, int centerY)
+        {
+            TradePlan plan = _tradePlanManager?.ActivePlan;
+            if (plan == null || _dockedStation == null) return;
+
+            string stationId = _commodityDealer?.MarketManager?.GetStationId(_dockedStation);
+            bool atSource = string.Equals(stationId, plan.SourceStationId, StringComparison.OrdinalIgnoreCase);
+            bool atDestination = string.Equals(stationId, plan.DestinationStationId, StringComparison.OrdinalIgnoreCase);
+            if (!atSource && !atDestination) return;
+
+            string role = atSource ? "TRADE ROUTE SOURCE" : "TRADE ROUTE DESTINATION";
+            string context = $"{role} | Planned commodity: {plan.CommodityName}";
+            Vector2 size = _font.MeasureString(context);
+            spriteBatch.DrawString(_font, context, new Vector2(centerX - size.X / 2f, centerY - 208), atSource ? Color.LimeGreen : Color.LightSkyBlue);
+        }
+
+        private bool IsPlannedTradeCommodity(Commodity commodity)
+        {
+            return commodity != null && _tradePlanManager?.ActivePlan != null &&
+                string.Equals(commodity.Id, _tradePlanManager.ActivePlan.CommodityId, StringComparison.OrdinalIgnoreCase);
         }
 
         private void SyncCommoditySelection(IReadOnlyList<StationMarketListing> listings)
@@ -1316,21 +1348,27 @@ namespace Roguelancer
         {
             if (_tradePlanManager?.ActivePlan == null) return;
 
-            List<string> lines = _tradePlanManager.GetCompactDisplayLines(4);
+            int currentSystem = _dockedStation?.Config?.SystemIndex ?? 0;
+            TradePlanPresentationState presentation = _tradePlanManager.GetPresentation(currentSystem, _systemNameResolver);
+            List<string> lines = presentation.DetailLines.Take(8).ToList();
             if (lines.Count == 0) return;
 
-            int panelWidth = 390;
+            int panelWidth = 430;
             int panelX = Math.Max(20, screenWidth - panelWidth - 20);
             int panelY = 110;
             int lineHeight = 22;
             Rectangle panel = new(panelX, panelY, panelWidth, 30 + lines.Count * lineHeight);
             spriteBatch.Draw(_pixel, panel, Color.Black * 0.72f);
             spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 2), Color.LimeGreen);
-            spriteBatch.DrawString(_font, "ACTIVE TRADE PLAN", new Vector2(panelX + 10, panelY + 5), Color.LimeGreen);
+            spriteBatch.DrawString(_font, "TRADE ROUTE", new Vector2(panelX + 10, panelY + 5), Color.LimeGreen);
 
             for (int i = 0; i < lines.Count; i++)
             {
-                spriteBatch.DrawString(_font, TruncateTradePlanLine(lines[i], 46), new Vector2(panelX + 10, panelY + 30 + i * lineHeight), Color.White);
+                Color color = i == 0 ? Color.LimeGreen :
+                    lines[i].StartsWith("NEXT:", StringComparison.OrdinalIgnoreCase) ? Color.Yellow :
+                    lines[i].StartsWith("WARNING:", StringComparison.OrdinalIgnoreCase) || lines[i].StartsWith("ROUTE NO", StringComparison.OrdinalIgnoreCase)
+                        ? Color.OrangeRed : Color.White;
+                spriteBatch.DrawString(_font, TruncateTradePlanLine(lines[i], 54), new Vector2(panelX + 10, panelY + 30 + i * lineHeight), color);
             }
         }
 

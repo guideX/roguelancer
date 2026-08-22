@@ -245,6 +245,7 @@ namespace Roguelancer {
         private readonly bool _runBarSmoke;
         private readonly bool _runMarketIntelligenceSmoke;
         private readonly bool _runTradePlanSmoke;
+        private readonly bool _runTradeUxSmoke;
         private readonly bool _runCrossSystemTradeRouteSmoke;
         private readonly bool _runProductionMultiSystemTradeRouteSmoke;
         private readonly bool _runTradeRouteValidationSmoke;
@@ -323,6 +324,7 @@ namespace Roguelancer {
             _runBarSmoke = args?.Any(arg => string.Equals(arg, "--bar-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMarketIntelligenceSmoke = args?.Any(arg => string.Equals(arg, "--market-intelligence-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTradePlanSmoke = args?.Any(arg => string.Equals(arg, "--trade-plan-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runTradeUxSmoke = args?.Any(arg => string.Equals(arg, "--trade-ux-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runCrossSystemTradeRouteSmoke = args?.Any(arg => string.Equals(arg, "--cross-system-trade-route-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runProductionMultiSystemTradeRouteSmoke = args?.Any(arg => string.Equals(arg, "--production-multi-system-trade-route-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTradeRouteValidationSmoke = args?.Any(arg => string.Equals(arg, "--trade-route-validation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -983,7 +985,7 @@ namespace Roguelancer {
 
             // Initialize station dock UI
             if (_font != null) {
-                _stationDockUI = new StationDockUI(_font, _pixel, _shipDealer, _commodityDealer, _missionManager, _reputationManager, _equipmentDealer, _tradePlanManager);
+                _stationDockUI = new StationDockUI(_font, _pixel, _shipDealer, _commodityDealer, _missionManager, _reputationManager, _equipmentDealer, _tradePlanManager, GetSystemDisplayName);
                 _stationDockUI.OnUndock += HandleUndock;
                 _stationDockUI.OnShipPurchased += HandleShipPurchased;
                 _stationShipDealerUI = new StationShipDealerUI(
@@ -1001,7 +1003,8 @@ namespace Roguelancer {
                     _font,
                     _pixel,
                     _commodityDealer,
-                    message => _notificationManager?.ShowMessage(message, 3f));
+                    message => _notificationManager?.ShowMessage(message, 3f),
+                    _tradePlanManager);
                 _stationMissionBoardUI = new StationMissionBoardUI(
                     _font,
                     _pixel,
@@ -1285,6 +1288,11 @@ namespace Roguelancer {
                 var result = RunTradePlanSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runTradeUxSmoke)
+            {
+                var result = RunTradeUxSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runCrossSystemTradeRouteSmoke)
             {
                 var result = RunCrossSystemTradeRouteSmokeTest();
@@ -1373,6 +1381,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("bar social smoke", RunBarSocialSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market intelligence smoke", RunMarketIntelligenceSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("trade plan smoke", RunTradePlanSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("trade UX smoke", RunTradeUxSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("cross-system trade route smoke", RunCrossSystemTradeRouteSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("production multi-system trade route smoke", RunProductionMultiSystemTradeRouteSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("trade route validation bootstrap smoke", RunTradeRouteValidationSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1675,6 +1684,11 @@ namespace Roguelancer {
                 Console.WriteLine($"[TRADE PLAN SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
+        }
+
+        private (int Passed, int Failed) RunTradeUxSmokeTest()
+        {
+            return new TradeUxSmokeTest().Run();
         }
 
         private (int Passed, int Failed) RunCrossSystemTradeRouteSmokeTest()
@@ -2657,7 +2671,8 @@ namespace Roguelancer {
 
             if (rPressed && HasTradePlanResumeAvailable())
             {
-                PlotTradePlanNavigation(showNotification: true);
+                if (PlotTradePlanNavigation(showNotification: true))
+                    _notificationManager?.ShowMessage("TRADE ROUTE RESUMED", 3f);
                 return;
             }
 
@@ -2879,10 +2894,17 @@ namespace Roguelancer {
 
             _tradeRouteValidation?.RecordDocking(station);
 
-            if (_tradePlanManager?.NotifyDocked(station, out string tradeGuidance) == true &&
-                !string.IsNullOrWhiteSpace(tradeGuidance))
+            TradePlan arrivingPlan = _tradePlanManager?.ActivePlan;
+            bool isTradeDestination = arrivingPlan != null &&
+                string.Equals(_commodityDealer?.MarketManager?.GetStationId(station), arrivingPlan.DestinationStationId, StringComparison.OrdinalIgnoreCase);
+            if (_tradePlanManager?.NotifyDocked(station, out string tradeGuidance) == true)
             {
-                _notificationManager?.ShowMessage(tradeGuidance, 4f);
+                _notificationManager?.ShowMessage(TradePlanPresentation.BuildArrivalMessage(arrivingPlan, isTradeDestination), 4f);
+                if (!string.IsNullOrWhiteSpace(tradeGuidance))
+                    _notificationManager?.ShowMessage(tradeGuidance, 4f);
+                string marketUpdate = _tradePlanManager.ConsumeMarketUpdateMessage();
+                if (!string.IsNullOrWhiteSpace(marketUpdate))
+                    _notificationManager?.ShowMessage(marketUpdate, 4f);
             }
 
             _stationSession = session;
@@ -2986,7 +3008,6 @@ namespace Roguelancer {
             else if (_tradePlanManager.ActivePlan == null && _tradePlanManager.LastCompletedPlan != null)
             {
                 ClearTradePlanNavigation();
-                _notificationManager?.ShowMessage("TRADE ROUTE COMPLETE", 4f);
             }
 
             _tradeRouteValidation?.TryEmitPass();
@@ -3009,12 +3030,12 @@ namespace Roguelancer {
             if (!_tradePlanManager.TryPlanNavigation(
                     _currentSystemIndex,
                     out TradePlanNavigationState routeState,
-                    out string failureReason))
+                out string failureReason))
             {
                 string routeMessage = routeState?.Status == TradePlanRouteStatus.Unavailable
-                    ? "NO KNOWN ROUTE"
-                    : failureReason;
-                _notificationManager?.ShowMessage($"Trade route held: {routeMessage}.", 3f);
+                    ? "TRADE ROUTE UNAVAILABLE"
+                    : "TRADE ROUTE UNAVAILABLE";
+                _notificationManager?.ShowMessage(routeMessage, 3f);
                 Console.WriteLine($"[TRADE PLAN] Navigation held: {routeMessage}; final={plan.NextStationId}; system={_currentSystemIndex}");
                 return false;
             }
@@ -3025,8 +3046,8 @@ namespace Roguelancer {
                     candidate != null && string.Equals(candidate.Config?.Name, routeState.NextTransition?.TransitionName, StringComparison.OrdinalIgnoreCase));
                 if (jumpHole == null)
                 {
-                    const string missingTransition = "next jump connection is unavailable";
-                    _notificationManager?.ShowMessage($"Trade route held: {missingTransition}.", 3f);
+                    const string missingTransition = "TRADE ROUTE UNAVAILABLE";
+                    _notificationManager?.ShowMessage(missingTransition, 3f);
                     Console.WriteLine($"[TRADE PLAN] Missing transition {routeState.CurrentTransitionId} in system {_currentSystemIndex}; final={plan.NextStationId}");
                     return false;
                 }
@@ -3038,8 +3059,12 @@ namespace Roguelancer {
                 _playerShip?.ActivateGoto(jumpHole);
                 if (showNotification)
                 {
+                    string destinationSystem = GetSystemDisplayName(routeState.NextTransition.DestinationSystemIndex);
+                    string jumpLabel = routeState.RemainingHopCount == 1
+                        ? "1 JUMP REMAINS"
+                        : $"{routeState.RemainingHopCount:N0} JUMPS REMAIN";
                     _notificationManager?.ShowMessage(
-                        $"NEXT JUMP: {jumpHole.Name} ({routeState.RemainingHopCount} jumps remaining)",
+                        $"NEXT: JUMP TO {destinationSystem.ToUpperInvariant()} - {jumpLabel}",
                         3f);
                 }
                 return true;
@@ -3052,7 +3077,7 @@ namespace Roguelancer {
                     out Station station,
                     out failureReason))
             {
-                _notificationManager?.ShowMessage($"Trade route waiting for station load: {plan.NextStationName}.", 3f);
+                _notificationManager?.ShowMessage($"NEXT: DOCK AT {plan.NextStationName.ToUpperInvariant()}", 3f);
                 Console.WriteLine($"[TRADE PLAN] Final station not yet loaded: {plan.NextStationId}; {failureReason}");
                 QueueTradePlanNavigationRetry();
                 return false;
@@ -3348,11 +3373,15 @@ namespace Roguelancer {
             object target = GetSelectedNavTarget();
             if (target is SpaceObject spaceTarget)
             {
+                bool overridingTradeRoute = _tradePlanManager?.ActivePlan != null &&
+                    (_tradePlanNavigationTarget == null || !ReferenceEquals(spaceTarget, _tradePlanNavigationTarget));
                 _selectedNavTarget = spaceTarget;
                 _selectedSpaceObjectIndex = _spaceObjects.IndexOf(spaceTarget);
                 float distance = Vector3.Distance(_playerShip.Position, spaceTarget.Position);
                 Console.WriteLine($"[TARGETING] GOTO requested: {spaceTarget.Name} at {distance / 1000f:F2}km");
                 _playerShip.ActivateGoto(spaceTarget);
+                if (overridingTradeRoute)
+                    _notificationManager?.ShowMessage(TradePlanPresentation.BuildPausedNavigationLine(), 4f);
                 return true;
             }
 
@@ -5868,12 +5897,17 @@ namespace Roguelancer {
         private void DrawSystemName() {
             if (_font == null) return;
 
-            SystemConfig currentSystem = _config.GetSystem(_currentSystemIndex);
-            string systemName = currentSystem?.Description ?? $"System {_currentSystemIndex}";
+            string systemName = GetSystemDisplayName(_currentSystemIndex);
 
             Vector2 pos = new Vector2(10, 10);
             _spriteBatch.DrawString(_font, systemName, pos + Vector2.One, Color.Black * 0.5f);
             _spriteBatch.DrawString(_font, systemName, pos, Color.Gold);
+        }
+
+        private string GetSystemDisplayName(int systemIndex)
+        {
+            SystemConfig system = _config?.GetSystem(systemIndex);
+            return string.IsNullOrWhiteSpace(system?.Description) ? $"System {systemIndex}" : system.Description;
         }
 
         /// <summary>
@@ -5953,14 +5987,15 @@ namespace Roguelancer {
                 return;
             }
 
-            List<string> lines = _tradePlanManager.GetCompactDisplayLines(5);
+            TradePlanPresentationState presentation = _tradePlanManager.GetPresentation(_currentSystemIndex, GetSystemDisplayName);
+            List<string> lines = presentation.HudLines.ToList();
             if (lines.Count == 0) return;
             if (HasTradePlanResumeAvailable())
             {
-                lines.Add("R: RESUME TRADE ROUTE");
+                lines.Add(TradePlanPresentation.BuildPausedNavigationLine());
             }
 
-            int panelWidth = 390;
+            int panelWidth = 470;
             int panelX = Math.Max(10, GraphicsDevice.Viewport.Width - panelWidth - 20);
             int panelY = 112;
             int lineHeight = 21;
@@ -5970,8 +6005,13 @@ namespace Roguelancer {
 
             for (int i = 0; i < lines.Count; i++)
             {
-                Color color = i == 0 ? Color.LimeGreen : i == lines.Count - 1 ? Color.Orange : Color.White;
-                _spriteBatch.DrawString(_font, TruncateTradePlanLine(lines[i], 48), new Vector2(panelX + 9, panelY + 5 + i * lineHeight), color);
+                Color color = i == 0 ? Color.LimeGreen :
+                    lines[i].StartsWith("NEXT:", StringComparison.OrdinalIgnoreCase) ? Color.Yellow :
+                    lines[i].StartsWith("WARNING:", StringComparison.OrdinalIgnoreCase) ||
+                    lines[i].StartsWith("ROUTE NO", StringComparison.OrdinalIgnoreCase) ||
+                    lines[i].StartsWith("TRADE ROUTE PAUSED", StringComparison.OrdinalIgnoreCase)
+                        ? Color.OrangeRed : Color.White;
+                _spriteBatch.DrawString(_font, TruncateTradePlanLine(lines[i], 62), new Vector2(panelX + 9, panelY + 5 + i * lineHeight), color);
             }
         }
 
@@ -6155,7 +6195,20 @@ namespace Roguelancer {
 
             // This runs after station and jump-hole population so a remote
             // Trade Plan can immediately select its next leg or final station.
-            PlotTradePlanNavigation(showNotification: true);
+            PlotTradePlanNavigation(showNotification: false);
+
+            if (_tradePlanManager?.ActivePlan != null)
+            {
+                TradePlanPresentationState presentation = _tradePlanManager.GetPresentation(_currentSystemIndex, GetSystemDisplayName);
+                _notificationManager?.ShowMessage(
+                    TradePlanPresentation.BuildSystemTransitionMessage(
+                        GetSystemDisplayName(_currentSystemIndex),
+                        presentation.JumpProgress,
+                        presentation.IsCurrentSystemFinal),
+                    4f);
+                if (!string.IsNullOrWhiteSpace(presentation.NextAction))
+                    _notificationManager?.ShowMessage(presentation.NextAction, 4f);
+            }
 
             Console.WriteLine($"[SYSTEM CHANGE] Player positioned at {arrivalPos}");
         }

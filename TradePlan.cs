@@ -45,23 +45,52 @@ public sealed class TradePlan
     public int AcquiredQuantity { get; internal set; }
     public int PurchasedQuantity { get; internal set; }
     public int SoldQuantity { get; internal set; }
+    public long PurchasedCost { get; internal set; }
+    public long SoldProceeds { get; internal set; }
+    public int AverageSourcePurchasePrice { get; internal set; }
     public int ActualSourceBuyPrice { get; internal set; }
     public int ActualDestinationSellPrice { get; internal set; }
     public int CurrentKnownSpread { get; internal set; }
     public TradePlanStage Stage { get; internal set; }
     public string WarningMessage { get; internal set; } = string.Empty;
+    public string LastMarketChangeMessage { get; internal set; } = string.Empty;
 
     public bool CargoAcquired { get; internal set; }
+    public bool HasAmbiguousProvenance { get; internal set; }
     public bool IsComplete => Stage == TradePlanStage.Complete;
     public bool SourceReached => Stage != TradePlanStage.GoToSource;
     public bool DestinationReached => Stage is TradePlanStage.SellCommodity or TradePlanStage.Complete;
     public long ProjectedGrossSpread => (long)DestinationSellPriceSnapshot - SourceBuyPriceSnapshot;
     public long ProjectedGrossResult => SafeMultiply(ProjectedGrossSpread, Math.Max(0, SuggestedQuantity));
+    public bool HasMaterialPriceChange =>
+        IsMaterialPriceChange(SourceBuyPriceSnapshot, ActualSourceBuyPrice) ||
+        IsMaterialPriceChange(DestinationSellPriceSnapshot, ActualDestinationSellPrice);
+    public bool HasExactRealizedMargin => !HasAmbiguousProvenance && PurchasedQuantity > 0 && SoldQuantity > 0;
+    public long RealizedGrossMargin => HasExactRealizedMargin
+        ? SoldProceeds - AllocateCost(PurchasedCost, PurchasedQuantity, SoldQuantity)
+        : 0L;
 
     private static long SafeMultiply(long left, long right)
     {
         if (left <= 0 || right <= 0) return 0L;
         return left > long.MaxValue / right ? long.MaxValue : left * right;
+    }
+
+    private static long AllocateCost(long totalCost, int purchasedQuantity, int soldQuantity)
+    {
+        if (totalCost <= 0 || purchasedQuantity <= 0 || soldQuantity <= 0) return 0L;
+        long boundedSold = Math.Min((long)purchasedQuantity, soldQuantity);
+        return totalCost > long.MaxValue / boundedSold
+            ? long.MaxValue
+            : totalCost * boundedSold / purchasedQuantity;
+    }
+
+    internal static bool IsMaterialPriceChange(int previous, int current)
+    {
+        if (previous <= 0 || current <= 0 || previous == current) return false;
+        long difference = Math.Abs((long)current - previous);
+        return difference >= TradePlanPresentation.MaterialChangeMinimumCredits ||
+            difference * 100L >= (long)previous * 5L;
     }
 
     public string NextStationId => Stage switch
@@ -126,6 +155,8 @@ public sealed class TradePlanManager
     public TradePlan ActivePlan { get; private set; }
     public TradePlan LastCompletedPlan { get; private set; }
     public TradePlanNavigationState NavigationState { get; private set; }
+    public MarketIntelligence MarketIntelligence => _marketIntelligence;
+    public MarketRouteAuthority RouteAuthority => _routeAuthority;
 
     public event Action<TradePlan> PlanChanged;
 
@@ -249,6 +280,7 @@ public sealed class TradePlanManager
             candidate.CargoAcquired = candidate.InitialOrdinaryQuantity > 0;
             candidate.AcquiredQuantity = candidate.InitialOrdinaryQuantity;
             candidate.ActualSourceBuyPrice = sourceObservation.BuyPrice;
+            candidate.HasAmbiguousProvenance = candidate.InitialOrdinaryQuantity > 0;
         }
 
         // Validate the complete candidate before replacing an existing plan so
@@ -297,11 +329,30 @@ public sealed class TradePlanManager
         bool isDestination = string.Equals(stationId, ActivePlan.DestinationStationId, StringComparison.OrdinalIgnoreCase);
         if (!isSource && !isDestination) return false;
 
+        int previousRelevantPrice = 0;
+        if (_marketIntelligence.TryGetObservation(stationId, ActivePlan.CommodityId, out MarketObservation previousObservation))
+        {
+            previousRelevantPrice = isSource ? previousObservation.BuyPrice : previousObservation.SellPrice;
+        }
+
         _marketIntelligence.ObserveStation(station, "TradePlanArrival");
         if (_marketIntelligence.TryGetObservation(stationId, ActivePlan.CommodityId, out MarketObservation observation))
         {
             if (isSource) ActivePlan.ActualSourceBuyPrice = observation.BuyPrice;
             if (isDestination) ActivePlan.ActualDestinationSellPrice = observation.SellPrice;
+
+            int currentRelevantPrice = isSource ? observation.BuyPrice : observation.SellPrice;
+            if (previousRelevantPrice > 0 && currentRelevantPrice > 0 &&
+                TradePlan.IsMaterialPriceChange(previousRelevantPrice, currentRelevantPrice))
+            {
+                string stationName = isSource ? ActivePlan.SourceStationName : ActivePlan.DestinationStationName;
+                bool improved = isSource
+                    ? currentRelevantPrice < previousRelevantPrice
+                    : currentRelevantPrice > previousRelevantPrice;
+                ActivePlan.LastMarketChangeMessage = improved
+                    ? $"MARKET IMPROVED - {stationName} now {(isSource ? "sells" : "pays")} {currentRelevantPrice:N0} CR"
+                    : $"MARKET UPDATE: {ActivePlan.CommodityName} now {currentRelevantPrice:N0} CR at {stationName}";
+            }
         }
 
         int ordinaryQuantity = GetTradableQuantity(ActivePlan.CommodityId);
@@ -348,17 +399,36 @@ public sealed class TradePlanManager
         if (transaction.IsPurchase && atSource)
         {
             ActivePlan.PurchasedQuantity = SafeAdd(ActivePlan.PurchasedQuantity, transaction.Quantity);
+            if (transaction.UnitPrice > 0)
+            {
+                ActivePlan.PurchasedCost = SafeAdd(ActivePlan.PurchasedCost, SafeMultiply(transaction.UnitPrice, transaction.Quantity));
+                ActivePlan.AverageSourcePurchasePrice = ActivePlan.PurchasedQuantity > 0
+                    ? (int)Math.Clamp(ActivePlan.PurchasedCost / ActivePlan.PurchasedQuantity, 0L, int.MaxValue)
+                    : 0;
+            }
+            else
+            {
+                ActivePlan.HasAmbiguousProvenance = true;
+            }
             ActivePlan.CargoAcquired = GetTradableQuantity(ActivePlan.CommodityId) > 0;
             ActivePlan.AcquiredQuantity = Math.Max(ActivePlan.AcquiredQuantity, GetTradableQuantity(ActivePlan.CommodityId));
             if (ActivePlan.CargoAcquired)
             {
                 ActivePlan.Stage = TradePlanStage.GoToDestination;
-                message = $"Cargo acquired: {GetTradableQuantity(ActivePlan.CommodityId):N0} {ActivePlan.CommodityName}. Destination route ready.";
+                message = $"Purchased {transaction.Quantity:N0} {ActivePlan.CommodityName}. Cargo: {GetTradableQuantity(ActivePlan.CommodityId):N0}. Next: {ActivePlan.DestinationStationName}.";
             }
         }
         else if (!transaction.IsPurchase && atDestination)
         {
             ActivePlan.SoldQuantity = SafeAdd(ActivePlan.SoldQuantity, transaction.Quantity);
+            if (transaction.UnitPrice > 0)
+            {
+                ActivePlan.SoldProceeds = SafeAdd(ActivePlan.SoldProceeds, SafeMultiply(transaction.UnitPrice, transaction.Quantity));
+            }
+            else
+            {
+                ActivePlan.HasAmbiguousProvenance = true;
+            }
             if (ActivePlan.CargoAcquired && GetTradableQuantity(ActivePlan.CommodityId) <= 0)
             {
                 ActivePlan.Stage = TradePlanStage.Complete;
@@ -368,11 +438,19 @@ public sealed class TradePlanManager
                 ActivePlan = null;
                 NavigationState = null;
                 PlanChanged?.Invoke(completed);
-                message = "TRADE ROUTE COMPLETE. No mission reward or cargo reservation was created.";
+                message = BuildCompletionMessage(completed);
                 return true;
             }
 
-            message = $"Sold {ActivePlan.SoldQuantity:N0} {ActivePlan.CommodityName}; remaining ordinary cargo: {GetTradableQuantity(ActivePlan.CommodityId):N0}.";
+            string margin = ActivePlan.HasExactRealizedMargin
+                ? $" Trade margin: {TradePlanPresentation.FormatSigned(ActivePlan.RealizedGrossMargin)} CR."
+                : string.Empty;
+            message = $"Sold {transaction.Quantity:N0} {ActivePlan.CommodityName} at {ActivePlan.DestinationStationName}. Remaining cargo: {GetTradableQuantity(ActivePlan.CommodityId):N0}.{margin}";
+        }
+        else if (transaction.IsPurchase)
+        {
+            ActivePlan.HasAmbiguousProvenance = true;
+            return false;
         }
         else
         {
@@ -387,50 +465,46 @@ public sealed class TradePlanManager
 
     public List<string> GetDisplayLines()
     {
-        if (ActivePlan == null) return new List<string>();
-
-        int ordinaryQuantity = GetTradableQuantity(ActivePlan.CommodityId);
-        string nextLine = ActivePlan.Stage switch
-        {
-            TradePlanStage.GoToSource => $"Next: {ActivePlan.SourceStationName}",
-            TradePlanStage.AcquireCommodity => $"Next: Buy at {ActivePlan.SourceStationName}",
-            TradePlanStage.GoToDestination => $"Cargo: {ordinaryQuantity:N0} {ActivePlan.CommodityName} | Next: {ActivePlan.DestinationStationName}",
-            TradePlanStage.SellCommodity => ordinaryQuantity > 0
-                ? $"Next: Sell {ordinaryQuantity:N0} at {ActivePlan.DestinationStationName}"
-                : "No tradable cargo aboard",
-            _ => "Complete"
-        };
-
-        if (NavigationState?.FinalStationId == ActivePlan.NextStationId)
-        {
-            nextLine = NavigationState.Status switch
-            {
-                TradePlanRouteStatus.TransitionRequired => $"Next: {NavigationState.NextTransition.TransitionName} | {NavigationState.RemainingHopCount} jumps",
-                TradePlanRouteStatus.Unavailable => "Next: NO KNOWN ROUTE",
-                TradePlanRouteStatus.LocalStation => nextLine,
-                _ => nextLine
-            };
-        }
-
-        List<string> lines = new()
-        {
-            $"TRADE: {ActivePlan.CommodityName}",
-            $"{ActivePlan.SourceStationName} -> {ActivePlan.DestinationStationName}",
-            nextLine,
-            $"Known margin: {FormatSigned(ActivePlan.CurrentKnownSpread)} CR/unit",
-            $"Projected gross spread: {ActivePlan.ProjectedGrossResult:N0} CR"
-        };
-
-        string sourceAge = GetCurrentAgeBand(ActivePlan.SourceStationId, ActivePlan.CommodityId).ToString().ToUpperInvariant();
-        string destinationAge = GetCurrentAgeBand(ActivePlan.DestinationStationId, ActivePlan.CommodityId).ToString().ToUpperInvariant();
-        lines.Add($"INTEL: {sourceAge} / {destinationAge}");
-        if (!string.IsNullOrWhiteSpace(ActivePlan.WarningMessage)) lines.Add(ActivePlan.WarningMessage);
-        return lines;
+        return ActivePlan == null ? new List<string>() : GetPresentation(0).HudLines.ToList();
     }
 
     public List<string> GetCompactDisplayLines(int maxLines = 4)
     {
         return GetDisplayLines().Take(Math.Max(0, maxLines)).ToList();
+    }
+
+    public TradePlanPresentationState GetPresentation(int currentSystemIndex = 0, Func<int, string> systemNameResolver = null)
+    {
+        if (ActivePlan == null) return TradePlanPresentationState.Empty;
+        return TradePlanPresentation.Build(
+            ActivePlan,
+            NavigationState,
+            _marketIntelligence,
+            _routeAuthority,
+            currentSystemIndex,
+            systemNameResolver,
+            GetTradableQuantity(ActivePlan.CommodityId));
+    }
+
+    public TradePlanPresentationState GetCompletedPresentation(Func<int, string> systemNameResolver = null)
+    {
+        if (LastCompletedPlan == null) return TradePlanPresentationState.Empty;
+        return TradePlanPresentation.Build(
+            LastCompletedPlan,
+            null,
+            _marketIntelligence,
+            _routeAuthority,
+            LastCompletedPlan.DestinationSystemIndex,
+            systemNameResolver,
+            0);
+    }
+
+    public string ConsumeMarketUpdateMessage()
+    {
+        if (ActivePlan == null || string.IsNullOrWhiteSpace(ActivePlan.LastMarketChangeMessage)) return string.Empty;
+        string message = ActivePlan.LastMarketChangeMessage;
+        ActivePlan.LastMarketChangeMessage = string.Empty;
+        return message;
     }
 
     public SaveTradePlanData CaptureState()
@@ -459,9 +533,13 @@ public sealed class TradePlanManager
             AcquiredQuantity = ActivePlan.AcquiredQuantity,
             PurchasedQuantity = ActivePlan.PurchasedQuantity,
             SoldQuantity = ActivePlan.SoldQuantity,
+            PurchasedCost = ActivePlan.PurchasedCost,
+            SoldProceeds = ActivePlan.SoldProceeds,
+            AverageSourcePurchasePrice = ActivePlan.AverageSourcePurchasePrice,
             ActualSourceBuyPrice = ActivePlan.ActualSourceBuyPrice,
             ActualDestinationSellPrice = ActivePlan.ActualDestinationSellPrice,
-            CargoAcquired = ActivePlan.CargoAcquired
+            CargoAcquired = ActivePlan.CargoAcquired,
+            HasAmbiguousProvenance = ActivePlan.HasAmbiguousProvenance
         };
     }
 
@@ -506,9 +584,13 @@ public sealed class TradePlanManager
             AcquiredQuantity = Math.Max(0, saved.AcquiredQuantity),
             PurchasedQuantity = Math.Max(0, saved.PurchasedQuantity),
             SoldQuantity = Math.Max(0, saved.SoldQuantity),
+            PurchasedCost = Math.Max(0L, saved.PurchasedCost),
+            SoldProceeds = Math.Max(0L, saved.SoldProceeds),
+            AverageSourcePurchasePrice = Math.Max(0, saved.AverageSourcePurchasePrice),
             ActualSourceBuyPrice = Math.Max(0, saved.ActualSourceBuyPrice),
             ActualDestinationSellPrice = Math.Max(0, saved.ActualDestinationSellPrice),
-            CargoAcquired = saved.CargoAcquired
+            CargoAcquired = saved.CargoAcquired,
+            HasAmbiguousProvenance = saved.HasAmbiguousProvenance
         };
         UpdateGuidance();
         PlanChanged?.Invoke(ActivePlan);
@@ -534,31 +616,23 @@ public sealed class TradePlanManager
             : ActivePlan.DestinationSellPriceSnapshot;
         ActivePlan.CurrentKnownSpread = ClampToInt((long)destinationPrice - sourcePrice);
 
-        bool sourceChanged = ActivePlan.ActualSourceBuyPrice > 0 &&
-            ActivePlan.ActualSourceBuyPrice != ActivePlan.SourceBuyPriceSnapshot;
-        bool destinationChanged = ActivePlan.ActualDestinationSellPrice > 0 &&
-            ActivePlan.ActualDestinationSellPrice != ActivePlan.DestinationSellPriceSnapshot;
+        bool sourceChanged = TradePlan.IsMaterialPriceChange(
+            ActivePlan.SourceBuyPriceSnapshot,
+            ActivePlan.ActualSourceBuyPrice);
+        bool destinationChanged = TradePlan.IsMaterialPriceChange(
+            ActivePlan.DestinationSellPriceSnapshot,
+            ActivePlan.ActualDestinationSellPrice);
         if ((sourceChanged || destinationChanged) && ActivePlan.CurrentKnownSpread <= 0)
         {
-            ActivePlan.WarningMessage = "ROUTE NO LONGER PROFITABLE AT KNOWN PRICES";
+            ActivePlan.WarningMessage = "MARKET CHANGED - ROUTE NO LONGER PROFITABLE";
         }
         else if (sourceChanged || destinationChanged)
         {
-            ActivePlan.WarningMessage = ActivePlan.CurrentKnownSpread < ActivePlan.ProjectedGrossSpread
-                ? "MARKET CHANGED - route margin reduced"
-                : "MARKET CHANGED - route margin improved";
+            ActivePlan.WarningMessage = $"MARKET CHANGED - CURRENT SPREAD: {FormatSigned(ActivePlan.CurrentKnownSpread)} CR/unit";
         }
         else
         {
-            MarketObservationAgeBand sourceAge = GetCurrentAgeBand(ActivePlan.SourceStationId, ActivePlan.CommodityId);
-            MarketObservationAgeBand destinationAge = GetCurrentAgeBand(ActivePlan.DestinationStationId, ActivePlan.CommodityId);
-            ActivePlan.WarningMessage = sourceAge == MarketObservationAgeBand.Stale && destinationAge == MarketObservationAgeBand.Stale
-                ? "WARNING: source and destination quotes are stale"
-                : sourceAge == MarketObservationAgeBand.Stale
-                    ? "WARNING: source quote is stale"
-                    : destinationAge == MarketObservationAgeBand.Stale
-                        ? "WARNING: destination quote is stale"
-                        : string.Empty;
+            ActivePlan.WarningMessage = string.Empty;
         }
     }
 
@@ -606,6 +680,27 @@ public sealed class TradePlanManager
     {
         long sum = (long)Math.Max(0, left) + Math.Max(0, right);
         return (int)Math.Clamp(sum, 0L, int.MaxValue);
+    }
+
+    private static long SafeAdd(long left, long right)
+    {
+        if (left < 0 || right < 0) return 0L;
+        return left > long.MaxValue - right ? long.MaxValue : left + right;
+    }
+
+    private static long SafeMultiply(int left, int right)
+    {
+        if (left <= 0 || right <= 0) return 0L;
+        return left > long.MaxValue / right ? long.MaxValue : (long)left * right;
+    }
+
+    private static string BuildCompletionMessage(TradePlan completed)
+    {
+        if (completed == null) return "TRADE ROUTE COMPLETE";
+        string margin = completed.HasExactRealizedMargin
+            ? $" | Gross margin: {TradePlanPresentation.FormatSigned(completed.RealizedGrossMargin)} CR"
+            : " | Gross margin: unavailable (cargo provenance mixed)";
+        return $"TRADE ROUTE COMPLETE - {completed.SoldQuantity:N0} {completed.CommodityName} delivered{margin}";
     }
 
     private static int ClampToInt(long value) => (int)Math.Clamp(value, int.MinValue, int.MaxValue);

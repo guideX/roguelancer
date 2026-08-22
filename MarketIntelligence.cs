@@ -104,6 +104,7 @@ public sealed class MarketIntelligence
     }
 
     public MarketManager MarketManager => _marketManager;
+    public long ElapsedMilliseconds => _marketManager.ElapsedMilliseconds;
     public Station CurrentStation => _currentStation;
     public IReadOnlyList<MarketMissionIntel> MissionIntel => _missionIntel.AsReadOnly();
     public IReadOnlyList<MarketKnowledgeStation> KnownStations => _knownStations.Values.ToList();

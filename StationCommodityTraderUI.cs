@@ -17,6 +17,7 @@ public sealed class StationCommodityTraderUI
     private readonly Texture2D _pixel;
     private readonly CommodityDealer _commodityDealer;
     private readonly Action<string> _showMessage;
+    private readonly TradePlanManager _tradePlanManager;
 
     private string _stationName = "Station";
     private Station _station;
@@ -34,12 +35,14 @@ public sealed class StationCommodityTraderUI
         SpriteFont font,
         Texture2D pixel,
         CommodityDealer commodityDealer,
-        Action<string> showMessage = null)
+        Action<string> showMessage = null,
+        TradePlanManager tradePlanManager = null)
     {
         _font = font ?? throw new ArgumentNullException(nameof(font));
         _pixel = pixel ?? throw new ArgumentNullException(nameof(pixel));
         _commodityDealer = commodityDealer ?? throw new ArgumentNullException(nameof(commodityDealer));
         _showMessage = showMessage ?? (_ => { });
+        _tradePlanManager = tradePlanManager;
     }
 
     public bool IsOpen { get; private set; }
@@ -189,6 +192,7 @@ public sealed class StationCommodityTraderUI
         int freeCargo = _playerShip?.CargoHold?.AvailableCapacity ?? 0;
         string cargoText = $"Free Cargo: {freeCargo}   Used: {_playerShip?.CargoHold?.UsedCapacity ?? 0}/{_playerShip?.CargoHold?.MaxCapacity ?? 0}";
         spriteBatch.DrawString(_font, cargoText, new Vector2(panel.X + 24, panel.Y + 44), Color.LightSkyBlue);
+        DrawTradePlanContext(spriteBatch, panel);
 
         Rectangle content = new(panel.X + 18, panel.Y + 78, panel.Width - 36, panel.Height - 142);
         int dividerX = content.X + (int)(content.Width * 0.43f);
@@ -218,9 +222,11 @@ public sealed class StationCommodityTraderUI
             Rectangle row = new(listPanel.X + 8, rowY, listPanel.Width - 16, rowHeight - 4);
             bool selected = i == _selectedIndex;
             if (selected) spriteBatch.Draw(_pixel, row, commodity.DisplayColor * 0.22f);
-            DrawBorder(spriteBatch, row, selected ? commodity.DisplayColor : Color.DarkSlateGray, selected ? 2 : 1);
+            bool plannedCommodity = IsPlannedTradeCommodity(commodity);
+            DrawBorder(spriteBatch, row, selected ? commodity.DisplayColor : plannedCommodity ? Color.LimeGreen : Color.DarkSlateGray, selected ? 2 : 1);
 
-            string label = $"{(selected ? "> " : "  ")}{Shorten(commodity.Name, 24)}";
+            string label = $"{(selected ? "> " : "  ")}{Shorten(commodity.Name, plannedCommodity ? 13 : 24)}";
+            if (plannedCommodity) label += " [TRADE ROUTE]";
             Color labelColor = listing.IsAvailable ? Color.White : Color.Gray;
             spriteBatch.DrawString(_font, label, new Vector2(row.X + 10, row.Y + 7), labelColor);
             string price = listing.IsAvailable
@@ -304,6 +310,26 @@ public sealed class StationCommodityTraderUI
             ? listing.IsAvailable && listing.BuyPrice > 0 && listing.Stock > listing.MinimumStock ? "[ENTER] BUY" : "BUY UNAVAILABLE"
             : protectedQuantity > 0 && sellable == 0 ? "MISSION CARGO CANNOT BE SOLD" : sellable > 0 && listing.SellPrice > 0 ? "[ENTER] SELL" : "NOTHING SELLABLE";
         spriteBatch.DrawString(_font, Shorten(action, 58), new Vector2(x, Math.Min(y, detailPanel.Bottom - 42)), _buying ? Color.Lime : Color.Orange);
+    }
+
+    private void DrawTradePlanContext(SpriteBatch spriteBatch, Rectangle panel)
+    {
+        TradePlan plan = _tradePlanManager?.ActivePlan;
+        if (plan == null || _station == null) return;
+
+        string stationId = _commodityDealer.MarketManager.GetStationId(_station);
+        bool atSource = string.Equals(stationId, plan.SourceStationId, StringComparison.OrdinalIgnoreCase);
+        bool atDestination = string.Equals(stationId, plan.DestinationStationId, StringComparison.OrdinalIgnoreCase);
+        if (!atSource && !atDestination) return;
+
+        string context = $"{(atSource ? "TRADE ROUTE SOURCE" : "TRADE ROUTE DESTINATION")} | Planned commodity: {plan.CommodityName}";
+        spriteBatch.DrawString(_font, Shorten(context, 110), new Microsoft.Xna.Framework.Vector2(panel.X + 24, panel.Y + 62), atSource ? Microsoft.Xna.Framework.Color.LimeGreen : Microsoft.Xna.Framework.Color.LightSkyBlue);
+    }
+
+    private bool IsPlannedTradeCommodity(Commodity commodity)
+    {
+        return commodity != null && _tradePlanManager?.ActivePlan != null &&
+            string.Equals(commodity.Id, _tradePlanManager.ActivePlan.CommodityId, StringComparison.OrdinalIgnoreCase);
     }
 
     private void ExecuteSelected(IReadOnlyList<StationMarketListing> listings)
