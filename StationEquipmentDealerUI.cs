@@ -202,12 +202,15 @@ public sealed class StationEquipmentDealerUI
 
                 EquipmentDefinition equipment = items[i];
                 bool selected = i == _selectedIndex;
+                FactionAccessResult access = _equipmentDealer.GetEquipmentAccess(equipment);
+                int ownedCount = _playerShip?.Loadout?.GetOwnedCount(equipment.Id) ?? 0;
                 Rectangle row = new(listPanel.X + 8, rowY, listPanel.Width - 16, rowHeight - 5);
                 if (selected) spriteBatch.Draw(_pixel, row, Color.Cyan * 0.24f);
                 DrawBorder(spriteBatch, row, selected ? Color.Cyan : Color.DarkSlateGray, selected ? 2 : 1);
 
-                string label = $"{(selected ? "> " : "  ")}{Shorten(equipment.Name, 25)}";
-                spriteBatch.DrawString(_font, label, new Vector2(row.X + 10, row.Y + 7), Color.White);
+                string label = $"{(selected ? "> " : "  ")}{Shorten(!access.IsAllowed && ownedCount <= 0 ? $"[LOCKED] {equipment.Name}" : equipment.Name, 25)}";
+                spriteBatch.DrawString(_font, label, new Vector2(row.X + 10, row.Y + 7),
+                    !access.IsAllowed && ownedCount <= 0 ? Color.OrangeRed : Color.White);
                 spriteBatch.DrawString(_font, equipment.EquipmentType.ToString(), new Vector2(row.X + 28, row.Y + 27), TypeColor(equipment.EquipmentType));
 
                 if (_ownedMode)
@@ -253,7 +256,12 @@ public sealed class StationEquipmentDealerUI
 
         int x = detailPanel.X + 16;
         int y = detailPanel.Y + 48;
-        spriteBatch.DrawString(_font, Shorten(equipment.Name, 42), new Vector2(x, y), Color.White);
+        FactionAccessResult access = _equipmentDealer.GetEquipmentAccess(equipment);
+        bool ownedAlready = (_playerShip?.Loadout?.GetOwnedCount(equipment.Id) ?? 0) > 0;
+        spriteBatch.DrawString(_font,
+            !access.IsAllowed && !ownedAlready ? $"[LOCKED] {Shorten(equipment.Name, 32)}" : Shorten(equipment.Name, 42),
+            new Vector2(x, y),
+            !access.IsAllowed && !ownedAlready ? Color.OrangeRed : Color.White);
         y += 28;
         spriteBatch.DrawString(_font, $"Type: {equipment.EquipmentType}", new Vector2(x, y), TypeColor(equipment.EquipmentType));
         y += 25;
@@ -291,9 +299,27 @@ public sealed class StationEquipmentDealerUI
         spriteBatch.DrawString(_font, $"Owned: {owned}   Equipped: {mounted}", new Vector2(x, y), Color.LightGreen);
         y += 28;
 
+        string accessText = ownedAlready
+            ? "ACCESS: OWNED — remains usable after reputation loss"
+            : access.IsAllowed
+                ? "ACCESS: AVAILABLE"
+                : Shorten(access.BuildFailureMessage(equipment.Name), 66);
+        spriteBatch.DrawString(_font, accessText, new Vector2(x, y),
+            access.IsAllowed || ownedAlready ? Color.LightGreen : Color.OrangeRed);
+        y += 22;
+        if (!ownedAlready && access.MinimumStanding.HasValue)
+        {
+            spriteBatch.DrawString(_font, Shorten(access.BuildRequirementLine(_equipmentDealer.ReputationManager), 66),
+                new Vector2(x, y), Color.LightSkyBlue);
+            y += 22;
+            spriteBatch.DrawString(_font, Shorten($"Current: {access.BuildCurrentStandingLine()}", 66),
+                new Vector2(x, y), Color.LightGray);
+            y += 22;
+        }
+
         string action = _ownedMode
             ? mounted > 0 ? "[U] UNEQUIP   [S] SELL SPARE" : "[ENTER/E] EQUIP   [S] SELL"
-            : "[ENTER/E or B] BUY";
+            : access.IsAllowed ? "[ENTER/E or B] BUY" : "[LOCKED] REPUTATION REQUIRED";
         spriteBatch.DrawString(_font, action, new Vector2(x, Math.Min(y, detailPanel.Bottom - 30)), Color.Gold);
     }
 

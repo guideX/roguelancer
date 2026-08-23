@@ -14,14 +14,58 @@ namespace Roguelancer
         private List<ShipDefinition> _availableShips = new List<ShipDefinition>();
         private ShipDefinition _currentPlayerShip;
         private bool _modelsLoaded;
+        private Station _currentStation;
+        private ReputationManager _reputationManager;
         
         public IReadOnlyList<ShipDefinition> AvailableShips => _availableShips;
         public ShipDefinition CurrentPlayerShip => _currentPlayerShip;
         public bool ModelsLoaded => _modelsLoaded;
+        public Station CurrentStation => _currentStation;
+        public ReputationManager ReputationManager => _reputationManager;
 
-        public ShipDealer()
+        public ShipDealer(ReputationManager reputationManager = null)
         {
+            _reputationManager = reputationManager;
             InitializeShipInventory();
+        }
+
+        public void SetReputationManager(ReputationManager reputationManager)
+        {
+            _reputationManager = reputationManager;
+        }
+
+        public void SetDockedStation(Station station)
+        {
+            _currentStation = station;
+            if (station != null)
+            {
+                Console.WriteLine($"[SHIP DEALER] Docked at {station.Name}");
+            }
+        }
+
+        public void ClearDockedStation()
+        {
+            if (_currentStation != null)
+            {
+                Console.WriteLine($"[SHIP DEALER] Undocked from {_currentStation.Name}");
+            }
+
+            _currentStation = null;
+        }
+
+        public FactionAccessResult GetServiceAccess()
+        {
+            return FactionAccessService.EvaluateService(
+                _reputationManager,
+                _currentStation?.FactionId,
+                "Ship Dealer");
+        }
+
+        public bool CanUseService(out string message)
+        {
+            FactionAccessResult access = GetServiceAccess();
+            message = access.IsAllowed ? string.Empty : access.BuildFailureMessage("Ship Dealer");
+            return access.IsAllowed;
         }
 
         /// <summary>
@@ -149,6 +193,13 @@ namespace Roguelancer
             if (ship == null || !_availableShips.Contains(ship))
             {
                 message = "Ship is not available at this dealer.";
+                return false;
+            }
+
+            FactionAccessResult serviceAccess = GetServiceAccess();
+            if (!serviceAccess.IsAllowed)
+            {
+                message = serviceAccess.BuildFailureMessage("Ship Dealer");
                 return false;
             }
 

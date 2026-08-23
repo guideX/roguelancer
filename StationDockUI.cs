@@ -72,6 +72,8 @@ namespace Roguelancer
             _tradePlanManager = tradePlanManager;
             _systemNameResolver = systemNameResolver;
             _equipmentDealer = equipmentDealer ?? new EquipmentDealer();
+            _equipmentDealer.SetReputationManager(_reputationManager);
+            _shipDealer?.SetReputationManager(_reputationManager);
             _jobBoard = new JobBoard(missionManager);
             _isDocked = false;
             _currentArea = StationArea.Hangar;
@@ -120,6 +122,7 @@ namespace Roguelancer
             _buyingMode = true;
             _commodityDealer?.SetDockedStation(station);
             _equipmentDealer?.SetDockedStation(station);
+            _shipDealer?.SetDockedStation(station);
             _equipmentDealerMode = true;
             _selectedEquipmentIndex = 0;
 
@@ -161,6 +164,7 @@ namespace Roguelancer
             _isDocked = false;
             _commodityDealer?.ClearDockedStation();
             _equipmentDealer?.ClearDockedStation();
+            _shipDealer?.ClearDockedStation();
             _dockedStation = null;
             OnUndock?.Invoke();
         }
@@ -1023,6 +1027,7 @@ namespace Roguelancer
                 int mountedCount = loadout?.GetMountedCount(equipment.Id) ?? 0;
                 int availableToMount = loadout?.GetAvailableToMountCount(equipment.Id) ?? 0;
                 int availableToSell = loadout?.GetAvailableToSellCount(equipment.Id) ?? 0;
+                FactionAccessResult access = _equipmentDealer.GetEquipmentAccess(equipment);
 
                 Rectangle panel = new Rectangle(listX, listY + i * (rowHeight + 8), listWidth, rowHeight);
                 Color panelColor = isSelected ? Color.Cyan * 0.25f : Color.DarkGray * 0.25f;
@@ -1047,16 +1052,26 @@ namespace Roguelancer
                     _ => Color.White
                 };
 
-                string nameText = equipment.Name;
-                spriteBatch.DrawString(_font, nameText, new Vector2(panel.X + 12, panel.Y + 8), equipment.IsContraband ? Color.OrangeRed : Color.White);
+                string nameText = !access.IsAllowed && ownedCount <= 0
+                    ? $"[LOCKED] {equipment.Name}"
+                    : equipment.Name;
+                spriteBatch.DrawString(_font, nameText, new Vector2(panel.X + 12, panel.Y + 8),
+                    !access.IsAllowed && ownedCount <= 0
+                        ? Color.OrangeRed
+                        : equipment.IsContraband ? Color.OrangeRed : Color.White);
                 spriteBatch.DrawString(_font, equipment.EquipmentType.ToString(), new Vector2(panel.X + 12, panel.Y + 30), typeColor);
                 spriteBatch.DrawString(_font, $"Price: {equipment.Price:N0} CR", new Vector2(panel.X + 220, panel.Y + 8), Color.Yellow);
                 spriteBatch.DrawString(_font, $"Owned: {ownedCount}  Mounted: {mountedCount}", new Vector2(panel.X + 220, panel.Y + 30), Color.LightGreen);
+                if (!access.IsAllowed && ownedCount <= 0)
+                {
+                    spriteBatch.DrawString(_font, Shorten(access.BuildCurrentStandingLine(), 62),
+                        new Vector2(panel.X + 12, panel.Y + 52), Color.OrangeRed);
+                }
 
                 if (isSelected)
                 {
                     string actionHint = ownedCount <= 0
-                        ? "[ENTER] Buy"
+                        ? access.IsAllowed ? "[ENTER] Buy" : "[LOCKED]"
                         : availableToMount > 0
                             ? "[ENTER] Mount"
                             : availableToSell > 0
@@ -1069,11 +1084,19 @@ namespace Roguelancer
             var selectedEquipment = equipmentList[_selectedEquipmentIndex];
             int detailX = listX + listWidth + 20;
             int detailWidth = Math.Max(320, screenWidth - detailX - 40);
-            Rectangle detailPanel = new Rectangle(detailX, listY, detailWidth, rowHeight * 3 + 24);
+            int detailHeight = Math.Max(280, Math.Min(screenHeight - 260, rowHeight * 5 + 70));
+            Rectangle detailPanel = new Rectangle(detailX, listY, detailWidth, detailHeight);
             spriteBatch.Draw(_pixel, detailPanel, Color.Black * 0.5f);
             spriteBatch.Draw(_pixel, new Rectangle(detailPanel.X, detailPanel.Y, detailPanel.Width, 2), Color.Cyan);
 
-            spriteBatch.DrawString(_font, selectedEquipment.Name, new Vector2(detailPanel.X + 14, detailPanel.Y + 12), Color.White);
+            FactionAccessResult selectedAccess = _equipmentDealer.GetEquipmentAccess(selectedEquipment);
+            bool ownedSelected = loadout?.GetOwnedCount(selectedEquipment.Id) > 0;
+            spriteBatch.DrawString(_font,
+                !selectedAccess.IsAllowed && !ownedSelected
+                    ? $"[LOCKED] {selectedEquipment.Name}"
+                    : selectedEquipment.Name,
+                new Vector2(detailPanel.X + 14, detailPanel.Y + 12),
+                !selectedAccess.IsAllowed && !ownedSelected ? Color.OrangeRed : Color.White);
             spriteBatch.DrawString(_font, selectedEquipment.GetStatsSummary(), new Vector2(detailPanel.X + 14, detailPanel.Y + 38), Color.LightGray);
 
             string desc = selectedEquipment.Description;
@@ -1101,10 +1124,25 @@ namespace Roguelancer
             string ownershipText = $"Owned: {loadout?.GetOwnedCount(selectedEquipment.Id) ?? 0} | Mountable: {loadout?.GetAvailableToMountCount(selectedEquipment.Id) ?? 0} | Sellable: {loadout?.GetAvailableToSellCount(selectedEquipment.Id) ?? 0}";
             spriteBatch.DrawString(_font, ownershipText, new Vector2(detailPanel.X + 14, detailPanel.Y + 158), Color.Yellow);
 
-            string loadoutHeader = "Current Loadout";
-            spriteBatch.DrawString(_font, loadoutHeader, new Vector2(detailPanel.X + 14, detailPanel.Y + 190), Color.Cyan);
+            string accessText = ownedSelected
+                ? "ACCESS: OWNED — remains usable after reputation loss"
+                : selectedAccess.IsAllowed
+                    ? "ACCESS: AVAILABLE"
+                    : Shorten(selectedAccess.BuildFailureMessage(selectedEquipment.Name), 92);
+            spriteBatch.DrawString(_font, accessText, new Vector2(detailPanel.X + 14, detailPanel.Y + 182),
+                selectedAccess.IsAllowed || ownedSelected ? Color.LightGreen : Color.OrangeRed);
+            if (!ownedSelected && selectedAccess.MinimumStanding.HasValue)
+            {
+                spriteBatch.DrawString(_font, selectedAccess.BuildRequirementLine(_equipmentDealer.ReputationManager),
+                    new Vector2(detailPanel.X + 14, detailPanel.Y + 204), Color.LightSkyBlue);
+                spriteBatch.DrawString(_font, $"Current: {selectedAccess.BuildCurrentStandingLine()}",
+                    new Vector2(detailPanel.X + 14, detailPanel.Y + 226), Color.LightGray);
+            }
 
-            int loadoutY = detailPanel.Y + 214;
+            string loadoutHeader = "Current Loadout";
+            spriteBatch.DrawString(_font, loadoutHeader, new Vector2(detailPanel.X + 14, detailPanel.Y + 250), Color.Cyan);
+
+            int loadoutY = detailPanel.Y + 274;
             if (loadout != null)
             {
                 foreach (var hardpoint in loadout.Hardpoints)
@@ -1146,6 +1184,22 @@ namespace Roguelancer
             Vector2 currentShipSize = _font.MeasureString(currentShipText);
             spriteBatch.DrawString(_font, currentShipText, 
                 new Vector2(centerX - currentShipSize.X / 2, centerY - 210), Color.Cyan);
+
+            FactionAccessResult serviceAccess = _shipDealer.GetServiceAccess();
+            string serviceText = serviceAccess.IsAllowed
+                ? $"SERVICE: AVAILABLE | {serviceAccess.BuildCurrentStandingLine()}"
+                : $"SERVICE: {Shorten(serviceAccess.BuildFailureMessage("Ship Dealer"), 96)}";
+            Vector2 serviceSize = _font.MeasureString(serviceText);
+            spriteBatch.DrawString(_font, serviceText,
+                new Vector2(centerX - serviceSize.X / 2, centerY - 184),
+                serviceAccess.IsAllowed ? Color.LightGreen : Color.OrangeRed);
+            if (serviceAccess.MinimumStanding.HasValue)
+            {
+                string requirementText = serviceAccess.BuildRequirementLine(_shipDealer.ReputationManager);
+                Vector2 requirementSize = _font.MeasureString(requirementText);
+                spriteBatch.DrawString(_font, requirementText,
+                    new Vector2(centerX - requirementSize.X / 2, centerY - 162), Color.LightSkyBlue);
+            }
 
             // Available ships list
             int yOffset = centerY - 150;
@@ -1214,10 +1268,13 @@ namespace Roguelancer
                 // Selection indicator
                 if (isSelected && !isCurrentShip)
                 {
-                    string buyText = "[ENTER] Purchase";
+                    string buyText = serviceAccess.IsAllowed
+                        ? "[ENTER] Purchase"
+                        : "[LOCKED] SERVICE UNAVAILABLE";
                     Vector2 buySize = _font.MeasureString(buyText);
                     spriteBatch.DrawString(_font, buyText, 
-                        new Vector2(shipPanel.Right - buySize.X - 15, yOffset + 75), Color.Lime);
+                        new Vector2(shipPanel.Right - buySize.X - 15, yOffset + 75),
+                        serviceAccess.IsAllowed ? Color.Lime : Color.OrangeRed);
                 }
 
                 yOffset += 130;
@@ -1704,6 +1761,12 @@ namespace Roguelancer
 
                 spriteBatch.DrawString(_font, menuItems[i], textPos, buttonColor);
             }
+        }
+
+        private static string Shorten(string value, int maxLength)
+        {
+            if (string.IsNullOrEmpty(value) || value.Length <= maxLength) return value ?? string.Empty;
+            return value.Substring(0, Math.Max(0, maxLength - 3)) + "...";
         }
     }
 }

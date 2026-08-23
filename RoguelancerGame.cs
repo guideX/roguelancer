@@ -235,6 +235,7 @@ namespace Roguelancer {
         private readonly bool _runSaveSmoke;
         private readonly bool _runReputationSmoke;
         private readonly bool _runFactionBribeSmoke;
+        private readonly bool _runFactionAccessSmoke;
         private readonly bool _runFactionConsequencesSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runTrafficSmoke;
@@ -317,6 +318,7 @@ namespace Roguelancer {
             _runSaveSmoke = args?.Any(arg => string.Equals(arg, "--save-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runReputationSmoke = args?.Any(arg => string.Equals(arg, "--reputation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionBribeSmoke = args?.Any(arg => string.Equals(arg, "--faction-bribe-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runFactionAccessSmoke = args?.Any(arg => string.Equals(arg, "--faction-access-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionConsequencesSmoke = args?.Any(arg => string.Equals(arg, "--faction-consequences-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -944,7 +946,7 @@ namespace Roguelancer {
             _playerCredits = new PlayerCredits(StartingPlayerCredits); // Start with the tuned early-game bankroll
 
             // Initialize ship dealer
-            _shipDealer = new ShipDealer();
+            _shipDealer = new ShipDealer(_reputationManager);
             _shipDealer.LoadShipModels(Content);
             _shipDealer.CurrentPlayerShip?.ApplyToShip(_playerShip);
 
@@ -954,7 +956,7 @@ namespace Roguelancer {
             _commodityDealer.SetMarketIntelligence(_marketIntelligence);
 
             // Initialize equipment dealer
-            _equipmentDealer = new EquipmentDealer();
+            _equipmentDealer = new EquipmentDealer(_reputationManager);
             MountedEquipmentRenderer.LoadContent(Content);
 
             // Initialize mission manager
@@ -1249,6 +1251,11 @@ namespace Roguelancer {
                 var result = RunFactionBribeSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runFactionAccessSmoke)
+            {
+                var result = RunFactionAccessSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runFactionConsequencesSmoke)
             {
                 var result = RunFactionConsequencesSmokeTest();
@@ -1390,6 +1397,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("save smoke", RunSaveSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("reputation smoke", RunReputationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction bribe smoke", RunFactionBribeSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("faction access smoke", RunFactionAccessSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction consequences smoke", RunFactionConsequencesSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1547,6 +1555,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[FACTION BRIBE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunFactionAccessSmokeTest()
+        {
+            try
+            {
+                return new FactionAccessSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FACTION ACCESS SMOKE] FATAL: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -5112,6 +5133,15 @@ namespace Roguelancer {
                 return;
             }
 
+            _shipDealer?.SetDockedStation(_stationSession.DockedStation);
+            if (_shipDealer != null && !_shipDealer.CanUseService(out string serviceMessage))
+            {
+                _notificationManager?.ShowMessage(serviceMessage, 3f);
+                _stationDialogueText = $"Ship Dealer: {serviceMessage}";
+                _stationDialogueRemaining = 3.5f;
+                return;
+            }
+
             npc?.FacePlayer(_stationPlayerCharacter.Position);
             _stationShipDealerUI.Open(_stationSession.StationDisplayName, _playerCredits, _playerShip);
             _stationDialogueText = string.Empty;
@@ -5123,6 +5153,15 @@ namespace Roguelancer {
             if (_stationEquipmentDealerUI == null || _stationPlayerCharacter == null || _stationSession == null)
             {
                 _notificationManager?.ShowMessage("Equipment terminal is unavailable", 2f);
+                return;
+            }
+
+            _equipmentDealer?.SetDockedStation(_stationSession.DockedStation);
+            if (_equipmentDealer != null && !_equipmentDealer.CanUseService(out string serviceMessage))
+            {
+                _notificationManager?.ShowMessage(serviceMessage, 3f);
+                _stationDialogueText = $"Equipment Dealer: {serviceMessage}";
+                _stationDialogueRemaining = 3.5f;
                 return;
             }
 

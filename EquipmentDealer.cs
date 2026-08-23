@@ -18,10 +18,22 @@ namespace Roguelancer
         public const float ResaleRate = 0.50f;
 
         private Station _currentStation;
+        private ReputationManager _reputationManager;
 
         public Station CurrentStation => _currentStation;
+        public ReputationManager ReputationManager => _reputationManager;
 
         public IReadOnlyList<EquipmentDefinition> AvailableEquipment => EquipmentCatalog.GetDealerInventory();
+
+        public EquipmentDealer(ReputationManager reputationManager = null)
+        {
+            _reputationManager = reputationManager;
+        }
+
+        public void SetReputationManager(ReputationManager reputationManager)
+        {
+            _reputationManager = reputationManager;
+        }
 
         public void SetDockedStation(Station station)
         {
@@ -40,6 +52,63 @@ namespace Roguelancer
             }
 
             _currentStation = null;
+        }
+
+        /// <summary>
+        /// Returns the live station-service authorization. The hostile and
+        /// temporary-hostility checks apply to all dealer transactions, while
+        /// item-specific standing is evaluated separately below.
+        /// </summary>
+        public FactionAccessResult GetServiceAccess()
+        {
+            return FactionAccessService.EvaluateService(
+                _reputationManager,
+                _currentStation?.FactionId,
+                "Equipment Dealer");
+        }
+
+        public bool CanUseService(out string message)
+        {
+            FactionAccessResult access = GetServiceAccess();
+            message = access.IsAllowed ? string.Empty : access.BuildFailureMessage("Equipment Dealer");
+            return access.IsAllowed;
+        }
+
+        /// <summary>
+        /// Rebuilds offer access from the current station and authoritative
+        /// reputation. No result is cached between UI frames or transactions.
+        /// </summary>
+        public FactionAccessResult GetEquipmentAccess(EquipmentDefinition equipment)
+        {
+            EquipmentDefinition canonical = ResolveSoldEquipment(equipment);
+            if (canonical == null)
+            {
+                return FactionAccessResult.Create(
+                    false,
+                    _currentStation?.FactionId ?? FactionManager.NeutralCivilians,
+                    _reputationManager?.GetStanding(_currentStation?.FactionId) ?? 0f,
+                    null,
+                    _reputationManager?.IsTemporarilyHostile(_currentStation?.FactionId) == true,
+                    "That equipment is not sold at this terminal.",
+                    _reputationManager);
+            }
+
+            FactionAccessResult serviceAccess = GetServiceAccess();
+            if (!serviceAccess.IsAllowed)
+                return serviceAccess;
+
+            FactionReputationRequirement requirement = canonical.GetReputationRequirement(
+                _currentStation?.FactionId ?? FactionManager.NeutralCivilians);
+            return requirement == null
+                ? FactionAccessResult.Create(
+                    true,
+                    _currentStation?.FactionId ?? FactionManager.NeutralCivilians,
+                    _reputationManager?.GetStanding(_currentStation?.FactionId) ?? 0f,
+                    null,
+                    false,
+                    string.Empty,
+                    _reputationManager)
+                : FactionAccessService.Evaluate(_reputationManager, requirement, canonical.Name);
         }
 
         public EquipmentDefinition GetEquipmentByIndex(int index)
@@ -75,6 +144,13 @@ namespace Roguelancer
             if (credits == null || loadout == null)
             {
                 message = "Equipment dealer transaction is unavailable.";
+                return false;
+            }
+
+            FactionAccessResult access = GetEquipmentAccess(canonical);
+            if (!access.IsAllowed)
+            {
+                message = access.BuildFailureMessage(canonical.Name);
                 return false;
             }
 
@@ -152,6 +228,13 @@ namespace Roguelancer
             }
 
             EquipmentDefinition canonical = ResolveSoldEquipment(equipment);
+            FactionAccessResult access = GetEquipmentAccess(canonical);
+            if (!access.IsAllowed)
+            {
+                message = access.BuildFailureMessage(canonical?.Name ?? "Equipment");
+                Console.WriteLine($"[EQUIPMENT][FAIL] {message}");
+                return false;
+            }
 
             // Stage ownership first, then deduct credits. If the second step
             // fails, remove exactly the staged stack so the transaction is
@@ -239,6 +322,14 @@ namespace Roguelancer
             if (credits == null || loadout == null)
             {
                 message = "Equipment dealer transaction is unavailable.";
+                return false;
+            }
+
+            FactionAccessResult access = GetEquipmentAccess(canonical);
+            if (!access.IsAllowed)
+            {
+                message = access.BuildFailureMessage(canonical.Name);
+                Console.WriteLine($"[EQUIPMENT][FAIL] {message}");
                 return false;
             }
 

@@ -61,7 +61,9 @@ namespace Roguelancer
                 ProjectileSpeed = 1500f,
                 RefireRate = 0.28f,
                 EnergyCost = 18f,
-                Range = 4500f
+                Range = 4500f,
+                RequiredReputationFactionId = FactionManager.LibertyPolice,
+                MinimumReputation = ReputationManager.FriendlyThreshold
             });
 
             Register(new WeaponEquipmentDefinition
@@ -76,7 +78,9 @@ namespace Roguelancer
                 ProjectileSpeed = 1500f,
                 RefireRate = 0.10f,
                 EnergyCost = 12f,
-                Range = 3800f
+                Range = 3800f,
+                RequiredReputationFactionId = FactionManager.LibertyRogues,
+                MinimumReputation = ReputationManager.FriendlyThreshold
             });
 
             Register(new EquipmentDefinition

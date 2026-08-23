@@ -114,14 +114,35 @@ namespace Roguelancer
         public string RequiredReputationFactionId { get; set; } = string.Empty;
 
         /// <summary>
-        /// Optional minimum reputation value for future progression systems.
+        /// Optional minimum reputation value for acquiring this equipment.
+        /// The controlling faction is resolved from RequiredReputationFactionId
+        /// when present, otherwise from the live dealer/station offer context.
         /// </summary>
         public int? RequiredReputation { get; set; }
+
+        /// <summary>
+        /// Fractional minimum standing for the live equipment access gate.
+        /// This remains static definition metadata; ownership never rechecks it.
+        /// </summary>
+        public float? MinimumReputation { get; set; }
 
         /// <summary>
         /// Optional contraband flag for future law enforcement systems.
         /// </summary>
         public bool IsContraband { get; set; }
+
+        public FactionReputationRequirement GetReputationRequirement(string controllingFactionId)
+        {
+            float? minimumStanding = MinimumReputation ??
+                (RequiredReputation.HasValue ? RequiredReputation.Value : (float?)null);
+            if (!minimumStanding.HasValue)
+                return null;
+
+            string factionId = FactionManager.CoalesceFactionId(
+                RequiredReputationFactionId,
+                controllingFactionId);
+            return new FactionReputationRequirement(factionId, minimumStanding.Value);
+        }
 
         public virtual string GetStatsSummary()
         {
@@ -131,14 +152,25 @@ namespace Roguelancer
                 requirement += $"Level {RequiredLevel.Value}";
             }
 
-            if (!string.IsNullOrWhiteSpace(RequiredReputationFactionId) && RequiredReputation.HasValue)
+            float? minimumReputation = MinimumReputation ??
+                (RequiredReputation.HasValue ? RequiredReputation.Value : (float?)null);
+            if (!string.IsNullOrWhiteSpace(RequiredReputationFactionId) && minimumReputation.HasValue)
             {
                 if (requirement.Length > 0)
                 {
                     requirement += " | ";
                 }
 
-                requirement += $"Rep {RequiredReputationFactionId}:{RequiredReputation.Value}";
+                requirement += $"Rep {RequiredReputationFactionId}:{ReputationManager.FormatStanding(minimumReputation.Value)}";
+            }
+            else if (minimumReputation.HasValue)
+            {
+                if (requirement.Length > 0)
+                {
+                    requirement += " | ";
+                }
+
+                requirement += $"Minimum standing {ReputationManager.FormatStanding(minimumReputation.Value)}";
             }
 
             if (string.IsNullOrWhiteSpace(requirement))
