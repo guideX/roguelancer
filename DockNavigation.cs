@@ -172,13 +172,10 @@ namespace Roguelancer
                 return false;
             }
 
-            string factionId = FactionManager.NormalizeFactionId(station.FactionId);
-            if (reputationManager != null && !reputationManager.CanDockWithFaction(factionId))
-            {
-                return false;
-            }
-
-            return true;
+            return FactionAccessService.EvaluateDocking(
+                reputationManager,
+                station.FactionId,
+                station.Name).IsAllowed;
         }
 
         private static string FormatDistance(float distance)

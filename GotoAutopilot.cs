@@ -58,6 +58,7 @@ namespace Roguelancer
         private List<SpaceObject> _obstacles;    // all space objects for avoidance
         private List<NpcShip> _npcShips;
         private NotificationManager _notifications;
+        private ReputationManager _reputationManager;
 
         // final destination
         private SpaceObject _destination;
@@ -94,11 +95,14 @@ namespace Roguelancer
         public AutopilotState State => _state;
         public bool IsDockAssistMode => _preferDirectStationApproach && _destination is Station;
         public string ModeLabel => IsDockAssistMode ? "DOCK ASSIST" : "AUTOPILOT";
+        public string LastDockingDeniedReason { get; private set; } = string.Empty;
+        public bool WasDockingDenied { get; private set; }
         public string CurrentNodeDescription => _route.Count > 0 && _nodeIndex < _route.Count
             ? _route[_nodeIndex].Type.ToString()
             : "None";
 
         public event Action OnDockingComplete;
+        public event Action<string> OnDockingDenied;
         public event Action<int, string> OnJumpholeTransit;   // systemIndex, jhName
 
         // ?????????????????????????????????????????????????????????????????
@@ -113,7 +117,8 @@ namespace Roguelancer
             List<NpcShip> npcShips,
             NotificationManager notifications,
             GraphicsDevice graphicsDevice,
-            SpriteFont font)
+            SpriteFont font,
+            ReputationManager reputationManager = null)
         {
             _ship = ship;
             _tradelaneManager = tradelaneManager;
@@ -124,6 +129,7 @@ namespace Roguelancer
             _notifications = notifications;
             _graphicsDevice = graphicsDevice;
             _font = font;
+            _reputationManager = reputationManager;
 
             if (graphicsDevice != null)
             {
@@ -137,14 +143,30 @@ namespace Roguelancer
         // ?????????????????????????????????????????????????????????????????
 
         /// <summary>Activate GOTO to the given target.</summary>
-        public void Activate(SpaceObject target)
+        public bool Activate(SpaceObject target)
         {
-            Activate(target, false);
+            return Activate(target, false);
         }
 
-        public void Activate(SpaceObject target, bool preferDirectStationApproach)
+        public bool Activate(SpaceObject target, bool preferDirectStationApproach)
         {
-            if (target == null) return;
+            if (target == null) return false;
+
+            LastDockingDeniedReason = string.Empty;
+            WasDockingDenied = false;
+            if (target is Station station)
+            {
+                FactionAccessResult access = FactionAccessService.EvaluateDocking(
+                    _reputationManager,
+                    station.FactionId,
+                    station.Name);
+                if (!access.IsAllowed)
+                {
+                    RejectDocking(access);
+                    return false;
+                }
+            }
+
             _destination = target;
             _preferDirectStationApproach = preferDirectStationApproach;
             _state = AutopilotState.Planning;
@@ -152,6 +174,7 @@ namespace Roguelancer
             _nodeIndex = 0;
             _rerouteTimer = 0f;
             BuildRoute();
+            return true;
         }
 
         /// <summary>Cancel autopilot and return control to the player.</summary>
@@ -165,6 +188,27 @@ namespace Roguelancer
             _preferDirectStationApproach = false;
             _avoidanceOffset = Vector3.Zero;
             Console.WriteLine("[AUTOPILOT] Cancelled.");
+        }
+
+        private void RejectDocking(FactionAccessResult access)
+        {
+            LastDockingDeniedReason = string.IsNullOrWhiteSpace(access.FailureMessage)
+                ? access.BuildFailureMessage("Docking")
+                : access.FailureMessage;
+            WasDockingDenied = true;
+            _state = AutopilotState.Cancelled;
+            _route.Clear();
+            _nodeIndex = 0;
+            _destination = null;
+            _preferDirectStationApproach = false;
+            _avoidanceOffset = Vector3.Zero;
+            _ship?.SetAutopilotTargetSpeed(0f);
+            _ship?.SetCruiseActive(false);
+            _ship?.SetCruiseCharging(false);
+            _ship?.SetEnginesKilled(false);
+            _notifications?.ShowMessage(LastDockingDeniedReason, 3f);
+            OnDockingDenied?.Invoke(LastDockingDeniedReason);
+            Console.WriteLine($"[AUTOPILOT] {LastDockingDeniedReason}");
         }
 
         // ?????????????????????????????????????????????????????????????????
@@ -679,6 +723,19 @@ namespace Roguelancer
 
         private void ExecuteDockingApproach(float deltaTime, RouteNode node)
         {
+            if (node.Reference is Station station)
+            {
+                FactionAccessResult access = FactionAccessService.EvaluateDocking(
+                    _reputationManager,
+                    station.FactionId,
+                    station.Name);
+                if (!access.IsAllowed)
+                {
+                    RejectDocking(access);
+                    return;
+                }
+            }
+
             Vector3 targetPos = node.Position;
             float dist = Vector3.Distance(_ship.Position, targetPos);
 

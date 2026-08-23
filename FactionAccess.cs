@@ -105,7 +105,7 @@ public sealed class FactionAccessResult
 }
 
 /// <summary>
-/// Shared access policy for faction-controlled station services and offers.
+/// Shared access policy for faction-controlled station services, offers, and docking.
 /// </summary>
 public static class FactionAccessService
 {
@@ -114,6 +114,42 @@ public static class FactionAccessService
     // requirement at the existing -0.60 hostile boundary.
     public const float StationServiceMinimumStanding =
         ReputationManager.HostileThreshold + ReputationManager.Precision;
+
+    /// <summary>
+    /// Permanent docking denial begins at the existing Hostile band boundary.
+    /// Values above this boundary remain dockable unless temporary hostility is active.
+    /// </summary>
+    public const float DockingHostileThreshold = ReputationManager.HostileThreshold;
+
+    public static FactionAccessResult EvaluateDocking(
+        ReputationManager? reputationManager,
+        string? factionId,
+        string? stationName = null)
+    {
+        string normalizedFactionId = FactionManager.NormalizeFactionId(factionId);
+        float currentStanding = reputationManager?.GetStanding(normalizedFactionId) ?? 0f;
+        bool temporarilyHostile = reputationManager?.IsTemporarilyHostile(normalizedFactionId) == true;
+        bool permanentlyHostile = reputationManager?.IsHostile(normalizedFactionId) == true;
+        bool allowed = reputationManager == null || (!temporarilyHostile && !permanentlyHostile);
+
+        string stationSuffix = string.IsNullOrWhiteSpace(stationName)
+            ? string.Empty
+            : $" at {stationName.Trim()}";
+        string failure = temporarilyHostile
+            ? $"Docking denied — {FactionManager.GetFactionDisplayName(normalizedFactionId)} are temporarily hostile{stationSuffix}."
+            : permanentlyHostile
+                ? $"Docking denied — hostile with {FactionManager.GetFactionDisplayName(normalizedFactionId)}{stationSuffix}."
+                : string.Empty;
+
+        return FactionAccessResult.Create(
+            allowed,
+            normalizedFactionId,
+            currentStanding,
+            null,
+            temporarilyHostile,
+            failure,
+            reputationManager);
+    }
 
     public static FactionAccessResult EvaluateService(
         ReputationManager? reputationManager,

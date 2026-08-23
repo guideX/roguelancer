@@ -1,6 +1,7 @@
 {
   "description": "Alcatraz Depot",
   "description_long": "A fortified Rogue pirate depot in the eastern reaches of California, used for storing contraband and resupplying raider fleets.",
+  "faction_id": "liberty_rogues",
   "model_path": "STATIONS/spaceStation/source/p_887_spaceStation",
   "system_index": 2,
   "startup_position_x": 8000.0,

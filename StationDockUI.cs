@@ -103,14 +103,14 @@ namespace Roguelancer
                 return false;
             }
 
-            string stationFactionId = FactionManager.NormalizeFactionId(station.FactionId);
-            if (_reputationManager != null && !_reputationManager.CanDockWithFaction(stationFactionId))
+            FactionAccessResult dockingAccess = FactionAccessService.EvaluateDocking(
+                _reputationManager,
+                station.FactionId,
+                station.Name);
+            if (!dockingAccess.IsAllowed)
             {
-                LastDockingDeniedReason = _reputationManager.IsTemporarilyHostile(stationFactionId) &&
-                    !_reputationManager.IsHostile(stationFactionId)
-                    ? "Docking denied — recent hostile action."
-                    : $"Docking denied — hostile reputation at {station.Name}.";
-                Console.WriteLine($"[DOCK] Docking denied at {station.Name} because faction '{stationFactionId}' is hostile.");
+                LastDockingDeniedReason = dockingAccess.FailureMessage;
+                Console.WriteLine($"[DOCK] {LastDockingDeniedReason}");
                 return false;
             }
             

@@ -236,6 +236,7 @@ namespace Roguelancer {
         private readonly bool _runReputationSmoke;
         private readonly bool _runFactionBribeSmoke;
         private readonly bool _runFactionAccessSmoke;
+        private readonly bool _runFactionDockingSmoke;
         private readonly bool _runFactionConsequencesSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runTrafficSmoke;
@@ -319,6 +320,7 @@ namespace Roguelancer {
             _runReputationSmoke = args?.Any(arg => string.Equals(arg, "--reputation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionBribeSmoke = args?.Any(arg => string.Equals(arg, "--faction-bribe-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionAccessSmoke = args?.Any(arg => string.Equals(arg, "--faction-access-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runFactionDockingSmoke = args?.Any(arg => string.Equals(arg, "--faction-docking-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionConsequencesSmoke = args?.Any(arg => string.Equals(arg, "--faction-consequences-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1219,7 +1221,8 @@ namespace Roguelancer {
                 _npcShips,
                 _notificationManager,
                 GraphicsDevice,
-                _font);
+                _font,
+                _reputationManager);
             _gotoAutopilot.OnDockingComplete += HandleDockingCompleted;
             _playerShip.SetGotoAutopilot(_gotoAutopilot);
 
@@ -1254,6 +1257,11 @@ namespace Roguelancer {
             else if (_runFactionAccessSmoke)
             {
                 var result = RunFactionAccessSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runFactionDockingSmoke)
+            {
+                var result = RunFactionDockingSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runFactionConsequencesSmoke)
@@ -1398,6 +1406,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("reputation smoke", RunReputationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction bribe smoke", RunFactionBribeSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction access smoke", RunFactionAccessSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("faction docking smoke", RunFactionDockingSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction consequences smoke", RunFactionConsequencesSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1568,6 +1577,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[FACTION ACCESS SMOKE] FATAL: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunFactionDockingSmokeTest()
+        {
+            try
+            {
+                return new FactionDockingAccessSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FACTION DOCKING ACCESS SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2022,7 +2044,8 @@ namespace Roguelancer {
                 _npcShips,
                 _notificationManager,
                 GraphicsDevice,
-                _font);
+                _font,
+                _reputationManager);
 
             SyncMountedGunWeaponProfile();
             MarkFirstDockHintCompleted();
@@ -2178,7 +2201,8 @@ namespace Roguelancer {
                 _npcShips,
                 _notificationManager,
                 GraphicsDevice,
-                _font);
+                _font,
+                _reputationManager);
 
             // If in tradelane transit, skip normal ship input but still update visuals
             if (_tradelaneManager?.IsInTransit == true) {
@@ -2203,7 +2227,9 @@ namespace Roguelancer {
                     Console.WriteLine("[DOCK ASSIST] No dockable station resolved");
                 }
                 else if (!TryStartDockAssist(dockTarget, useNearestLabel: !ReferenceEquals(GetSelectedStationTarget(), dockTarget))) {
-                    string dockDeniedReason = _stationDockUI?.LastDockingDeniedReason;
+                    string dockDeniedReason = string.IsNullOrWhiteSpace(_stationDockUI?.LastDockingDeniedReason)
+                        ? _gotoAutopilot?.LastDockingDeniedReason
+                        : _stationDockUI.LastDockingDeniedReason;
                     _notificationManager?.ShowMessage(
                         string.IsNullOrWhiteSpace(dockDeniedReason)
                             ? "Docking denied by station security"
@@ -2976,7 +3002,12 @@ namespace Roguelancer {
                 _selectedNavTargetContextLabel = contextLabel;
             }
 
-            _playerShip.ActivateDockAssist(station);
+            if (!_playerShip.ActivateDockAssist(station))
+            {
+                Console.WriteLine($"[DOCK ASSIST] {_gotoAutopilot?.LastDockingDeniedReason ?? "Docking denied by station security"}");
+                return false;
+            }
+
             _notificationManager?.ShowMessage(
                 distance <= station.DockingRange
                     ? $"Docking at {station.Name}"
@@ -3504,7 +3535,10 @@ namespace Roguelancer {
                 _selectedSpaceObjectIndex = _spaceObjects.IndexOf(spaceTarget);
                 float distance = Vector3.Distance(_playerShip.Position, spaceTarget.Position);
                 Console.WriteLine($"[TARGETING] GOTO requested: {spaceTarget.Name} at {distance / 1000f:F2}km");
-                _playerShip.ActivateGoto(spaceTarget);
+                if (!_playerShip.ActivateGoto(spaceTarget))
+                {
+                    return false;
+                }
                 if (overridingTradeRoute)
                     _notificationManager?.ShowMessage(TradePlanPresentation.BuildPausedNavigationLine(), 4f);
                 return true;
@@ -4952,6 +4986,20 @@ namespace Roguelancer {
                 _notificationManager?.ShowMessage("Station interior is not ready; ship state preserved", 3f);
                 Console.WriteLine("[STATION] Cannot enter: scene or camera is unavailable.");
                 return false;
+            }
+
+            if (session.IsRealDockedSession)
+            {
+                FactionAccessResult dockingAccess = FactionAccessService.EvaluateDocking(
+                    _reputationManager,
+                    session.DockedStation?.FactionId,
+                    session.DockedStation?.Name);
+                if (!dockingAccess.IsAllowed)
+                {
+                    _notificationManager?.ShowMessage(dockingAccess.FailureMessage, 3f);
+                    Console.WriteLine($"[STATION] Real station entry rejected: {dockingAccess.FailureMessage}");
+                    return false;
+                }
             }
 
             if (!EnsureStationCharacterLoaded()) return false;

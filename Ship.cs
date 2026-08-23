@@ -899,14 +899,14 @@ namespace Roguelancer
             return "NORMAL";
         }
 
-        public void ActivateGoto(SpaceObject target)
+        public bool ActivateGoto(SpaceObject target)
         {
-            ActivateGoto(target, false);
+            return ActivateGoto(target, false);
         }
 
-        public void ActivateGoto(SpaceObject target, bool preferDirectStationApproach)
+        public bool ActivateGoto(SpaceObject target, bool preferDirectStationApproach)
         {
-            if (target == null) return;
+            if (target == null) return false;
             _gotoTarget = target;
             _gotoActive = true;
             _dockAssistActive = preferDirectStationApproach && target is Station;
@@ -918,7 +918,16 @@ namespace Roguelancer
             // Delegate to full autopilot if available
             if (_gotoAutopilot != null)
             {
-                _gotoAutopilot.Activate(target, _dockAssistActive);
+                if (!_gotoAutopilot.Activate(target, _dockAssistActive))
+                {
+                    _gotoActive = false;
+                    _gotoTarget = null;
+                    _dockAssistActive = false;
+                    _dockAssistTarget = null;
+                    _autopilotTargetSpeed = -1f;
+                    EnginesKilled = false;
+                    return false;
+                }
             }
             else
             {
@@ -937,11 +946,13 @@ namespace Roguelancer
                     IsCruiseCharging = false;
                 }
             }
+
+            return true;
         }
 
-        public void ActivateDockAssist(Station target)
+        public bool ActivateDockAssist(Station target)
         {
-            ActivateGoto(target, true);
+            return ActivateGoto(target, true);
         }
         
         public void CancelGoto(bool showNotification = true)
@@ -998,7 +1009,7 @@ namespace Roguelancer
                     _dockAssistActive = false;
                     _dockAssistTarget = null;
                     _autopilotTargetSpeed = -1f;
-                    EnginesKilled = true;
+                    EnginesKilled = !_gotoAutopilot.WasDockingDenied;
                     IsCruiseActive = false;
                     IsCruiseCharging = false;
                     _cruiseChargeTimer = 0f;

@@ -136,7 +136,8 @@ namespace Roguelancer
             MeetsRequirement(factionId, minimumStanding);
         public bool MeetsMaximumRequirement(string? factionId, float maximumStanding) =>
             GetStanding(factionId) - Precision <= NormalizeRequirement(maximumStanding);
-        public bool CanDockWithFaction(string? factionId) => !IsFactionCurrentlyHostile(factionId);
+        public bool CanDockWithFaction(string? factionId) =>
+            FactionAccessService.EvaluateDocking(this, factionId).IsAllowed;
 
         public float GetTemporaryHostilityRemainingSeconds(string? factionId) =>
             TemporaryHostility.GetRemainingSeconds(factionId);
