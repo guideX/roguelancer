@@ -27,6 +27,13 @@ namespace Roguelancer
         InterceptingPirate
     }
 
+    public enum NpcPlayerTargetReason
+    {
+        None,
+        FactionDisposition,
+        PlayerInitiatedAggression
+    }
+
     /// <summary>
     /// NPC ship with simple patrol behavior
     /// </summary>
@@ -51,6 +58,10 @@ namespace Roguelancer
         public Vector3? EncounterTargetPosition { get; private set; }
         public Vector3? EncounterEscapePosition { get; private set; }
         public bool IsTrafficEngaged => EncounterState != TrafficEncounterState.Cruising;
+        public NpcPlayerTargetReason PlayerTargetReason { get; private set; } = NpcPlayerTargetReason.None;
+        public bool HasPlayerTarget => EncounterState == TrafficEncounterState.AttackingPlayer && PlayerTargetReason != NpcPlayerTargetReason.None;
+        public bool HasFactionDerivedPlayerTarget => HasPlayerTarget && PlayerTargetReason == NpcPlayerTargetReason.FactionDisposition;
+        public bool HasPlayerInitiatedRetaliationTarget => HasPlayerTarget && PlayerTargetReason == NpcPlayerTargetReason.PlayerInitiatedAggression;
 
         // Hull integrity
         public HullIntegrity Hull { get; private set; }
@@ -167,11 +178,23 @@ namespace Roguelancer
             }
         }
 
-        public void SetEncounterState(TrafficEncounterState encounterState, Vector3? targetPosition = null, Vector3? escapePosition = null)
+        public void SetEncounterState(
+            TrafficEncounterState encounterState,
+            Vector3? targetPosition = null,
+            Vector3? escapePosition = null,
+            NpcPlayerTargetReason playerTargetReason = NpcPlayerTargetReason.None)
         {
             EncounterState = encounterState;
             EncounterTargetPosition = targetPosition;
             EncounterEscapePosition = escapePosition;
+            PlayerTargetReason = encounterState == TrafficEncounterState.AttackingPlayer
+                ? playerTargetReason
+                : NpcPlayerTargetReason.None;
+        }
+
+        public void SetPlayerTarget(Vector3 targetPosition, NpcPlayerTargetReason reason)
+        {
+            SetEncounterState(TrafficEncounterState.AttackingPlayer, targetPosition, null, reason);
         }
 
         public void ClearEncounterState()
@@ -179,6 +202,26 @@ namespace Roguelancer
             EncounterState = TrafficEncounterState.Cruising;
             EncounterTargetPosition = null;
             EncounterEscapePosition = null;
+            PlayerTargetReason = NpcPlayerTargetReason.None;
+        }
+
+        public FactionDisposition GetPlayerDisposition(ReputationManager reputationManager) =>
+            FactionDispositionEvaluator.Evaluate(FactionId, reputationManager);
+
+        /// <summary>
+        /// Returns whether the existing combat weapon loop may use the player
+        /// as this NPC's current target. Reputation-derived targets are live;
+        /// they are invalidated as soon as the relationship recovers.
+        /// </summary>
+        public bool HasValidPlayerTarget(ReputationManager reputationManager)
+        {
+            if (!HasPlayerTarget)
+                return false;
+
+            if (reputationManager == null)
+                return true;
+
+            return FactionDispositionEvaluator.IsHostile(FactionId, reputationManager);
         }
         
         public void Update(GameTime gameTime, DamageSmokeParticles damageSmoke, Ship playerShip = null, ReputationManager reputationManager = null)
@@ -214,6 +257,8 @@ namespace Roguelancer
             {
                 damageSmoke?.Emit(Position - Forward * 15, Velocity, damageStage);
             }
+
+            UpdatePlayerDispositionTarget(playerShip, reputationManager);
 
             switch (EncounterState)
             {
@@ -390,6 +435,51 @@ namespace Roguelancer
             }
 
             MoveTowardTarget(targetPosition, speed, deltaTime, 2.0f);
+        }
+
+        private void UpdatePlayerDispositionTarget(Ship playerShip, ReputationManager reputationManager)
+        {
+            bool isPlayerTarget = EncounterState == TrafficEncounterState.AttackingPlayer;
+            bool factionHostile = FactionDispositionEvaluator.IsHostile(FactionId, reputationManager);
+            bool playerAttackRetaliation = WasDamagedByPlayer &&
+                reputationManager?.IsTemporarilyHostile(FactionId) == true;
+
+            // A null reputation manager is retained as a compatibility path
+            // for the older ambient traffic harness. Production gameplay has
+            // an authoritative manager and therefore uses live disposition.
+            bool legacyPlayerTarget = reputationManager == null && isPlayerTarget;
+            bool canTargetPlayer = factionHostile || playerAttackRetaliation || legacyPlayerTarget;
+
+            if (isPlayerTarget)
+            {
+                if (!canTargetPlayer)
+                {
+                    ClearEncounterState();
+                    return;
+                }
+
+                EncounterTargetPosition = playerShip?.Position ?? EncounterTargetPosition;
+                if (PlayerTargetReason == NpcPlayerTargetReason.None)
+                {
+                    PlayerTargetReason = playerAttackRetaliation
+                        ? NpcPlayerTargetReason.PlayerInitiatedAggression
+                        : NpcPlayerTargetReason.FactionDisposition;
+                }
+
+                return;
+            }
+
+            if (playerShip == null || !canTargetPlayer || IsTrafficEngaged)
+                return;
+
+            float activationRange = Math.Max(100f, TrafficActivationRange);
+            if (Vector3.DistanceSquared(Position, playerShip.Position) > activationRange * activationRange)
+                return;
+
+            NpcPlayerTargetReason targetReason = playerAttackRetaliation && reputationManager?.IsHostile(FactionId) != true
+                ? NpcPlayerTargetReason.PlayerInitiatedAggression
+                : NpcPlayerTargetReason.FactionDisposition;
+            SetPlayerTarget(playerShip.Position, targetReason);
         }
 
         private void UpdatePirateAmbushBehavior(float deltaTime, Ship playerShip, ReputationManager reputationManager)

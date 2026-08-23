@@ -26,6 +26,7 @@ namespace Roguelancer
         public string FactionId { get; set; } = string.Empty;
         public string FactionLabel { get; set; } = string.Empty;
         public string StandingLabel { get; set; } = string.Empty;
+        public string DispositionLabel { get; set; } = string.Empty;
         public string DistanceLabel { get; set; } = string.Empty;
         public string StatusLabel { get; set; } = string.Empty;
         public string IntegrityLabel { get; set; } = string.Empty;
@@ -281,6 +282,7 @@ namespace Roguelancer
             string statusLabel = "Targetable object";
             string integrityLabel = "No hull data";
             Color accentColor = faction.Color;
+            string dispositionLabel = string.Empty;
             bool canGoto = true;
 
             if (spaceTarget is NpcShip npcTarget)
@@ -289,11 +291,9 @@ namespace Roguelancer
                 typeLabel = "Ship";
                 statusLabel = npcTarget.IsDestroyed ? "Destroyed" : npcTarget.IsTrafficEngaged ? "Engaged" : "Active";
                 integrityLabel = $"Hull {npcTarget.Hull.HullPercentage:P0} | Shields {npcTarget.Shields.ShieldPercentage:P0}";
-                accentColor = reputationManager != null && reputationManager.IsFactionCurrentlyHostile(factionId)
-                    ? Color.IndianRed
-                    : reputationManager != null && reputationManager.IsFriendly(factionId)
-                        ? Color.LightGreen
-                        : faction.Color;
+                FactionDisposition disposition = FactionDispositionEvaluator.Evaluate(factionId, reputationManager);
+                dispositionLabel = FactionDispositionEvaluator.Format(disposition);
+                accentColor = FactionDispositionEvaluator.GetColor(disposition, faction.Color);
             }
             else if (spaceTarget is Station stationTarget)
             {
@@ -333,6 +333,7 @@ namespace Roguelancer
                 FactionId = factionId,
                 FactionLabel = faction.DisplayName,
                 StandingLabel = standing,
+                DispositionLabel = dispositionLabel,
                 DistanceLabel = FormatDistance(distance),
                 StatusLabel = statusLabel,
                 IntegrityLabel = integrityLabel,

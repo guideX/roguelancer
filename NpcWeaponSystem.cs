@@ -97,8 +97,7 @@ namespace Roguelancer
             foreach (var npc in npcShips)
             {
                 if (npc.IsDestroyed) continue;
-                string factionId = FactionManager.NormalizeFactionId(npc.FactionId);
-                if (_reputationManager != null && !_reputationManager.IsFactionCurrentlyHostile(factionId)) continue;
+                if (_reputationManager != null && !npc.HasValidPlayerTarget(_reputationManager)) continue;
 
                 float distToPlayer = Vector3.Distance(npc.Position, playerShip.Position);
                 if (distToPlayer > FireRange) continue;

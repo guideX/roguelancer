@@ -238,6 +238,7 @@ namespace Roguelancer {
         private readonly bool _runFactionAccessSmoke;
         private readonly bool _runFactionDockingSmoke;
         private readonly bool _runFactionConsequencesSmoke;
+        private readonly bool _runFactionDispositionSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runPoliceEnforcementSmoke;
         private readonly bool _runTrafficSmoke;
@@ -323,6 +324,7 @@ namespace Roguelancer {
             _runFactionAccessSmoke = args?.Any(arg => string.Equals(arg, "--faction-access-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDockingSmoke = args?.Any(arg => string.Equals(arg, "--faction-docking-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionConsequencesSmoke = args?.Any(arg => string.Equals(arg, "--faction-consequences-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runFactionDispositionSmoke = args?.Any(arg => string.Equals(arg, "--faction-disposition-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPoliceEnforcementSmoke = args?.Any(arg => string.Equals(arg, "--police-enforcement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1271,6 +1273,11 @@ namespace Roguelancer {
                 var result = RunFactionConsequencesSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runFactionDispositionSmoke)
+            {
+                var result = RunFactionDispositionSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPoliceEnforcementSmoke)
             {
                 var result = RunPoliceEnforcementSmokeTest();
@@ -1415,6 +1422,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("faction access smoke", RunFactionAccessSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction docking smoke", RunFactionDockingSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction consequences smoke", RunFactionConsequencesSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("faction disposition smoke", RunFactionDispositionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("police enforcement smoke", RunPoliceEnforcementSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1611,6 +1619,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[FACTION CONSEQUENCES SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunFactionDispositionSmokeTest()
+        {
+            try
+            {
+                return new FactionDispositionSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FACTION DISPOSITION SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -3954,6 +3975,10 @@ namespace Roguelancer {
             {
                 textLines.Add($"Standing: {hud.StandingLabel}");
             }
+            if (!string.IsNullOrWhiteSpace(hud.DispositionLabel))
+            {
+                textLines.Add($"Disposition: {hud.DispositionLabel}");
+            }
             if (!string.IsNullOrWhiteSpace(hud.StatusLabel))
             {
                 textLines.Add($"Status: {hud.StatusLabel}");
@@ -4042,6 +4067,14 @@ namespace Roguelancer {
                     _reputationManager != null && _reputationManager.IsFriendly(hud.FactionId) ? Color.LightGreen : Color.LightGray;
                 _spriteBatch.DrawString(_font, $"Standing: {hud.StandingLabel}", cursor, standingColor);
                 cursor.Y += _font.MeasureString($"Standing: {hud.StandingLabel}").Y + 2f;
+            }
+
+            if (!string.IsNullOrWhiteSpace(hud.DispositionLabel))
+            {
+                FactionDisposition disposition = FactionDispositionEvaluator.Evaluate(hud.FactionId, _reputationManager);
+                Color dispositionColor = FactionDispositionEvaluator.GetColor(disposition, Color.LightGray);
+                _spriteBatch.DrawString(_font, $"Disposition: {hud.DispositionLabel}", cursor, dispositionColor);
+                cursor.Y += _font.MeasureString($"Disposition: {hud.DispositionLabel}").Y + 2f;
             }
 
             if (!string.IsNullOrWhiteSpace(hud.StatusLabel))

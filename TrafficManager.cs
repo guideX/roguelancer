@@ -446,7 +446,14 @@ namespace Roguelancer
             }
 
             TrafficEncounterState previousState = ship.EncounterState;
-            ship.SetEncounterState(state, targetPosition, escapePosition);
+            if (state == TrafficEncounterState.AttackingPlayer && targetPosition.HasValue)
+            {
+                ship.SetPlayerTarget(targetPosition.Value, NpcPlayerTargetReason.FactionDisposition);
+            }
+            else
+            {
+                ship.SetEncounterState(state, targetPosition, escapePosition);
+            }
             if (previousState != state && !string.IsNullOrWhiteSpace(message))
             {
                 log?.Invoke(message);
