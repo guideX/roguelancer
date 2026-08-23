@@ -25,6 +25,9 @@ namespace Roguelancer
         PoliceScan,
         PirateAmbushDefense,
         ReputationBribe,
+        PoliceEnforcementPaid,
+        PoliceEnforcementUnableToPay,
+        PoliceEnforcementRefused,
         ManualDebug,
         Other
     }
@@ -186,6 +189,20 @@ namespace Roguelancer
             ReputationChangeReason reason = ReputationChangeReason.ManualDebug)
         {
             return AdjustReputationInternal(factionId, delta, reason, applySecondary: true, isSecondary: false, sourceFactionId: null);
+        }
+
+        /// <summary>
+        /// Applies a faction-local consequence without relationship-matrix
+        /// ripples. Enforcement incidents are owned by the policing faction;
+        /// this keeps a Liberty Police citation from silently changing the
+        /// independent Liberty Rogues standing.
+        /// </summary>
+        public ReputationChangeResult? AdjustReputationDirect(
+            string? factionId,
+            float delta,
+            ReputationChangeReason reason = ReputationChangeReason.ManualDebug)
+        {
+            return AdjustReputationInternal(factionId, delta, reason, applySecondary: false, isSecondary: false, sourceFactionId: null);
         }
 
         // Compatibility entry point used by existing gameplay systems.

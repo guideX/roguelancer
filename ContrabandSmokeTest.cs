@@ -144,15 +144,27 @@ namespace Roguelancer
             }
 
             StepScan(scanSystem, reputationManager, player, credits, new List<NpcShip> { scanner }, seconds: 0.5f, frameCount: 12);
+            if (scanSystem.State != PoliceScanState.ContrabandDetected ||
+                scanSystem.CurrentOffer == null ||
+                !scanSystem.TryAcceptEnforcement(player, credits, reputationManager))
+            {
+                return Fail("explicit compliance did not resolve enforcement");
+            }
+
             if (scanSystem.State != PoliceScanState.Cleared)
             {
                 return Fail("fine scan did not complete");
             }
 
-            int expectedCredits = 10_000 - PoliceScanSystem.FineAmount;
+            int expectedCredits = 10_000 - 1_000;
             if (credits.Credits != expectedCredits)
             {
                 return Fail($"fine was not deducted (expected {expectedCredits}, got {credits.Credits})");
+            }
+
+            if (player.CargoHold.GetCommodityQuantity(contraband.Name) != 0)
+            {
+                return Fail("compliant enforcement did not confiscate contraband");
             }
 
             if (reputationManager.GetStanding(FactionManager.LibertyPolice) >= reputationBefore)

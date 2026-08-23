@@ -350,6 +350,63 @@ namespace Roguelancer
         }
 
         /// <summary>
+        /// Removes several ordinary commodity stacks as one validated cargo
+        /// operation. Enforcement and other service authorities use this
+        /// seam so a failed validation cannot leave a partial confiscation.
+        /// </summary>
+        public bool TryRemoveCommodityBatch(IReadOnlyDictionary<string, int> requested)
+        {
+            if (requested == null || requested.Count == 0)
+            {
+                return false;
+            }
+
+            Dictionary<string, int> normalized = new(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, int> entry in requested)
+            {
+                if (string.IsNullOrWhiteSpace(entry.Key) || entry.Value <= 0)
+                {
+                    return false;
+                }
+
+                normalized[entry.Key] = normalized.TryGetValue(entry.Key, out int existing)
+                    ? checked(existing + entry.Value)
+                    : entry.Value;
+            }
+
+            List<(Commodity Commodity, int Quantity)> removals = new();
+            foreach (KeyValuePair<string, int> entry in normalized)
+            {
+                Commodity commodity = CommodityCatalog.GetByName(entry.Key) ?? CommodityCatalog.GetById(entry.Key);
+                if (commodity == null || GetSellableCommodityQuantity(entry.Key) < entry.Value)
+                {
+                    return false;
+                }
+
+                removals.Add((commodity, entry.Value));
+            }
+
+            List<(Commodity Commodity, int Quantity)> completed = new();
+            foreach ((Commodity Commodity, int Quantity) removal in removals)
+            {
+                if (RemoveCommodity(removal.Commodity, removal.Quantity))
+                {
+                    completed.Add(removal);
+                    continue;
+                }
+
+                foreach ((Commodity Commodity, int Quantity) rollback in completed)
+                {
+                    AddCommodity(rollback.Commodity, rollback.Quantity);
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Remove every contraband commodity stack from the hold.
         /// Returns the removed stacks keyed by commodity id/name for logging.
         /// </summary>

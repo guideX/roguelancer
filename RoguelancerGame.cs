@@ -239,6 +239,7 @@ namespace Roguelancer {
         private readonly bool _runFactionDockingSmoke;
         private readonly bool _runFactionConsequencesSmoke;
         private readonly bool _runContrabandSmoke;
+        private readonly bool _runPoliceEnforcementSmoke;
         private readonly bool _runTrafficSmoke;
         private readonly bool _runLootSmoke;
         private readonly bool _runMissionSmoke;
@@ -323,6 +324,7 @@ namespace Roguelancer {
             _runFactionDockingSmoke = args?.Any(arg => string.Equals(arg, "--faction-docking-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionConsequencesSmoke = args?.Any(arg => string.Equals(arg, "--faction-consequences-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPoliceEnforcementSmoke = args?.Any(arg => string.Equals(arg, "--police-enforcement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMissionSmoke = args?.Any(arg => string.Equals(arg, "--mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1269,6 +1271,11 @@ namespace Roguelancer {
                 var result = RunFactionConsequencesSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPoliceEnforcementSmoke)
+            {
+                var result = RunPoliceEnforcementSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runLootSmoke)
             {
                 var result = RunLootSmokeTest();
@@ -1408,6 +1415,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("faction access smoke", RunFactionAccessSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction docking smoke", RunFactionDockingSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction consequences smoke", RunFactionConsequencesSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("police enforcement smoke", RunPoliceEnforcementSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("missile smoke", RunMissileSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1617,6 +1625,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[CONTRABAND SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPoliceEnforcementSmokeTest()
+        {
+            try
+            {
+                return new PoliceEnforcementSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[POLICE ENFORCEMENT SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2393,6 +2414,30 @@ namespace Roguelancer {
 
             // Update player ship
             _playerShip.Update(gameTime, keyboardState, _camera.IsRearViewActive);
+
+            if (_policeScanSystem?.State == PoliceScanState.ContrabandDetected)
+            {
+                bool acceptEnforcement = keyboardState.IsKeyDown(Keys.Enter) && _prevKeys.IsKeyUp(Keys.Enter);
+                bool refuseEnforcement = keyboardState.IsKeyDown(Keys.N) && _prevKeys.IsKeyUp(Keys.N);
+                if (acceptEnforcement)
+                {
+                    _policeScanSystem.TryAcceptEnforcement(
+                        _playerShip,
+                        _playerCredits,
+                        _reputationManager,
+                        _notificationManager,
+                        Console.WriteLine);
+                }
+                else if (refuseEnforcement)
+                {
+                    _policeScanSystem.TryRefuseEnforcement(
+                        _playerShip,
+                        _playerCredits,
+                        _reputationManager,
+                        _notificationManager,
+                        Console.WriteLine);
+                }
+            }
 
             if (keyboardState.IsKeyDown(Keys.J) && _prevKeys.IsKeyUp(Keys.J))
             {
