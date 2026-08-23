@@ -70,8 +70,17 @@ namespace Roguelancer
         public bool IsDestroyed => Hull.IsDestroyed;
         public bool WasDamagedByPlayer { get; private set; }
         public int PlayerDamageSequence { get; private set; }
+        public float LastPlayerDamage { get; private set; }
         public bool HasPlayerAggressionProvenance { get; private set; }
         public bool WasFactionHostileBeforePlayerAggression { get; private set; }
+
+        /// <summary>
+        /// Transient provenance for ships created by a faction distress
+        /// response. This is intentionally not part of save data and is used
+        /// to keep reinforcement combat from recursively requesting waves.
+        /// </summary>
+        public bool IsDistressReinforcement { get; private set; }
+        public string DistressReinforcementEncounterId { get; private set; } = string.Empty;
 
         /// <summary>
         /// Marks the authoritative player damage source used by bounded
@@ -84,8 +93,21 @@ namespace Roguelancer
                 return false;
 
             WasDamagedByPlayer = true;
+            LastPlayerDamage = damage;
             PlayerDamageSequence = PlayerDamageSequence == int.MaxValue ? 1 : PlayerDamageSequence + 1;
             return true;
+        }
+
+        internal void MarkDistressReinforcement(string encounterId)
+        {
+            IsDistressReinforcement = true;
+            DistressReinforcementEncounterId = encounterId ?? string.Empty;
+        }
+
+        internal void ClearDistressReinforcementProvenance()
+        {
+            IsDistressReinforcement = false;
+            DistressReinforcementEncounterId = string.Empty;
         }
 
         internal bool CapturePlayerAggressionProvenance(bool wasFactionHostile)
@@ -102,6 +124,7 @@ namespace Roguelancer
         {
             WasDamagedByPlayer = false;
             PlayerDamageSequence = 0;
+            LastPlayerDamage = 0f;
             HasPlayerAggressionProvenance = false;
             WasFactionHostileBeforePlayerAggression = false;
         }

@@ -39,6 +39,14 @@ namespace Roguelancer
         // Per-NPC fire timers
         private Dictionary<NpcShip, float> _fireCooldowns = new();
 
+        /// <summary>
+        /// Raised at the authoritative NPC projectile hit point, before the
+        /// target hull callback can remove the ship from traffic. Consumers
+        /// may validate the attacker/target relationship without owning
+        /// weapon or destruction lifecycle.
+        /// </summary>
+        public event Action<NpcShip, NpcShip, float> NpcShipDamaged;
+
         public NpcWeaponSystem(GraphicsDevice graphicsDevice, ReputationManager reputationManager = null)
         {
             _graphicsDevice = graphicsDevice;
@@ -86,7 +94,7 @@ namespace Roguelancer
                     float distToNpc = Vector3.Distance(proj.Position, proj.Target.Position);
                     if (distToNpc < proj.Target.Radius + 5f)
                     {
-                        ApplyNpcDamage(proj.Target, proj.Damage);
+                        ApplyNpcDamage(proj.Owner, proj.Target, proj.Damage);
                         _projectiles.RemoveAt(i);
                     }
                     continue;
@@ -170,8 +178,16 @@ namespace Roguelancer
             _projectiles.Add(proj);
         }
 
-        private static void ApplyNpcDamage(NpcShip target, float damage)
+        private void ApplyNpcDamage(NpcShip attacker, NpcShip target, float damage)
         {
+            if (attacker == null || target == null || target.IsDestroyed ||
+                float.IsNaN(damage) || float.IsInfinity(damage) || damage <= 0f)
+            {
+                return;
+            }
+
+            NpcShipDamaged?.Invoke(attacker, target, damage);
+
             float hullDamage = damage;
             if (target.Shields != null)
                 hullDamage = target.Shields.AbsorbDamage(damage);

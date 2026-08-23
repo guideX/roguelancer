@@ -243,6 +243,7 @@ namespace Roguelancer {
         private readonly bool _runFactionReputationRippleSmoke;
         private readonly bool _runFactionDispositionSmoke;
         private readonly bool _runNpcFactionCombatSmoke;
+        private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runPoliceEnforcementSmoke;
         private readonly bool _runTrafficSmoke;
@@ -333,6 +334,7 @@ namespace Roguelancer {
             _runFactionReputationRippleSmoke = args?.Any(arg => string.Equals(arg, "--faction-reputation-ripple-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDispositionSmoke = args?.Any(arg => string.Equals(arg, "--faction-disposition-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runNpcFactionCombatSmoke = args?.Any(arg => string.Equals(arg, "--npc-faction-combat-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPoliceEnforcementSmoke = args?.Any(arg => string.Equals(arg, "--police-enforcement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -993,6 +995,7 @@ namespace Roguelancer {
 
             // Initialize NPC weapon system
             _npcWeaponSystem = new NpcWeaponSystem(GraphicsDevice, _reputationManager);
+            _npcWeaponSystem.NpcShipDamaged += HandleNpcShipDamaged;
 
             // Initialize mission waypoint/marker/guidance systems
             _missionWaypointSystem = new MissionWaypointSystem();
@@ -1178,6 +1181,10 @@ namespace Roguelancer {
 
             // Initialize notification manager
             _notificationManager = new NotificationManager(_font, GraphicsDevice.Viewport);
+            if (_trafficManager != null)
+            {
+                _trafficManager.DistressResponse.ResponseGenerated += HandleFactionDistressResponse;
+            }
             _reputationManager.OnReputationChanged += HandleReputationChanged;
             _reputationManager.OnTemporaryHostilityChanged += HandleTemporaryHostilityChanged;
             _lootManager = new LootManager(GraphicsDevice, null, _font, _pixel);
@@ -1299,6 +1306,11 @@ namespace Roguelancer {
             else if (_runNpcFactionCombatSmoke)
             {
                 var result = RunNpcFactionCombatSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runFactionDistressResponseSmoke)
+            {
+                var result = RunFactionDistressResponseSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runPoliceEnforcementSmoke)
@@ -1449,6 +1461,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("faction reputation ripple smoke", RunFactionReputationRippleSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction disposition smoke", RunFactionDispositionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("NPC faction combat smoke", RunNpcFactionCombatSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("police enforcement smoke", RunPoliceEnforcementSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1697,6 +1710,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[NPC FACTION COMBAT SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunFactionDistressResponseSmokeTest()
+        {
+            try
+            {
+                return new FactionDistressResponseSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FACTION DISTRESS RESPONSE SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2678,7 +2704,10 @@ namespace Roguelancer {
             if (_reputationManager != null)
             {
                 foreach (NpcShip npc in _npcShips)
+                {
                     _factionCombatConsequences.RecordPlayerDamage(npc);
+                    _trafficManager?.NotifyPlayerDamage(npc, _playerShip);
+                }
             }
 
             // Update mission manager
@@ -2850,6 +2879,20 @@ namespace Roguelancer {
                 SpaceObject selectedObject = _spaceObjects[closestObjectIndex];
                 SelectSpaceObjectTarget(selectedObject, "Left-click");
             }
+        }
+
+        private void HandleNpcShipDamaged(NpcShip attacker, NpcShip damagedShip, float damage)
+        {
+            _trafficManager?.NotifyNpcDamage(attacker, damagedShip, damage);
+        }
+
+        private void HandleFactionDistressResponse(FactionDistressResponseResult response)
+        {
+            if (!response.WaveSpawned)
+                return;
+
+            string factionName = FactionManager.GetFactionDisplayName(response.FactionId);
+            _notificationManager?.ShowMessage($"{factionName} reinforcements inbound", 3f);
         }
 
         private void HandleNpcDestroyed(NpcShip destroyedShip) {
