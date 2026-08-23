@@ -39,8 +39,9 @@ namespace Roguelancer
         private bool _isTalkingToNpc = false;
         private BarNpc _currentTalkNpc = null;
         private Mission _offeredMission = null;
+        private FactionBribeOffer _offeredBribe = null;
         private string _dialogueLine = "";
-        private int _dialogueState = 0; // 0=greeting, 1=offer, 2=accepted/declined
+        private int _dialogueState = 0; // 0=greeting, 1=mission, 2=finished, 3=bribe
 
         // Job board system
         private JobBoard _jobBoard;
@@ -128,6 +129,7 @@ namespace Roguelancer
             _isTalkingToNpc = false;
             _currentTalkNpc = null;
             _offeredMission = null;
+            _offeredBribe = null;
             _dialogueState = 0;
 
             // Phase 11 keeps the Mission Board authoritative; patrons do not
@@ -202,7 +204,7 @@ namespace Roguelancer
                     DrawHangar(spriteBatch, screenWidth, screenHeight);
                     break;
                 case StationArea.Bar:
-                    DrawBar(spriteBatch, screenWidth, screenHeight);
+                    DrawBar(spriteBatch, screenWidth, screenHeight, credits);
                     break;
                 case StationArea.Dealer:
                     DrawDealer(spriteBatch, screenWidth, screenHeight, credits, playerShip);
@@ -602,7 +604,7 @@ namespace Roguelancer
             spriteBatch.DrawString(_font, undockText, undockPos, Color.Green);
         }
 
-        private void DrawBar(SpriteBatch spriteBatch, int screenWidth, int screenHeight)
+        private void DrawBar(SpriteBatch spriteBatch, int screenWidth, int screenHeight, PlayerCredits credits)
         {
             int centerX = screenWidth / 2;
             int centerY = screenHeight / 2;
@@ -615,7 +617,7 @@ namespace Roguelancer
             if (_isTalkingToNpc && _currentTalkNpc != null)
             {
                 // NPC Dialogue mode
-                DrawNpcDialogue(spriteBatch, centerX, centerY);
+                DrawNpcDialogue(spriteBatch, centerX, centerY, credits);
             }
             else
             {
@@ -645,6 +647,21 @@ namespace Roguelancer
                         string missionHint = $"  Has a job: {npc.CurrentMission.Type} ({npc.CurrentMission.Difficulty})";
                         spriteBatch.DrawString(_font, missionHint, new Vector2(npcPanel.X + 15, yOffset + 25), Color.Yellow * 0.7f);
                     }
+                    else
+                    {
+                        FactionBribeOffer bribe = FactionBribeService.GetOfferForContact(
+                            npc,
+                            _dockedStation?.FactionId,
+                            _reputationManager,
+                            credits);
+                        if (bribe != null)
+                        {
+                            string bribeHint = bribe.IsValid
+                                ? $"  Reputation help: {bribe.TargetFactionDisplayName} ({bribe.CreditCost:N0} CR)"
+                                : $"  Reputation help: unavailable ({bribe.TargetFactionDisplayName})";
+                            spriteBatch.DrawString(_font, bribeHint, new Vector2(npcPanel.X + 15, yOffset + 25), bribe.IsValid ? Color.LightGreen : Color.OrangeRed);
+                        }
+                    }
 
                     yOffset += 65;
                 }
@@ -655,7 +672,7 @@ namespace Roguelancer
             }
         }
 
-        private void DrawNpcDialogue(SpriteBatch spriteBatch, int centerX, int centerY)
+        private void DrawNpcDialogue(SpriteBatch spriteBatch, int centerX, int centerY, PlayerCredits credits)
         {
             // NPC name and title
             string npcHeader = $"{_currentTalkNpc.Name} - {_currentTalkNpc.Title}";
@@ -693,6 +710,28 @@ namespace Roguelancer
                 string acceptInstr = "[ENTER] Accept Mission | [ESC] Decline";
                 Vector2 aSize = _font.MeasureString(acceptInstr);
                 spriteBatch.DrawString(_font, acceptInstr, new Vector2(centerX - aSize.X / 2, dialogPanel.Bottom + 20), Color.Lime);
+            }
+            else if (_dialogueState == 3 && _offeredBribe != null)
+            {
+                int yOff = 270;
+                spriteBatch.DrawString(_font, "--- REPUTATION ASSISTANCE ---", new Vector2(dialogPanel.X + 20, yOff), Color.Gold);
+                yOff += 30;
+                spriteBatch.DrawString(_font, $"Faction: {_offeredBribe.TargetFactionDisplayName}", new Vector2(dialogPanel.X + 20, yOff), Color.LightSkyBlue);
+                yOff += 25;
+                spriteBatch.DrawString(_font, $"Current standing: {ReputationManager.FormatStanding(_offeredBribe.CurrentReputation)}", new Vector2(dialogPanel.X + 20, yOff), Color.White);
+                yOff += 25;
+                spriteBatch.DrawString(_font, $"After purchase: {ReputationManager.FormatStanding(_offeredBribe.ResultingReputation)}", new Vector2(dialogPanel.X + 20, yOff), Color.LightGreen);
+                yOff += 25;
+                spriteBatch.DrawString(_font, _offeredBribe.CreditCost > 0 ? $"Cost: {_offeredBribe.CreditCost:N0} CR" : "Cost: unavailable", new Vector2(dialogPanel.X + 20, yOff), Color.Yellow);
+                yOff += 25;
+                bool canAffordNow = _offeredBribe.CreditCost > 0 && credits?.CanAfford(_offeredBribe.CreditCost) == true;
+                string affordLine = _offeredBribe.IsValid
+                    ? (canAffordNow ? "You can afford this." : "Insufficient credits.")
+                    : _offeredBribe.UnavailableReason;
+                spriteBatch.DrawString(_font, TruncateTradePlanLine(affordLine, 70), new Vector2(dialogPanel.X + 20, yOff), _offeredBribe.IsValid && canAffordNow ? Color.Lime : Color.OrangeRed);
+                string bribeInstr = _offeredBribe.IsValid ? "[ENTER] Pay contact | [ESC] Decline" : "[ESC] Back to bar";
+                Vector2 bribeSize = _font.MeasureString(bribeInstr);
+                spriteBatch.DrawString(_font, bribeInstr, new Vector2(centerX - bribeSize.X / 2, dialogPanel.Bottom + 20), Color.White);
             }
             else if (_dialogueState == 2)
             {
@@ -1431,7 +1470,8 @@ namespace Roguelancer
         /// Handle input for bar NPC interactions
         /// </summary>
         public bool HandleBarInput(Microsoft.Xna.Framework.Input.KeyboardState keyboardState,
-                                    Microsoft.Xna.Framework.Input.KeyboardState prevKeyboardState)
+                                    Microsoft.Xna.Framework.Input.KeyboardState prevKeyboardState,
+                                    PlayerCredits credits = null)
         {
             if (_currentArea != StationArea.Bar) return false;
 
@@ -1447,12 +1487,18 @@ namespace Roguelancer
                         _dialogueLine = _currentTalkNpc.GetDeclineLine();
                         _dialogueState = 2;
                     }
+                    else if (_dialogueState == 3 && _offeredBribe != null)
+                    {
+                        _dialogueLine = "No deal. I will keep the connection quiet.";
+                        _dialogueState = 2;
+                    }
                     else
                     {
                         // Leave conversation
                         _isTalkingToNpc = false;
                         _currentTalkNpc = null;
                         _offeredMission = null;
+                        _offeredBribe = null;
                         _dialogueState = 0;
                     }
                     return true;
@@ -1469,6 +1515,15 @@ namespace Roguelancer
                             _dialogueLine = _currentTalkNpc.GetMissionOfferLine();
                             _offeredMission = _currentTalkNpc.CurrentMission;
                             _dialogueState = 1;
+                        }
+                        else if ((_offeredBribe = FactionBribeService.GetOfferForContact(
+                                      _currentTalkNpc,
+                                      _dockedStation?.FactionId,
+                                      _reputationManager,
+                                      credits)) != null)
+                        {
+                            _dialogueLine = _offeredBribe.BuildDialogueLine();
+                            _dialogueState = 3;
                         }
                         else
                         {
@@ -1490,6 +1545,25 @@ namespace Roguelancer
                             _dialogueLine = _missionManager == null
                                 ? "The mission board is offline right now."
                                 : "Looks like you already have that mission.";
+                        }
+                        _dialogueState = 2;
+                    }
+                    else if (_dialogueState == 3 && _offeredBribe != null)
+                    {
+                        if (FactionBribeService.TryPurchase(
+                            _offeredBribe,
+                            _reputationManager,
+                            credits,
+                            out ReputationChangeResult reputationChange,
+                            out string failureReason))
+                        {
+                            _dialogueLine = $"Done. {reputationChange.FactionDisplayName} now has you at {ReputationManager.FormatStanding(reputationChange.NewValue)}.";
+                            _notificationManager?.ShowMessage($"Paid {_offeredBribe.CreditCost:N0} credits to a faction contact.", 3f);
+                            _offeredBribe = null;
+                        }
+                        else
+                        {
+                            _dialogueLine = $"No deal: {failureReason}.";
                         }
                         _dialogueState = 2;
                     }
@@ -1522,6 +1596,7 @@ namespace Roguelancer
                     {
                         _currentTalkNpc = _barNpcs[_selectedNpcIndex];
                         _isTalkingToNpc = true;
+                        _offeredBribe = null;
                         _dialogueLine = _currentTalkNpc.GetGreeting();
                         _dialogueState = 0;
                         Console.WriteLine($"[BAR] Talking to {_currentTalkNpc.Name}");

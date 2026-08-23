@@ -353,7 +353,7 @@ public sealed class StationMissionBoardUI
         {
             spriteBatch.DrawString(_font, eligibility.Reason, new Vector2(x, y), Color.OrangeRed);
             y += 28;
-            spriteBatch.DrawString(_font, "[LOCKED] Earn the required standing to accept this job.", new Vector2(x, y), Color.Orange);
+            spriteBatch.DrawString(_font, "[LOCKED] Earn the required standing; bar contacts may offer paid recovery.", new Vector2(x, y), Color.Orange);
             return;
         }
 

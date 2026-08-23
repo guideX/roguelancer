@@ -24,6 +24,7 @@ namespace Roguelancer
         FactionShipAttacked,
         PoliceScan,
         PirateAmbushDefense,
+        ReputationBribe,
         ManualDebug,
         Other
     }
@@ -411,6 +412,8 @@ namespace Roguelancer
                 return ReputationChangeReason.PoliceScan;
             if (reason.Contains("pirate", StringComparison.OrdinalIgnoreCase))
                 return ReputationChangeReason.PirateAmbushDefense;
+            if (reason.Contains("bribe", StringComparison.OrdinalIgnoreCase))
+                return ReputationChangeReason.ReputationBribe;
             return ReputationChangeReason.Other;
         }
     }

@@ -47,6 +47,8 @@ namespace Roguelancer {
         private StationEquipmentDealerUI _stationEquipmentDealerUI;
         private StationCommodityTraderUI _stationCommodityTraderUI;
         private StationMissionBoardUI _stationMissionBoardUI;
+        private FactionBribeOffer _stationBribeOffer;
+        private StationNpc _stationBribeNpc;
         private string _stationDialogueText = string.Empty;
         private float _stationDialogueRemaining;
         private bool _stationInteractionKeyHeld;
@@ -232,6 +234,7 @@ namespace Roguelancer {
         private readonly bool _runMineSmoke;
         private readonly bool _runSaveSmoke;
         private readonly bool _runReputationSmoke;
+        private readonly bool _runFactionBribeSmoke;
         private readonly bool _runFactionConsequencesSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runTrafficSmoke;
@@ -313,6 +316,7 @@ namespace Roguelancer {
             _runMineSmoke = args?.Any(arg => string.Equals(arg, "--mine-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runSaveSmoke = args?.Any(arg => string.Equals(arg, "--save-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runReputationSmoke = args?.Any(arg => string.Equals(arg, "--reputation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runFactionBribeSmoke = args?.Any(arg => string.Equals(arg, "--faction-bribe-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionConsequencesSmoke = args?.Any(arg => string.Equals(arg, "--faction-consequences-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1240,6 +1244,11 @@ namespace Roguelancer {
                 var result = RunReputationSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runFactionBribeSmoke)
+            {
+                var result = RunFactionBribeSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runFactionConsequencesSmoke)
             {
                 var result = RunFactionConsequencesSmokeTest();
@@ -1380,6 +1389,7 @@ namespace Roguelancer {
 
             RunAllSmokeSuite("save smoke", RunSaveSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("reputation smoke", RunReputationSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("faction bribe smoke", RunFactionBribeSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction consequences smoke", RunFactionConsequencesSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1524,6 +1534,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[REPUTATION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunFactionBribeSmokeTest()
+        {
+            try
+            {
+                return new FactionBribeSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FACTION BRIBE SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2697,6 +2720,14 @@ namespace Roguelancer {
             if (change == null || change.IsSecondaryEffect)
                 return;
 
+            if (change.Reason == ReputationChangeReason.ReputationBribe)
+            {
+                _notificationManager?.ShowMessage(
+                    $"{change.FactionDisplayName} reputation improved: {ReputationManager.FormatStanding(change.OldValue)} → {ReputationManager.FormatStanding(change.NewValue)}",
+                    3.5f);
+                return;
+            }
+
             if (change.BandChanged)
             {
                 _notificationManager?.ShowMessage(
@@ -3680,7 +3711,7 @@ namespace Roguelancer {
 
             // Let bar handle its own input (NPC dialogue)
             if (_stationDockUI?.CurrentArea == StationArea.Bar) {
-                bool handled = _stationDockUI.HandleBarInput(keyboardState, _prevKeys);
+                bool handled = _stationDockUI.HandleBarInput(keyboardState, _prevKeys, _playerCredits);
                 if (handled) return;
             }
 
@@ -4793,6 +4824,10 @@ namespace Roguelancer {
             _stationCommodityTraderUI?.Close();
             _stationMissionBoardUI?.Close();
             _stationInteractions.Clear();
+            _stationBribeOffer = null;
+            _stationBribeNpc = null;
+            _stationDialogueText = string.Empty;
+            _stationDialogueRemaining = 0.0f;
 
             if (session?.PlayerShip != null)
             {
@@ -4907,6 +4942,8 @@ namespace Roguelancer {
             foreach (StationNpc npc in _stationNpcs) npc.Reset();
             _stationDialogueText = string.Empty;
             _stationDialogueRemaining = 0.0f;
+            _stationBribeOffer = null;
+            _stationBribeNpc = null;
             _stationCharacterCamera.Reset(_stationPlayerCharacter.Position, _stationPlayerCharacter.YawDegrees);
             BuildStationInteractions();
             _performanceDiagnostics.LogGraphicsConfiguration(this, _graphics, "station-entry");
@@ -5033,6 +5070,8 @@ namespace Roguelancer {
         {
             if (_stationPlayerCharacter == null || npc == null) return;
             npc.FacePlayer(_stationPlayerCharacter.Position);
+            _stationBribeOffer = null;
+            _stationBribeNpc = null;
             string line = npc.Dialogue.Text;
             if (string.Equals(npc.Id, "bartender", StringComparison.OrdinalIgnoreCase))
             {
@@ -5043,6 +5082,22 @@ namespace Roguelancer {
                      _missionManager?.ActiveMission == null)
             {
                 line = "Plenty of people around here pay for problems to disappear.";
+            }
+
+            BarNpc reputationContact = StationBarSocial.GetReputationContactProfile(npc.Id);
+            FactionBribeOffer bribeOffer = FactionBribeService.GetOfferForContact(
+                reputationContact,
+                _stationSession?.DockedStation?.FactionId,
+                _reputationManager,
+                _playerCredits);
+            if (bribeOffer != null)
+            {
+                line = $"{line} {bribeOffer.BuildDialogueLine()}";
+                if (bribeOffer.IsValid)
+                {
+                    _stationBribeOffer = bribeOffer;
+                    _stationBribeNpc = npc;
+                }
             }
 
             _stationDialogueText = $"{npc.Dialogue.Speaker}: {line}";
@@ -5164,6 +5219,43 @@ namespace Roguelancer {
             }
 
             if (_stationPlayerCharacter == null || _stationCharacterCamera == null) return;
+
+            if (_stationBribeOffer != null)
+            {
+                if (escapeExitPressed)
+                {
+                    _stationDialogueText = $"{_stationBribeNpc?.DisplayName ?? "Contact"}: No deal. I will keep the connection quiet.";
+                    _stationDialogueRemaining = 3.5f;
+                    _stationBribeOffer = null;
+                    _stationBribeNpc = null;
+                    return;
+                }
+
+                if (keyboardState.IsKeyDown(Keys.Enter) && _prevKeys.IsKeyUp(Keys.Enter))
+                {
+                    if (FactionBribeService.TryPurchase(
+                        _stationBribeOffer,
+                        _reputationManager,
+                        _playerCredits,
+                        out ReputationChangeResult reputationChange,
+                        out string failureReason))
+                    {
+                        _stationDialogueText = $"{_stationBribeNpc?.DisplayName ?? "Contact"}: Done. {reputationChange.FactionDisplayName} now has you at {ReputationManager.FormatStanding(reputationChange.NewValue)}.";
+                        _notificationManager?.ShowMessage($"Paid {_stationBribeOffer.CreditCost:N0} credits to a faction contact.", 3f);
+                    }
+                    else
+                    {
+                        _stationDialogueText = $"{_stationBribeNpc?.DisplayName ?? "Contact"}: No deal — {failureReason}.";
+                    }
+                    _stationDialogueRemaining = 3.5f;
+                    _stationBribeOffer = null;
+                    _stationBribeNpc = null;
+                    return;
+                }
+
+                IsMouseVisible = false;
+                return;
+            }
 
             // The dealer overlay keeps the station visible and NPC animation
             // alive, but consumes movement and service input until it closes.
@@ -5862,6 +5954,27 @@ namespace Roguelancer {
                 _spriteBatch.Draw(_pixel, dialogue, Color.Black * 0.82f);
                 _spriteBatch.Draw(_pixel, new Rectangle(dialogue.X, dialogue.Y, dialogue.Width, 3), Color.Gold * 0.9f);
                 _spriteBatch.DrawString(_font, _stationDialogueText, new Vector2(dialogue.X + 18, dialogue.Y + 9), Color.White);
+            }
+
+            if (_stationBribeOffer != null)
+            {
+                int bribeWidth = 760;
+                int bribeHeight = 112;
+                Rectangle bribePanel = new(width / 2 - bribeWidth / 2, height - 330, bribeWidth, bribeHeight);
+                _spriteBatch.Draw(_pixel, bribePanel, Color.Black * 0.88f);
+                _spriteBatch.Draw(_pixel, new Rectangle(bribePanel.X, bribePanel.Y, bribePanel.Width, 3), Color.Gold);
+                _spriteBatch.DrawString(_font, "REPUTATION ASSISTANCE", new Vector2(bribePanel.X + 16, bribePanel.Y + 12), Color.Gold);
+                _spriteBatch.DrawString(
+                    _font,
+                    $"{_stationBribeOffer.TargetFactionDisplayName}: {ReputationManager.FormatStanding(_stationBribeOffer.CurrentReputation)} -> {ReputationManager.FormatStanding(_stationBribeOffer.ResultingReputation)}",
+                    new Vector2(bribePanel.X + 16, bribePanel.Y + 39),
+                    Color.White);
+                bool canAffordBribe = _stationBribeOffer.CanAfford && _playerCredits?.CanAfford(_stationBribeOffer.CreditCost) == true;
+                _spriteBatch.DrawString(
+                    _font,
+                    $"Cost: {_stationBribeOffer.CreditCost:N0} CR | {(canAffordBribe ? "ENTER: ACCEPT" : "INSUFFICIENT CREDITS")} | ESC: DECLINE",
+                    new Vector2(bribePanel.X + 16, bribePanel.Y + 68),
+                    canAffordBribe ? Color.Lime : Color.OrangeRed);
             }
 
             _notificationManager?.Draw(_spriteBatch);

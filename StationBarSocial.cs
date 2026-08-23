@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework;
 
 namespace Roguelancer;
@@ -23,7 +25,8 @@ public sealed record StationSocialNpcDefinition(
     StationDialogue Dialogue,
     float IdleOffset,
     StationNpcInteractionRole InteractionRole = StationNpcInteractionRole.Dialogue,
-    bool HasFutureMissionHook = false);
+    bool HasFutureMissionHook = false,
+    string ReputationContactProfileName = null);
 
 /// <summary>
 /// Bounded Phase 10 social-role data. The shared asset id is intentionally
@@ -71,7 +74,8 @@ public static class StationBarSocial
                 3.1f,
                 new StationDialogue("Bartender", "Drinks are cheap. Trouble costs extra."),
                 2.61f,
-                HasFutureMissionHook: true),
+                HasFutureMissionHook: true,
+                ReputationContactProfileName: "Elena Vasquez"),
             new StationSocialNpcDefinition(
                 "rogue-pilot",
                 "Rogue Pilot",
@@ -87,7 +91,8 @@ public static class StationBarSocial
                 -90.0f,
                 2.3f,
                 new StationDialogue("Dockhand", "You'd be surprised what comes through this bay."),
-                3.83f),
+                3.83f,
+                ReputationContactProfileName: "Rex \"Ironjaw\" Torren"),
             new StationSocialNpcDefinition(
                 "smuggler",
                 "Smuggler",
@@ -95,7 +100,19 @@ public static class StationBarSocial
                 145.0f,
                 2.3f,
                 new StationDialogue("Smuggler", "If you're looking for work, ask around."),
-                4.41f),
+                4.41f,
+                ReputationContactProfileName: "Zara \"Six-Shot\" Mendez"),
         };
+    }
+
+    public static BarNpc GetReputationContactProfile(string roleId)
+    {
+        StationSocialNpcDefinition role = CreateRoles().FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, roleId, StringComparison.OrdinalIgnoreCase));
+        if (role == null || string.IsNullOrWhiteSpace(role.ReputationContactProfileName))
+            return null;
+
+        return BarNpc.GenerateBarNpcs().FirstOrDefault(contact =>
+            string.Equals(contact.Name, role.ReputationContactProfileName, StringComparison.OrdinalIgnoreCase));
     }
 }

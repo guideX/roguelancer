@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Roguelancer
 {
@@ -14,9 +15,17 @@ namespace Roguelancer
         public string[] MissionOfferLines { get; }
         public string[] DeclineLines { get; }
         public string FactionId { get; }
+        public IReadOnlyList<string> ReputationBribeTargetFactionIds { get; }
         public Mission CurrentMission { get; set; }
 
-        public BarNpc(string name, string title, string[] greetingLines, string[] missionOfferLines, string[] declineLines, string factionId = null)
+        public BarNpc(
+            string name,
+            string title,
+            string[] greetingLines,
+            string[] missionOfferLines,
+            string[] declineLines,
+            string factionId = null,
+            IEnumerable<string> reputationBribeTargetFactionIds = null)
         {
             Name = name;
             Title = title;
@@ -24,6 +33,11 @@ namespace Roguelancer
             MissionOfferLines = missionOfferLines;
             DeclineLines = declineLines;
             FactionId = FactionManager.NormalizeFactionId(factionId);
+            ReputationBribeTargetFactionIds = (reputationBribeTargetFactionIds ?? Array.Empty<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(FactionManager.NormalizeFactionId)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
         }
 
         /// <summary>
@@ -66,7 +80,8 @@ namespace Roguelancer
                     new[] { "Hey there, pilot. Pull up a chair.", "You look like you could use some work.", "The lanes aren't safe these days." },
                     new[] { "I've got a job if you're interested.", "This one pays well, but it's not easy.", "A contact of mine needs something done." },
                     new[] { "Your loss, friend.", "Maybe next time.", "I'll find someone else then." },
-                    FactionManager.NeutralCivilians
+                    FactionManager.NeutralCivilians,
+                    Array.Empty<string>()
                 ),
                 new BarNpc(
                     "Elena Vasquez",
@@ -74,7 +89,8 @@ namespace Roguelancer
                     new[] { "Welcome, freelancer.", "The economy's been rough lately.", "I represent some important clients." },
                     new[] { "I have a contract that needs filling.", "This delivery is time-sensitive.", "Can I count on you for this?" },
                     new[] { "I understand. Safety first.", "Perhaps another time.", "I'll keep the offer open." },
-                    FactionManager.LibertyCorporations
+                    FactionManager.LibertyCorporations,
+                    new[] { FactionManager.LibertyCorporations, FactionManager.LibertyPolice }
                 ),
                 new BarNpc(
                     "Rex \"Ironjaw\" Torren",
@@ -82,7 +98,8 @@ namespace Roguelancer
                     new[] { "Well, well. Another gun for hire.", "You any good in a fight?", "I've seen better pilots... and worse." },
                     new[] { "Got a mark that needs to disappear.", "This target has a bounty on their head.", "Think you can handle a real fight?" },
                     new[] { "Didn't think so.", "Come back when you grow a spine.", "Fine. More credits for me." },
-                    FactionManager.BountyHunters
+                    FactionManager.BountyHunters,
+                    new[] { FactionManager.LibertyPolice, FactionManager.LibertyNavy, FactionManager.BountyHunters }
                 ),
                 new BarNpc(
                     "Dr. Yun Nakamura",
@@ -90,7 +107,8 @@ namespace Roguelancer
                     new[] { "Ah, a spacer. Interesting.", "I don't usually talk to pilots.", "My work requires... discretion." },
                     new[] { "I need someone to escort a research vessel.", "This is sensitive cargo. Handle with care.", "The pay is good. The risks... manageable." },
                     new[] { "I see. I'll find another way.", "A shame. The data is quite valuable.", "Very well. Good day." },
-                    FactionManager.NeutralCivilians
+                    FactionManager.NeutralCivilians,
+                    new[] { FactionManager.LibertyCorporations }
                 ),
                 new BarNpc(
                     "Zara \"Six-Shot\" Mendez",
@@ -98,7 +116,8 @@ namespace Roguelancer
                     new[] { "Keep your voice down.", "Don't ask questions you don't want answered.", "You look like someone who can keep a secret." },
                     new[] { "I need a pilot who doesn't ask questions.", "This job is off the books.", "Big money, no questions. Interested?" },
                     new[] { "Smart move. Or dumb. We'll see.", "Walk away then.", "Forget you ever saw me." },
-                    FactionManager.LibertyRogues
+                    FactionManager.LibertyRogues,
+                    new[] { FactionManager.LibertyRogues, FactionManager.Junkers }
                 )
             };
         }
