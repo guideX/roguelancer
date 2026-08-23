@@ -19,6 +19,7 @@ namespace Roguelancer
             public Color Color;
             public float Damage;
             public NpcShip Owner;
+            public NpcShip Target;
         }
 
         private List<NpcProjectile> _projectiles = new();
@@ -74,22 +75,38 @@ namespace Roguelancer
                     continue;
                 }
 
-                // Check collision with player
-                float distToPlayer = Vector3.Distance(proj.Position, playerShip.Position);
-                if (distToPlayer < playerShip.CollisionRadius + 5f)
+                if (proj.Target != null)
                 {
-                    // Hit the player! Route through shields first
-                    float hullDamage = proj.Damage;
-                    if (playerShip.Shields != null)
+                    if (proj.Target.IsDestroyed)
                     {
-                        hullDamage = playerShip.Shields.AbsorbDamage(proj.Damage);
-                    }
-                    if (hullDamage > 0f)
-                    {
-                        playerShip.Hull.TakeDamage(hullDamage);
+                        _projectiles.RemoveAt(i);
+                        continue;
                     }
 
-                    _projectiles.RemoveAt(i);
+                    float distToNpc = Vector3.Distance(proj.Position, proj.Target.Position);
+                    if (distToNpc < proj.Target.Radius + 5f)
+                    {
+                        ApplyNpcDamage(proj.Target, proj.Damage);
+                        _projectiles.RemoveAt(i);
+                    }
+                    continue;
+                }
+
+                // Check collision with player for the existing player-target
+                // path. NPC-vs-NPC projectiles never enter this branch.
+                if (playerShip != null)
+                {
+                    float distToPlayer = Vector3.Distance(proj.Position, playerShip.Position);
+                    if (distToPlayer < playerShip.CollisionRadius + 5f)
+                    {
+                        float hullDamage = proj.Damage;
+                        if (playerShip.Shields != null)
+                            hullDamage = playerShip.Shields.AbsorbDamage(proj.Damage);
+                        if (hullDamage > 0f)
+                            playerShip.Hull.TakeDamage(hullDamage);
+
+                        _projectiles.RemoveAt(i);
+                    }
                 }
             }
 
@@ -97,10 +114,20 @@ namespace Roguelancer
             foreach (var npc in npcShips)
             {
                 if (npc.IsDestroyed) continue;
-                if (_reputationManager != null && !npc.HasValidPlayerTarget(_reputationManager)) continue;
 
-                float distToPlayer = Vector3.Distance(npc.Position, playerShip.Position);
-                if (distToPlayer > FireRange) continue;
+                NpcShip factionTarget = npc.FactionCombatTarget;
+                bool hasFactionTarget = factionTarget != null &&
+                    npc.HasValidFactionCombatTarget(FireRange);
+                bool hasPlayerTarget = !hasFactionTarget &&
+                    playerShip != null &&
+                    (_reputationManager == null || npc.HasValidPlayerTarget(_reputationManager));
+
+                if (!hasFactionTarget && !hasPlayerTarget)
+                    continue;
+
+                Vector3 targetPosition = hasFactionTarget ? factionTarget.Position : playerShip.Position;
+                if (Vector3.Distance(npc.Position, targetPosition) > FireRange)
+                    continue;
 
                 // Initialize cooldown if not tracked
                 if (!_fireCooldowns.ContainsKey(npc))
@@ -110,16 +137,16 @@ namespace Roguelancer
 
                 if (_fireCooldowns[npc] <= 0f)
                 {
-                    // Fire at player
-                    FireAtTarget(npc, playerShip.Position);
+                    FireAtTarget(npc, targetPosition, hasFactionTarget ? factionTarget : null);
                     _fireCooldowns[npc] = FireCooldown + (float)(_random.NextDouble() * 0.5);
                 }
             }
         }
 
-        private void FireAtTarget(NpcShip npc, Vector3 targetPosition)
+        private void FireAtTarget(NpcShip npc, Vector3 targetPosition, NpcShip target = null)
         {
-            Console.WriteLine($"[NPC AI] {npc.Name} ({npc.FactionId}) firing at player");
+            string targetLabel = target == null ? "player" : $"{target.Name} ({target.FactionId})";
+            Console.WriteLine($"[NPC AI] {npc.Name} ({npc.FactionId}) firing at {targetLabel}");
             Vector3 direction = Vector3.Normalize(targetPosition - npc.Position);
 
             // Add accuracy spread
@@ -136,10 +163,21 @@ namespace Roguelancer
                 MaxLife = ProjectileLife,
                 Color = Color.Red,
                 Damage = ProjectileDamage,
-                Owner = npc
+                Owner = npc,
+                Target = target
             };
 
             _projectiles.Add(proj);
+        }
+
+        private static void ApplyNpcDamage(NpcShip target, float damage)
+        {
+            float hullDamage = damage;
+            if (target.Shields != null)
+                hullDamage = target.Shields.AbsorbDamage(damage);
+
+            if (hullDamage > 0f)
+                target.Hull.TakeDamage(hullDamage);
         }
 
         /// <summary>

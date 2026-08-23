@@ -133,6 +133,12 @@ namespace Roguelancer
                 return;
             }
 
+            foreach (NpcShip other in _npcShips)
+            {
+                if (other != null && other.FactionCombatTarget == destroyedShip)
+                    other.ClearFactionCombatTarget();
+            }
+
             if (_shipRuntimes.TryGetValue(destroyedShip, out TrafficShipRuntime shipRuntime))
             {
                 if (!string.IsNullOrWhiteSpace(shipRuntime.ZoneId) && _zonesById.TryGetValue(shipRuntime.ZoneId, out TrafficZoneRuntime zoneRuntime))
@@ -239,6 +245,7 @@ namespace Roguelancer
             UpdatePirateEngagements(pirateShips, traderShips, playerShip, reputationManager, log, deltaTime);
             UpdateTraderEscapes(traderShips, pirateShips, log, deltaTime);
             UpdatePatrolIntercepts(patrolShips, pirateShips, log, deltaTime);
+            UpdateFactionCombatEngagements(playerShip, reputationManager, log);
         }
 
         private void UpdateTrafficInteractions(TrafficZoneRuntime runtime, Ship playerShip, ReputationManager reputationManager, Action<string> log, float deltaTime)
@@ -411,6 +418,115 @@ namespace Roguelancer
 
             return nearest;
         }
+
+        /// <summary>
+        /// Resolves only the active NPCs in the current traffic simulation.
+        /// A small spatial hash limits each source to nearby cells; the
+        /// configured traffic activation range then performs the exact check.
+        /// </summary>
+        private void UpdateFactionCombatEngagements(Ship playerShip, ReputationManager reputationManager, Action<string> log)
+        {
+            if (_npcShips.Count < 2)
+                return;
+
+            float cellSize = 1000f;
+            for (int i = 0; i < _npcShips.Count; i++)
+            {
+                NpcShip ship = _npcShips[i];
+                if (ship != null && !ship.IsDestroyed)
+                    cellSize = Math.Max(cellSize, Math.Max(100f, ship.TrafficActivationRange));
+            }
+
+            Dictionary<FactionCombatCell, List<NpcShip>> cells = new();
+            for (int i = 0; i < _npcShips.Count; i++)
+            {
+                NpcShip ship = _npcShips[i];
+                if (ship == null || ship.IsDestroyed)
+                    continue;
+
+                FactionCombatCell cell = GetFactionCombatCell(ship.Position, cellSize);
+                if (!cells.TryGetValue(cell, out List<NpcShip> occupants))
+                {
+                    occupants = new List<NpcShip>();
+                    cells[cell] = occupants;
+                }
+
+                occupants.Add(ship);
+            }
+
+            for (int i = 0; i < _npcShips.Count; i++)
+            {
+                NpcShip source = _npcShips[i];
+                if (source == null || source.IsDestroyed)
+                    continue;
+
+                if (source.FactionCombatTarget != null &&
+                    source.HasValidFactionCombatTarget(source.TrafficActivationRange))
+                {
+                    source.SetFactionCombatTarget(source.FactionCombatTarget, preserveExistingEncounterState: true);
+                    continue;
+                }
+
+                if (source.FactionCombatTarget != null)
+                    source.ClearFactionCombatTarget();
+
+                // An existing valid player target or flee/legacy attack state
+                // keeps priority. The police intercept state remains eligible
+                // for a matrix target because it already represents local NPC
+                // combat; its movement state is preserved below.
+                if ((source.HasPlayerTarget && source.HasValidPlayerTarget(reputationManager)) ||
+                    source.EncounterState == TrafficEncounterState.Fleeing ||
+                    source.EncounterState == TrafficEncounterState.AttackingTrader)
+                {
+                    continue;
+                }
+
+                // Leave newly eligible player hostility for NpcShip's live
+                // player-disposition path. This preserves the explicit order:
+                // current valid target, player, then faction contact.
+                float playerRange = Math.Max(100f, source.TrafficActivationRange);
+                bool playerTargetEligible = playerShip != null && reputationManager != null &&
+                    (FactionDispositionEvaluator.IsHostile(source.FactionId, reputationManager) ||
+                        (source.WasDamagedByPlayer && reputationManager.IsTemporarilyHostile(source.FactionId))) &&
+                    Vector3.DistanceSquared(source.Position, playerShip.Position) <= playerRange * playerRange;
+                if (playerTargetEligible && source.EncounterState == TrafficEncounterState.Cruising)
+                    continue;
+
+                List<NpcShip> nearbyCandidates = new();
+                FactionCombatCell sourceCell = GetFactionCombatCell(source.Position, cellSize);
+                for (int x = -1; x <= 1; x++)
+                {
+                    for (int y = -1; y <= 1; y++)
+                    {
+                        for (int z = -1; z <= 1; z++)
+                        {
+                            FactionCombatCell cell = new(sourceCell.X + x, sourceCell.Y + y, sourceCell.Z + z);
+                            if (cells.TryGetValue(cell, out List<NpcShip> occupants))
+                                nearbyCandidates.AddRange(occupants);
+                        }
+                    }
+                }
+
+                float range = Math.Max(100f, source.TrafficActivationRange);
+                NpcShip target = NpcFactionCombatTargeting.SelectNearestHostileTarget(source, nearbyCandidates, range);
+                if (target == null)
+                    continue;
+
+                bool preserveLegacyState = source.EncounterState == TrafficEncounterState.InterceptingPirate;
+                source.SetFactionCombatTarget(target, preserveLegacyState);
+                log?.Invoke($"[TRAFFIC] Faction combat: {source.Name} ({source.FactionId}) targeting {target.Name} ({target.FactionId}).");
+            }
+        }
+
+        private static FactionCombatCell GetFactionCombatCell(Vector3 position, float cellSize)
+        {
+            return new FactionCombatCell(
+                (int)Math.Floor(position.X / cellSize),
+                (int)Math.Floor(position.Y / cellSize),
+                (int)Math.Floor(position.Z / cellSize));
+        }
+
+        private readonly record struct FactionCombatCell(int X, int Y, int Z);
 
         private static Vector3 GetTraderEscapePosition(TrafficZoneConfig zone, NpcShip trader, Vector3 attackerPosition)
         {
@@ -764,6 +880,12 @@ namespace Roguelancer
             }
 
             runtime.ActiveShips.Remove(ship);
+            foreach (NpcShip other in _npcShips)
+            {
+                if (other != null && other.FactionCombatTarget == ship)
+                    other.ClearFactionCombatTarget();
+            }
+
             _shipRuntimes.Remove(ship);
             if (_onNpcDestroyed != null)
             {

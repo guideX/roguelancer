@@ -242,6 +242,7 @@ namespace Roguelancer {
         private readonly bool _runFactionCombatConsequencesSmoke;
         private readonly bool _runFactionReputationRippleSmoke;
         private readonly bool _runFactionDispositionSmoke;
+        private readonly bool _runNpcFactionCombatSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runPoliceEnforcementSmoke;
         private readonly bool _runTrafficSmoke;
@@ -331,6 +332,7 @@ namespace Roguelancer {
             _runFactionCombatConsequencesSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-consequences-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionReputationRippleSmoke = args?.Any(arg => string.Equals(arg, "--faction-reputation-ripple-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDispositionSmoke = args?.Any(arg => string.Equals(arg, "--faction-disposition-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runNpcFactionCombatSmoke = args?.Any(arg => string.Equals(arg, "--npc-faction-combat-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPoliceEnforcementSmoke = args?.Any(arg => string.Equals(arg, "--police-enforcement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1294,6 +1296,11 @@ namespace Roguelancer {
                 var result = RunFactionDispositionSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runNpcFactionCombatSmoke)
+            {
+                var result = RunNpcFactionCombatSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPoliceEnforcementSmoke)
             {
                 var result = RunPoliceEnforcementSmokeTest();
@@ -1441,6 +1448,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("faction combat consequences smoke", RunFactionCombatConsequencesSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction reputation ripple smoke", RunFactionReputationRippleSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction disposition smoke", RunFactionDispositionSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("NPC faction combat smoke", RunNpcFactionCombatSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("police enforcement smoke", RunPoliceEnforcementSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1676,6 +1684,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[FACTION DISPOSITION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunNpcFactionCombatSmokeTest()
+        {
+            try
+            {
+                return new NpcFactionCombatSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NPC FACTION COMBAT SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }

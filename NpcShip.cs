@@ -24,7 +24,8 @@ namespace Roguelancer
         Fleeing,
         AttackingTrader,
         AttackingPlayer,
-        InterceptingPirate
+        InterceptingPirate,
+        AttackingFactionNpc
     }
 
     public enum NpcPlayerTargetReason
@@ -57,6 +58,7 @@ namespace Roguelancer
         public TrafficEncounterState EncounterState { get; private set; } = TrafficEncounterState.Cruising;
         public Vector3? EncounterTargetPosition { get; private set; }
         public Vector3? EncounterEscapePosition { get; private set; }
+        public NpcShip FactionCombatTarget { get; private set; }
         public bool IsTrafficEngaged => EncounterState != TrafficEncounterState.Cruising;
         public NpcPlayerTargetReason PlayerTargetReason { get; private set; } = NpcPlayerTargetReason.None;
         public bool HasPlayerTarget => EncounterState == TrafficEncounterState.AttackingPlayer && PlayerTargetReason != NpcPlayerTargetReason.None;
@@ -208,6 +210,11 @@ namespace Roguelancer
             Vector3? escapePosition = null,
             NpcPlayerTargetReason playerTargetReason = NpcPlayerTargetReason.None)
         {
+            if (encounterState != TrafficEncounterState.AttackingFactionNpc)
+            {
+                FactionCombatTarget = null;
+            }
+
             EncounterState = encounterState;
             EncounterTargetPosition = targetPosition;
             EncounterEscapePosition = escapePosition;
@@ -221,12 +228,57 @@ namespace Roguelancer
             SetEncounterState(TrafficEncounterState.AttackingPlayer, targetPosition, null, reason);
         }
 
+        public bool SetFactionCombatTarget(NpcShip target, bool preserveExistingEncounterState = false)
+        {
+            if (!NpcFactionCombatTargeting.IsValidHostileTarget(this, target))
+                return false;
+
+            FactionCombatTarget = target;
+            if (!preserveExistingEncounterState || EncounterState == TrafficEncounterState.Cruising ||
+                EncounterState == TrafficEncounterState.AttackingFactionNpc)
+            {
+                EncounterState = TrafficEncounterState.AttackingFactionNpc;
+                EncounterTargetPosition = target.Position;
+                EncounterEscapePosition = null;
+                PlayerTargetReason = NpcPlayerTargetReason.None;
+            }
+            else
+            {
+                // Legacy police/pirate encounter states remain authoritative
+                // for movement while the explicit faction target drives NPC
+                // weapon selection.
+                EncounterTargetPosition = target.Position;
+            }
+
+            return true;
+        }
+
+        public bool HasValidFactionCombatTarget(float? maxDistance = null) =>
+            NpcFactionCombatTargeting.IsValidHostileTarget(this, FactionCombatTarget, maxDistance);
+
+        public void ClearFactionCombatTarget()
+        {
+            bool wasFactionCombat = EncounterState == TrafficEncounterState.AttackingFactionNpc;
+            bool wasLegacyNpcCombat = EncounterState == TrafficEncounterState.AttackingTrader ||
+                EncounterState == TrafficEncounterState.InterceptingPirate;
+
+            FactionCombatTarget = null;
+            if (wasFactionCombat || wasLegacyNpcCombat)
+            {
+                EncounterState = TrafficEncounterState.Cruising;
+                EncounterTargetPosition = null;
+                EncounterEscapePosition = null;
+                PlayerTargetReason = NpcPlayerTargetReason.None;
+            }
+        }
+
         public void ClearEncounterState()
         {
             EncounterState = TrafficEncounterState.Cruising;
             EncounterTargetPosition = null;
             EncounterEscapePosition = null;
             PlayerTargetReason = NpcPlayerTargetReason.None;
+            FactionCombatTarget = null;
         }
 
         public FactionDisposition GetPlayerDisposition(ReputationManager reputationManager) =>
@@ -282,6 +334,15 @@ namespace Roguelancer
                 damageSmoke?.Emit(Position - Forward * 15, Velocity, damageStage);
             }
 
+            if (FactionCombatTarget != null && !HasValidFactionCombatTarget(TrafficActivationRange))
+            {
+                ClearFactionCombatTarget();
+            }
+            else if (FactionCombatTarget != null)
+            {
+                EncounterTargetPosition = FactionCombatTarget.Position;
+            }
+
             UpdatePlayerDispositionTarget(playerShip, reputationManager);
 
             switch (EncounterState)
@@ -292,6 +353,7 @@ namespace Roguelancer
                 case TrafficEncounterState.AttackingTrader:
                 case TrafficEncounterState.AttackingPlayer:
                 case TrafficEncounterState.InterceptingPirate:
+                case TrafficEncounterState.AttackingFactionNpc:
                     UpdateEngagementBehavior(deltaTime);
                     return;
             }
