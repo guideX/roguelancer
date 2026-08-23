@@ -25,6 +25,7 @@ namespace Roguelancer
     /// </summary>
     public sealed class TemporaryHostilityManager
     {
+        public const string PlayerAggressionReason = "player attack";
         public const float DefaultDurationSeconds = 60f;
         public const float MinimumDurationSeconds = 30f;
         public const float MaximumDurationSeconds = 120f;
@@ -35,6 +36,7 @@ namespace Roguelancer
             public string FactionId { get; init; } = FactionManager.NeutralCivilians;
             public string Reason { get; set; } = string.Empty;
             public float RemainingSeconds { get; set; }
+            public bool IsPlayerCaused { get; set; }
         }
 
         private readonly Dictionary<string, ActiveEntry> _active = new(StringComparer.OrdinalIgnoreCase);
@@ -68,10 +70,19 @@ namespace Roguelancer
                 : 0f;
         }
 
+        public bool IsPlayerCausedByAggression(string? factionId)
+        {
+            string normalized = FactionManager.NormalizeFactionId(factionId);
+            return _active.TryGetValue(normalized, out ActiveEntry? entry) &&
+                entry.RemainingSeconds > 0f &&
+                (entry.IsPlayerCaused || string.Equals(entry.Reason, PlayerAggressionReason, StringComparison.OrdinalIgnoreCase));
+        }
+
         public bool RecordHostileAction(
             string? factionId,
             string reason = "recent hostile action",
-            float durationSeconds = DefaultDurationSeconds)
+            float durationSeconds = DefaultDurationSeconds,
+            bool causedByPlayerAggression = false)
         {
             string normalized = FactionManager.NormalizeFactionId(factionId);
             float boundedDuration = Math.Clamp(
@@ -96,8 +107,11 @@ namespace Roguelancer
                 {
                     FactionId = normalized,
                     Reason = string.IsNullOrWhiteSpace(reason) ? "recent hostile action" : reason.Trim(),
-                    RemainingSeconds = boundedDuration
+                    RemainingSeconds = boundedDuration,
+                    IsPlayerCaused = causedByPlayerAggression || string.Equals(reason, PlayerAggressionReason, StringComparison.OrdinalIgnoreCase)
                 };
+                if (entry.IsPlayerCaused)
+                    entry.Reason = PlayerAggressionReason;
                 _active[normalized] = entry;
                 Console.WriteLine($"[HOSTILITY] {normalized} active for {entry.RemainingSeconds:0.0}s");
                 OnChanged?.Invoke(new TemporaryHostilityChange
@@ -111,7 +125,12 @@ namespace Roguelancer
             }
 
             entry.RemainingSeconds = boundedDuration;
-            if (!string.IsNullOrWhiteSpace(reason))
+            if (causedByPlayerAggression || string.Equals(reason, PlayerAggressionReason, StringComparison.OrdinalIgnoreCase))
+            {
+                entry.IsPlayerCaused = true;
+                entry.Reason = PlayerAggressionReason;
+            }
+            else if (!entry.IsPlayerCaused && !string.IsNullOrWhiteSpace(reason))
                 entry.Reason = reason.Trim();
             Console.WriteLine($"[HOSTILITY] {normalized} refreshed for {entry.RemainingSeconds:0.0}s");
             return false;
@@ -174,7 +193,8 @@ namespace Roguelancer
                 {
                     FactionId = normalized,
                     Reason = string.IsNullOrWhiteSpace(snapshot.Reason) ? "recent hostile action" : snapshot.Reason.Trim(),
-                    RemainingSeconds = Math.Clamp(snapshot.RemainingSeconds, 0f, MaximumDurationSeconds)
+                    RemainingSeconds = Math.Clamp(snapshot.RemainingSeconds, 0f, MaximumDurationSeconds),
+                    IsPlayerCaused = string.Equals(snapshot.Reason, PlayerAggressionReason, StringComparison.OrdinalIgnoreCase)
                 };
             }
         }

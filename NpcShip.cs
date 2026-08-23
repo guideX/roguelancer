@@ -68,16 +68,40 @@ namespace Roguelancer
         public bool IsDestroyed => Hull.IsDestroyed;
         public bool WasDamagedByPlayer { get; private set; }
         public int PlayerDamageSequence { get; private set; }
+        public bool HasPlayerAggressionProvenance { get; private set; }
+        public bool WasFactionHostileBeforePlayerAggression { get; private set; }
 
         /// <summary>
         /// Marks the authoritative player damage source used by bounded
-        /// mission kill attribution. It is intentionally one-way for the
-        /// lifetime of an NPC instance.
+        /// combat consequence attribution. It is intentionally one-way for
+        /// the lifetime of an NPC instance.
         /// </summary>
-        public void MarkDamagedByPlayer()
+        public bool MarkDamagedByPlayer(float damage = 1f)
         {
+            if (IsDestroyed || float.IsNaN(damage) || float.IsInfinity(damage) || damage <= 0f)
+                return false;
+
             WasDamagedByPlayer = true;
             PlayerDamageSequence = PlayerDamageSequence == int.MaxValue ? 1 : PlayerDamageSequence + 1;
+            return true;
+        }
+
+        internal bool CapturePlayerAggressionProvenance(bool wasFactionHostile)
+        {
+            if (HasPlayerAggressionProvenance)
+                return false;
+
+            HasPlayerAggressionProvenance = true;
+            WasFactionHostileBeforePlayerAggression = wasFactionHostile;
+            return true;
+        }
+
+        internal void ResetPlayerCombatAttribution()
+        {
+            WasDamagedByPlayer = false;
+            PlayerDamageSequence = 0;
+            HasPlayerAggressionProvenance = false;
+            WasFactionHostileBeforePlayerAggression = false;
         }
 
         // Shield system

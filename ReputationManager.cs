@@ -84,14 +84,13 @@ namespace Roguelancer
 
         private readonly FactionManager _factionManager;
         private readonly Dictionary<string, float> _standing = new(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<NpcShip> _processedPlayerKills = new();
-        private readonly Dictionary<NpcShip, int> _observedPlayerDamage = new();
-
         public TemporaryHostilityManager TemporaryHostility { get; } = new();
+        public FactionCombatConsequenceService CombatConsequences { get; }
 
         public ReputationManager(FactionManager factionManager)
         {
             _factionManager = factionManager ?? new FactionManager();
+            CombatConsequences = new FactionCombatConsequenceService(this);
             ResetToNewGame();
         }
 
@@ -153,20 +152,7 @@ namespace Roguelancer
         /// without producing duplicate work for the same hit.
         /// </summary>
         public bool RecordPlayerDamage(NpcShip damagedShip)
-        {
-            if (damagedShip == null || !damagedShip.WasDamagedByPlayer || damagedShip.PlayerDamageSequence <= 0)
-                return false;
-
-            if (_observedPlayerDamage.TryGetValue(damagedShip, out int observedSequence) &&
-                observedSequence >= damagedShip.PlayerDamageSequence)
-                return false;
-
-            _observedPlayerDamage[damagedShip] = damagedShip.PlayerDamageSequence;
-            TemporaryHostility.RecordHostileAction(
-                damagedShip.FactionId,
-                "player attack");
-            return true;
-        }
+            => CombatConsequences.RecordPlayerDamage(damagedShip);
 
         /// <summary>
         /// Sets a standing directly for tests, migration, and controlled setup.
@@ -219,27 +205,12 @@ namespace Roguelancer
         /// award repeated penalties.
         /// </summary>
         public ReputationChangeResult? ApplyPlayerShipDestroyed(NpcShip destroyedShip)
-        {
-            if (destroyedShip == null || !destroyedShip.WasDamagedByPlayer)
-                return null;
-
-            // Destruction callbacks can run before the normal frame-level
-            // attribution sweep. Ensure the attack still activates hostility.
-            RecordPlayerDamage(destroyedShip);
-            if (!_processedPlayerKills.Add(destroyedShip))
-                return null;
-
-            return AdjustReputation(
-                destroyedShip.FactionId,
-                -0.10f,
-                ReputationChangeReason.FactionShipDestroyed);
-        }
+            => CombatConsequences.ApplyPlayerShipDestroyed(destroyedShip);
 
         public void ResetToNewGame()
         {
             _standing.Clear();
-            _processedPlayerKills.Clear();
-            _observedPlayerDamage.Clear();
+            CombatConsequences.Reset();
             TemporaryHostility.Clear();
 
             foreach (Faction faction in _factionManager.Factions.Values)

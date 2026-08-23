@@ -123,6 +123,7 @@ namespace Roguelancer {
         private ConfigurationManager _config;
         private FactionManager _factionManager;
         private ReputationManager _reputationManager;
+        private FactionCombatConsequenceService _factionCombatConsequences;
         /// <summary>
         /// Lighting Direction
         /// </summary>
@@ -238,6 +239,7 @@ namespace Roguelancer {
         private readonly bool _runFactionAccessSmoke;
         private readonly bool _runFactionDockingSmoke;
         private readonly bool _runFactionConsequencesSmoke;
+        private readonly bool _runFactionCombatConsequencesSmoke;
         private readonly bool _runFactionDispositionSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runPoliceEnforcementSmoke;
@@ -313,6 +315,7 @@ namespace Roguelancer {
             _config = new ConfigurationManager();
             _factionManager = new FactionManager();
             _reputationManager = new ReputationManager(_factionManager);
+            _factionCombatConsequences = _reputationManager.CombatConsequences;
             _runMarketSmoke = args?.Any(arg => string.Equals(arg, "--market-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runCommodityMarketSmoke = args?.Any(arg => string.Equals(arg, "--commodity-market-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMissileSmoke = args?.Any(arg => string.Equals(arg, "--missile-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -324,6 +327,7 @@ namespace Roguelancer {
             _runFactionAccessSmoke = args?.Any(arg => string.Equals(arg, "--faction-access-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDockingSmoke = args?.Any(arg => string.Equals(arg, "--faction-docking-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionConsequencesSmoke = args?.Any(arg => string.Equals(arg, "--faction-consequences-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runFactionCombatConsequencesSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-consequences-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDispositionSmoke = args?.Any(arg => string.Equals(arg, "--faction-disposition-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPoliceEnforcementSmoke = args?.Any(arg => string.Equals(arg, "--police-enforcement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1273,6 +1277,11 @@ namespace Roguelancer {
                 var result = RunFactionConsequencesSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runFactionCombatConsequencesSmoke)
+            {
+                var result = RunFactionCombatConsequencesSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runFactionDispositionSmoke)
             {
                 var result = RunFactionDispositionSmokeTest();
@@ -1422,6 +1431,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("faction access smoke", RunFactionAccessSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction docking smoke", RunFactionDockingSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction consequences smoke", RunFactionConsequencesSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("faction combat consequences smoke", RunFactionCombatConsequencesSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction disposition smoke", RunFactionDispositionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("police enforcement smoke", RunPoliceEnforcementSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1619,6 +1629,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[FACTION CONSEQUENCES SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunFactionCombatConsequencesSmokeTest()
+        {
+            try
+            {
+                return new FactionCombatConsequencesSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FACTION COMBAT CONSEQUENCES SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2613,7 +2636,7 @@ namespace Roguelancer {
             if (_reputationManager != null)
             {
                 foreach (NpcShip npc in _npcShips)
-                    _reputationManager.RecordPlayerDamage(npc);
+                    _factionCombatConsequences.RecordPlayerDamage(npc);
             }
 
             // Update mission manager
@@ -2788,8 +2811,8 @@ namespace Roguelancer {
         }
 
         private void HandleNpcDestroyed(NpcShip destroyedShip) {
-            _reputationManager?.RecordPlayerDamage(destroyedShip);
-            _reputationManager?.ApplyPlayerShipDestroyed(destroyedShip);
+            _factionCombatConsequences?.RecordPlayerDamage(destroyedShip);
+            _factionCombatConsequences?.ApplyPlayerShipDestroyed(destroyedShip);
 
             // Trigger explosion effect
             _explosionParticles.TriggerExplosion(destroyedShip.Position, destroyedShip.Velocity, intensity: 1.0f);

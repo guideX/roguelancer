@@ -71,9 +71,9 @@ namespace Roguelancer
             Check("docking returns after temporary expiry", DockingReturnsAfterExpiry);
             Check("persistent Hostile docking stays denied", PersistentHostileDockingDenied);
             Check("kill activates temporary hostility", KillActivatesHostility);
-            Check("kill penalty is exactly -0.10", KillPenaltyIsExactlyPointOne);
+            Check("combat aggression plus kill penalty is exactly -0.15", CombatKillPenaltyIsExactlyPointFifteen);
             Check("kill penalty applies once", KillPenaltyAppliesOnce);
-            Check("secondary ripple applies once", KillRippleAppliesOnce);
+            Check("combat penalty does not ripple to independent factions", CombatPenaltyDoesNotRipple);
             Check("temporary hostility remains after kill", KillKeepsHostility);
             Check("kill timer eventually clears", KillTimerClears);
             Check("persistent standing remains after timer clears", KillStandingRemains);
@@ -94,7 +94,7 @@ namespace Roguelancer
             Check("docking authority uses effective query", () => typeof(ReputationManager).GetMethod(nameof(ReputationManager.CanDockWithFaction)) != null);
             Check("temporary authority uses simulation update", () => typeof(TemporaryHostilityManager).GetMethod(nameof(TemporaryHostilityManager.Update)) != null);
             Check("temporary authority has no wall-clock dependency", () => !typeof(TemporaryHostilityManager).GetMethods().Any(method => method.Name.Contains("DateTime", StringComparison.OrdinalIgnoreCase)));
-            Check("no attack-level persistent penalty is applied", AttackLeavesStandingUnchanged);
+            Check("attack-level persistent penalty is applied once", AttackPenaltyIsExact);
             Check("repeated damage does not repeat kill penalty", RepeatedDamageStillSingleKillPenalty);
             Check("system-transition policy is snapshot-compatible", TemporaryHostilitySnapshotHasRemainingDuration);
             Check("new-game profile remains playable", NewGameProfileRemainsDockable);
@@ -468,13 +468,13 @@ namespace Roguelancer
             return reputation.IsTemporarilyHostile(FactionManager.LibertyPolice);
         }
 
-        private static bool KillPenaltyIsExactlyPointOne()
+        private static bool CombatKillPenaltyIsExactlyPointFifteen()
         {
             ReputationManager reputation = NewPoliceReputation();
             NpcShip target = CreatePoliceShip();
             target.MarkDamagedByPlayer();
             reputation.ApplyPlayerShipDestroyed(target);
-            return Nearly(reputation.GetStanding(FactionManager.LibertyPolice), 0.20f);
+            return Nearly(reputation.GetStanding(FactionManager.LibertyPolice), 0.15f);
         }
 
         private static bool KillPenaltyAppliesOnce()
@@ -484,10 +484,10 @@ namespace Roguelancer
             target.MarkDamagedByPlayer();
             reputation.ApplyPlayerShipDestroyed(target);
             reputation.ApplyPlayerShipDestroyed(target);
-            return Nearly(reputation.GetStanding(FactionManager.LibertyPolice), 0.20f);
+            return Nearly(reputation.GetStanding(FactionManager.LibertyPolice), 0.15f);
         }
 
-        private static bool KillRippleAppliesOnce()
+        private static bool CombatPenaltyDoesNotRipple()
         {
             ReputationManager reputation = NewPoliceReputation();
             float before = reputation.GetStanding(FactionManager.LibertyNavy);
@@ -496,7 +496,7 @@ namespace Roguelancer
             reputation.ApplyPlayerShipDestroyed(target);
             float after = reputation.GetStanding(FactionManager.LibertyNavy);
             reputation.ApplyPlayerShipDestroyed(target);
-            return Nearly(before - after, 0.03f) && Nearly(after, reputation.GetStanding(FactionManager.LibertyNavy));
+            return Nearly(before, after) && Nearly(after, reputation.GetStanding(FactionManager.LibertyNavy));
         }
 
         private static bool KillKeepsHostility()
@@ -525,7 +525,7 @@ namespace Roguelancer
             target.MarkDamagedByPlayer();
             reputation.ApplyPlayerShipDestroyed(target);
             reputation.UpdateTemporaryHostility(60f);
-            return Nearly(reputation.GetStanding(FactionManager.LibertyPolice), 0.20f);
+            return Nearly(reputation.GetStanding(FactionManager.LibertyPolice), 0.15f);
         }
 
         private static bool TemporaryHostilitySaveRoundTrip()
@@ -640,14 +640,14 @@ namespace Roguelancer
             return cleared && !reputation.IsTemporarilyHostile(FactionManager.LibertyPolice);
         }
 
-        private static bool AttackLeavesStandingUnchanged()
+        private static bool AttackPenaltyIsExact()
         {
             ReputationManager reputation = NewReputation(0.30f);
             NpcShip target = CreatePoliceShip();
             float before = reputation.GetStanding(FactionManager.LibertyPolice);
             target.MarkDamagedByPlayer();
             reputation.RecordPlayerDamage(target);
-            return Nearly(before, reputation.GetStanding(FactionManager.LibertyPolice));
+            return Nearly(before - reputation.GetStanding(FactionManager.LibertyPolice), 0.03f);
         }
 
         private static bool RepeatedDamageStillSingleKillPenalty()
@@ -660,7 +660,7 @@ namespace Roguelancer
             reputation.RecordPlayerDamage(target);
             reputation.ApplyPlayerShipDestroyed(target);
             reputation.ApplyPlayerShipDestroyed(target);
-            return Nearly(reputation.GetStanding(FactionManager.LibertyPolice), 0.20f);
+            return Nearly(reputation.GetStanding(FactionManager.LibertyPolice), 0.15f);
         }
 
         private static bool TemporaryHostilitySnapshotHasRemainingDuration()

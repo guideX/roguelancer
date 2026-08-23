@@ -68,7 +68,7 @@ namespace Roguelancer
             Check("police tension is not hostile at new game", () => !profileManager.IsHostile(FactionManager.LibertyPolice), ref passed, ref failed);
             Check("new game police docking remains available", () => profileManager.CanDockWithFaction(FactionManager.LibertyPolice), ref passed, ref failed);
             Check("new game resets modified values", () => NewGameReset(), ref passed, ref failed);
-            Check("new game resets kill deduplication", () => KillDedupResets(), ref passed, ref failed);
+            Check("new game resets combat attribution", () => KillDedupResets(), ref passed, ref failed);
 
             Check("event fires for direct mutation", () => EventProof(out ReputationChangeResult change) && change != null && !change.IsSecondaryEffect, ref passed, ref failed);
             Check("event contains old value", () => EventProof(out ReputationChangeResult change) && Nearly(change.OldValue, 0f), ref passed, ref failed);
@@ -230,10 +230,10 @@ namespace Roguelancer
             NpcShip target = new("Target", Vector3.Zero, Vector3.Zero, 1f, 1f, FactionManager.LibertyPolice);
             target.MarkDamagedByPlayer();
             manager.ApplyPlayerShipDestroyed(target);
-            float afterKill = manager.GetStanding(FactionManager.LibertyPolice);
             manager.ResetToNewGame();
-            manager.ApplyPlayerShipDestroyed(target);
-            return manager.GetStanding(FactionManager.LibertyPolice) == afterKill;
+            return manager.GetStanding(FactionManager.LibertyPolice) == -0.25f &&
+                !target.WasDamagedByPlayer && !target.HasPlayerAggressionProvenance &&
+                !manager.IsTemporarilyHostile(FactionManager.LibertyPolice);
         }
 
         private static bool EventProof(out ReputationChangeResult change)

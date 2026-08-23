@@ -272,7 +272,7 @@ namespace Roguelancer
                 }
 
                 float hullDamage = damage;
-                npc.MarkDamagedByPlayer();
+                npc.MarkDamagedByPlayer(damage);
                 if (npc.Shields != null)
                 {
                     hullDamage = npc.Shields.AbsorbDamage(damage);

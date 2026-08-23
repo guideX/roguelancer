@@ -715,11 +715,14 @@ namespace Roguelancer
                 
                 if (distance < shipRadius)
                 {
-                    playerTarget?.MarkDamagedByPlayer();
                     // Hit! Apply damage based on weapon type
                     float damage = p.Damage > 0f
                         ? p.Damage
                         : (_weaponStats.TryGetValue(p.Type, out var stats) ? stats.WeaponDamage : 0f);
+                    if (damage > 0f)
+                    {
+                        playerTarget?.MarkDamagedByPlayer(damage);
+                    }
                     float hullBefore = hull.CurrentHull;
                     
                     // Route damage through shields first
@@ -855,7 +858,7 @@ namespace Roguelancer
         {
             if (target is NpcShip npcTarget)
             {
-                npcTarget.MarkDamagedByPlayer();
+                npcTarget.MarkDamagedByPlayer(hullDamage);
             }
 
             // Get hull, energy, and shield properties via reflection
