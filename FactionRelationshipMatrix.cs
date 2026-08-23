@@ -1,13 +1,39 @@
+#nullable enable
+
 using System;
 using System.Collections.Generic;
 
 namespace Roguelancer
 {
+    public enum FactionRelationshipKind
+    {
+        Neutral,
+        Allied,
+        Hostile
+    }
+
+    public readonly record struct FactionRelationshipDefinition(
+        string SourceFactionId,
+        string TargetFactionId,
+        FactionRelationshipKind Kind);
+
     /// <summary>
-    /// Defines how reputation changes ripple across allied and opposed factions.
+    /// Stores the pre-existing broad reputation-ripple coefficients used by
+    /// the original reputation foundation. Phase 31 combat consequences use
+    /// the typed first-order relationship definitions below instead, so a
+    /// mission or bribe cannot accidentally award an enemy-kill reward.
     /// </summary>
     public static class FactionRelationshipMatrix
     {
+        private static readonly FactionRelationshipDefinition[] CombatRelationships =
+        {
+            new(FactionManager.LibertyPolice, FactionManager.LibertyRogues, FactionRelationshipKind.Hostile),
+            new(FactionManager.LibertyRogues, FactionManager.LibertyPolice, FactionRelationshipKind.Hostile)
+        };
+
+        private static readonly IReadOnlyList<FactionRelationshipDefinition> EmptyCombatRelationships =
+            Array.Empty<FactionRelationshipDefinition>();
+
         private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, float>> _matrix
             = new Dictionary<string, IReadOnlyDictionary<string, float>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -78,6 +104,42 @@ namespace Roguelancer
 
         private static readonly IReadOnlyDictionary<string, float> EmptyRelationships
             = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Returns the static faction-to-faction relationship used by the
+        /// Phase 31 combat policy. The configured Police/Rogue pair is stored
+        /// in both directions; unknown and unconfigured pairs are Neutral.
+        /// This is faction metadata, not player reputation and not persisted.
+        /// </summary>
+        public static FactionRelationshipKind GetRelationship(string? sourceFactionId, string? targetFactionId)
+        {
+            string source = FactionManager.NormalizeFactionId(sourceFactionId);
+            string target = FactionManager.NormalizeFactionId(targetFactionId);
+
+            foreach (FactionRelationshipDefinition relationship in CombatRelationships)
+            {
+                if (relationship.SourceFactionId.Equals(source, StringComparison.OrdinalIgnoreCase) &&
+                    relationship.TargetFactionId.Equals(target, StringComparison.OrdinalIgnoreCase))
+                {
+                    return relationship.Kind;
+                }
+            }
+
+            return FactionRelationshipKind.Neutral;
+        }
+
+        public static IReadOnlyList<FactionRelationshipDefinition> GetCombatRelationshipsFrom(string? sourceFactionId)
+        {
+            string source = FactionManager.NormalizeFactionId(sourceFactionId);
+            List<FactionRelationshipDefinition> result = new();
+            foreach (FactionRelationshipDefinition relationship in CombatRelationships)
+            {
+                if (relationship.SourceFactionId.Equals(source, StringComparison.OrdinalIgnoreCase))
+                    result.Add(relationship);
+            }
+
+            return result.Count == 0 ? EmptyCombatRelationships : result;
+        }
 
         public static IReadOnlyDictionary<string, float> GetRippleTargets(string? factionId)
         {

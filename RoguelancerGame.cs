@@ -240,6 +240,7 @@ namespace Roguelancer {
         private readonly bool _runFactionDockingSmoke;
         private readonly bool _runFactionConsequencesSmoke;
         private readonly bool _runFactionCombatConsequencesSmoke;
+        private readonly bool _runFactionReputationRippleSmoke;
         private readonly bool _runFactionDispositionSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runPoliceEnforcementSmoke;
@@ -328,6 +329,7 @@ namespace Roguelancer {
             _runFactionDockingSmoke = args?.Any(arg => string.Equals(arg, "--faction-docking-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionConsequencesSmoke = args?.Any(arg => string.Equals(arg, "--faction-consequences-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatConsequencesSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-consequences-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runFactionReputationRippleSmoke = args?.Any(arg => string.Equals(arg, "--faction-reputation-ripple-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDispositionSmoke = args?.Any(arg => string.Equals(arg, "--faction-disposition-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPoliceEnforcementSmoke = args?.Any(arg => string.Equals(arg, "--police-enforcement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1282,6 +1284,11 @@ namespace Roguelancer {
                 var result = RunFactionCombatConsequencesSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runFactionReputationRippleSmoke)
+            {
+                var result = RunFactionReputationRippleSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runFactionDispositionSmoke)
             {
                 var result = RunFactionDispositionSmokeTest();
@@ -1432,6 +1439,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("faction docking smoke", RunFactionDockingSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction consequences smoke", RunFactionConsequencesSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat consequences smoke", RunFactionCombatConsequencesSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("faction reputation ripple smoke", RunFactionReputationRippleSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction disposition smoke", RunFactionDispositionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("police enforcement smoke", RunPoliceEnforcementSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1642,6 +1650,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[FACTION COMBAT CONSEQUENCES SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunFactionReputationRippleSmokeTest()
+        {
+            try
+            {
+                return new FactionReputationRippleSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FACTION REPUTATION RIPPLE SMOKE] ERROR: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2853,8 +2874,24 @@ namespace Roguelancer {
 
         private void HandleReputationChanged(ReputationChangeResult change)
         {
-            if (change == null || change.IsSecondaryEffect)
+            if (change == null)
                 return;
+
+            if (change.IsSecondaryEffect)
+            {
+                string sourceFactionName = string.IsNullOrWhiteSpace(change.SourceFactionId)
+                    ? string.Empty
+                    : _reputationManager?.FactionManager.GetFaction(change.SourceFactionId).DisplayName ??
+                        FactionManager.GetFactionDisplayName(change.SourceFactionId);
+                string sourceSuffix = string.IsNullOrWhiteSpace(sourceFactionName)
+                    ? string.Empty
+                    : $" for destroying {sourceFactionName}";
+                string secondaryDirection = change.Increased ? "increased" : "decreased";
+                _notificationManager?.ShowMessage(
+                    $"{change.FactionDisplayName} reputation {secondaryDirection}: {ReputationManager.FormatStanding(change.Delta)}{sourceSuffix}",
+                    3f);
+                return;
+            }
 
             if (change.Reason == ReputationChangeReason.ReputationBribe)
             {

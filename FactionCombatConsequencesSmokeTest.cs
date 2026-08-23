@@ -39,8 +39,8 @@ internal sealed class FactionCombatConsequencesSmokeTest
         Check("repeated unlawful kills reach permanent hostility", RepeatedKillsReachPermanentHostility);
         Check("permanent hostility survives temporary expiry", PermanentHostilitySurvivesExpiry);
         Check("new Police NPC observes saved permanent hostility", NewlySpawnedPoliceObservesHostility);
-        Check("Police combat leaves Rogue standing unchanged", PoliceCombatDoesNotRippleToRogues);
-        Check("Rogue combat affects only Rogue standing", RogueCombatIsIndependent);
+        Check("Police combat rewards hostile Rogue relationship", PoliceCombatRewardsRogues);
+        Check("Rogue combat rewards hostile Police relationship", RogueCombatIsIndependent);
         Check("Phase 28 refusal preserves defensive-fire provenance", EnforcementRefusalIsSelfDefense);
         Check("bribe recovers standing across hostile threshold", BribeRecoversCombatStanding);
         Check("bribe does not erase active temporary hostility", BribePreservesActiveHostility);
@@ -292,14 +292,16 @@ internal sealed class FactionCombatConsequencesSmokeTest
             spawnedPolice.GetPlayerDisposition(reputation) == FactionDisposition.Hostile;
     }
 
-    private static bool PoliceCombatDoesNotRippleToRogues()
+    private static bool PoliceCombatRewardsRogues()
     {
         ReputationManager reputation = NewReputation(0f);
         float rogueBefore = reputation.GetStanding(FactionManager.LibertyRogues);
         NpcShip police = CreateNpc(FactionManager.LibertyPolice);
         police.MarkDamagedByPlayer(75f);
         reputation.CombatConsequences.ApplyPlayerShipDestroyed(police);
-        return Nearly(reputation.GetStanding(FactionManager.LibertyRogues), rogueBefore);
+        return Nearly(
+            reputation.GetStanding(FactionManager.LibertyRogues),
+            rogueBefore + FactionCombatConsequenceService.EnemyKillReputationReward);
     }
 
     private static bool RogueCombatIsIndependent()
@@ -310,7 +312,9 @@ internal sealed class FactionCombatConsequencesSmokeTest
         rogue.MarkDamagedByPlayer(75f);
         reputation.CombatConsequences.ApplyPlayerShipDestroyed(rogue);
         return Nearly(reputation.GetStanding(FactionManager.LibertyRogues), 0.20f) &&
-            Nearly(reputation.GetStanding(FactionManager.LibertyPolice), policeBefore);
+            Nearly(
+                reputation.GetStanding(FactionManager.LibertyPolice),
+                policeBefore + FactionCombatConsequenceService.EnemyKillReputationReward);
     }
 
     private static bool EnforcementRefusalIsSelfDefense()

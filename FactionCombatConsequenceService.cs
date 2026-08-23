@@ -15,6 +15,8 @@ public sealed class FactionCombatConsequenceService
     public const float InitialAggressionReputationPenalty = -0.03f;
     public const float NeutralNpcDestructionReputationPenalty = -0.12f;
     public const float HostileNpcDestructionReputationPenalty = 0f;
+    public const float EnemyKillReputationReward = 0.04f;
+    public const float AlliedKillReputationPenalty = -0.04f;
     public const float TemporaryHostilityDurationSeconds = TemporaryHostilityManager.DefaultDurationSeconds;
 
     private readonly ReputationManager _reputationManager;
@@ -77,13 +79,40 @@ public sealed class FactionCombatConsequenceService
         float penalty = destroyedShip.WasFactionHostileBeforePlayerAggression
             ? HostileNpcDestructionReputationPenalty
             : NeutralNpcDestructionReputationPenalty;
-        if (Math.Abs(penalty) < ReputationManager.Precision)
-            return null;
 
-        return _reputationManager.AdjustReputationDirect(
-            destroyedShip.FactionId,
-            penalty,
-            ReputationChangeReason.FactionShipDestroyed);
+        ReputationChangeResult? primaryChange = Math.Abs(penalty) < ReputationManager.Precision
+            ? null
+            : _reputationManager.AdjustReputationDirect(
+                destroyedShip.FactionId,
+                penalty,
+                ReputationChangeReason.FactionShipDestroyed);
+
+        ApplyRelationshipRipples(destroyedShip.FactionId);
+        return primaryChange;
+    }
+
+    private void ApplyRelationshipRipples(string? destroyedFactionId)
+    {
+        string sourceFactionId = FactionManager.NormalizeFactionId(destroyedFactionId);
+        foreach (FactionRelationshipDefinition relationship in
+            FactionRelationshipMatrix.GetCombatRelationshipsFrom(sourceFactionId))
+        {
+            float delta = relationship.Kind switch
+            {
+                FactionRelationshipKind.Hostile => EnemyKillReputationReward,
+                FactionRelationshipKind.Allied => AlliedKillReputationPenalty,
+                _ => 0f
+            };
+
+            if (Math.Abs(delta) < ReputationManager.Precision)
+                continue;
+
+            _reputationManager.AdjustReputationSecondary(
+                relationship.TargetFactionId,
+                delta,
+                ReputationChangeReason.FactionShipDestroyed,
+                sourceFactionId);
+        }
     }
 
     public void Reset()

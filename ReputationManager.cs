@@ -191,6 +191,28 @@ namespace Roguelancer
             return AdjustReputationInternal(factionId, delta, reason, applySecondary: false, isSecondary: false, sourceFactionId: null);
         }
 
+        /// <summary>
+        /// Applies one already-resolved first-order consequence without
+        /// consulting the legacy general-purpose ripple coefficients. The
+        /// combat consequence service uses this seam for enemy/allied effects
+        /// so every mutation still commits through this authority and emits
+        /// its own faction-specific feedback.
+        /// </summary>
+        public ReputationChangeResult? AdjustReputationSecondary(
+            string? factionId,
+            float delta,
+            ReputationChangeReason reason,
+            string? sourceFactionId)
+        {
+            return AdjustReputationInternal(
+                factionId,
+                delta,
+                reason,
+                applySecondary: false,
+                isSecondary: true,
+                sourceFactionId: FactionManager.NormalizeFactionId(sourceFactionId));
+        }
+
         // Compatibility entry point used by existing gameplay systems.
         public ReputationChangeResult? AddReputation(string? factionId, float delta, string? reason = null) =>
             AdjustReputation(factionId, delta, ParseReason(reason));
