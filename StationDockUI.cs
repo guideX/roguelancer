@@ -443,7 +443,9 @@ namespace Roguelancer
                 }
                 else
                 {
-                    success = _equipmentDealer.TryMountEquipment(selectedEquipment, loadout, out message);
+                    success = playerShip != null
+                        ? _equipmentDealer.TryMountEquipment(selectedEquipment, playerShip, out message)
+                        : _equipmentDealer.TryMountEquipment(selectedEquipment, loadout, out message);
                 }
 
                 if (!string.IsNullOrWhiteSpace(message))
@@ -457,7 +459,16 @@ namespace Roguelancer
             if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.U) &&
                 prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.U))
             {
-                bool success = _equipmentDealer.TryUnmountEquipment(selectedEquipment, loadout, out string message);
+                bool success;
+                string message;
+                if (playerShip != null)
+                {
+                    success = _equipmentDealer.TryUnmountEquipment(selectedEquipment, playerShip, out message);
+                }
+                else
+                {
+                    success = _equipmentDealer.TryUnmountEquipment(selectedEquipment, loadout, out message);
+                }
                 if (!string.IsNullOrWhiteSpace(message))
                 {
                     _notificationManager?.ShowMessage(message, 3f);

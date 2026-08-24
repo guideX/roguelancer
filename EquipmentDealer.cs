@@ -299,7 +299,13 @@ namespace Roguelancer
 
         public bool TryMountEquipment(EquipmentDefinition equipment, Ship playerShip, out string message)
         {
-            return TryMountEquipment(equipment, playerShip?.Loadout, out message);
+            bool success = TryMountEquipment(equipment, playerShip?.Loadout, out message);
+            if (success)
+            {
+                playerShip?.RefreshShieldFromLoadout();
+            }
+
+            return success;
         }
 
         public bool TryUnmountEquipment(EquipmentDefinition equipment, ShipLoadout loadout, out string message)
@@ -325,7 +331,13 @@ namespace Roguelancer
 
         public bool TryUnmountEquipment(EquipmentDefinition equipment, Ship playerShip, out string message)
         {
-            return TryUnmountEquipment(equipment, playerShip?.Loadout, out message);
+            bool success = TryUnmountEquipment(equipment, playerShip?.Loadout, out message);
+            if (success)
+            {
+                playerShip?.RefreshShieldFromLoadout();
+            }
+
+            return success;
         }
 
         public bool TrySellUnequippedEquipment(EquipmentDefinition equipment, PlayerCredits credits, ShipLoadout loadout, out string message)

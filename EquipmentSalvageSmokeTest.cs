@@ -105,6 +105,7 @@ namespace Roguelancer
             CombatSalvageService service = new();
             string name = FindEquipmentDropName(service, "Phase39 Empty Fighter", heavy: false);
             NpcShip ship = CreateNpc(name, StandardFaction, heavy: false);
+            ship.SetLoadout(ShipLoadout.CreateStarterLoadout(false));
             Destroy(ship, NpcDestructionSource.Npc);
             return !service.EvaluateDestruction(ship).Any(drop => drop.IsEquipment)
                 ? Pass()

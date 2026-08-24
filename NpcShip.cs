@@ -254,8 +254,16 @@ namespace Roguelancer
             
             Console.WriteLine($"[NPC] {name} created with Hull: {Hull.CurrentHull}/{Hull.MaxHull}, IsDestroyed: {Hull.IsDestroyed}");
             
-            // Initialize shield system for NPC ships
-            Shields = new ShieldSystem(40f, 10f, 4f); // NPCs get 40 shields, slower regen
+            // NPC shield state is bound to the deterministic canonical loadout
+            // policy. The factory supplies a modest defensive shield even for
+            // unarmed civilian traffic where appropriate.
+            Shields = new ShieldSystem();
+            SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
+                name,
+                FactionId,
+                null,
+                TrafficZoneBehaviorType.LawfulPatrol,
+                NpcLoadoutTier.Standard));
             
             // Initial orientation facing toward patrol center
             Vector3 toCenter = patrolCenter - startPosition;
@@ -315,6 +323,15 @@ namespace Roguelancer
         public void SetLoadout(ShipLoadout loadout)
         {
             Loadout = loadout ?? ShipLoadout.CreateStarterLoadout(false);
+            RefreshShieldFromLoadout();
+        }
+
+        public void RefreshShieldFromLoadout()
+        {
+            ShieldEquipmentDefinition shield = Loadout?.GetMountedShield();
+            Shields = shield == null
+                ? new ShieldSystem()
+                : new ShieldSystem(shield);
         }
 
         public void SetEncounterState(

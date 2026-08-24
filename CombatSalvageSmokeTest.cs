@@ -89,7 +89,8 @@ namespace Roguelancer
             string name = FindNameForNoDrop(service, FactionManager.LibertyRogues, "Rogue No Drop");
             NpcShip ship = CreateNpc(name, FactionManager.LibertyRogues, TrafficZoneBehaviorType.PirateAmbush);
             Destroy(ship, NpcDestructionSource.Environment);
-            return service.EvaluateDestruction(ship).Count == 0 && !service.ShouldDrop(ship)
+            IReadOnlyList<SalvageDrop> drops = service.EvaluateDestruction(ship);
+            return !drops.Any(drop => drop != null && !drop.IsEquipment) && !service.ShouldDrop(ship)
                 ? Pass()
                 : Fail("stable no-drop identity unexpectedly produced salvage");
         }
@@ -100,12 +101,16 @@ namespace Roguelancer
             string standardName = FindNameForDrop(service, FactionManager.LibertyRogues, "Rogue Standard", heavy: false);
             NpcShip standard = CreateNpc(standardName, FactionManager.LibertyRogues, TrafficZoneBehaviorType.PirateAmbush);
             Destroy(standard, NpcDestructionSource.Npc);
-            IReadOnlyList<SalvageDrop> standardDrops = service.EvaluateDestruction(standard);
+            IReadOnlyList<SalvageDrop> standardDrops = service.EvaluateDestruction(standard)
+                .Where(drop => drop != null && !drop.IsEquipment)
+                .ToList();
 
             string heavyName = FindNameForDrop(service, FactionManager.LibertyRogues, "Warthog Heavy", heavy: true);
             NpcShip heavy = CreateNpc(heavyName, FactionManager.LibertyRogues, TrafficZoneBehaviorType.PirateAmbush, "SHIPS/WARTHOG/warthog");
             Destroy(heavy, NpcDestructionSource.Npc);
-            IReadOnlyList<SalvageDrop> heavyDrops = service.EvaluateDestruction(heavy);
+            IReadOnlyList<SalvageDrop> heavyDrops = service.EvaluateDestruction(heavy)
+                .Where(drop => drop != null && !drop.IsEquipment)
+                .ToList();
 
             int heavyQuantity = heavyDrops.Sum(drop => drop.Quantity);
             return standardDrops.Count == 1 &&
@@ -170,12 +175,15 @@ namespace Roguelancer
             List<SpaceObject> objects = new() { new SpaceObject("blocking object", blocked, 200f) };
             LootManager manager = new(null, null, null, null, service, () => objects);
             int spawned = manager.SpawnLootForDestroyedNpc(ship);
-            if (spawned != 1 || manager.ActivePods.Count != 1)
+            List<CargoPod> commodityPods = manager.ActivePods
+                .Where(pod => pod != null && pod.GetCommodity() != null)
+                .ToList();
+            if (spawned < 1 || commodityPods.Count != 1)
             {
-                return Fail("salvage did not survive bounded collision placement");
+                return Fail("commodity salvage did not survive bounded collision placement");
             }
 
-            CargoPod pod = manager.ActivePods[0];
+            CargoPod pod = commodityPods[0];
             float distance = Vector3.Distance(ship.Position, pod.Position);
             return distance >= CombatSalvageService.MinimumSpawnOffset &&
                    distance <= CombatSalvageService.MaximumSpawnOffset &&
@@ -193,7 +201,11 @@ namespace Roguelancer
             Destroy(heavy, NpcDestructionSource.Npc);
             int heavySpawned = manager.SpawnLootForDestroyedNpc(heavy);
             int before = manager.ActiveSalvageCount;
-            if (heavySpawned < 1 || heavySpawned > CombatSalvageService.HeavyMaximumObjectsPerDestruction)
+            int heavyCommodityObjects = manager.ActivePods.Count(pod => pod != null && pod.GetCommodity() != null);
+            int heavyEquipmentObjects = manager.ActivePods.Count(pod => pod != null && pod.IsEquipment);
+            if (heavySpawned < 1 || heavyCommodityObjects < 1 ||
+                heavyCommodityObjects > CombatSalvageService.HeavyMaximumObjectsPerDestruction ||
+                heavyEquipmentObjects > CombatSalvageService.HeavyMaximumEquipmentObjectsPerDestruction)
             {
                 return Fail("heavy ship exceeded per-destruction object cap");
             }

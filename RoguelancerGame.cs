@@ -247,6 +247,7 @@ namespace Roguelancer {
         private readonly bool _runNpcFactionCombatSmoke;
         private readonly bool _runNpcLoadoutSmoke;
         private readonly bool _runWeaponProgressionSmoke;
+        private readonly bool _runShieldEquipmentSmoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -346,6 +347,7 @@ namespace Roguelancer {
             _runNpcFactionCombatSmoke = args?.Any(arg => string.Equals(arg, "--npc-faction-combat-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runNpcLoadoutSmoke = args?.Any(arg => string.Equals(arg, "--npc-loadout-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runWeaponProgressionSmoke = args?.Any(arg => string.Equals(arg, "--weapon-progression-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runShieldEquipmentSmoke = args?.Any(arg => string.Equals(arg, "--shield-equipment-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1350,6 +1352,11 @@ namespace Roguelancer {
                 var result = RunWeaponProgressionSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runShieldEquipmentSmoke)
+            {
+                var result = RunShieldEquipmentSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runFactionDistressResponseSmoke)
             {
                 var result = RunFactionDistressResponseSmokeTest();
@@ -1535,6 +1542,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("NPC faction combat smoke", RunNpcFactionCombatSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("NPC loadout smoke", RunNpcLoadoutSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("weapon progression smoke", RunWeaponProgressionSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("shield equipment smoke", RunShieldEquipmentSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1816,6 +1824,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[WEAPON PROGRESSION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunShieldEquipmentSmokeTest()
+        {
+            try
+            {
+                return new ShieldEquipmentSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SHIELD EQUIPMENT SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -4657,7 +4678,7 @@ namespace Roguelancer {
             DrawSegmentedBar(hudX, hudY, totalBarWidth, barHeight, segmentCount, segmentGap, segmentWidth, shieldPercent, shieldColor, shieldDim);
 
             if (_font != null) {
-                _spriteBatch.DrawString(_font, $"SHIELDS {shieldPercent * 100:F0}%",
+                _spriteBatch.DrawString(_font, $"SHIELDS {_playerShip.Shields.CurrentShields:F0}/{_playerShip.Shields.MaxShields:F0}",
                     new Vector2(hudX + totalBarWidth + 10, hudY - 2), shieldColor);
             }
 
@@ -4669,7 +4690,7 @@ namespace Roguelancer {
             DrawSegmentedBar(hudX, hullBarY, totalBarWidth, barHeight, segmentCount, segmentGap, segmentWidth, hullPercent, hullColor, hullDim);
 
             if (_font != null) {
-                _spriteBatch.DrawString(_font, $"HULL {hullPercent * 100:F0}%",
+                _spriteBatch.DrawString(_font, $"HULL {_playerShip.Hull.CurrentHull:F0}/{_playerShip.Hull.MaxHull:F0}",
                     new Vector2(hudX + totalBarWidth + 10, hullBarY - 2), hullColor);
             }
 

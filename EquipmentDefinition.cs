@@ -25,6 +25,28 @@ namespace Roguelancer
     }
 
     /// <summary>
+    /// Bounded progression bands for canonical shield selection.
+    /// </summary>
+    public enum ShieldProgressionTier
+    {
+        Low,
+        Standard,
+        High
+    }
+
+    /// <summary>
+    /// Authored shield family metadata used by deterministic NPC loadout policy.
+    /// The combat runtime reads only the canonical shield stats below.
+    /// </summary>
+    public enum ShieldFamily
+    {
+        Liberty,
+        Rogue,
+        Professional,
+        Mixed
+    }
+
+    /// <summary>
     /// Base definition for a piece of ship equipment.
     /// </summary>
     public class EquipmentDefinition
@@ -224,6 +246,38 @@ namespace Roguelancer
         {
             return Name;
         }
+    }
+
+    /// <summary>
+    /// Canonical defensive equipment definition. Mutable runtime charge never
+    /// belongs here; each mounted ship owns its own ShieldSystem state.
+    /// </summary>
+    public sealed class ShieldEquipmentDefinition : EquipmentDefinition
+    {
+        public ShieldFamily Family { get; set; } = ShieldFamily.Mixed;
+        public ShieldProgressionTier ProgressionTier { get; set; } = ShieldProgressionTier.Standard;
+        public float Capacity { get; set; }
+        public float RegenerationRate { get; set; }
+        public float RegenerationDelay { get; set; }
+
+        public bool IsValid => EquipmentType == EquipmentType.ShieldGenerator &&
+            Price > 0 &&
+            IsFinitePositive(Capacity) &&
+            IsFinitePositive(RegenerationRate) &&
+            IsFiniteNonNegative(RegenerationDelay) &&
+            Enum.IsDefined(typeof(ShieldFamily), Family) &&
+            Enum.IsDefined(typeof(ShieldProgressionTier), ProgressionTier);
+
+        public override string GetStatsSummary()
+        {
+            return $"{base.GetStatsSummary()} | {Family} {ProgressionTier} | CAP {Capacity:F0} | REGEN {RegenerationRate:F1}/s | DELAY {RegenerationDelay:F1}s";
+        }
+
+        private static bool IsFinitePositive(float value) =>
+            !float.IsNaN(value) && !float.IsInfinity(value) && value > 0f;
+
+        private static bool IsFiniteNonNegative(float value) =>
+            !float.IsNaN(value) && !float.IsInfinity(value) && value >= 0f;
     }
 
     /// <summary>

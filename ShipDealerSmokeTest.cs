@@ -359,9 +359,11 @@ namespace Roguelancer
                 return Fail("successful purchase changed spare equipment");
             }
 
+            ShieldEquipmentDefinition mountedShield = playerShip.Loadout.GetMountedShield();
             if (playerShip.MaxSpeed != upgrade.MaxSpeed ||
                 playerShip.Hull.MaxHull != upgrade.MaxHull ||
-                playerShip.Shields.MaxShields != upgrade.MaxShields ||
+                mountedShield == null ||
+                playerShip.Shields.MaxShields != mountedShield.Capacity ||
                 playerShip.Energy.MaxEnergy != upgrade.MaxEnergy)
             {
                 return Fail("successful purchase did not apply the new ship stats");

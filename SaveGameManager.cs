@@ -604,6 +604,12 @@ namespace Roguelancer
             EquipmentDefinition definition = EquipmentCatalog.GetById(equipmentId);
             if (definition != null)
             {
+                if (definition.EquipmentType != equipmentType)
+                {
+                    warnings?.Add($"skipped equipment '{equipmentId}' because its saved type did not match the canonical definition");
+                    return null;
+                }
+
                 return definition;
             }
 

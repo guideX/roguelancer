@@ -25,7 +25,14 @@ namespace Roguelancer
             "rogue_rail_cannon",
             "basic_missile_launcher",
             "basic_mine_dropper",
-            "basic_countermeasure_dropper"
+            "basic_countermeasure_dropper",
+            "civilian_shield_generator",
+            "liberty_patrol_shield",
+            "liberty_military_shield",
+            "liberty_heavy_shield",
+            "rogue_scrap_shield",
+            "rogue_combat_shield",
+            "professional_deflector"
         };
         private static readonly Dictionary<EquipmentType, string> _fallbackByType = new Dictionary<EquipmentType, string>
         {
@@ -239,13 +246,102 @@ namespace Roguelancer
                 CountermeasureCooldown = 6f
             });
 
-            Register(new EquipmentDefinition
+            Register(new ShieldEquipmentDefinition
             {
                 Id = "civilian_shield_generator",
                 Name = "Civilian Shield Generator",
                 Description = "A modest shield generator suitable for standard patrol and trade runs.",
                 EquipmentType = EquipmentType.ShieldGenerator,
-                Price = 4200
+                Price = 4200,
+                Family = ShieldFamily.Liberty,
+                ProgressionTier = ShieldProgressionTier.Low,
+                Capacity = 50f,
+                RegenerationRate = 15f,
+                RegenerationDelay = 3f
+            });
+
+            Register(new ShieldEquipmentDefinition
+            {
+                Id = "liberty_patrol_shield",
+                Name = "Liberty Patrol Shield",
+                Description = "A dependable patrol-grade deflector with balanced recovery.",
+                EquipmentType = EquipmentType.ShieldGenerator,
+                Price = 6500,
+                Family = ShieldFamily.Liberty,
+                ProgressionTier = ShieldProgressionTier.Standard,
+                Capacity = 65f,
+                RegenerationRate = 18f,
+                RegenerationDelay = 2.5f
+            });
+
+            Register(new ShieldEquipmentDefinition
+            {
+                Id = "liberty_military_shield",
+                Name = "Liberty Military Shield",
+                Description = "A durable military deflector that trades recharge speed for capacity.",
+                EquipmentType = EquipmentType.ShieldGenerator,
+                Price = 10000,
+                Family = ShieldFamily.Liberty,
+                ProgressionTier = ShieldProgressionTier.Standard,
+                Capacity = 90f,
+                RegenerationRate = 14f,
+                RegenerationDelay = 4f
+            });
+
+            Register(new ShieldEquipmentDefinition
+            {
+                Id = "liberty_heavy_shield",
+                Name = "Liberty Heavy Shield",
+                Description = "A heavy military generator for large hulls and hard patrol work.",
+                EquipmentType = EquipmentType.ShieldGenerator,
+                Price = 16000,
+                Family = ShieldFamily.Liberty,
+                ProgressionTier = ShieldProgressionTier.High,
+                Capacity = 125f,
+                RegenerationRate = 12f,
+                RegenerationDelay = 5f
+            });
+
+            Register(new ShieldEquipmentDefinition
+            {
+                Id = "rogue_scrap_shield",
+                Name = "Rogue Scrap Shield",
+                Description = "An improvised shield assembled from salvaged emitters.",
+                EquipmentType = EquipmentType.ShieldGenerator,
+                Price = 2800,
+                Family = ShieldFamily.Rogue,
+                ProgressionTier = ShieldProgressionTier.Low,
+                Capacity = 45f,
+                RegenerationRate = 8f,
+                RegenerationDelay = 5f
+            });
+
+            Register(new ShieldEquipmentDefinition
+            {
+                Id = "rogue_combat_shield",
+                Name = "Rogue Combat Shield",
+                Description = "A reinforced raider shield with respectable capacity and slow recovery.",
+                EquipmentType = EquipmentType.ShieldGenerator,
+                Price = 8500,
+                Family = ShieldFamily.Rogue,
+                ProgressionTier = ShieldProgressionTier.Standard,
+                Capacity = 80f,
+                RegenerationRate = 11f,
+                RegenerationDelay = 4f
+            });
+
+            Register(new ShieldEquipmentDefinition
+            {
+                Id = "professional_deflector",
+                Name = "Professional Deflector",
+                Description = "A commercial-grade deflector favored by corporations and bounty hunters.",
+                EquipmentType = EquipmentType.ShieldGenerator,
+                Price = 9000,
+                Family = ShieldFamily.Professional,
+                ProgressionTier = ShieldProgressionTier.Standard,
+                Capacity = 75f,
+                RegenerationRate = 16f,
+                RegenerationDelay = 2.5f
             });
 
             Register(new EquipmentDefinition

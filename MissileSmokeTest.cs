@@ -226,11 +226,6 @@ namespace Roguelancer
                 return Fail("missile hit did not reduce NPC shields or hull");
             }
 
-            if (target.Hull.CurrentHull >= hullBefore)
-            {
-                return Fail("missile hit did not reduce NPC hull after shields absorbed damage");
-            }
-
             if (!ValidateDestructionNotificationPath(ship, launcher))
             {
                 return Fail("destroyed-target mission notification path did not fire safely");

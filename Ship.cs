@@ -171,6 +171,7 @@ namespace Roguelancer
 
             InitializeEnergy();
             InitializeShields();
+            RefreshShieldFromLoadout();
         }
 
         public void SetNotificationManager(NotificationManager manager)
@@ -234,6 +235,26 @@ namespace Roguelancer
         public void InitializeShields(float maxShields = 50f, float regenRate = 15f, float regenDelay = 3f)
         {
             Shields = new ShieldSystem(maxShields, regenRate, regenDelay);
+        }
+
+        /// <summary>
+        /// Rebinds runtime shield state from the one mounted canonical shield
+        /// in the authoritative loadout. A newly mounted shield starts full;
+        /// an unmounted ship has no active shield.
+        /// </summary>
+        public void RefreshShieldFromLoadout(bool restoreFull = true)
+        {
+            ShieldEquipmentDefinition shield = Loadout?.GetMountedShield();
+            ShieldSystem previous = Shields;
+            Shields = shield == null
+                ? new ShieldSystem()
+                : new ShieldSystem(shield);
+            if (!restoreFull && shield != null && previous != null &&
+                string.Equals(previous.MountedShieldId, shield.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                float preservedCharge = MathHelper.Clamp(previous.CurrentShields, 0f, Shields.MaxShields);
+                Shields.AbsorbDamage(Math.Max(0f, Shields.MaxShields - preservedCharge));
+            }
         }
         
         /// <summary>
@@ -1142,6 +1163,7 @@ namespace Roguelancer
             MissileLaunchRequested = false;
             MineLaunchRequested = false;
             CountermeasureLaunchRequested = false;
+            Shields?.FullRestore();
         }
 
         /// <summary>
@@ -1170,6 +1192,7 @@ namespace Roguelancer
         public void SetLoadout(ShipLoadout loadout)
         {
             Loadout = loadout ?? ShipLoadout.CreateStarterLoadout();
+            RefreshShieldFromLoadout();
         }
 
         /// <summary>
@@ -1189,11 +1212,13 @@ namespace Roguelancer
             if (Loadout == null)
             {
                 Loadout = target == null ? ShipLoadout.CreateStarterLoadout(false) : new ShipLoadout(target);
+                RefreshShieldFromLoadout();
                 LastHardpointReconfigurationWarnings = Array.Empty<string>();
                 return;
             }
 
             Loadout = Loadout.ReconfigureHardpoints(target, out List<string> warnings);
+            RefreshShieldFromLoadout();
             LastHardpointReconfigurationWarnings = warnings;
             foreach (string warning in warnings)
             {

@@ -102,21 +102,28 @@ namespace Roguelancer
             NpcShip trader = CreateTestNpc("Trader Smoke", TrafficZoneBehaviorType.TraderRoute, "neutral_civilians");
             NpcShip pirate = CreateTestNpc("Pirate Smoke", TrafficZoneBehaviorType.PirateAmbush, "liberty_rogues");
 
-            int traderCount = TriggerNpcDestruction(trader, traderLoot);
-            int pirateCount = TriggerNpcDestruction(pirate, pirateLoot);
+            TriggerNpcDestruction(trader, traderLoot);
+            TriggerNpcDestruction(pirate, pirateLoot);
 
-            if (traderCount != 1)
+            List<CargoPod> traderCommodityPods = traderLoot.ActivePods
+                .Where(pod => pod != null && pod.GetCommodity() != null)
+                .ToList();
+            List<CargoPod> pirateCommodityPods = pirateLoot.ActivePods
+                .Where(pod => pod != null && pod.GetCommodity() != null)
+                .ToList();
+
+            if (traderCommodityPods.Count != 1)
             {
-                return Fail($"trader ship spawned {traderCount} pods instead of 1");
+                return Fail($"trader ship spawned {traderCommodityPods.Count} commodity pods instead of 1");
             }
 
-            if (pirateCount != 1)
+            if (pirateCommodityPods.Count != 1)
             {
-                return Fail($"pirate ship spawned {pirateCount} pods instead of 1");
+                return Fail($"pirate ship spawned {pirateCommodityPods.Count} commodity pods instead of 1");
             }
 
-            CargoPod traderPod = traderLoot.ActivePods.FirstOrDefault();
-            CargoPod piratePod = pirateLoot.ActivePods.FirstOrDefault();
+            CargoPod traderPod = traderCommodityPods[0];
+            CargoPod piratePod = pirateCommodityPods[0];
             if (traderPod == null || piratePod == null)
             {
                 return Fail("expected cargo pods were not created");

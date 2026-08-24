@@ -93,6 +93,9 @@ namespace Roguelancer
 
             EquipmentDefinition equipment = EquipmentCatalog.GetById(equipmentId);
             if (equipment == null || string.IsNullOrWhiteSpace(equipment.Id) ||
+                (equipment.EquipmentType == EquipmentType.ShieldGenerator &&
+                 equipment is not ShieldEquipmentDefinition) ||
+                (equipment is ShieldEquipmentDefinition shield && !shield.IsValid) ||
                 lifetimeSeconds <= 0f || pickupRadius <= 0f)
             {
                 return false;

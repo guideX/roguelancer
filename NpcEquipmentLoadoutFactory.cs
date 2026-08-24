@@ -144,6 +144,21 @@ namespace Roguelancer
             ShipLoadout loadout = ShipLoadout.CreateStarterLoadout(false);
             NpcLoadoutPolicyProfile profile = GetProfileForFaction(factionId);
             bool isFighter = IsFighter(archetypeName, modelPath);
+            bool heavy = IsHeavy(archetypeName, modelPath);
+            string identity = BuildIdentity(archetypeName, factionId, modelPath, combatRole, tier);
+
+            // Defensive equipment is independent from offensive capability:
+            // civilian and trader traffic may receive a modest shield while
+            // remaining completely unarmed.
+            List<ShieldEquipmentDefinition> eligibleShields = GetEligibleShields(
+                profile,
+                loadout,
+                tier);
+            if (eligibleShields.Count > 0)
+            {
+                int shieldIndex = SelectShieldIndex(eligibleShields, combatRole, tier, heavy);
+                TryAddAndMountShield(loadout, eligibleShields[shieldIndex]);
+            }
 
             // Existing traffic behavior is the mature role signal. Trader and
             // station traffic remain unarmed unless their archetype explicitly
@@ -179,7 +194,6 @@ namespace Roguelancer
                 return loadout;
             }
 
-            string identity = BuildIdentity(archetypeName, factionId, modelPath, combatRole, tier);
             int primaryIndex = SelectPrimaryIndex(
                 profile,
                 eligibleWeapons,
@@ -228,6 +242,12 @@ namespace Roguelancer
                    IsValidPositive(weapon.Range) &&
                    Enum.IsDefined(typeof(WeaponFamily), weapon.Family) &&
                    Enum.IsDefined(typeof(WeaponProgressionTier), weapon.ProgressionTier);
+        }
+
+        public static bool IsValidNpcShield(EquipmentDefinition equipment)
+        {
+            return equipment is ShieldEquipmentDefinition shield && shield.IsValid &&
+                   EquipmentCatalog.GetById(shield.Id) == shield;
         }
 
         /// <summary>
@@ -289,6 +309,107 @@ namespace Roguelancer
             }
 
             return eligible;
+        }
+
+        private static List<ShieldEquipmentDefinition> GetEligibleShields(
+            NpcLoadoutPolicyProfile profile,
+            ShipLoadout loadout,
+            NpcLoadoutTier tier)
+        {
+            List<ShieldEquipmentDefinition> eligible = new();
+            foreach (string shieldId in GetPreferredShieldIds(profile?.FactionId))
+            {
+                EquipmentDefinition definition = EquipmentCatalog.GetById(shieldId);
+                if (!IsValidNpcShield(definition) ||
+                    !IsShieldAvailableAtTier((ShieldEquipmentDefinition)definition, tier) ||
+                    !loadout.GetCompatibleHardpoints(definition).Any())
+                {
+                    continue;
+                }
+
+                eligible.Add((ShieldEquipmentDefinition)definition);
+            }
+
+            return eligible;
+        }
+
+        private static IReadOnlyList<string> GetPreferredShieldIds(string factionId)
+        {
+            string normalized = FactionManager.NormalizeFactionId(factionId);
+            if (string.Equals(normalized, FactionManager.LibertyPolice, StringComparison.OrdinalIgnoreCase))
+                return new[] { "civilian_shield_generator", "liberty_patrol_shield", "liberty_military_shield", "liberty_heavy_shield" };
+            if (string.Equals(normalized, FactionManager.LibertyNavy, StringComparison.OrdinalIgnoreCase))
+                return new[] { "liberty_patrol_shield", "professional_deflector", "liberty_military_shield", "liberty_heavy_shield" };
+            if (string.Equals(normalized, FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase))
+                return new[] { "rogue_scrap_shield", "rogue_combat_shield" };
+            if (string.Equals(normalized, FactionManager.LibertyCorporations, StringComparison.OrdinalIgnoreCase))
+                return new[] { "civilian_shield_generator", "liberty_patrol_shield", "professional_deflector" };
+            if (string.Equals(normalized, FactionManager.BountyHunters, StringComparison.OrdinalIgnoreCase))
+                return new[] { "professional_deflector", "liberty_patrol_shield", "liberty_military_shield", "rogue_combat_shield" };
+            if (string.Equals(normalized, FactionManager.Junkers, StringComparison.OrdinalIgnoreCase))
+                return new[] { "rogue_scrap_shield", "civilian_shield_generator", "liberty_patrol_shield" };
+            if (string.Equals(normalized, FactionManager.NeutralCivilians, StringComparison.OrdinalIgnoreCase))
+                return new[] { "civilian_shield_generator" };
+
+            return new[] { "civilian_shield_generator" };
+        }
+
+        private static bool IsShieldAvailableAtTier(ShieldEquipmentDefinition shield, NpcLoadoutTier tier)
+        {
+            if (shield == null)
+                return false;
+
+            return shield.ProgressionTier switch
+            {
+                ShieldProgressionTier.Low => true,
+                ShieldProgressionTier.Standard => tier != NpcLoadoutTier.Low,
+                ShieldProgressionTier.High => tier == NpcLoadoutTier.High,
+                _ => false
+            };
+        }
+
+        private static int SelectShieldIndex(
+            IReadOnlyList<ShieldEquipmentDefinition> eligible,
+            TrafficZoneBehaviorType combatRole,
+            NpcLoadoutTier tier,
+            bool heavy)
+        {
+            if (eligible == null || eligible.Count <= 1 || tier == NpcLoadoutTier.Low)
+                return 0;
+
+            bool supportRole = combatRole == TrafficZoneBehaviorType.TraderRoute ||
+                               combatRole == TrafficZoneBehaviorType.StationTraffic;
+            if (supportRole)
+                return 0;
+
+            int preferredIndex = tier == NpcLoadoutTier.High
+                ? eligible.Count - 1
+                : Math.Min(heavy ? 2 : 1, eligible.Count - 1);
+
+            if (tier == NpcLoadoutTier.Standard)
+            {
+                for (int i = 0; i < eligible.Count; i++)
+                {
+                    if (eligible[i].Family == ShieldFamily.Professional)
+                    {
+                        return i;
+                    }
+                }
+            }
+
+            return preferredIndex;
+        }
+
+        private static bool TryAddAndMountShield(ShipLoadout loadout, ShieldEquipmentDefinition shield)
+        {
+            if (!IsValidNpcShield(shield) || !loadout.AddOwnedEquipment(shield, 1))
+                return false;
+
+            if (loadout.TryMountEquipment(shield, out _))
+                return true;
+
+            loadout.RemoveOwnedEquipment(shield.Id, 1);
+            return false;
         }
 
         private static bool IsAvailableAtTier(WeaponEquipmentDefinition weapon, NpcLoadoutTier tier)

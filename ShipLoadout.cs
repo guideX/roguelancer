@@ -151,6 +151,7 @@ namespace Roguelancer
                 .ToList();
 
             HashSet<string> placedSourceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            bool shieldPlaced = false;
             foreach (var entry in mounted)
             {
                 if (entry.Equipment == null)
@@ -160,10 +161,13 @@ namespace Roguelancer
                 }
 
                 ShipHardpoint sameId = result.GetHardpointById(entry.Source.Id);
-                if (sameId != null && sameId.IsEmpty && sameId.CanAccept(entry.Equipment))
+                bool isShield = entry.Equipment is ShieldEquipmentDefinition;
+                if (sameId != null && sameId.IsEmpty && CanMount(entry.Equipment) &&
+                    (!isShield || !shieldPlaced) && sameId.CanAccept(entry.Equipment))
                 {
                     sameId.MountedEquipmentId = entry.Equipment.Id;
                     placedSourceIds.Add(entry.Source.Id);
+                    shieldPlaced |= isShield;
                 }
             }
 
@@ -174,10 +178,24 @@ namespace Roguelancer
                     continue;
                 }
 
+                if (!CanMount(entry.Equipment))
+                {
+                    warnings.Add($"kept invalid equipment '{entry.Source.MountedEquipmentId}' unmounted");
+                    continue;
+                }
+
+                bool isShield = entry.Equipment is ShieldEquipmentDefinition;
+                if (isShield && shieldPlaced)
+                {
+                    warnings.Add($"unmounted {entry.Equipment.Id} from {entry.Source.Id}; only one shield hardpoint is supported");
+                    continue;
+                }
+
                 ShipHardpoint remapped = result.FindFirstCompatibleEmptyHardpoint(entry.Equipment);
                 if (remapped != null)
                 {
                     remapped.MountedEquipmentId = entry.Equipment.Id;
+                    shieldPlaced |= isShield;
                     warnings.Add($"remapped {entry.Equipment.Id} from {entry.Source.Id} to {remapped.Id}");
                 }
                 else
@@ -242,6 +260,28 @@ namespace Roguelancer
         {
             return GetMountedGuns().FirstOrDefault();
         }
+
+        public ShieldEquipmentDefinition GetMountedShield()
+        {
+            foreach (var hardpoint in _hardpoints)
+            {
+                if (hardpoint == null || string.IsNullOrWhiteSpace(hardpoint.MountedEquipmentId))
+                {
+                    continue;
+                }
+
+                EquipmentDefinition definition = EquipmentCatalog.GetById(hardpoint.MountedEquipmentId);
+                if (definition is ShieldEquipmentDefinition shield && shield.IsValid &&
+                    definition.EquipmentType == EquipmentType.ShieldGenerator)
+                {
+                    return shield;
+                }
+            }
+
+            return null;
+        }
+
+        public bool HasMountedShield() => GetMountedShield() != null;
 
         public IEnumerable<EquipmentDefinition> GetMountedMissileLaunchers()
         {
@@ -414,7 +454,7 @@ namespace Roguelancer
 
             foreach (var hardpoint in _hardpoints)
             {
-                if (hardpoint != null && hardpoint.CanAccept(equipment))
+                if (hardpoint != null && CanMount(equipment) && hardpoint.CanAccept(equipment))
                 {
                     yield return hardpoint;
                 }
@@ -433,6 +473,18 @@ namespace Roguelancer
             if (equipment == null)
             {
                 message = "No equipment selected.";
+                return false;
+            }
+
+            if (!CanMount(equipment))
+            {
+                message = $"{equipment.Name} is not a valid canonical equipment definition.";
+                return false;
+            }
+
+            if (equipment is ShieldEquipmentDefinition && HasMountedShield())
+            {
+                message = "Only one shield can be mounted at a time.";
                 return false;
             }
 
@@ -468,6 +520,18 @@ namespace Roguelancer
             if (equipment == null)
             {
                 message = "No equipment selected.";
+                return false;
+            }
+
+            if (!CanMount(equipment))
+            {
+                message = $"{equipment.Name} is not a valid canonical equipment definition.";
+                return false;
+            }
+
+            if (equipment is ShieldEquipmentDefinition && HasMountedShield())
+            {
+                message = "Only one shield can be mounted at a time.";
                 return false;
             }
 
@@ -581,6 +645,21 @@ namespace Roguelancer
             {
                 Console.WriteLine($"[LOADOUT] Failed to mount starter equipment: {message}");
             }
+        }
+
+        private static bool CanMount(EquipmentDefinition equipment)
+        {
+            if (equipment == null)
+            {
+                return false;
+            }
+
+            if (equipment.EquipmentType == EquipmentType.ShieldGenerator)
+            {
+                return equipment is ShieldEquipmentDefinition shield && shield.IsValid;
+            }
+
+            return true;
         }
     }
 }

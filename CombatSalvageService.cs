@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Roguelancer
 {
@@ -150,6 +151,11 @@ namespace Roguelancer
                 AddEquipmentDrops(drops, destroyedShip, tier);
             }
 
+            if (ShouldDropShield(destroyedShip, tier))
+            {
+                AddShieldDrop(drops, destroyedShip, tier);
+            }
+
             return drops.Count == 0 ? Array.Empty<SalvageDrop>() : drops;
         }
 
@@ -230,6 +236,27 @@ namespace Roguelancer
             }
         }
 
+        private static void AddShieldDrop(List<SalvageDrop> drops, NpcShip destroyedShip, CombatSalvageTier tier)
+        {
+            ShieldEquipmentDefinition shield = destroyedShip?.Loadout?.GetMountedShield();
+            if (shield == null || !shield.IsValid)
+            {
+                return;
+            }
+
+            int maximumObjects = tier == CombatSalvageTier.Heavy
+                ? HeavyMaximumEquipmentObjectsPerDestruction
+                : StandardMaximumEquipmentObjectsPerDestruction;
+            if (drops.Count(drop => drop != null && drop.IsEquipment) >= maximumObjects)
+            {
+                return;
+            }
+
+            // There is one logical shield slot, so one destruction can create
+            // at most one shield pod and it preserves the exact mounted ID.
+            drops.Add(SalvageDrop.ForEquipment(shield.Id, drops.Count, tier));
+        }
+
         public IReadOnlyList<SalvageDrop> ProcessDestruction(NpcShip destroyedShip) =>
             EvaluateDestruction(destroyedShip);
 
@@ -279,6 +306,12 @@ namespace Roguelancer
             return tier != CombatSalvageTier.None && ShouldDropEquipment(destroyedShip, tier);
         }
 
+        public bool ShouldDropShield(NpcShip destroyedShip)
+        {
+            CombatSalvageTier tier = DetermineTier(destroyedShip);
+            return tier != CombatSalvageTier.None && ShouldDropShield(destroyedShip, tier);
+        }
+
         public Vector3 GetSpawnOffset(NpcShip destroyedShip, int stackIndex)
         {
             CombatSalvageTier tier = DetermineTier(destroyedShip);
@@ -313,6 +346,18 @@ namespace Roguelancer
             // Equipment uses an independent deterministic roll: 25% for
             // standard fighters and 50% for heavy/Warthog fighters.
             return tier == CombatSalvageTier.Heavy ? roll % 2u == 0u : roll % 4u == 0u;
+        }
+
+        private bool ShouldDropShield(NpcShip destroyedShip, CombatSalvageTier tier)
+        {
+            if (destroyedShip?.Loadout?.GetMountedShield() == null)
+            {
+                return false;
+            }
+
+            uint roll = Hash(GetIdentityHash(destroyedShip, tier), "shield-drop");
+            // Independent bounded policy: 20% standard, 33% heavy.
+            return tier == CombatSalvageTier.Heavy ? roll % 3u == 0u : roll % 5u == 0u;
         }
 
         private string[] GetCommodityPool(NpcShip destroyedShip)
