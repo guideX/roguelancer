@@ -302,7 +302,8 @@ namespace Roguelancer
         private static bool RogueSalvageUsesCarriedWeapons()
         {
             List<SalvageDrop> drops = SalvageForFaction(FactionManager.LibertyRogues, "Phase40 Rogue Salvage", heavy: false);
-            return drops.Count > 0 && drops.All(drop => drop.EquipmentId == "rogue_blaster" || drop.EquipmentId == "liberty_light_laser");
+            NpcLoadoutPolicyProfile profile = NpcEquipmentLoadoutFactory.GetProfileForFaction(FactionManager.LibertyRogues);
+            return drops.Count > 0 && drops.All(drop => profile.PreferredWeaponIds.Contains(drop.EquipmentId, StringComparer.OrdinalIgnoreCase));
         }
 
         private static bool SalvageCannotInventWeapons()

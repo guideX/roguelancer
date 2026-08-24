@@ -246,6 +246,7 @@ namespace Roguelancer {
         private readonly bool _runFactionDispositionSmoke;
         private readonly bool _runNpcFactionCombatSmoke;
         private readonly bool _runNpcLoadoutSmoke;
+        private readonly bool _runWeaponProgressionSmoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -344,6 +345,7 @@ namespace Roguelancer {
             _runFactionDispositionSmoke = args?.Any(arg => string.Equals(arg, "--faction-disposition-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runNpcFactionCombatSmoke = args?.Any(arg => string.Equals(arg, "--npc-faction-combat-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runNpcLoadoutSmoke = args?.Any(arg => string.Equals(arg, "--npc-loadout-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runWeaponProgressionSmoke = args?.Any(arg => string.Equals(arg, "--weapon-progression-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1343,6 +1345,11 @@ namespace Roguelancer {
                 var result = RunNpcLoadoutSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runWeaponProgressionSmoke)
+            {
+                var result = RunWeaponProgressionSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runFactionDistressResponseSmoke)
             {
                 var result = RunFactionDistressResponseSmokeTest();
@@ -1527,6 +1534,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("faction disposition smoke", RunFactionDispositionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("NPC faction combat smoke", RunNpcFactionCombatSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("NPC loadout smoke", RunNpcLoadoutSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("weapon progression smoke", RunWeaponProgressionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1795,6 +1803,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[NPC LOADOUT SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunWeaponProgressionSmokeTest()
+        {
+            try
+            {
+                return new WeaponProgressionSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WEAPON PROGRESSION SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }

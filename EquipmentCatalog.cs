@@ -5,18 +5,24 @@ using System.Linq;
 namespace Roguelancer
 {
     /// <summary>
-    /// Small starter equipment catalog with safe fallback behavior.
+    /// Authoritative canonical equipment catalog with safe fallback behavior.
     /// </summary>
     public static class EquipmentCatalog
     {
         private static readonly Dictionary<string, EquipmentDefinition> _definitions = new Dictionary<string, EquipmentDefinition>(StringComparer.OrdinalIgnoreCase);
         private static readonly string[] _dealerInventoryIds =
         {
-            // These are the definitions consumed by the live flight systems. The
-            // remaining catalog entries stay available for starter/save fallback
-            // behavior until their flight effects are implemented.
+            // All canonical flight guns are sold through the same bounded
+            // dealer path used by the original equipment definitions.
             "liberty_pulse_cannon",
             "rogue_blaster",
+            "liberty_light_laser",
+            "liberty_sentry_blaster",
+            "liberty_ranger_laser",
+            "liberty_heavy_pulse",
+            "rogue_needle_blaster",
+            "rogue_scattergun",
+            "rogue_rail_cannon",
             "basic_missile_launcher",
             "basic_mine_dropper",
             "basic_countermeasure_dropper"
@@ -42,6 +48,8 @@ namespace Roguelancer
                 EquipmentType = EquipmentType.Gun,
                 Price = 3200,
                 WeaponType = WeaponType.LaserBolt,
+                Family = WeaponFamily.Liberty,
+                ProgressionTier = WeaponProgressionTier.Low,
                 Damage = 16f,
                 ProjectileSpeed = 2200f,
                 RefireRate = 0.18f,
@@ -57,6 +65,8 @@ namespace Roguelancer
                 EquipmentType = EquipmentType.Gun,
                 Price = 6500,
                 WeaponType = WeaponType.BlueDonut,
+                Family = WeaponFamily.Liberty,
+                ProgressionTier = WeaponProgressionTier.Standard,
                 Damage = 24f,
                 ProjectileSpeed = 1500f,
                 RefireRate = 0.28f,
@@ -74,6 +84,8 @@ namespace Roguelancer
                 EquipmentType = EquipmentType.Gun,
                 Price = 2400,
                 WeaponType = WeaponType.BlueDonut,
+                Family = WeaponFamily.Rogue,
+                ProgressionTier = WeaponProgressionTier.Low,
                 Damage = 8f,
                 ProjectileSpeed = 1500f,
                 RefireRate = 0.10f,
@@ -81,6 +93,108 @@ namespace Roguelancer
                 Range = 3800f,
                 RequiredReputationFactionId = FactionManager.LibertyRogues,
                 MinimumReputation = ReputationManager.FriendlyThreshold
+            });
+
+            Register(new WeaponEquipmentDefinition
+            {
+                Id = "liberty_sentry_blaster",
+                Name = "Liberty Sentry Blaster",
+                Description = "An efficient security blaster built for steady patrol duty.",
+                EquipmentType = EquipmentType.Gun,
+                Price = 3900,
+                WeaponType = WeaponType.QuickBlaster,
+                Family = WeaponFamily.Liberty,
+                ProgressionTier = WeaponProgressionTier.Low,
+                Damage = 12f,
+                ProjectileSpeed = 1900f,
+                RefireRate = 0.12f,
+                EnergyCost = 7f,
+                Range = 4200f
+            });
+
+            Register(new WeaponEquipmentDefinition
+            {
+                Id = "liberty_ranger_laser",
+                Name = "Liberty Ranger Laser",
+                Description = "A long-range laser favored by patrol marksmen and escorts.",
+                EquipmentType = EquipmentType.Gun,
+                Price = 8200,
+                WeaponType = WeaponType.LaserBolt,
+                Family = WeaponFamily.Liberty,
+                ProgressionTier = WeaponProgressionTier.Standard,
+                Damage = 22f,
+                ProjectileSpeed = 2800f,
+                RefireRate = 0.32f,
+                EnergyCost = 14f,
+                Range = 7200f
+            });
+
+            Register(new WeaponEquipmentDefinition
+            {
+                Id = "liberty_heavy_pulse",
+                Name = "Liberty Heavy Pulse",
+                Description = "A hard-hitting military pulse cannon with deliberate recovery time.",
+                EquipmentType = EquipmentType.Gun,
+                Price = 12500,
+                WeaponType = WeaponType.Fireball,
+                Family = WeaponFamily.Liberty,
+                ProgressionTier = WeaponProgressionTier.High,
+                Damage = 36f,
+                ProjectileSpeed = 1250f,
+                RefireRate = 0.45f,
+                EnergyCost = 28f,
+                Range = 5200f
+            });
+
+            Register(new WeaponEquipmentDefinition
+            {
+                Id = "rogue_needle_blaster",
+                Name = "Rogue Needle Blaster",
+                Description = "A compact pirate repeater that trades impact for relentless fire.",
+                EquipmentType = EquipmentType.Gun,
+                Price = 4300,
+                WeaponType = WeaponType.QuickBlaster,
+                Family = WeaponFamily.Rogue,
+                ProgressionTier = WeaponProgressionTier.Standard,
+                Damage = 11f,
+                ProjectileSpeed = 2500f,
+                RefireRate = 0.09f,
+                EnergyCost = 10f,
+                Range = 4000f
+            });
+
+            Register(new WeaponEquipmentDefinition
+            {
+                Id = "rogue_scattergun",
+                Name = "Rogue Scattergun",
+                Description = "A short-range raider cannon that delivers a brutal close pass.",
+                EquipmentType = EquipmentType.Gun,
+                Price = 7000,
+                WeaponType = WeaponType.Fireball,
+                Family = WeaponFamily.Rogue,
+                ProgressionTier = WeaponProgressionTier.Standard,
+                Damage = 28f,
+                ProjectileSpeed = 1150f,
+                RefireRate = 0.36f,
+                EnergyCost = 24f,
+                Range = 3000f
+            });
+
+            Register(new WeaponEquipmentDefinition
+            {
+                Id = "rogue_rail_cannon",
+                Name = "Rogue Rail Cannon",
+                Description = "A costly pirate siege gun with extreme impact and a slow cycle.",
+                EquipmentType = EquipmentType.Gun,
+                Price = 13500,
+                WeaponType = WeaponType.Fireball,
+                Family = WeaponFamily.Rogue,
+                ProgressionTier = WeaponProgressionTier.High,
+                Damage = 40f,
+                ProjectileSpeed = 1100f,
+                RefireRate = 0.52f,
+                EnergyCost = 34f,
+                Range = 5400f
             });
 
             Register(new EquipmentDefinition

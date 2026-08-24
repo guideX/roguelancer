@@ -62,38 +62,57 @@ namespace Roguelancer
                     FactionManager.LibertyPolice,
                     isCivilian: false,
                     preferMatchedWeapons: true,
+                    "liberty_light_laser",
+                    "liberty_sentry_blaster",
+                    "liberty_ranger_laser",
                     "liberty_pulse_cannon",
-                    "liberty_light_laser"),
+                    "liberty_heavy_pulse"),
                 [FactionManager.LibertyNavy] = new NpcLoadoutPolicyProfile(
                     FactionManager.LibertyNavy,
                     isCivilian: false,
                     preferMatchedWeapons: true,
+                    "liberty_sentry_blaster",
                     "liberty_pulse_cannon",
-                    "liberty_light_laser"),
+                    "liberty_ranger_laser",
+                    "liberty_heavy_pulse"),
                 [FactionManager.LibertyRogues] = new NpcLoadoutPolicyProfile(
                     FactionManager.LibertyRogues,
                     isCivilian: false,
                     preferMatchedWeapons: false,
+                    "rogue_needle_blaster",
                     "rogue_blaster",
-                    "liberty_light_laser"),
+                    "rogue_scattergun",
+                    "rogue_rail_cannon"),
                 [FactionManager.LibertyCorporations] = new NpcLoadoutPolicyProfile(
                     FactionManager.LibertyCorporations,
                     isCivilian: false,
                     preferMatchedWeapons: true,
+                    "liberty_light_laser",
+                    "liberty_sentry_blaster",
                     "liberty_pulse_cannon",
-                    "liberty_light_laser"),
+                    "liberty_ranger_laser",
+                    "liberty_heavy_pulse"),
                 [FactionManager.BountyHunters] = new NpcLoadoutPolicyProfile(
                     FactionManager.BountyHunters,
                     isCivilian: false,
-                    preferMatchedWeapons: true,
+                    preferMatchedWeapons: false,
                     "liberty_light_laser",
-                    "liberty_pulse_cannon"),
+                    "rogue_blaster",
+                    "liberty_pulse_cannon",
+                    "rogue_needle_blaster",
+                    "liberty_ranger_laser",
+                    "rogue_scattergun",
+                    "liberty_heavy_pulse",
+                    "rogue_rail_cannon"),
                 [FactionManager.Junkers] = new NpcLoadoutPolicyProfile(
                     FactionManager.Junkers,
                     isCivilian: false,
                     preferMatchedWeapons: false,
                     "rogue_blaster",
-                    "liberty_light_laser"),
+                    "liberty_light_laser",
+                    "liberty_sentry_blaster",
+                    "rogue_needle_blaster",
+                    "rogue_scattergun"),
                 [FactionManager.NeutralCivilians] = new NpcLoadoutPolicyProfile(
                     FactionManager.NeutralCivilians,
                     isCivilian: true,
@@ -149,10 +168,10 @@ namespace Roguelancer
                 return loadout;
             }
 
-            List<WeaponEquipmentDefinition> eligibleWeapons = GetEligibleWeapons(profile, loadout);
+            List<WeaponEquipmentDefinition> eligibleWeapons = GetEligibleWeapons(profile, loadout, tier);
             if (eligibleWeapons.Count == 0)
             {
-                eligibleWeapons = GetEligibleWeapons(FallbackProfile, loadout);
+                eligibleWeapons = GetEligibleWeapons(FallbackProfile, loadout, tier);
             }
 
             if (eligibleWeapons.Count == 0)
@@ -161,13 +180,16 @@ namespace Roguelancer
             }
 
             string identity = BuildIdentity(archetypeName, factionId, modelPath, combatRole, tier);
-            int primaryIndex = profile.PreferMatchedWeapons
-                ? tier == NpcLoadoutTier.Low ? eligibleWeapons.Count - 1 : 0
-                : SelectMixedPrimaryIndex(identity, eligibleWeapons.Count);
+            int primaryIndex = SelectPrimaryIndex(
+                profile,
+                eligibleWeapons,
+                identity,
+                combatRole,
+                tier);
 
             for (int slot = 0; slot < weaponCount; slot++)
             {
-                int weaponIndex = profile.PreferMatchedWeapons
+                int weaponIndex = profile.PreferMatchedWeapons || tier == NpcLoadoutTier.High
                     ? primaryIndex
                     : (primaryIndex + slot) % eligibleWeapons.Count;
                 WeaponEquipmentDefinition weapon = eligibleWeapons[weaponIndex];
@@ -203,7 +225,9 @@ namespace Roguelancer
                    IsValidPositive(weapon.ProjectileSpeed) &&
                    IsValidPositive(weapon.RefireRate) &&
                    IsValidPositive(weapon.EnergyCost) &&
-                   IsValidPositive(weapon.Range);
+                   IsValidPositive(weapon.Range) &&
+                   Enum.IsDefined(typeof(WeaponFamily), weapon.Family) &&
+                   Enum.IsDefined(typeof(WeaponProgressionTier), weapon.ProgressionTier);
         }
 
         /// <summary>
@@ -246,13 +270,15 @@ namespace Roguelancer
 
         private static List<WeaponEquipmentDefinition> GetEligibleWeapons(
             NpcLoadoutPolicyProfile profile,
-            ShipLoadout loadout)
+            ShipLoadout loadout,
+            NpcLoadoutTier tier)
         {
             List<WeaponEquipmentDefinition> eligible = new();
             foreach (string weaponId in profile?.PreferredWeaponIds ?? Array.Empty<string>())
             {
                 EquipmentDefinition definition = EquipmentCatalog.GetById(weaponId);
                 if (!IsValidNpcWeapon(definition) ||
+                    !IsAvailableAtTier((WeaponEquipmentDefinition)definition, tier) ||
                     !loadout.GetCompatibleHardpoints(definition).Any(hardpoint => hardpoint.IsEmpty) ||
                     eligible.Any(existing => string.Equals(existing.Id, definition.Id, StringComparison.OrdinalIgnoreCase)))
                 {
@@ -263,6 +289,22 @@ namespace Roguelancer
             }
 
             return eligible;
+        }
+
+        private static bool IsAvailableAtTier(WeaponEquipmentDefinition weapon, NpcLoadoutTier tier)
+        {
+            if (weapon == null)
+            {
+                return false;
+            }
+
+            return weapon.ProgressionTier switch
+            {
+                WeaponProgressionTier.Low => true,
+                WeaponProgressionTier.Standard => tier != NpcLoadoutTier.Low,
+                WeaponProgressionTier.High => tier == NpcLoadoutTier.High,
+                _ => false
+            };
         }
 
         private static bool TryAddAndMount(ShipLoadout loadout, WeaponEquipmentDefinition weapon)
@@ -318,11 +360,32 @@ namespace Roguelancer
                 hardpoint?.AllowedEquipmentTypes?.Contains(EquipmentType.Gun) == true) ?? 0;
         }
 
-        private static int SelectMixedPrimaryIndex(string identity, int weaponCount)
+        private static int SelectPrimaryIndex(
+            NpcLoadoutPolicyProfile profile,
+            IReadOnlyList<WeaponEquipmentDefinition> eligibleWeapons,
+            string identity,
+            TrafficZoneBehaviorType combatRole,
+            NpcLoadoutTier tier)
         {
-            if (weaponCount <= 1)
+            if (eligibleWeapons == null || eligibleWeapons.Count <= 1)
             {
                 return 0;
+            }
+
+            bool supportRole = combatRole == TrafficZoneBehaviorType.TraderRoute ||
+                               combatRole == TrafficZoneBehaviorType.StationTraffic;
+            if (supportRole && tier != NpcLoadoutTier.High)
+            {
+                return 0;
+            }
+
+            // Matched professional factions use the strongest item permitted
+            // by the canonical tier. High-tier mixed factions also guarantee
+            // access to their strongest bounded option, while standard rogue
+            // identities preserve the Phase 40 deterministic mixed behavior.
+            if (profile?.PreferMatchedWeapons == true || tier == NpcLoadoutTier.High)
+            {
+                return eligibleWeapons.Count - 1;
             }
 
             return Hash(identity, "mixed-primary") % 4u == 0u ? 1 : 0;

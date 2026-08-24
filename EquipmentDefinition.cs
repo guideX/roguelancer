@@ -4,6 +4,27 @@ using Microsoft.Xna.Framework;
 namespace Roguelancer
 {
     /// <summary>
+    /// Small authored family labels used by NPC loadout policy. These are
+    /// canonical weapon metadata, not a separate NPC item database.
+    /// </summary>
+    public enum WeaponFamily
+    {
+        Liberty,
+        Rogue,
+        Mixed
+    }
+
+    /// <summary>
+    /// Bounded progression bands for canonical gun selection.
+    /// </summary>
+    public enum WeaponProgressionTier
+    {
+        Low,
+        Standard,
+        High
+    }
+
+    /// <summary>
     /// Base definition for a piece of ship equipment.
     /// </summary>
     public class EquipmentDefinition
@@ -211,6 +232,8 @@ namespace Roguelancer
     public class WeaponEquipmentDefinition : EquipmentDefinition
     {
         public WeaponType WeaponType { get; set; }
+        public WeaponFamily Family { get; set; } = WeaponFamily.Mixed;
+        public WeaponProgressionTier ProgressionTier { get; set; } = WeaponProgressionTier.Standard;
         public float Damage { get; set; }
         public float ProjectileSpeed { get; set; }
         public float RefireRate { get; set; }
@@ -219,7 +242,7 @@ namespace Roguelancer
 
         public override string GetStatsSummary()
         {
-            return $"{base.GetStatsSummary()} | Weapon {WeaponType} | DMG {Damage:F0} | SPD {ProjectileSpeed:F0} | ROF {RefireRate:F2}s | EN {EnergyCost:F0} | RNG {Range:F0}";
+            return $"{base.GetStatsSummary()} | {Family} {ProgressionTier} | Weapon {WeaponType} | DMG {Damage:F0} | SPD {ProjectileSpeed:F0} | ROF {RefireRate:F2}s | EN {EnergyCost:F0} | RNG {Range:F0}";
         }
     }
 }
