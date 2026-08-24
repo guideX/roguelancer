@@ -43,6 +43,18 @@ namespace Roguelancer
     }
 
     /// <summary>
+    /// Authoritative source of the destroying hull hit for one NPC instance.
+    /// This is transient runtime combat state and is not save data.
+    /// </summary>
+    public enum NpcDestructionSource
+    {
+        Unknown,
+        Player,
+        Npc,
+        Environment
+    }
+
+    /// <summary>
     /// NPC ship with simple patrol behavior
     /// </summary>
     public class NpcShip : SpaceObject
@@ -87,6 +99,10 @@ namespace Roguelancer
         public float LastPlayerDamage { get; private set; }
         public bool HasPlayerAggressionProvenance { get; private set; }
         public bool WasFactionHostileBeforePlayerAggression { get; private set; }
+        public NpcDestructionSource DestructionSource { get; private set; } = NpcDestructionSource.Unknown;
+        public bool WasAliveImmediatelyBeforeDestruction { get; private set; }
+
+        private NpcDestructionSource _pendingDestructionSource = NpcDestructionSource.Unknown;
 
         /// <summary>
         /// Transient provenance for ships created by a faction distress
@@ -119,6 +135,27 @@ namespace Roguelancer
             LastPlayerDamage = damage;
             PlayerDamageSequence = PlayerDamageSequence == int.MaxValue ? 1 : PlayerDamageSequence + 1;
             return true;
+        }
+
+        /// <summary>
+        /// Applies hull damage through the existing NPC damage boundary while
+        /// preserving the source used if this hit causes destruction. Shield
+        /// absorption remains the caller's responsibility.
+        /// </summary>
+        public bool ApplyDamage(float damage, NpcDestructionSource source)
+        {
+            if (IsDestroyed || float.IsNaN(damage) || float.IsInfinity(damage) || damage <= 0f)
+                return false;
+
+            _pendingDestructionSource = source;
+            try
+            {
+                return Hull.TakeDamage(damage);
+            }
+            finally
+            {
+                _pendingDestructionSource = NpcDestructionSource.Unknown;
+            }
         }
 
         internal void MarkDistressReinforcement(string encounterId)
@@ -203,6 +240,8 @@ namespace Roguelancer
             Hull = new HullIntegrity(75f); // NPCs start with 75 hull points
             Hull.OnDestroyed += () =>
             {
+                WasAliveImmediatelyBeforeDestruction = true;
+                DestructionSource = _pendingDestructionSource;
                 Console.WriteLine($"NPC SHIP '{Name}' DESTROYED!");
                 OnDestroyed?.Invoke(this);
             };

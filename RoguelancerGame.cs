@@ -124,6 +124,7 @@ namespace Roguelancer {
         private FactionManager _factionManager;
         private ReputationManager _reputationManager;
         private FactionCombatConsequenceService _factionCombatConsequences;
+        private FactionBountyRewardService _factionBountyRewards;
         /// <summary>
         /// Lighting Direction
         /// </summary>
@@ -226,6 +227,7 @@ namespace Roguelancer {
 
         // Debug tracking
         private float _debugTimer = 0f;
+        private double _simulationTimestampSeconds;
         private Vector3 _lastPlayerPosition;
         private bool _firstFrame = true;
         private readonly bool _runMarketSmoke;
@@ -247,6 +249,7 @@ namespace Roguelancer {
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
         private readonly bool _runFactionCombatCommunicationSmoke;
+        private readonly bool _runFactionBountyRewardSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runPoliceEnforcementSmoke;
         private readonly bool _runTrafficSmoke;
@@ -341,6 +344,7 @@ namespace Roguelancer {
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatCommunicationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-communication-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runFactionBountyRewardSmoke = args?.Any(arg => string.Equals(arg, "--faction-bounty-reward-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPoliceEnforcementSmoke = args?.Any(arg => string.Equals(arg, "--police-enforcement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1189,6 +1193,11 @@ namespace Roguelancer {
             _notificationManager = new NotificationManager(_font, GraphicsDevice.Viewport);
             _reputationManager.OnReputationChanged += HandleReputationChanged;
             _reputationManager.OnTemporaryHostilityChanged += HandleTemporaryHostilityChanged;
+            _factionBountyRewards = new FactionBountyRewardService(
+                _reputationManager,
+                _playerCredits,
+                message => _notificationManager?.ShowMessage(message, 3f),
+                ship => _npcShips.Contains(ship));
             _lootManager = new LootManager(GraphicsDevice, null, _font, _pixel);
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
@@ -1328,6 +1337,11 @@ namespace Roguelancer {
             else if (_runFactionCombatCommunicationSmoke)
             {
                 var result = RunFactionCombatCommunicationSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runFactionBountyRewardSmoke)
+            {
+                var result = RunFactionBountyRewardSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runPoliceEnforcementSmoke)
@@ -1482,6 +1496,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat communication smoke", RunFactionCombatCommunicationSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("faction bounty reward smoke", RunFactionBountyRewardSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("police enforcement smoke", RunPoliceEnforcementSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1782,6 +1797,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[FACTION COMBAT COMMUNICATION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunFactionBountyRewardSmokeTest()
+        {
+            try
+            {
+                return new FactionBountyRewardSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FACTION BOUNTY REWARD SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2270,6 +2298,7 @@ namespace Roguelancer {
             KeyboardState keyboardState = Keyboard.GetState();
             MouseState mouseState = Mouse.GetState();
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            _simulationTimestampSeconds = gameTime.TotalGameTime.TotalSeconds;
 
             // Market recovery is driven by elapsed simulation time, not update
             // call count. The dealer advances even while the station terminal
@@ -2953,6 +2982,7 @@ namespace Roguelancer {
         private void HandleNpcDestroyed(NpcShip destroyedShip) {
             _factionCombatConsequences?.RecordPlayerDamage(destroyedShip);
             _factionCombatConsequences?.ApplyPlayerShipDestroyed(destroyedShip);
+            _factionBountyRewards?.ProcessDestruction(destroyedShip, _simulationTimestampSeconds);
 
             // Trigger explosion effect
             _explosionParticles.TriggerExplosion(destroyedShip.Position, destroyedShip.Velocity, intensity: 1.0f);
@@ -6578,6 +6608,7 @@ namespace Roguelancer {
             Vector3 arrivalPos = _jumpHoleManager.GetArrivalPosition(newSystemIndex, arrivalJumpHoleName);
 
             // Clear current system objects
+            _factionBountyRewards?.Reset();
             _spaceObjects.Clear();
             _npcShips.Clear();
             _wrecks.Clear();

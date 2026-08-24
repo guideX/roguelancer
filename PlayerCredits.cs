@@ -36,11 +36,22 @@ namespace Roguelancer
         /// </summary>
         public void AddCredits(int amount)
         {
-            if (amount <= 0) return;
-            
+            TryAddCredits(amount);
+        }
+
+        /// <summary>
+        /// Adds credits through the authoritative balance path without
+        /// allowing integer overflow or a wrapped balance.
+        /// </summary>
+        public bool TryAddCredits(int amount)
+        {
+            if (amount <= 0 || amount > int.MaxValue - Credits)
+                return false;
+
             Credits += amount;
             OnCreditsChanged?.Invoke(Credits);
             Console.WriteLine($"[CREDITS] +{amount} credits. Total: {Credits}");
+            return true;
         }
 
         /// <summary>

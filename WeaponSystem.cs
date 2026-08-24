@@ -735,7 +735,10 @@ namespace Roguelancer
                     // Apply remaining damage to hull
                     if (hullDamage > 0f)
                     {
-                        hull.TakeDamage(hullDamage);
+                        if (playerTarget != null)
+                            playerTarget.ApplyDamage(hullDamage, NpcDestructionSource.Player);
+                        else
+                            hull.TakeDamage(hullDamage);
                     }
                     float hullAfter = hull.CurrentHull;
                     
@@ -859,6 +862,15 @@ namespace Roguelancer
             if (target is NpcShip npcTarget)
             {
                 npcTarget.MarkDamagedByPlayer(hullDamage);
+
+                float npcHullDamage = hullDamage;
+                if (npcTarget.Shields != null)
+                    npcHullDamage = npcTarget.Shields.AbsorbDamage(hullDamage);
+
+                if (npcHullDamage > 0f)
+                    npcTarget.ApplyDamage(npcHullDamage, NpcDestructionSource.Player);
+
+                return;
             }
 
             // Get hull, energy, and shield properties via reflection

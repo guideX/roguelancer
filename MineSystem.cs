@@ -280,7 +280,7 @@ namespace Roguelancer
 
                 if (hullDamage > 0f)
                 {
-                    npc.Hull.TakeDamage(hullDamage);
+                    npc.ApplyDamage(hullDamage, NpcDestructionSource.Player);
                 }
 
                 Vector3 impactDirection = npc.Position - mine.Position;

@@ -35,6 +35,10 @@ public sealed class FactionCombatConsequenceService
             damagedShip.PlayerDamageSequence <= 0)
             return false;
 
+        if (damagedShip.IsDestroyed &&
+            damagedShip.DestructionSource is NpcDestructionSource.Npc or NpcDestructionSource.Environment)
+            return false;
+
         if (_observedPlayerDamage.TryGetValue(damagedShip, out int observedSequence) &&
             observedSequence >= damagedShip.PlayerDamageSequence)
             return false;
@@ -68,6 +72,14 @@ public sealed class FactionCombatConsequenceService
     public ReputationChangeResult? ApplyPlayerShipDestroyed(NpcShip? destroyedShip)
     {
         if (destroyedShip == null || !destroyedShip.WasDamagedByPlayer)
+            return null;
+
+        // A player hit is aggression provenance, not kill credit. Once the
+        // authoritative destruction boundary identifies an NPC or
+        // environmental destroying hit, no player destruction consequence is
+        // allowed to leak through from an earlier player hit.
+        if (destroyedShip.IsDestroyed &&
+            destroyedShip.DestructionSource is NpcDestructionSource.Npc or NpcDestructionSource.Environment)
             return null;
 
         // The destruction callback can arrive before the frame-level event

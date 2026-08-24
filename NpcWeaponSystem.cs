@@ -193,7 +193,7 @@ namespace Roguelancer
                 hullDamage = target.Shields.AbsorbDamage(damage);
 
             if (hullDamage > 0f)
-                target.Hull.TakeDamage(hullDamage);
+                target.ApplyDamage(hullDamage, NpcDestructionSource.Npc);
         }
 
         /// <summary>
