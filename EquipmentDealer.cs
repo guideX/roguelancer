@@ -117,6 +117,19 @@ namespace Roguelancer
             return index >= 0 && index < inventory.Count ? inventory[index] : null;
         }
 
+        public IReadOnlyList<EquipmentDefinition> GetOwnedEquipment(ShipLoadout loadout)
+        {
+            if (loadout == null)
+            {
+                return Array.Empty<EquipmentDefinition>();
+            }
+
+            return AvailableEquipment
+                .Where(equipment => loadout.GetOwnedCount(equipment.Id) > 0 ||
+                                    loadout.GetMountedCount(equipment.Id) > 0)
+                .ToList();
+        }
+
         public int GetResaleValue(EquipmentDefinition equipment)
         {
             EquipmentDefinition canonical = ResolveSoldEquipment(equipment);
@@ -144,6 +157,12 @@ namespace Roguelancer
             if (credits == null || loadout == null)
             {
                 message = "Equipment dealer transaction is unavailable.";
+                return false;
+            }
+
+            if (loadout.AvailableOwnedEquipmentCapacity <= 0)
+            {
+                message = $"Equipment storage full ({ShipLoadout.MaximumOwnedEquipmentCount} items).";
                 return false;
             }
 
@@ -325,10 +344,10 @@ namespace Roguelancer
                 return false;
             }
 
-            FactionAccessResult access = GetEquipmentAccess(canonical);
-            if (!access.IsAllowed)
+            FactionAccessResult serviceAccess = GetServiceAccess();
+            if (!serviceAccess.IsAllowed)
             {
-                message = access.BuildFailureMessage(canonical.Name);
+                message = serviceAccess.BuildFailureMessage("Equipment Dealer");
                 Console.WriteLine($"[EQUIPMENT][FAIL] {message}");
                 return false;
             }

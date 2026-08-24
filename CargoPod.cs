@@ -1,16 +1,26 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
-using System.Runtime.CompilerServices;
 
 namespace Roguelancer
 {
+    public enum CargoPodPayloadType
+    {
+        Commodity,
+        Equipment
+    }
+
     /// <summary>
-    /// Lightweight floating cargo pod that can be tractored back into the player's hold.
+    /// Lightweight floating salvage pod. A pod carries either commodity cargo or
+    /// one canonical equipment item; it is not durable player ownership until a
+    /// successful pickup transfers its payload.
     /// </summary>
     public sealed class CargoPod
     {
+        public CargoPodPayloadType PayloadType { get; }
+        public bool IsEquipment => PayloadType == CargoPodPayloadType.Equipment;
         public string CommodityId { get; }
+        public string EquipmentId { get; }
         public int InitialQuantity { get; }
         public int Quantity => RemainingQuantity;
         public int RemainingQuantity { get; private set; }
@@ -28,9 +38,19 @@ namespace Roguelancer
         public bool IsExpired => AgeSeconds >= LifetimeSeconds;
         public bool IsDepleted => RemainingQuantity <= 0;
 
-        private CargoPod(string commodityId, int quantity, Vector3 position, Vector3 velocity, float lifetimeSeconds, float pickupRadius)
+        private CargoPod(
+            CargoPodPayloadType payloadType,
+            string commodityId,
+            string equipmentId,
+            int quantity,
+            Vector3 position,
+            Vector3 velocity,
+            float lifetimeSeconds,
+            float pickupRadius)
         {
+            PayloadType = payloadType;
             CommodityId = commodityId;
+            EquipmentId = equipmentId;
             InitialQuantity = quantity;
             RemainingQuantity = quantity;
             Position = position;
@@ -49,13 +69,50 @@ namespace Roguelancer
                 return false;
             }
 
-            pod = new CargoPod(commodity.Id, quantity, position, velocity, lifetimeSeconds, pickupRadius);
+            pod = new CargoPod(
+                CargoPodPayloadType.Commodity,
+                commodity.Id,
+                string.Empty,
+                quantity,
+                position,
+                velocity,
+                lifetimeSeconds,
+                pickupRadius);
+            return true;
+        }
+
+        public static bool TryCreateEquipment(
+            string equipmentId,
+            Vector3 position,
+            Vector3 velocity,
+            float lifetimeSeconds,
+            float pickupRadius,
+            out CargoPod pod)
+        {
+            pod = null;
+
+            EquipmentDefinition equipment = EquipmentCatalog.GetById(equipmentId);
+            if (equipment == null || string.IsNullOrWhiteSpace(equipment.Id) ||
+                lifetimeSeconds <= 0f || pickupRadius <= 0f)
+            {
+                return false;
+            }
+
+            pod = new CargoPod(
+                CargoPodPayloadType.Equipment,
+                string.Empty,
+                equipment.Id,
+                1,
+                position,
+                velocity,
+                lifetimeSeconds,
+                pickupRadius);
             return true;
         }
 
         public void SetSalvageSource(NpcShip source, CombatSalvageTier tier)
         {
-            SourceNpcIdentity = source == null ? 0 : RuntimeHelpers.GetHashCode(source);
+            SourceNpcIdentity = source == null ? 0 : StableSourceHash(source);
             SourceNpcName = source?.Name ?? string.Empty;
             SalvageTier = tier;
         }
@@ -69,7 +126,19 @@ namespace Roguelancer
 
         public Commodity GetCommodity()
         {
-            return CommodityCatalog.GetById(CommodityId);
+            return !IsEquipment ? CommodityCatalog.GetById(CommodityId) : null;
+        }
+
+        public EquipmentDefinition GetEquipment()
+        {
+            return IsEquipment ? EquipmentCatalog.GetById(EquipmentId) : null;
+        }
+
+        public string GetPayloadName()
+        {
+            return IsEquipment
+                ? GetEquipment()?.Name ?? EquipmentId
+                : GetCommodity()?.Name ?? CommodityId;
         }
 
         public void Update(float deltaTime)
@@ -201,6 +270,27 @@ namespace Roguelancer
             {
                 pass.Apply();
                 device.DrawUserPrimitives(PrimitiveType.LineList, dotVertices, 0, 3);
+            }
+        }
+
+        private static int StableSourceHash(NpcShip source)
+        {
+            string identity = string.Join("|",
+                FactionManager.NormalizeFactionId(source?.FactionId),
+                source?.Name ?? string.Empty,
+                source?.ModelPath ?? string.Empty,
+                source?.TrafficBehavior.ToString() ?? string.Empty);
+
+            unchecked
+            {
+                uint hash = 2166136261u;
+                for (int i = 0; i < identity.Length; i++)
+                {
+                    hash ^= identity[i];
+                    hash *= 16777619u;
+                }
+
+                return (int)(hash & 0x7FFFFFFFu);
             }
         }
     }

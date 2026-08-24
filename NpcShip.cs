@@ -65,6 +65,12 @@ namespace Roguelancer
         public Matrix ModelRotationCorrection { get; set; } = Matrix.Identity;
         public string ModelPath { get; set; }
         public string FactionId { get; set; }
+        /// <summary>
+        /// Durable-definition snapshot for the equipment this NPC carried.
+        /// Runtime NPC projectiles remain separate from this metadata so a
+        /// destruction event can safely derive canonical salvage IDs.
+        /// </summary>
+        public ShipLoadout Loadout { get; private set; } = ShipLoadout.CreateStarterLoadout(false);
         public TrafficZoneBehaviorType TrafficBehavior { get; private set; } = TrafficZoneBehaviorType.LawfulPatrol;
         public string TrafficZoneId { get; private set; } = string.Empty;
         public float TrafficLifetimeSeconds { get; set; } = 0f;
@@ -304,6 +310,11 @@ namespace Roguelancer
                     _trafficRouteTowardEnd = false;
                 }
             }
+        }
+
+        public void SetLoadout(ShipLoadout loadout)
+        {
+            Loadout = loadout ?? ShipLoadout.CreateStarterLoadout(false);
         }
 
         public void SetEncounterState(

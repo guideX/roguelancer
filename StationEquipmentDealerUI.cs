@@ -330,9 +330,7 @@ public sealed class StationEquipmentDealerUI
         ShipLoadout loadout = _playerShip?.Loadout;
         if (loadout == null) return Array.Empty<EquipmentDefinition>();
 
-        return _equipmentDealer.AvailableEquipment
-            .Where(equipment => loadout.GetOwnedCount(equipment.Id) > 0 || loadout.GetMountedCount(equipment.Id) > 0)
-            .ToList();
+        return _equipmentDealer.GetOwnedEquipment(loadout);
     }
 
     private void MoveSelection(int direction, int count)

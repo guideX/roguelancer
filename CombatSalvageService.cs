@@ -11,20 +11,56 @@ namespace Roguelancer
         Heavy
     }
 
+    public enum SalvagePayloadType
+    {
+        Commodity,
+        Equipment
+    }
+
     /// <summary>
-    /// Immutable policy output for one physical commodity salvage object.
-    /// The object is not cargo until a player collects it through CargoHold.
+    /// Immutable policy output for one physical salvage object. The object is
+    /// not player property until a successful pickup transfers its payload.
     /// </summary>
     public sealed class SalvageDrop
     {
+        public SalvagePayloadType PayloadType { get; }
+        public bool IsEquipment => PayloadType == SalvagePayloadType.Equipment;
         public string CommodityId { get; }
+        public string EquipmentId { get; }
         public int Quantity { get; }
         public int StackIndex { get; }
         public CombatSalvageTier Tier { get; }
 
         public SalvageDrop(string commodityId, int quantity, int stackIndex, CombatSalvageTier tier)
         {
+            PayloadType = SalvagePayloadType.Commodity;
             CommodityId = commodityId ?? string.Empty;
+            EquipmentId = string.Empty;
+            Quantity = Math.Max(0, quantity);
+            StackIndex = Math.Max(0, stackIndex);
+            Tier = tier;
+        }
+
+        public static SalvageDrop ForEquipment(string equipmentId, int stackIndex, CombatSalvageTier tier)
+        {
+            return new SalvageDrop(
+                SalvagePayloadType.Equipment,
+                equipmentId,
+                1,
+                stackIndex,
+                tier);
+        }
+
+        private SalvageDrop(
+            SalvagePayloadType payloadType,
+            string equipmentId,
+            int quantity,
+            int stackIndex,
+            CombatSalvageTier tier)
+        {
+            PayloadType = payloadType;
+            CommodityId = string.Empty;
+            EquipmentId = equipmentId ?? string.Empty;
             Quantity = Math.Max(0, quantity);
             StackIndex = Math.Max(0, stackIndex);
             Tier = tier;
@@ -46,6 +82,8 @@ namespace Roguelancer
         public const float MaximumSpawnOffset = 200f;
         public const int StandardMaximumObjectsPerDestruction = 1;
         public const int HeavyMaximumObjectsPerDestruction = 2;
+        public const int StandardMaximumEquipmentObjectsPerDestruction = 1;
+        public const int HeavyMaximumEquipmentObjectsPerDestruction = 2;
         public const int StandardMinimumQuantity = 1;
         public const int StandardMaximumQuantity = 3;
         public const int HeavyMinimumQuantity = 2;
@@ -95,17 +133,28 @@ namespace Roguelancer
             }
 
             CombatSalvageTier tier = DetermineTier(destroyedShip);
-            if (tier == CombatSalvageTier.None || !ShouldDrop(destroyedShip, tier))
+            if (tier == CombatSalvageTier.None)
             {
                 return Array.Empty<SalvageDrop>();
             }
 
+            List<SalvageDrop> drops = new();
             string[] pool = GetCommodityPool(destroyedShip);
-            if (pool.Length == 0)
+            if (pool.Length > 0 && ShouldDrop(destroyedShip, tier))
             {
-                return Array.Empty<SalvageDrop>();
+                AddCommodityDrops(drops, destroyedShip, tier, pool);
             }
 
+            if (ShouldDropEquipment(destroyedShip, tier))
+            {
+                AddEquipmentDrops(drops, destroyedShip, tier);
+            }
+
+            return drops.Count == 0 ? Array.Empty<SalvageDrop>() : drops;
+        }
+
+        private void AddCommodityDrops(List<SalvageDrop> drops, NpcShip destroyedShip, CombatSalvageTier tier, string[] pool)
+        {
             uint identityHash = GetIdentityHash(destroyedShip, tier);
             if (tier == CombatSalvageTier.Standard)
             {
@@ -116,14 +165,12 @@ namespace Roguelancer
                     : StandardMaximumQuantity;
                 int quantity = StandardMinimumQuantity + (int)(Hash(identityHash, "quantity") %
                     (maximumQuantity - StandardMinimumQuantity + 1));
-                return new[]
-                {
-                    new SalvageDrop(
-                        pool[(int)(Hash(identityHash, "commodity|0") % (uint)pool.Length)],
-                        quantity,
-                        0,
-                        tier)
-                };
+                drops.Add(new SalvageDrop(
+                    pool[(int)(Hash(identityHash, "commodity|0") % (uint)pool.Length)],
+                    quantity,
+                    0,
+                    tier));
+                return;
             }
 
             int totalQuantity = HeavyMinimumQuantity + (int)(Hash(identityHash, "quantity") %
@@ -131,30 +178,56 @@ namespace Roguelancer
             int objectCount = Hash(identityHash, "objects") % 2u == 0u ? 1 : 2;
             if (objectCount == 1)
             {
-                return new[]
-                {
-                    new SalvageDrop(
-                        pool[(int)(Hash(identityHash, "commodity|0") % (uint)pool.Length)],
-                        totalQuantity,
-                        0,
-                        tier)
-                };
+                drops.Add(new SalvageDrop(
+                    pool[(int)(Hash(identityHash, "commodity|0") % (uint)pool.Length)],
+                    totalQuantity,
+                    0,
+                    tier));
+                return;
             }
 
             int firstQuantity = 1 + (int)(Hash(identityHash, "split") % (uint)(totalQuantity - 1));
-            return new[]
+            drops.Add(new SalvageDrop(
+                pool[(int)(Hash(identityHash, "commodity|0") % (uint)pool.Length)],
+                firstQuantity,
+                0,
+                tier));
+            drops.Add(new SalvageDrop(
+                pool[(int)(Hash(identityHash, "commodity|1") % (uint)pool.Length)],
+                totalQuantity - firstQuantity,
+                1,
+                tier));
+        }
+
+        private void AddEquipmentDrops(List<SalvageDrop> drops, NpcShip destroyedShip, CombatSalvageTier tier)
+        {
+            List<WeaponEquipmentDefinition> eligible = new();
+            foreach (WeaponEquipmentDefinition weapon in destroyedShip.Loadout?.GetMountedGuns() ?? Array.Empty<WeaponEquipmentDefinition>())
             {
-                new SalvageDrop(
-                    pool[(int)(Hash(identityHash, "commodity|0") % (uint)pool.Length)],
-                    firstQuantity,
-                    0,
-                    tier),
-                new SalvageDrop(
-                    pool[(int)(Hash(identityHash, "commodity|1") % (uint)pool.Length)],
-                    totalQuantity - firstQuantity,
-                    1,
-                    tier)
-            };
+                EquipmentDefinition canonical = EquipmentCatalog.GetById(weapon?.Id);
+                if (canonical is WeaponEquipmentDefinition canonicalWeapon &&
+                    canonicalWeapon.EquipmentType == EquipmentType.Gun)
+                {
+                    eligible.Add(canonicalWeapon);
+                }
+            }
+
+            if (eligible.Count == 0)
+            {
+                return;
+            }
+
+            int maximumObjects = tier == CombatSalvageTier.Heavy
+                ? HeavyMaximumEquipmentObjectsPerDestruction
+                : StandardMaximumEquipmentObjectsPerDestruction;
+            int objectCount = Math.Min(maximumObjects, eligible.Count);
+            uint identityHash = GetIdentityHash(destroyedShip, tier);
+            int startIndex = (int)(Hash(identityHash, "equipment-slot") % (uint)eligible.Count);
+            for (int i = 0; i < objectCount; i++)
+            {
+                WeaponEquipmentDefinition weapon = eligible[(startIndex + i) % eligible.Count];
+                drops.Add(SalvageDrop.ForEquipment(weapon.Id, i, tier));
+            }
         }
 
         public IReadOnlyList<SalvageDrop> ProcessDestruction(NpcShip destroyedShip) =>
@@ -200,6 +273,12 @@ namespace Roguelancer
             return tier != CombatSalvageTier.None && ShouldDrop(destroyedShip, tier);
         }
 
+        public bool ShouldDropEquipment(NpcShip destroyedShip)
+        {
+            CombatSalvageTier tier = DetermineTier(destroyedShip);
+            return tier != CombatSalvageTier.None && ShouldDropEquipment(destroyedShip, tier);
+        }
+
         public Vector3 GetSpawnOffset(NpcShip destroyedShip, int stackIndex)
         {
             CombatSalvageTier tier = DetermineTier(destroyedShip);
@@ -226,6 +305,14 @@ namespace Roguelancer
             // Stable modulo policy: standard fighters are 50%; heavy/Warthog
             // fighters are 75%. No wall-clock or frame-dependent randomness.
             return tier == CombatSalvageTier.Heavy ? roll % 4u != 0u : roll % 2u == 0u;
+        }
+
+        private bool ShouldDropEquipment(NpcShip destroyedShip, CombatSalvageTier tier)
+        {
+            uint roll = Hash(GetIdentityHash(destroyedShip, tier), "equipment-drop");
+            // Equipment uses an independent deterministic roll: 25% for
+            // standard fighters and 50% for heavy/Warthog fighters.
+            return tier == CombatSalvageTier.Heavy ? roll % 2u == 0u : roll % 4u == 0u;
         }
 
         private string[] GetCommodityPool(NpcShip destroyedShip)

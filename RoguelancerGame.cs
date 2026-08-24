@@ -255,6 +255,7 @@ namespace Roguelancer {
         private readonly bool _runTrafficSmoke;
         private readonly bool _runLootSmoke;
         private readonly bool _runCombatSalvageSmoke;
+        private readonly bool _runEquipmentSalvageSmoke;
         private readonly bool _runMissionSmoke;
         private readonly bool _runFreightSmoke;
         private readonly bool _runExportSmoke;
@@ -351,6 +352,7 @@ namespace Roguelancer {
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runCombatSalvageSmoke = args?.Any(arg => string.Equals(arg, "--combat-salvage-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runEquipmentSalvageSmoke = args?.Any(arg => string.Equals(arg, "--equipment-salvage-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMissionSmoke = args?.Any(arg => string.Equals(arg, "--mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFreightSmoke = args?.Any(arg => string.Equals(arg, "--freight-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runExportSmoke = args?.Any(arg => string.Equals(arg, "--export-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -945,6 +947,11 @@ namespace Roguelancer {
                         Console.WriteLine($"[NPC SPAWN] ✗ WARNING: Invalid model index {shipConfig.ModelIndex} for ship '{shipConfig.Description}'.");
                     }
 
+                    npc.SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
+                        shipConfig.Description,
+                        factionId,
+                        npc.ModelPath));
+
                     _npcShips.Add(npc);
                     _spaceObjects.Add(npc); // Add to targetable objects
                     npc.OnDestroyed += HandleNpcDestroyed; // Subscribe to the event
@@ -1367,6 +1374,11 @@ namespace Roguelancer {
                 var result = RunCombatSalvageSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runEquipmentSalvageSmoke)
+            {
+                var result = RunEquipmentSalvageSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runMissionSmoke)
             {
                 var result = RunMissionSmokeTest();
@@ -1520,6 +1532,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("traffic smoke", RunTrafficSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("loot smoke", RunLootSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("combat salvage smoke", RunCombatSalvageSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("equipment salvage smoke", RunEquipmentSalvageSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("mission smoke", RunMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("freight smoke", RunFreightSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("export smoke", RunExportSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1892,6 +1905,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[COMBAT SALVAGE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunEquipmentSalvageSmokeTest()
+        {
+            try
+            {
+                return new EquipmentSalvageSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EQUIPMENT SALVAGE SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -3854,7 +3880,8 @@ namespace Roguelancer {
             if (target is CargoPod cargoPod)
             {
                 Commodity commodity = cargoPod.GetCommodity();
-                string label = commodity != null ? commodity.Name : "cargo pod";
+                EquipmentDefinition equipment = cargoPod.GetEquipment();
+                string label = equipment?.Name ?? commodity?.Name ?? "cargo pod";
                 _notificationManager?.ShowMessage($"GOTO unavailable for {label}");
                 Console.WriteLine($"[TARGETING] GOTO unavailable for cargo pod: {label}");
                 return false;

@@ -26,6 +26,7 @@ namespace Roguelancer
         private bool _hasLastPlayerState;
         private Vector3 _lastPlayerPosition;
         private CargoHold _lastCargoHold;
+        private ShipLoadout _lastLoadout;
 
         public LootManager(
             GraphicsDevice graphicsDevice = null,
@@ -76,22 +77,33 @@ namespace Roguelancer
             for (int i = 0; i < drops.Count && spawned < availableSlots; i++)
             {
                 SalvageDrop drop = drops[i];
-                Commodity commodity = CommodityCatalog.GetById(drop.CommodityId);
-                if (commodity == null || drop.Quantity <= 0 ||
+                Commodity commodity = drop.IsEquipment ? null : CommodityCatalog.GetById(drop.CommodityId);
+                EquipmentDefinition equipment = drop.IsEquipment ? EquipmentCatalog.GetById(drop.EquipmentId) : null;
+                if ((!drop.IsEquipment && (commodity == null || drop.Quantity <= 0)) ||
+                    (drop.IsEquipment && (equipment == null || drop.Quantity != 1)) ||
                     !TryFindSpawnPosition(destroyedShip, drop.StackIndex, out Vector3 position))
                 {
                     continue;
                 }
 
                 Vector3 velocity = destroyedShip.Velocity * 0.15f;
-                if (!CargoPod.TryCreate(
+                bool created = drop.IsEquipment
+                    ? CargoPod.TryCreateEquipment(
+                        equipment.Id,
+                        position,
+                        velocity,
+                        (float)CombatSalvageService.SalvageLifetimeSeconds,
+                        CombatSalvageService.PickupRadius,
+                        out CargoPod pod)
+                    : CargoPod.TryCreate(
                         commodity.Id,
                         drop.Quantity,
                         position,
                         velocity,
                         (float)CombatSalvageService.SalvageLifetimeSeconds,
                         CombatSalvageService.PickupRadius,
-                        out CargoPod pod))
+                        out pod);
+                if (!created)
                 {
                     continue;
                 }
@@ -99,7 +111,7 @@ namespace Roguelancer
                 pod.SetSalvageSource(destroyedShip, drop.Tier);
                 _activePods.Add(pod);
                 spawned++;
-                log?.Invoke($"[SALVAGE] pod spawned: {commodity.Name} x{drop.Quantity}");
+                log?.Invoke($"[SALVAGE] pod spawned: {pod.GetPayloadName()} x{drop.Quantity}");
             }
 
             return spawned;
@@ -119,6 +131,7 @@ namespace Roguelancer
             _hasLastPlayerState = playerShip != null;
             _lastPlayerPosition = playerShip?.Position ?? Vector3.Zero;
             _lastCargoHold = playerShip?.CargoHold;
+            _lastLoadout = playerShip?.Loadout;
 
             if (_activePods.Count == 0)
             {
@@ -136,11 +149,13 @@ namespace Roguelancer
             // Entering the close pickup radius is sufficient. The existing P
             // tractor control remains an optional convenience for approaching
             // a drop from farther away.
-            bool canPickup = cargoHold != null;
+            bool canPickup = cargoHold != null || playerShip?.Loadout != null;
             float detectionRangeSquared = DetectionRange * DetectionRange;
             float tractorRangeSquared = TractorActivationRange * TractorActivationRange;
             Dictionary<string, int> collectedByCommodity = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, int> collectedByEquipment = new(StringComparer.OrdinalIgnoreCase);
             bool cargoWasFull = false;
+            bool equipmentStorageWasFull = false;
 
             for (int i = _activePods.Count - 1; i >= 0; i--)
             {
@@ -174,11 +189,61 @@ namespace Roguelancer
                     continue;
                 }
 
+                if (pod.IsEquipment)
+                {
+                    EquipmentDefinition equipment = pod.GetEquipment();
+                    if (equipment == null)
+                    {
+                        log?.Invoke($"[LOOT] unknown equipment skipped: {pod.EquipmentId}");
+                        _activePods.RemoveAt(i);
+                        continue;
+                    }
+
+                    if (playerShip?.Loadout == null)
+                    {
+                        continue;
+                    }
+
+                    if (playerShip.Loadout.AddOwnedEquipment(equipment, pod.Quantity))
+                    {
+                        int collectedEquipmentQuantity = pod.TakeQuantity(pod.Quantity);
+                        if (collectedEquipmentQuantity > 0)
+                        {
+                            collectedByEquipment[equipment.Name] = collectedByEquipment.TryGetValue(equipment.Name, out int current)
+                                ? current + collectedEquipmentQuantity
+                                : collectedEquipmentQuantity;
+                            log?.Invoke($"[SALVAGE] equipment collected: {equipment.Name} x{collectedEquipmentQuantity}");
+                        }
+
+                        if (pod.IsDepleted)
+                        {
+                            _activePods.RemoveAt(i);
+                        }
+                        else
+                        {
+                            pod.CargoFullNotified = false;
+                        }
+                    }
+                    else if (!pod.CargoFullNotified)
+                    {
+                        pod.CargoFullNotified = true;
+                        equipmentStorageWasFull = true;
+                        log?.Invoke("[LOOT] equipment storage full");
+                    }
+
+                    continue;
+                }
+
                 Commodity commodity = pod.GetCommodity();
                 if (commodity == null)
                 {
                     log?.Invoke($"[LOOT] unknown cargo skipped: {pod.CommodityId}");
                     _activePods.RemoveAt(i);
+                    continue;
+                }
+
+                if (cargoHold == null)
+                {
                     continue;
                 }
 
@@ -212,7 +277,7 @@ namespace Roguelancer
                 }
             }
 
-            if (collectedByCommodity.Count > 0)
+            if (collectedByCommodity.Count > 0 || collectedByEquipment.Count > 0)
             {
                 List<string> parts = new();
                 foreach (KeyValuePair<string, int> entry in collectedByCommodity)
@@ -220,7 +285,22 @@ namespace Roguelancer
                     parts.Add($"{entry.Value} {entry.Key}");
                 }
 
+                foreach (KeyValuePair<string, int> entry in collectedByEquipment)
+                {
+                    parts.Add($"{entry.Value}x {entry.Key}");
+                }
+
                 LastPickupNotification = $"Salvaged: {string.Join(", ", parts)}";
+                notificationManager?.ShowMessage(LastPickupNotification, 2f);
+            }
+            else if (cargoWasFull && equipmentStorageWasFull)
+            {
+                LastPickupNotification = "Cargo hold and equipment storage full";
+                notificationManager?.ShowMessage(LastPickupNotification, 2f);
+            }
+            else if (equipmentStorageWasFull)
+            {
+                LastPickupNotification = "Equipment storage full";
                 notificationManager?.ShowMessage(LastPickupNotification, 2f);
             }
             else if (cargoWasFull)
@@ -286,15 +366,32 @@ namespace Roguelancer
                 return null;
             }
 
-            return GetNearestCargoPodHint(_lastPlayerPosition, _lastCargoHold);
+            return GetNearestCargoPodHint(_lastPlayerPosition, _lastCargoHold, _lastLoadout);
         }
 
-        public string GetNearestCargoPodHint(Vector3 playerPosition, CargoHold cargoHold = null)
+        public string GetNearestCargoPodHint(Vector3 playerPosition, CargoHold cargoHold = null, ShipLoadout loadout = null)
         {
             CargoPod nearestPod = GetNearestCargoPod(playerPosition);
             if (nearestPod == null)
             {
                 return null;
+            }
+
+            if (nearestPod.IsEquipment)
+            {
+                EquipmentDefinition equipment = nearestPod.GetEquipment();
+                if (equipment == null)
+                {
+                    return "Hold P: Tractor Equipment";
+                }
+
+                if (loadout != null && loadout.AvailableOwnedEquipmentCapacity <= 0)
+                {
+                    return "Equipment storage full";
+                }
+
+                float equipmentDistance = Vector3.Distance(playerPosition, nearestPod.Position);
+                return $"Hold P: Tractor {equipment.Name}\n{FormatDistance(equipmentDistance)}";
             }
 
             Commodity commodity = nearestPod.GetCommodity();
@@ -385,7 +482,8 @@ namespace Roguelancer
             foreach (CargoPod pod in _activePods)
             {
                 Commodity commodity = pod.GetCommodity();
-                Color color = commodity?.DisplayColor ?? Color.White;
+                EquipmentDefinition equipment = pod.GetEquipment();
+                Color color = equipment != null ? Color.Orange : commodity?.DisplayColor ?? Color.White;
                 pod.Draw(_graphicsDevice, _effect, view, projection, color, 12f);
             }
         }
@@ -402,6 +500,7 @@ namespace Roguelancer
             _hasLastPlayerState = false;
             _lastPlayerPosition = Vector3.Zero;
             _lastCargoHold = null;
+            _lastLoadout = null;
             LastPickupNotification = string.Empty;
         }
 
@@ -476,8 +575,7 @@ namespace Roguelancer
 
         private static string GetPodLabel(CargoPod pod)
         {
-            Commodity commodity = pod?.GetCommodity();
-            string name = commodity?.Name ?? pod?.CommodityId ?? "unknown";
+            string name = pod?.GetPayloadName() ?? "unknown";
             return $"{name} x{pod?.Quantity ?? 0}";
         }
     }

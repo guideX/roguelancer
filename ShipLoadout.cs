@@ -9,6 +9,8 @@ namespace Roguelancer
     /// </summary>
     public class ShipLoadout
     {
+        public const int MaximumOwnedEquipmentCount = 24;
+
         private readonly List<ShipHardpoint> _hardpoints = new List<ShipHardpoint>();
         private readonly Dictionary<string, int> _ownedEquipment = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private readonly bool _usesGenericFallbackLayout;
@@ -16,6 +18,22 @@ namespace Roguelancer
         public IReadOnlyList<ShipHardpoint> Hardpoints => _hardpoints;
 
         public IReadOnlyDictionary<string, int> OwnedEquipment => _ownedEquipment;
+
+        public int OwnedEquipmentCount
+        {
+            get
+            {
+                int total = 0;
+                foreach (int quantity in _ownedEquipment.Values)
+                {
+                    total = Math.Min(MaximumOwnedEquipmentCount, total + Math.Max(0, quantity));
+                }
+
+                return total;
+            }
+        }
+
+        public int AvailableOwnedEquipmentCapacity => Math.Max(0, MaximumOwnedEquipmentCount - OwnedEquipmentCount);
 
         public bool UsesGenericFallbackLayout => _usesGenericFallbackLayout;
 
@@ -336,6 +354,11 @@ namespace Roguelancer
         public bool AddOwnedEquipment(EquipmentDefinition equipment, int quantity = 1)
         {
             if (equipment == null || quantity <= 0)
+            {
+                return false;
+            }
+
+            if (quantity > AvailableOwnedEquipmentCapacity)
             {
                 return false;
             }
