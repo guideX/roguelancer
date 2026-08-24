@@ -245,6 +245,7 @@ namespace Roguelancer {
         private readonly bool _runFactionReputationRippleSmoke;
         private readonly bool _runFactionDispositionSmoke;
         private readonly bool _runNpcFactionCombatSmoke;
+        private readonly bool _runNpcLoadoutSmoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -342,6 +343,7 @@ namespace Roguelancer {
             _runFactionReputationRippleSmoke = args?.Any(arg => string.Equals(arg, "--faction-reputation-ripple-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDispositionSmoke = args?.Any(arg => string.Equals(arg, "--faction-disposition-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runNpcFactionCombatSmoke = args?.Any(arg => string.Equals(arg, "--npc-faction-combat-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runNpcLoadoutSmoke = args?.Any(arg => string.Equals(arg, "--npc-loadout-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -950,7 +952,9 @@ namespace Roguelancer {
                     npc.SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
                         shipConfig.Description,
                         factionId,
-                        npc.ModelPath));
+                        npc.ModelPath,
+                        TrafficZoneBehaviorType.LawfulPatrol,
+                        NpcLoadoutTier.Standard));
 
                     _npcShips.Add(npc);
                     _spaceObjects.Add(npc); // Add to targetable objects
@@ -1334,6 +1338,11 @@ namespace Roguelancer {
                 var result = RunNpcFactionCombatSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runNpcLoadoutSmoke)
+            {
+                var result = RunNpcLoadoutSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runFactionDistressResponseSmoke)
             {
                 var result = RunFactionDistressResponseSmokeTest();
@@ -1517,6 +1526,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("faction reputation ripple smoke", RunFactionReputationRippleSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction disposition smoke", RunFactionDispositionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("NPC faction combat smoke", RunNpcFactionCombatSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("NPC loadout smoke", RunNpcLoadoutSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1772,6 +1782,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[NPC FACTION COMBAT SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunNpcLoadoutSmokeTest()
+        {
+            try
+            {
+                return new NpcLoadoutSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[NPC LOADOUT SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }

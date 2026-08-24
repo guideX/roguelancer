@@ -915,7 +915,9 @@ namespace Roguelancer
             npc.SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
                 shipConfig.Description,
                 factionId,
-                npc.ModelPath));
+                npc.ModelPath,
+                zone.BehaviorType,
+                NpcLoadoutTier.Standard));
 
             runtime.ActiveShips.Add(npc);
             _shipRuntimes[npc] = new TrafficShipRuntime

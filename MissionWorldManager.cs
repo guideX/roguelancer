@@ -636,6 +636,12 @@ namespace Roguelancer
                     10000f);
                 target.OnDestroyed += npc => _spawnedNpcDestroyedCallback?.Invoke(npc);
                 target.Model = _playerShip.Model;
+                target.SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
+                    target.Name,
+                    target.FactionId,
+                    target.ModelPath,
+                    TrafficZoneBehaviorType.PirateAmbush,
+                    MapMissionLoadoutTier(mission.Difficulty)));
                 _npcShips.Add(target);
                 _spaceObjects.Add(target);
                 state.MissionHostiles.Add(target);
@@ -700,6 +706,12 @@ namespace Roguelancer
                 180f,
                 20000f);
             target.OnDestroyed += npc => _spawnedNpcDestroyedCallback?.Invoke(npc);
+            target.SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
+                target.Name,
+                target.FactionId,
+                target.ModelPath,
+                TrafficZoneBehaviorType.PirateAmbush,
+                MapMissionLoadoutTier(mission.Difficulty)));
 
             _npcShips.Add(target);
             _spaceObjects.Add(target);
@@ -981,6 +993,12 @@ namespace Roguelancer
                     destination.Position);
                 escort.OnDestroyed += npc => _spawnedNpcDestroyedCallback?.Invoke(npc);
                 escort.Model = _playerShip?.Model;
+                escort.SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
+                    escort.Name,
+                    escort.FactionId,
+                    escort.ModelPath,
+                    TrafficZoneBehaviorType.TraderRoute,
+                    MapMissionLoadoutTier(mission.Difficulty)));
                 _npcShips.Add(escort);
                 _spaceObjects.Add(escort);
                 Console.WriteLine($"[MISSION] Escort spawned: {escort.Name} -> {destination.Name} (mission #{mission.Id})");
@@ -1450,6 +1468,18 @@ namespace Roguelancer
             }
 
             return FactionManager.LibertyCorporations;
+        }
+
+        private static NpcLoadoutTier MapMissionLoadoutTier(MissionDifficulty difficulty)
+        {
+            return difficulty switch
+            {
+                MissionDifficulty.Easy => NpcLoadoutTier.Low,
+                MissionDifficulty.Medium => NpcLoadoutTier.Standard,
+                MissionDifficulty.Hard => NpcLoadoutTier.High,
+                MissionDifficulty.Deadly => NpcLoadoutTier.High,
+                _ => NpcLoadoutTier.Standard
+            };
         }
 
         private static bool IsTargetMatch(Mission mission, NpcShip destroyedShip, NpcShip boundTarget)

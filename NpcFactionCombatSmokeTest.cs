@@ -406,7 +406,14 @@ internal sealed class NpcFactionCombatSmokeTest
         string name = displayNameOrFaction != null && !IsKnownFaction(displayNameOrFaction)
             ? factionId
             : "Smoke NPC";
-        return new NpcShip(name, position ?? Vector3.Zero, position ?? Vector3.Zero, 1f, 0f, actualFaction);
+        NpcShip npc = new(name, position ?? Vector3.Zero, position ?? Vector3.Zero, 1f, 0f, actualFaction);
+        npc.SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
+            "Smoke Fighter",
+            actualFaction,
+            "SMOKE/fighter",
+            TrafficZoneBehaviorType.LawfulPatrol,
+            NpcLoadoutTier.Low));
+        return npc;
     }
 
     private static NpcShip CreateNamedNpc(string name, string factionId, Vector3? position = null) =>
