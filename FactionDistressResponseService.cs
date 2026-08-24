@@ -91,6 +91,20 @@ public sealed class FactionDistressResponseService
     public int ActiveEncounterCount => _encounters.Count;
     public int CooldownRecordCount => _lastResponseTimes.Count;
 
+    public bool IsEncounterActive(string? encounterId)
+    {
+        if (string.IsNullOrWhiteSpace(encounterId))
+            return false;
+
+        foreach (EncounterRecord encounter in _encounters.Values)
+        {
+            if (string.Equals(encounter.Id, encounterId, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
+
     public void SetReputationManager(ReputationManager? reputationManager)
     {
         _reputationManager = reputationManager;
@@ -345,7 +359,10 @@ public sealed class FactionDistressResponseService
                     continue;
                 }
 
-                if (helper.SetFactionCombatTarget(attacker, preserveExistingEncounterState: helper.EncounterState == TrafficEncounterState.InterceptingPirate))
+                if (helper.SetFactionCombatTarget(
+                    attacker,
+                    preserveExistingEncounterState: helper.EncounterState == TrafficEncounterState.InterceptingPirate,
+                    targetOrigin: FactionCombatTargetOrigin.DistressResponse))
                     assistedCount++;
                 continue;
             }

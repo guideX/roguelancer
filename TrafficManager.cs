@@ -40,6 +40,7 @@ namespace Roguelancer
         private readonly Action<NpcShip> _onNpcDestroyed;
         private readonly FactionDistressResponseService _distressResponse;
         private readonly FactionCombatEscalationService _combatEscalation;
+        private readonly FactionCombatDisengagementService _combatDisengagement;
         private ContentManager _content;
 
         public TrafficManager(ConfigurationManager config, List<NpcShip> npcShips, List<SpaceObject> spaceObjects, Action<NpcShip> onNpcDestroyed = null, ContentManager content = null)
@@ -58,11 +59,17 @@ namespace Roguelancer
                 _distressResponse,
                 reputationManager: null,
                 SpawnEscalationReinforcements);
+            _combatDisengagement = new FactionCombatDisengagementService(
+                _npcShips,
+                isResponseEncounterActive: encounterId =>
+                    _distressResponse.IsEncounterActive(encounterId) ||
+                    _combatEscalation.IsEncounterActive(encounterId));
         }
 
         public IReadOnlyList<TrafficZoneConfig> LoadedZones => _zonesById.Values.Select(runtime => runtime.Zone).ToList();
         public FactionDistressResponseService DistressResponse => _distressResponse;
         public FactionCombatEscalationService CombatEscalation => _combatEscalation;
+        public FactionCombatDisengagementService CombatDisengagement => _combatDisengagement;
 
         public IReadOnlyList<NpcShip> GetActiveShipsForZone(string zoneId)
         {
@@ -87,6 +94,7 @@ namespace Roguelancer
         public void LoadZonesForSystem(int systemIndex, Action<string> log = null)
         {
             _combatEscalation.Reset();
+            _combatDisengagement.Reset();
             ClearTrackedTraffic(log);
             _zonesById.Clear();
 
@@ -126,7 +134,9 @@ namespace Roguelancer
             float deltaTime = Math.Max(0f, (float)gameTime.ElapsedGameTime.TotalSeconds);
 
             _combatEscalation.SetReputationManager(reputationManager);
+            _combatDisengagement.SetReputationManager(reputationManager);
             _combatEscalation.Update(deltaTime);
+            _combatDisengagement.Update(deltaTime, playerShip);
             UpdateTrafficInteractions(playerShip, reputationManager, log, deltaTime);
 
             foreach (TrafficZoneRuntime runtime in _zonesById.Values)
@@ -150,6 +160,7 @@ namespace Roguelancer
             }
 
             _combatEscalation.NotifyNpcDestroyed(destroyedShip);
+            _combatDisengagement.NotifyNpcDestroyed(destroyedShip);
 
             foreach (NpcShip other in _npcShips)
             {
@@ -170,12 +181,16 @@ namespace Roguelancer
 
         public FactionDistressResponseResult NotifyPlayerDamage(NpcShip damagedShip, Ship playerShip = null)
         {
-            return _combatEscalation.ProcessPlayerDamage(damagedShip, playerShip);
+            FactionDistressResponseResult result = _combatEscalation.ProcessPlayerDamage(damagedShip, playerShip);
+            _combatDisengagement.RecordPlayerDamage(damagedShip);
+            return result;
         }
 
         public FactionDistressResponseResult NotifyNpcDamage(NpcShip attacker, NpcShip damagedShip, float damage)
         {
-            return _combatEscalation.ProcessNpcDamage(attacker, damagedShip, damage);
+            FactionDistressResponseResult result = _combatEscalation.ProcessNpcDamage(attacker, damagedShip, damage);
+            _combatDisengagement.RecordNpcDamage(attacker, damagedShip, damage);
+            return result;
         }
 
         public void ResetTransientDistressState()
@@ -195,6 +210,7 @@ namespace Roguelancer
             }
 
             _combatEscalation.Reset();
+            _combatDisengagement.Reset();
             foreach (NpcShip ship in _npcShips)
             {
                 if (ship != null && !ship.IsDestroyed)
@@ -513,9 +529,12 @@ namespace Roguelancer
                     continue;
 
                 if (source.FactionCombatTarget != null &&
-                    source.HasValidFactionCombatTarget(source.TrafficActivationRange))
+                    source.HasValidFactionCombatTarget())
                 {
-                    source.SetFactionCombatTarget(source.FactionCombatTarget, preserveExistingEncounterState: true);
+                    source.SetFactionCombatTarget(
+                        source.FactionCombatTarget,
+                        preserveExistingEncounterState: true,
+                        targetOrigin: source.FactionCombatTargetOrigin);
                     continue;
                 }
 
@@ -553,8 +572,15 @@ namespace Roguelancer
                         for (int z = -1; z <= 1; z++)
                         {
                             FactionCombatCell cell = new(sourceCell.X + x, sourceCell.Y + y, sourceCell.Z + z);
-                            if (cells.TryGetValue(cell, out List<NpcShip> occupants))
-                                nearbyCandidates.AddRange(occupants);
+                            if (!cells.TryGetValue(cell, out List<NpcShip> occupants))
+                                continue;
+
+                            for (int candidateIndex = 0; candidateIndex < occupants.Count; candidateIndex++)
+                            {
+                                NpcShip candidate = occupants[candidateIndex];
+                                if (!_combatDisengagement.IsTargetAcquisitionSuppressed(source, candidate))
+                                    nearbyCandidates.Add(candidate);
+                            }
                         }
                     }
                 }
@@ -565,7 +591,10 @@ namespace Roguelancer
                     continue;
 
                 bool preserveLegacyState = source.EncounterState == TrafficEncounterState.InterceptingPirate;
-                source.SetFactionCombatTarget(target, preserveLegacyState);
+                source.SetFactionCombatTarget(
+                    target,
+                    preserveLegacyState,
+                    FactionCombatTargetOrigin.OrdinaryAcquisition);
                 log?.Invoke($"[TRAFFIC] Faction combat: {source.Name} ({source.FactionId}) targeting {target.Name} ({target.FactionId}).");
             }
         }
@@ -870,6 +899,7 @@ namespace Roguelancer
             }
             _npcShips.Add(npc);
             _spaceObjects.Add(npc);
+            _combatDisengagement.RegisterShip(npc);
             log?.Invoke($"[TRAFFIC] Spawned {npc.Name} in {zone.Name} ({zone.BehaviorType})");
             return true;
         }
@@ -1120,6 +1150,7 @@ namespace Roguelancer
             }
 
             _shipRuntimes.Remove(ship);
+            _combatDisengagement.NotifyNpcDespawned(ship);
             if (_onNpcDestroyed != null)
             {
                 ship.OnDestroyed -= _onNpcDestroyed;

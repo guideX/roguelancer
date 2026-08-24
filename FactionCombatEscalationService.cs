@@ -100,6 +100,19 @@ public sealed class FactionCombatEscalationService
     public float SimulationTime => _simulationTime;
     public int ActiveEncounterCount => _encounters.Count;
     public int CooldownRecordCount => _lastEscalationTimes.Count;
+    public bool IsEncounterActive(string? encounterId)
+    {
+        if (string.IsNullOrWhiteSpace(encounterId))
+            return false;
+
+        foreach (EncounterRecord encounter in _encounters.Values)
+        {
+            if (string.Equals(encounter.Id, encounterId, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
+    }
     public int EscalatedEncounterCount
     {
         get
@@ -400,7 +413,9 @@ public sealed class FactionCombatEscalationService
             if (encounter.Attacker != null &&
                 NpcFactionCombatTargeting.IsValidHostileTarget(reinforcement, encounter.Attacker, LocalContextRadius))
             {
-                reinforcement.SetFactionCombatTarget(encounter.Attacker);
+                reinforcement.SetFactionCombatTarget(
+                    encounter.Attacker,
+                    targetOrigin: FactionCombatTargetOrigin.EscalationResponse);
             }
 
             return;

@@ -35,6 +35,13 @@ namespace Roguelancer
         PlayerInitiatedAggression
     }
 
+    public enum FactionCombatTargetOrigin
+    {
+        OrdinaryAcquisition,
+        DistressResponse,
+        EscalationResponse
+    }
+
     /// <summary>
     /// NPC ship with simple patrol behavior
     /// </summary>
@@ -59,11 +66,18 @@ namespace Roguelancer
         public Vector3? EncounterTargetPosition { get; private set; }
         public Vector3? EncounterEscapePosition { get; private set; }
         public NpcShip FactionCombatTarget { get; private set; }
+        public FactionCombatTargetOrigin FactionCombatTargetOrigin { get; private set; } = FactionCombatTargetOrigin.OrdinaryAcquisition;
         public bool IsTrafficEngaged => EncounterState != TrafficEncounterState.Cruising;
         public NpcPlayerTargetReason PlayerTargetReason { get; private set; } = NpcPlayerTargetReason.None;
         public bool HasPlayerTarget => EncounterState == TrafficEncounterState.AttackingPlayer && PlayerTargetReason != NpcPlayerTargetReason.None;
         public bool HasFactionDerivedPlayerTarget => HasPlayerTarget && PlayerTargetReason == NpcPlayerTargetReason.FactionDisposition;
         public bool HasPlayerInitiatedRetaliationTarget => HasPlayerTarget && PlayerTargetReason == NpcPlayerTargetReason.PlayerInitiatedAggression;
+
+        // The legacy NpcShip-only update path retains its original local
+        // activation-range guard. TrafficManager enables this transient flag
+        // through FactionCombatDisengagementService so Phase 35 can own the
+        // wider soft/hard pursuit leash without persisting combat state.
+        internal bool IsFactionCombatDisengagementManaged { get; private set; }
 
         // Hull integrity
         public HullIntegrity Hull { get; private set; }
@@ -257,6 +271,7 @@ namespace Roguelancer
             if (encounterState != TrafficEncounterState.AttackingFactionNpc)
             {
                 FactionCombatTarget = null;
+                FactionCombatTargetOrigin = FactionCombatTargetOrigin.OrdinaryAcquisition;
             }
 
             EncounterState = encounterState;
@@ -272,12 +287,16 @@ namespace Roguelancer
             SetEncounterState(TrafficEncounterState.AttackingPlayer, targetPosition, null, reason);
         }
 
-        public bool SetFactionCombatTarget(NpcShip target, bool preserveExistingEncounterState = false)
+        public bool SetFactionCombatTarget(
+            NpcShip target,
+            bool preserveExistingEncounterState = false,
+            FactionCombatTargetOrigin targetOrigin = FactionCombatTargetOrigin.OrdinaryAcquisition)
         {
             if (!NpcFactionCombatTargeting.IsValidHostileTarget(this, target))
                 return false;
 
             FactionCombatTarget = target;
+            FactionCombatTargetOrigin = targetOrigin;
             if (!preserveExistingEncounterState || EncounterState == TrafficEncounterState.Cruising ||
                 EncounterState == TrafficEncounterState.AttackingFactionNpc)
             {
@@ -307,6 +326,8 @@ namespace Roguelancer
                 EncounterState == TrafficEncounterState.InterceptingPirate;
 
             FactionCombatTarget = null;
+            FactionCombatTargetOrigin = FactionCombatTargetOrigin.OrdinaryAcquisition;
+            IsFactionCombatDisengagementManaged = false;
             if (wasFactionCombat || wasLegacyNpcCombat)
             {
                 EncounterState = TrafficEncounterState.Cruising;
@@ -323,6 +344,13 @@ namespace Roguelancer
             EncounterEscapePosition = null;
             PlayerTargetReason = NpcPlayerTargetReason.None;
             FactionCombatTarget = null;
+            FactionCombatTargetOrigin = FactionCombatTargetOrigin.OrdinaryAcquisition;
+            IsFactionCombatDisengagementManaged = false;
+        }
+
+        internal void SetFactionCombatDisengagementManaged(bool managed)
+        {
+            IsFactionCombatDisengagementManaged = managed;
         }
 
         public FactionDisposition GetPlayerDisposition(ReputationManager reputationManager) =>
@@ -378,7 +406,11 @@ namespace Roguelancer
                 damageSmoke?.Emit(Position - Forward * 15, Velocity, damageStage);
             }
 
-            if (FactionCombatTarget != null && !HasValidFactionCombatTarget(TrafficActivationRange))
+            bool factionTargetInvalid = FactionCombatTarget != null &&
+                (!IsFactionCombatDisengagementManaged
+                    ? !HasValidFactionCombatTarget(TrafficActivationRange)
+                    : !HasValidFactionCombatTarget());
+            if (factionTargetInvalid)
             {
                 ClearFactionCombatTarget();
             }
