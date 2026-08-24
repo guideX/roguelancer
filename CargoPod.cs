@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Runtime.CompilerServices;
 
 namespace Roguelancer
 {
@@ -10,21 +11,28 @@ namespace Roguelancer
     public sealed class CargoPod
     {
         public string CommodityId { get; }
-        public int Quantity { get; }
+        public int InitialQuantity { get; }
+        public int Quantity => RemainingQuantity;
+        public int RemainingQuantity { get; private set; }
         public Vector3 Position { get; set; }
         public Vector3 Velocity { get; set; }
         public float LifetimeSeconds { get; }
         public float AgeSeconds { get; private set; }
         public float PickupRadius { get; }
+        public int SourceNpcIdentity { get; private set; }
+        public string SourceNpcName { get; private set; } = string.Empty;
+        public CombatSalvageTier SalvageTier { get; private set; } = CombatSalvageTier.None;
         public bool CargoFullNotified { get; set; }
         public bool DetectionNotified { get; set; }
 
         public bool IsExpired => AgeSeconds >= LifetimeSeconds;
+        public bool IsDepleted => RemainingQuantity <= 0;
 
         private CargoPod(string commodityId, int quantity, Vector3 position, Vector3 velocity, float lifetimeSeconds, float pickupRadius)
         {
             CommodityId = commodityId;
-            Quantity = quantity;
+            InitialQuantity = quantity;
+            RemainingQuantity = quantity;
             Position = position;
             Velocity = velocity;
             LifetimeSeconds = lifetimeSeconds;
@@ -43,6 +51,20 @@ namespace Roguelancer
 
             pod = new CargoPod(commodity.Id, quantity, position, velocity, lifetimeSeconds, pickupRadius);
             return true;
+        }
+
+        public void SetSalvageSource(NpcShip source, CombatSalvageTier tier)
+        {
+            SourceNpcIdentity = source == null ? 0 : RuntimeHelpers.GetHashCode(source);
+            SourceNpcName = source?.Name ?? string.Empty;
+            SalvageTier = tier;
+        }
+
+        public int TakeQuantity(int quantity)
+        {
+            int taken = Math.Min(Math.Max(0, quantity), RemainingQuantity);
+            RemainingQuantity -= taken;
+            return taken;
         }
 
         public Commodity GetCommodity()

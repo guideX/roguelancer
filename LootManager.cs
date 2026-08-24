@@ -10,67 +10,38 @@ namespace Roguelancer
     /// </summary>
     public sealed class LootManager : IDisposable
     {
-        private enum LootDropProfile
-        {
-            None,
-            Legal,
-            Contraband
-        }
-
         private const float TractorActivationRange = 1200f;
         private const float TractorAcceleration = 90f;
         private const float TractorMaxSpeed = 120f;
         private const float DetectionRange = 900f;
-        private const float DefaultPickupRadius = 34f;
-        private const float MinLifetimeSeconds = 45f;
-        private const float MaxLifetimeBonusSeconds = 30f;
-
-        private static readonly string[] LegalCargoPool =
-        {
-            "food-rations",
-            "food-rations",
-            "water",
-            "water",
-            "h-fuel",
-            "h-fuel",
-            "construction-materials",
-            "construction-materials",
-            "consumer-goods",
-            "consumer-goods",
-            "boron",
-            "medical-supplies",
-            "luxury-goods",
-            "engine-components",
-            "diamonds"
-        };
-
-        private static readonly string[] ContrabandCargoPool =
-        {
-            "side-arms",
-            "side-arms",
-            "side-arms",
-            "alien-organisms",
-            "alien-organisms",
-            "diamonds"
-        };
 
         private readonly List<CargoPod> _activePods = new();
-        private readonly Random _random;
+        private readonly CombatSalvageService _salvageService;
         private readonly GraphicsDevice _graphicsDevice;
         private readonly BasicEffect _effect;
         private readonly SpriteFont _font;
         private readonly Texture2D _pixel;
+        private Func<IEnumerable<SpaceObject>> _worldObjectsProvider;
 
         private bool _hasLastPlayerState;
         private Vector3 _lastPlayerPosition;
         private CargoHold _lastCargoHold;
 
-        public LootManager(GraphicsDevice graphicsDevice = null, Random random = null, SpriteFont font = null, Texture2D pixel = null)
+        public LootManager(
+            GraphicsDevice graphicsDevice = null,
+            Random random = null,
+            SpriteFont font = null,
+            Texture2D pixel = null,
+            CombatSalvageService salvageService = null,
+            Func<IEnumerable<SpaceObject>> worldObjectsProvider = null)
         {
             _graphicsDevice = graphicsDevice;
-            _random = random ?? new Random();
+            // The legacy Random parameter remains source-compatible for the
+            // early loot harness, but Phase 38 policy never consumes it.
+            _salvageService = salvageService ?? new CombatSalvageService();
             _font = font;
             _pixel = pixel;
+            _worldObjectsProvider = worldObjectsProvider;
 
             if (_graphicsDevice != null)
             {
@@ -83,45 +54,63 @@ namespace Roguelancer
         }
 
         public IReadOnlyList<CargoPod> ActivePods => _activePods;
+        public CombatSalvageService SalvageService => _salvageService;
+        public int ActiveSalvageCount => _activePods.Count;
+        public string LastPickupNotification { get; private set; } = string.Empty;
+
+        public void SetWorldObjectProvider(Func<IEnumerable<SpaceObject>> worldObjectsProvider)
+        {
+            _worldObjectsProvider = worldObjectsProvider;
+        }
 
         public int SpawnLootForDestroyedNpc(NpcShip destroyedShip, Action<string> log = null)
         {
-            if (destroyedShip == null || !destroyedShip.IsDestroyed)
+            IReadOnlyList<SalvageDrop> drops = _salvageService.EvaluateDestruction(destroyedShip);
+            if (drops.Count == 0 || _activePods.Count >= CombatSalvageService.MaxLiveSalvageObjects)
             {
                 return 0;
             }
 
-            LootDropProfile profile = GetLootProfile(destroyedShip);
-            if (profile == LootDropProfile.None)
+            int spawned = 0;
+            int availableSlots = CombatSalvageService.MaxLiveSalvageObjects - _activePods.Count;
+            for (int i = 0; i < drops.Count && spawned < availableSlots; i++)
             {
-                return 0;
+                SalvageDrop drop = drops[i];
+                Commodity commodity = CommodityCatalog.GetById(drop.CommodityId);
+                if (commodity == null || drop.Quantity <= 0 ||
+                    !TryFindSpawnPosition(destroyedShip, drop.StackIndex, out Vector3 position))
+                {
+                    continue;
+                }
+
+                Vector3 velocity = destroyedShip.Velocity * 0.15f;
+                if (!CargoPod.TryCreate(
+                        commodity.Id,
+                        drop.Quantity,
+                        position,
+                        velocity,
+                        (float)CombatSalvageService.SalvageLifetimeSeconds,
+                        CombatSalvageService.PickupRadius,
+                        out CargoPod pod))
+                {
+                    continue;
+                }
+
+                pod.SetSalvageSource(destroyedShip, drop.Tier);
+                _activePods.Add(pod);
+                spawned++;
+                log?.Invoke($"[SALVAGE] pod spawned: {commodity.Name} x{drop.Quantity}");
             }
 
-            string[] pool = profile == LootDropProfile.Contraband ? ContrabandCargoPool : LegalCargoPool;
-            string commodityId = pool[_random.Next(pool.Length)];
-            Commodity commodity = CommodityCatalog.GetById(commodityId);
-            if (commodity == null)
-            {
-                return 0;
-            }
-
-            int quantity = profile == LootDropProfile.Contraband ? 1 + _random.Next(2) : 1 + _random.Next(2);
-            Vector3 position = destroyedShip.Position + RandomScatter(18f, 60f);
-            Vector3 velocity = destroyedShip.Velocity * 0.2f + RandomScatter(0f, 28f);
-            float lifetimeSeconds = MinLifetimeSeconds + (float)_random.NextDouble() * MaxLifetimeBonusSeconds;
-
-            if (!CargoPod.TryCreate(commodity.Id, quantity, position, velocity, lifetimeSeconds, DefaultPickupRadius, out CargoPod pod))
-            {
-                return 0;
-            }
-
-            _activePods.Add(pod);
-            log?.Invoke($"[LOOT] pod spawned: {commodity.Name} x{quantity}");
-            return 1;
+            return spawned;
         }
+
+        public int SpawnSalvageForDestroyedNpc(NpcShip destroyedShip, Action<string> log = null) =>
+            SpawnLootForDestroyedNpc(destroyedShip, log);
 
         public void Update(GameTime gameTime, Ship playerShip, bool tractorActive, NotificationManager notificationManager = null, Action<string> log = null)
         {
+            LastPickupNotification = string.Empty;
             if (gameTime == null)
             {
                 return;
@@ -144,9 +133,14 @@ namespace Roguelancer
 
             Vector3 playerPosition = _lastPlayerPosition;
             CargoHold cargoHold = _lastCargoHold;
-            bool canPickup = tractorActive && cargoHold != null;
+            // Entering the close pickup radius is sufficient. The existing P
+            // tractor control remains an optional convenience for approaching
+            // a drop from farther away.
+            bool canPickup = cargoHold != null;
             float detectionRangeSquared = DetectionRange * DetectionRange;
             float tractorRangeSquared = TractorActivationRange * TractorActivationRange;
+            Dictionary<string, int> collectedByCommodity = new(StringComparer.OrdinalIgnoreCase);
+            bool cargoWasFull = false;
 
             for (int i = _activePods.Count - 1; i >= 0; i--)
             {
@@ -188,21 +182,51 @@ namespace Roguelancer
                     continue;
                 }
 
-                if (cargoHold.AddCommodity(commodity, pod.Quantity))
+                if (cargoHold.TryAddCommodityPartial(commodity, pod.Quantity, out int collectedQuantity))
                 {
-                    string pickupText = $"Tractored {commodity.Name} x{pod.Quantity}";
-                    notificationManager?.ShowMessage(pickupText, 2f);
-                    log?.Invoke($"[LOOT] pod collected: {commodity.Name} x{pod.Quantity}");
-                    _activePods.RemoveAt(i);
+                    pod.TakeQuantity(collectedQuantity);
+                    collectedByCommodity[commodity.Name] = collectedByCommodity.TryGetValue(commodity.Name, out int current)
+                        ? current + collectedQuantity
+                        : collectedQuantity;
+                    log?.Invoke($"[SALVAGE] pod collected: {commodity.Name} x{collectedQuantity}");
+
+                    if (pod.IsDepleted)
+                    {
+                        _activePods.RemoveAt(i);
+                    }
+                    else
+                    {
+                        // The remainder remains a physical object. It can be
+                        // retried later when the player has free capacity.
+                        pod.CargoFullNotified = false;
+                    }
+
                     continue;
                 }
 
                 if (!pod.CargoFullNotified)
                 {
                     pod.CargoFullNotified = true;
-                    notificationManager?.ShowMessage("Cargo hold full", 2f);
+                    cargoWasFull = true;
                     log?.Invoke("[LOOT] cargo full");
                 }
+            }
+
+            if (collectedByCommodity.Count > 0)
+            {
+                List<string> parts = new();
+                foreach (KeyValuePair<string, int> entry in collectedByCommodity)
+                {
+                    parts.Add($"{entry.Value} {entry.Key}");
+                }
+
+                LastPickupNotification = $"Salvaged: {string.Join(", ", parts)}";
+                notificationManager?.ShowMessage(LastPickupNotification, 2f);
+            }
+            else if (cargoWasFull)
+            {
+                LastPickupNotification = "Cargo hold full";
+                notificationManager?.ShowMessage(LastPickupNotification, 2f);
             }
         }
 
@@ -279,7 +303,7 @@ namespace Roguelancer
                 return "Hold P: Tractor Cargo";
             }
 
-            if (cargoHold != null && !cargoHold.CanFit(commodity, nearestPod.Quantity))
+            if (cargoHold != null && cargoHold.AvailableCapacity <= 0)
             {
                 return "Cargo hold full";
             }
@@ -371,81 +395,73 @@ namespace Roguelancer
             _effect?.Dispose();
         }
 
-        private LootDropProfile GetLootProfile(NpcShip ship)
+        public void Reset()
         {
-            string factionId = FactionManager.NormalizeFactionId(ship.FactionId);
-            bool trafficConfigured = !string.IsNullOrWhiteSpace(ship.TrafficZoneId);
+            _activePods.Clear();
+            _salvageService.Reset();
+            _hasLastPlayerState = false;
+            _lastPlayerPosition = Vector3.Zero;
+            _lastCargoHold = null;
+            LastPickupNotification = string.Empty;
+        }
 
-            if (trafficConfigured)
+        private bool TryFindSpawnPosition(NpcShip destroyedShip, int stackIndex, out Vector3 position)
+        {
+            position = Vector3.Zero;
+            if (destroyedShip == null)
             {
-                if (ship.TrafficBehavior == TrafficZoneBehaviorType.PirateAmbush)
+                return false;
+            }
+
+            // A few deterministic attempts give nearby objects a chance to
+            // reserve the first candidate without introducing a physics or
+            // spatial-index subsystem for a maximum of 32 transient drops.
+            for (int attempt = 0; attempt < 4; attempt++)
+            {
+                int candidateIndex = stackIndex + (attempt * 2);
+                Vector3 candidate = destroyedShip.Position + _salvageService.GetSpawnOffset(destroyedShip, candidateIndex);
+                if (IsSpawnPositionAvailable(candidate, destroyedShip))
                 {
-                    return LootDropProfile.Contraband;
+                    position = candidate;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsSpawnPositionAvailable(Vector3 candidate, NpcShip destroyedShip)
+        {
+            foreach (CargoPod pod in _activePods)
+            {
+                if (pod == null || pod.IsExpired || Vector3.DistanceSquared(candidate, pod.Position) < 40f * 40f)
+                {
+                    return false;
+                }
+            }
+
+            IEnumerable<SpaceObject> worldObjects = _worldObjectsProvider?.Invoke();
+            if (worldObjects == null)
+            {
+                return true;
+            }
+
+            foreach (SpaceObject worldObject in worldObjects)
+            {
+                if (worldObject == null || ReferenceEquals(worldObject, destroyedShip) ||
+                    worldObject is NpcShip npc && npc.IsDestroyed)
+                {
+                    continue;
                 }
 
-                if (ship.TrafficBehavior == TrafficZoneBehaviorType.LawfulPatrol)
+                float avoidanceRadius = MathHelper.Clamp(worldObject.Radius * 0.25f, 20f, 125f);
+                if (Vector3.DistanceSquared(candidate, worldObject.Position) < avoidanceRadius * avoidanceRadius)
                 {
-                    return LootDropProfile.None;
-                }
-
-                if (ship.TrafficBehavior == TrafficZoneBehaviorType.TraderRoute)
-                {
-                    return LootDropProfile.Legal;
+                    return false;
                 }
             }
 
-            if (IsPirateLike(factionId))
-            {
-                return LootDropProfile.Contraband;
-            }
-
-            if (IsLawfulLike(factionId))
-            {
-                return LootDropProfile.None;
-            }
-
-            if (IsTraderLike(factionId))
-            {
-                return LootDropProfile.Legal;
-            }
-
-            return LootDropProfile.Legal;
-        }
-
-        private static bool IsLawfulLike(string factionId)
-        {
-            return string.Equals(factionId, FactionManager.LibertyPolice, StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(factionId, FactionManager.LibertyNavy, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool IsPirateLike(string factionId)
-        {
-            return factionId.IndexOf("rogue", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   factionId.IndexOf("pirate", StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
-        private static bool IsTraderLike(string factionId)
-        {
-            return string.Equals(factionId, FactionManager.NeutralCivilians, StringComparison.OrdinalIgnoreCase) ||
-                   factionId.IndexOf("corporation", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   factionId.IndexOf("junk", StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
-        private Vector3 RandomScatter(float minDistance, float maxDistance)
-        {
-            float distance = minDistance + (float)_random.NextDouble() * Math.Max(0f, maxDistance - minDistance);
-            return RandomUnitVector() * distance;
-        }
-
-        private Vector3 RandomUnitVector()
-        {
-            float y = (float)(_random.NextDouble() * 2.0 - 1.0);
-            double angle = _random.NextDouble() * Math.PI * 2.0;
-            float radial = (float)Math.Sqrt(Math.Max(0.0, 1.0 - (y * y)));
-            return new Vector3(
-                (float)(Math.Cos(angle) * radial),
-                y,
-                (float)(Math.Sin(angle) * radial));
+            return true;
         }
 
         private static string FormatDistance(float distance)

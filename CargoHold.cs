@@ -150,6 +150,30 @@ namespace Roguelancer
         }
 
         /// <summary>
+        /// Adds as much of an ordinary commodity as valid free capacity allows.
+        /// This is the authoritative partial-pickup seam used by physical
+        /// salvage; mission reservations remain accounted for in UsedCapacity.
+        /// </summary>
+        public bool TryAddCommodityPartial(Commodity commodity, int requestedQuantity, out int addedQuantity)
+        {
+            addedQuantity = 0;
+            if (commodity == null || requestedQuantity <= 0 || commodity.VolumePerUnit <= 0)
+            {
+                return false;
+            }
+
+            int capacityQuantity = AvailableCapacity / commodity.VolumePerUnit;
+            int quantity = Math.Min(requestedQuantity, Math.Max(0, capacityQuantity));
+            if (quantity <= 0 || !AddCommodity(commodity, quantity))
+            {
+                return false;
+            }
+
+            addedQuantity = quantity;
+            return true;
+        }
+
+        /// <summary>
         /// Registers a freight contract's required ordinary quantity. Existing
         /// units are reserved immediately; later AddCommodity calls reserve
         /// only the remaining amount. The target itself does not add cargo.

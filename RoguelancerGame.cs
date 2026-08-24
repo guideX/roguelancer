@@ -254,6 +254,7 @@ namespace Roguelancer {
         private readonly bool _runPoliceEnforcementSmoke;
         private readonly bool _runTrafficSmoke;
         private readonly bool _runLootSmoke;
+        private readonly bool _runCombatSalvageSmoke;
         private readonly bool _runMissionSmoke;
         private readonly bool _runFreightSmoke;
         private readonly bool _runExportSmoke;
@@ -349,6 +350,7 @@ namespace Roguelancer {
             _runPoliceEnforcementSmoke = args?.Any(arg => string.Equals(arg, "--police-enforcement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runCombatSalvageSmoke = args?.Any(arg => string.Equals(arg, "--combat-salvage-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runMissionSmoke = args?.Any(arg => string.Equals(arg, "--mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFreightSmoke = args?.Any(arg => string.Equals(arg, "--freight-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runExportSmoke = args?.Any(arg => string.Equals(arg, "--export-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1198,7 +1200,13 @@ namespace Roguelancer {
                 _playerCredits,
                 message => _notificationManager?.ShowMessage(message, 3f),
                 ship => _npcShips.Contains(ship));
-            _lootManager = new LootManager(GraphicsDevice, null, _font, _pixel);
+            _lootManager = new LootManager(
+                GraphicsDevice,
+                null,
+                _font,
+                _pixel,
+                new CombatSalvageService(),
+                () => _spaceObjects);
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
             _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
@@ -1354,6 +1362,11 @@ namespace Roguelancer {
                 var result = RunLootSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runCombatSalvageSmoke)
+            {
+                var result = RunCombatSalvageSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runMissionSmoke)
             {
                 var result = RunMissionSmokeTest();
@@ -1506,6 +1519,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("contraband smoke", RunContrabandSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("traffic smoke", RunTrafficSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("loot smoke", RunLootSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("combat salvage smoke", RunCombatSalvageSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("mission smoke", RunMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("freight smoke", RunFreightSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("export smoke", RunExportSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1865,6 +1879,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[LOOT SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunCombatSalvageSmokeTest()
+        {
+            try
+            {
+                return new CombatSalvageSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[COMBAT SALVAGE SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2809,7 +2836,12 @@ namespace Roguelancer {
                 _missionManager?.Update(deltaTime, _playerShip.Hull.IsDestroyed);
             }
 
-            // Cargo pods: tractor pull and pickup.
+            // Physical salvage: optional tractor pull plus automatic close-range
+            // CargoHold pickup.
+            if (_playerShip?.Hull?.IsDestroyed == true)
+            {
+                _lootManager?.Reset();
+            }
             _lootManager?.Update(gameTime, _playerShip, keyboardState.IsKeyDown(Keys.P), _notificationManager, Console.WriteLine);
             PruneInvalidNavSelection();
             UpdateFirstDockOnboarding((float)gameTime.ElapsedGameTime.TotalSeconds);
@@ -2997,7 +3029,7 @@ namespace Roguelancer {
                 Console.WriteLine($"[TRAFFIC] Pirate destroyed: {destroyedShip.Name}");
             }
 
-            _lootManager?.SpawnLootForDestroyedNpc(destroyedShip, Console.WriteLine);
+            _lootManager?.SpawnSalvageForDestroyedNpc(destroyedShip, Console.WriteLine);
 
             // Create a wreck where the NPC ship was destroyed
             if (_wreckModel != null) {
@@ -6609,6 +6641,7 @@ namespace Roguelancer {
 
             // Clear current system objects
             _factionBountyRewards?.Reset();
+            _lootManager?.Reset();
             _spaceObjects.Clear();
             _npcShips.Clear();
             _wrecks.Clear();
