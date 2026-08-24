@@ -246,6 +246,7 @@ namespace Roguelancer {
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
+        private readonly bool _runFactionCombatCommunicationSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runPoliceEnforcementSmoke;
         private readonly bool _runTrafficSmoke;
@@ -339,6 +340,7 @@ namespace Roguelancer {
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runFactionCombatCommunicationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-communication-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPoliceEnforcementSmoke = args?.Any(arg => string.Equals(arg, "--police-enforcement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1185,11 +1187,6 @@ namespace Roguelancer {
 
             // Initialize notification manager
             _notificationManager = new NotificationManager(_font, GraphicsDevice.Viewport);
-            if (_trafficManager != null)
-            {
-                _trafficManager.DistressResponse.ResponseGenerated += HandleFactionDistressResponse;
-                _trafficManager.CombatEscalation.ResponseGenerated += HandleFactionCombatEscalation;
-            }
             _reputationManager.OnReputationChanged += HandleReputationChanged;
             _reputationManager.OnTemporaryHostilityChanged += HandleTemporaryHostilityChanged;
             _lootManager = new LootManager(GraphicsDevice, null, _font, _pixel);
@@ -1326,6 +1323,11 @@ namespace Roguelancer {
             else if (_runFactionCombatDisengagementSmoke)
             {
                 var result = RunFactionCombatDisengagementSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runFactionCombatCommunicationSmoke)
+            {
+                var result = RunFactionCombatCommunicationSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runPoliceEnforcementSmoke)
@@ -1479,6 +1481,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("faction combat communication smoke", RunFactionCombatCommunicationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("police enforcement smoke", RunPoliceEnforcementSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1766,6 +1769,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[FACTION COMBAT DISENGAGEMENT SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunFactionCombatCommunicationSmokeTest()
+        {
+            try
+            {
+                return new FactionCombatCommunicationSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FACTION COMBAT COMMUNICATION SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2604,6 +2620,11 @@ namespace Roguelancer {
             _countermeasureSystem?.Update(gameTime);
 
             _trafficManager?.Update(gameTime, _playerShip, _reputationManager, Console.WriteLine);
+            if (_trafficManager != null &&
+                _trafficManager.TryDequeueCombatCommunication(out FactionCombatCommunicationRequest communication))
+            {
+                _notificationManager?.ShowMessage(communication.Text, 3f);
+            }
 
             // FIX: Update NPC ships
             foreach (var npc in _npcShips) {
@@ -2927,24 +2948,6 @@ namespace Roguelancer {
         private void HandleNpcShipDamaged(NpcShip attacker, NpcShip damagedShip, float damage)
         {
             _trafficManager?.NotifyNpcDamage(attacker, damagedShip, damage);
-        }
-
-        private void HandleFactionDistressResponse(FactionDistressResponseResult response)
-        {
-            if (!response.WaveSpawned)
-                return;
-
-            string factionName = FactionManager.GetFactionDisplayName(response.FactionId);
-            _notificationManager?.ShowMessage($"{factionName} reinforcements inbound", 3f);
-        }
-
-        private void HandleFactionCombatEscalation(FactionCombatEscalationResult response)
-        {
-            if (!response.WaveSpawned || !response.PlayerInvolved)
-                return;
-
-            string factionName = FactionManager.GetFactionDisplayName(response.FactionId);
-            _notificationManager?.ShowMessage($"{factionName} heavy reinforcements inbound", 3f);
         }
 
         private void HandleNpcDestroyed(NpcShip destroyedShip) {

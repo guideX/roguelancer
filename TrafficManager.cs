@@ -41,6 +41,7 @@ namespace Roguelancer
         private readonly FactionDistressResponseService _distressResponse;
         private readonly FactionCombatEscalationService _combatEscalation;
         private readonly FactionCombatDisengagementService _combatDisengagement;
+        private readonly FactionCombatCommunicationService _combatCommunication;
         private ContentManager _content;
 
         public TrafficManager(ConfigurationManager config, List<NpcShip> npcShips, List<SpaceObject> spaceObjects, Action<NpcShip> onNpcDestroyed = null, ContentManager content = null)
@@ -64,12 +65,19 @@ namespace Roguelancer
                 isResponseEncounterActive: encounterId =>
                     _distressResponse.IsEncounterActive(encounterId) ||
                     _combatEscalation.IsEncounterActive(encounterId));
+            _combatCommunication = new FactionCombatCommunicationService(_npcShips);
+            _combatDisengagement.Disengaged += HandleCombatDisengagement;
+            _distressResponse.ResponseGenerated += HandleDistressResponseGenerated;
+            _combatEscalation.ResponseGenerated += HandleCombatEscalationGenerated;
+            for (int i = 0; i < _npcShips.Count; i++)
+                _combatCommunication.RegisterShip(_npcShips[i]);
         }
 
         public IReadOnlyList<TrafficZoneConfig> LoadedZones => _zonesById.Values.Select(runtime => runtime.Zone).ToList();
         public FactionDistressResponseService DistressResponse => _distressResponse;
         public FactionCombatEscalationService CombatEscalation => _combatEscalation;
         public FactionCombatDisengagementService CombatDisengagement => _combatDisengagement;
+        public FactionCombatCommunicationService CombatCommunication => _combatCommunication;
 
         public IReadOnlyList<NpcShip> GetActiveShipsForZone(string zoneId)
         {
@@ -93,6 +101,7 @@ namespace Roguelancer
 
         public void LoadZonesForSystem(int systemIndex, Action<string> log = null)
         {
+            _combatCommunication.Reset();
             _combatEscalation.Reset();
             _combatDisengagement.Reset();
             ClearTrackedTraffic(log);
@@ -133,6 +142,7 @@ namespace Roguelancer
 
             float deltaTime = Math.Max(0f, (float)gameTime.ElapsedGameTime.TotalSeconds);
 
+            _combatCommunication.Update(deltaTime, playerShip);
             _combatEscalation.SetReputationManager(reputationManager);
             _combatDisengagement.SetReputationManager(reputationManager);
             _combatEscalation.Update(deltaTime);
@@ -161,6 +171,7 @@ namespace Roguelancer
 
             _combatEscalation.NotifyNpcDestroyed(destroyedShip);
             _combatDisengagement.NotifyNpcDestroyed(destroyedShip);
+            _combatCommunication.UnregisterShip(destroyedShip);
 
             foreach (NpcShip other in _npcShips)
             {
@@ -182,6 +193,8 @@ namespace Roguelancer
         public FactionDistressResponseResult NotifyPlayerDamage(NpcShip damagedShip, Ship playerShip = null)
         {
             FactionDistressResponseResult result = _combatEscalation.ProcessPlayerDamage(damagedShip, playerShip);
+            TryReportCommunication(() => _combatCommunication.NotifyDistressRequest(result, damagedShip, attacker: null, playerShip: playerShip));
+            TryReportCommunication(() => _combatCommunication.NotifyDistressResponse(result));
             _combatDisengagement.RecordPlayerDamage(damagedShip);
             return result;
         }
@@ -189,6 +202,9 @@ namespace Roguelancer
         public FactionDistressResponseResult NotifyNpcDamage(NpcShip attacker, NpcShip damagedShip, float damage)
         {
             FactionDistressResponseResult result = _combatEscalation.ProcessNpcDamage(attacker, damagedShip, damage);
+            TryReportCommunication(() => _combatCommunication.NotifyDistressRequest(result, damagedShip, attacker));
+            TryReportCommunication(() => _combatCommunication.NotifyDistressResponse(result));
+            TryReportCommunication(() => _combatCommunication.NotifyCombatDamage(attacker, damagedShip, damage));
             _combatDisengagement.RecordNpcDamage(attacker, damagedShip, damage);
             return result;
         }
@@ -204,6 +220,7 @@ namespace Roguelancer
                 foreach (TrafficZoneRuntime runtime in _zonesById.Values)
                     runtime.ActiveShips.Remove(ship);
 
+                _combatCommunication.UnregisterShip(ship);
                 _shipRuntimes.Remove(ship);
                 _npcShips.RemoveAt(i);
                 _spaceObjects.Remove(ship);
@@ -211,6 +228,7 @@ namespace Roguelancer
 
             _combatEscalation.Reset();
             _combatDisengagement.Reset();
+            _combatCommunication.Reset();
             foreach (NpcShip ship in _npcShips)
             {
                 if (ship != null && !ship.IsDestroyed)
@@ -591,10 +609,17 @@ namespace Roguelancer
                     continue;
 
                 bool preserveLegacyState = source.EncounterState == TrafficEncounterState.InterceptingPirate;
-                source.SetFactionCombatTarget(
+                bool isNewEngagement = source.FactionCombatTarget != target;
+                if (!source.SetFactionCombatTarget(
                     target,
                     preserveLegacyState,
-                    FactionCombatTargetOrigin.OrdinaryAcquisition);
+                    FactionCombatTargetOrigin.OrdinaryAcquisition))
+                {
+                    continue;
+                }
+
+                if (isNewEngagement)
+                    TryReportCommunication(() => _combatCommunication.NotifyEngagementAcquired(source, target, playerShip));
                 log?.Invoke($"[TRAFFIC] Faction combat: {source.Name} ({source.FactionId}) targeting {target.Name} ({target.FactionId}).");
             }
         }
@@ -900,6 +925,7 @@ namespace Roguelancer
             _npcShips.Add(npc);
             _spaceObjects.Add(npc);
             _combatDisengagement.RegisterShip(npc);
+            _combatCommunication.RegisterShip(npc);
             log?.Invoke($"[TRAFFIC] Spawned {npc.Name} in {zone.Name} ({zone.BehaviorType})");
             return true;
         }
@@ -1151,6 +1177,7 @@ namespace Roguelancer
 
             _shipRuntimes.Remove(ship);
             _combatDisengagement.NotifyNpcDespawned(ship);
+            _combatCommunication.UnregisterShip(ship);
             if (_onNpcDestroyed != null)
             {
                 ship.OnDestroyed -= _onNpcDestroyed;
@@ -1158,6 +1185,61 @@ namespace Roguelancer
             _npcShips.Remove(ship);
             _spaceObjects.Remove(ship);
             log?.Invoke($"[TRAFFIC] Despawned {ship.Name} from {runtime.Zone?.Name} ({reason})");
+        }
+
+        public bool TryDequeueCombatCommunication(out FactionCombatCommunicationRequest request) =>
+            _combatCommunication.TryDequeuePresentation(out request);
+
+        private void HandleDistressResponseGenerated(FactionDistressResponseResult response)
+        {
+            try
+            {
+                _combatCommunication.NotifyDistressResponse(response);
+            }
+            catch
+            {
+                // Radio presentation is optional and cannot affect response
+                // authority or spawn results.
+            }
+        }
+
+        private void HandleCombatEscalationGenerated(FactionCombatEscalationResult response)
+        {
+            try
+            {
+                _combatCommunication.NotifyHeavyEscalation(response);
+            }
+            catch
+            {
+                // Radio presentation is optional and cannot affect escalation
+                // authority or spawn results.
+            }
+        }
+
+        private void HandleCombatDisengagement(FactionCombatDisengagementEvent disengagement)
+        {
+            try
+            {
+                _combatCommunication.NotifyDisengagement(disengagement);
+            }
+            catch
+            {
+                // Radio presentation is optional and cannot affect pursuit
+                // teardown or target validity.
+            }
+        }
+
+        private static void TryReportCommunication(Action report)
+        {
+            try
+            {
+                report?.Invoke();
+            }
+            catch
+            {
+                // Combat communication is optional presentation. A failed
+                // report cannot affect authoritative combat behavior.
+            }
         }
 
         private void ClearTrackedTraffic(Action<string> log)

@@ -170,6 +170,11 @@ namespace Roguelancer
         // Event to signal when the ship is destroyed
         public event Action<NpcShip> OnDestroyed;
 
+        // Presentation-only observation hook. The communication layer may
+        // listen for a new player target without gaining authority over the
+        // target itself.
+        public event Action<NpcShip> PlayerTargetAcquired;
+
         private float _patrolRadius;
         private Vector3 _patrolCenter;
         private float _patrolAngle;
@@ -284,7 +289,20 @@ namespace Roguelancer
 
         public void SetPlayerTarget(Vector3 targetPosition, NpcPlayerTargetReason reason)
         {
+            bool wasPlayerTarget = HasPlayerTarget;
             SetEncounterState(TrafficEncounterState.AttackingPlayer, targetPosition, null, reason);
+            if (wasPlayerTarget)
+                return;
+
+            try
+            {
+                PlayerTargetAcquired?.Invoke(this);
+            }
+            catch
+            {
+                // Communications are optional presentation. A failed
+                // observer must never interrupt authoritative targeting.
+            }
         }
 
         public bool SetFactionCombatTarget(

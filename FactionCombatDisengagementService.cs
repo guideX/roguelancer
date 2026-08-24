@@ -25,6 +25,14 @@ public readonly record struct FactionCombatEngagementSnapshot(
     float LastKnownTargetDistance,
     FactionCombatTargetOrigin TargetOrigin);
 
+public readonly record struct FactionCombatDisengagementEvent(
+    NpcShip Source,
+    bool IsPlayerTarget,
+    NpcShip? Target,
+    Vector3 TargetPosition,
+    FactionCombatDisengagementReason Reason,
+    float SimulationTime);
+
 /// <summary>
 /// Owns the lifetime of an existing transient combat pursuit. Faction
 /// relationships remain authoritative elsewhere; this service only decides
@@ -81,6 +89,7 @@ public sealed class FactionCombatDisengagementService
     public float SimulationTime => _simulationTime;
     public int ActiveEngagementCount => _engagements.Count;
     public int SuppressedTargetCount => _suppressedTargets.Count + _suppressedPlayers.Count;
+    public event Action<FactionCombatDisengagementEvent>? Disengaged;
 
     public void SetReputationManager(ReputationManager? reputationManager)
     {
@@ -517,6 +526,10 @@ public sealed class FactionCombatDisengagementService
         FactionCombatDisengagementReason reason,
         bool suppress)
     {
+        Vector3 disengagementTargetPosition = engagement.IsPlayerTarget
+            ? source.EncounterTargetPosition ?? source.Position
+            : engagement.Target?.Position ?? engagement.LastKnownTargetDistance * Vector3.Forward;
+
         if (engagement.IsPlayerTarget)
         {
             source.ClearEncounterState();
@@ -536,6 +549,28 @@ public sealed class FactionCombatDisengagementService
         source.SetFactionCombatDisengagementManaged(false);
         _lastDisengagementReasons[source] = reason;
         _engagements.Remove(source);
+
+        if (reason is FactionCombatDisengagementReason.TargetNoLongerHostile or
+            FactionCombatDisengagementReason.ExcessivePursuitDistance or
+            FactionCombatDisengagementReason.StalePursuit or
+            FactionCombatDisengagementReason.EncounterExpired)
+        {
+            try
+            {
+                Disengaged?.Invoke(new FactionCombatDisengagementEvent(
+                    source,
+                    engagement.IsPlayerTarget,
+                    engagement.Target,
+                    disengagementTargetPosition,
+                    reason,
+                    _simulationTime));
+            }
+            catch
+            {
+                // Communications are optional presentation and must never
+                // make pursuit teardown fail.
+            }
+        }
     }
 
     private void RefreshActiveNpcIndex()
