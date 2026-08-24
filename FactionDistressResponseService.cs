@@ -201,9 +201,9 @@ public sealed class FactionDistressResponseService
         float damage,
         bool allowDestroyedTarget)
     {
-        if (target.IsDistressReinforcement ||
+        if (target.IsFactionTransientReinforcement ||
             (!allowDestroyedTarget && target.IsDestroyed) ||
-            (attacker != null && (attacker == target || attacker.IsDestroyed || attacker.IsDistressReinforcement)) ||
+            (attacker != null && (attacker == target || attacker.IsDestroyed || attacker.IsFactionTransientReinforcement)) ||
             damage < MeaningfulDamageThreshold)
         {
             return Rejected("damage cannot generate distress");
@@ -434,7 +434,7 @@ public sealed class FactionDistressResponseService
         }
     }
 
-    private static bool IsSupportedFaction(string? factionId)
+    public static bool IsSupportedFaction(string? factionId)
     {
         string normalized = FactionManager.NormalizeFactionId(factionId);
         return normalized.Equals(FactionManager.LibertyPolice, StringComparison.OrdinalIgnoreCase) ||

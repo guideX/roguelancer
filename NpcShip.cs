@@ -83,6 +83,15 @@ namespace Roguelancer
         public string DistressReinforcementEncounterId { get; private set; } = string.Empty;
 
         /// <summary>
+        /// Transient provenance for ships created by the Phase 34 second-stage
+        /// response. Keeping this separate from ordinary distress provenance
+        /// lets both services reject responder-generated combat explicitly.
+        /// </summary>
+        public bool IsEscalationReinforcement { get; private set; }
+        public string EscalationReinforcementEncounterId { get; private set; } = string.Empty;
+        public bool IsFactionTransientReinforcement => IsDistressReinforcement || IsEscalationReinforcement;
+
+        /// <summary>
         /// Marks the authoritative player damage source used by bounded
         /// combat consequence attribution. It is intentionally one-way for
         /// the lifetime of an NPC instance.
@@ -108,6 +117,18 @@ namespace Roguelancer
         {
             IsDistressReinforcement = false;
             DistressReinforcementEncounterId = string.Empty;
+        }
+
+        internal void MarkEscalationReinforcement(string encounterId)
+        {
+            IsEscalationReinforcement = true;
+            EscalationReinforcementEncounterId = encounterId ?? string.Empty;
+        }
+
+        internal void ClearEscalationReinforcementProvenance()
+        {
+            IsEscalationReinforcement = false;
+            EscalationReinforcementEncounterId = string.Empty;
         }
 
         internal bool CapturePlayerAggressionProvenance(bool wasFactionHostile)

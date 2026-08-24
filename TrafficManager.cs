@@ -39,6 +39,7 @@ namespace Roguelancer
         private readonly Dictionary<NpcShip, TrafficShipRuntime> _shipRuntimes = new();
         private readonly Action<NpcShip> _onNpcDestroyed;
         private readonly FactionDistressResponseService _distressResponse;
+        private readonly FactionCombatEscalationService _combatEscalation;
         private ContentManager _content;
 
         public TrafficManager(ConfigurationManager config, List<NpcShip> npcShips, List<SpaceObject> spaceObjects, Action<NpcShip> onNpcDestroyed = null, ContentManager content = null)
@@ -52,10 +53,16 @@ namespace Roguelancer
                 _npcShips,
                 reputationManager: null,
                 SpawnDistressReinforcements);
+            _combatEscalation = new FactionCombatEscalationService(
+                _npcShips,
+                _distressResponse,
+                reputationManager: null,
+                SpawnEscalationReinforcements);
         }
 
         public IReadOnlyList<TrafficZoneConfig> LoadedZones => _zonesById.Values.Select(runtime => runtime.Zone).ToList();
         public FactionDistressResponseService DistressResponse => _distressResponse;
+        public FactionCombatEscalationService CombatEscalation => _combatEscalation;
 
         public IReadOnlyList<NpcShip> GetActiveShipsForZone(string zoneId)
         {
@@ -79,7 +86,7 @@ namespace Roguelancer
 
         public void LoadZonesForSystem(int systemIndex, Action<string> log = null)
         {
-            _distressResponse.Reset();
+            _combatEscalation.Reset();
             ClearTrackedTraffic(log);
             _zonesById.Clear();
 
@@ -118,8 +125,8 @@ namespace Roguelancer
 
             float deltaTime = Math.Max(0f, (float)gameTime.ElapsedGameTime.TotalSeconds);
 
-            _distressResponse.SetReputationManager(reputationManager);
-            _distressResponse.Update(deltaTime);
+            _combatEscalation.SetReputationManager(reputationManager);
+            _combatEscalation.Update(deltaTime);
             UpdateTrafficInteractions(playerShip, reputationManager, log, deltaTime);
 
             foreach (TrafficZoneRuntime runtime in _zonesById.Values)
@@ -142,6 +149,8 @@ namespace Roguelancer
                 return;
             }
 
+            _combatEscalation.NotifyNpcDestroyed(destroyedShip);
+
             foreach (NpcShip other in _npcShips)
             {
                 if (other != null && other.FactionCombatTarget == destroyedShip)
@@ -161,12 +170,12 @@ namespace Roguelancer
 
         public FactionDistressResponseResult NotifyPlayerDamage(NpcShip damagedShip, Ship playerShip = null)
         {
-            return _distressResponse.ProcessPlayerDamage(damagedShip, playerShip);
+            return _combatEscalation.ProcessPlayerDamage(damagedShip, playerShip);
         }
 
         public FactionDistressResponseResult NotifyNpcDamage(NpcShip attacker, NpcShip damagedShip, float damage)
         {
-            return _distressResponse.ProcessNpcDamage(attacker, damagedShip, damage);
+            return _combatEscalation.ProcessNpcDamage(attacker, damagedShip, damage);
         }
 
         public void ResetTransientDistressState()
@@ -174,7 +183,7 @@ namespace Roguelancer
             for (int i = _npcShips.Count - 1; i >= 0; i--)
             {
                 NpcShip ship = _npcShips[i];
-                if (ship == null || !ship.IsDistressReinforcement)
+                if (ship == null || !ship.IsFactionTransientReinforcement)
                     continue;
 
                 foreach (TrafficZoneRuntime runtime in _zonesById.Values)
@@ -185,7 +194,7 @@ namespace Roguelancer
                 _spaceObjects.Remove(ship);
             }
 
-            _distressResponse.Reset();
+            _combatEscalation.Reset();
             foreach (NpcShip ship in _npcShips)
             {
                 if (ship != null && !ship.IsDestroyed)
@@ -747,9 +756,10 @@ namespace Roguelancer
         private bool TrySpawnTraffic(
             TrafficZoneRuntime runtime,
             Action<string> log,
-            Vector3? distressOrigin = null,
-            string distressEncounterId = null,
-            bool isDistressReinforcement = false)
+            Vector3? responseOrigin = null,
+            string responseEncounterId = null,
+            bool isDistressReinforcement = false,
+            bool isEscalationReinforcement = false)
         {
             if (runtime.Zone == null)
             {
@@ -763,25 +773,41 @@ namespace Roguelancer
                 return false;
             }
 
-            ShipConfig shipConfig = _config.GetAllShipConfigs().FirstOrDefault(candidate =>
+            ShipConfig baseShipConfig = _config.GetAllShipConfigs().FirstOrDefault(candidate =>
                 candidate != null && string.Equals(candidate.Description, zone.ShipDescription, StringComparison.OrdinalIgnoreCase));
 
-            if (shipConfig == null)
+            if (baseShipConfig == null)
             {
                 log?.Invoke($"[TRAFFIC] ERROR: Ship config '{zone.ShipDescription}' not found for zone {zone.Name}.");
                 return false;
             }
 
+            ShipConfig shipConfig = isEscalationReinforcement
+                ? SelectEscalationShipConfig(zone, baseShipConfig)
+                : baseShipConfig;
+
             int targetMax = Math.Max(Math.Max(0, zone.MinShips), zone.MaxShips);
-            if (!isDistressReinforcement && runtime.ActiveShips.Count >= targetMax)
+            if (!isDistressReinforcement && !isEscalationReinforcement && runtime.ActiveShips.Count >= targetMax)
             {
                 return false;
             }
 
             int spawnSerial = runtime.SpawnSerial++;
-            Vector3 spawnPosition = distressOrigin.HasValue
-                ? DetermineDistressSpawnPosition(distressOrigin.Value, spawnSerial)
-                : DetermineSpawnPosition(zone, spawnSerial);
+            Vector3 spawnPosition;
+            if (responseOrigin.HasValue && isEscalationReinforcement)
+            {
+                if (!TryDetermineDistressSpawnPosition(responseOrigin.Value, spawnSerial, out spawnPosition))
+                {
+                    log?.Invoke($"[TRAFFIC] Escalation spawn skipped: no safe local placement near {zone.Name}.");
+                    return false;
+                }
+            }
+            else
+            {
+                spawnPosition = responseOrigin.HasValue
+                    ? DetermineDistressSpawnPosition(responseOrigin.Value, spawnSerial)
+                    : DetermineSpawnPosition(zone, spawnSerial);
+            }
             Vector3 patrolCenter = zone.Center;
             string factionId = FactionManager.CoalesceFactionId(zone.FactionId, shipConfig.FactionId);
 
@@ -803,9 +829,13 @@ namespace Roguelancer
                 zone.RouteStart,
                 zone.RouteEnd);
             npc.TrafficLifetimeSeconds = GetTrafficLifetime(zone.BehaviorType);
-            if (isDistressReinforcement)
+            if (isEscalationReinforcement)
             {
-                npc.MarkDistressReinforcement(distressEncounterId ?? string.Empty);
+                npc.MarkEscalationReinforcement(responseEncounterId ?? string.Empty);
+            }
+            else if (isDistressReinforcement)
+            {
+                npc.MarkDistressReinforcement(responseEncounterId ?? string.Empty);
             }
 
             ModelConfig modelConfig = shipConfig.ModelIndex > 0 ? _config.GetModel(shipConfig.ModelIndex) : null;
@@ -880,6 +910,67 @@ namespace Roguelancer
             return spawned;
         }
 
+        private IReadOnlyList<NpcShip> SpawnEscalationReinforcements(
+            string factionId,
+            Vector3 battlePosition,
+            string encounterId,
+            int requestedCount)
+        {
+            if (requestedCount <= 0 || string.IsNullOrWhiteSpace(factionId))
+                return Array.Empty<NpcShip>();
+
+            string normalizedFaction = FactionManager.NormalizeFactionId(factionId);
+            TrafficZoneRuntime selectedRuntime = _zonesById.Values
+                .Where(runtime => runtime.Zone != null &&
+                    string.Equals(FactionManager.NormalizeFactionId(runtime.Zone.FactionId), normalizedFaction, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(runtime => Vector3.DistanceSquared(runtime.Zone.Center, battlePosition))
+                .FirstOrDefault();
+
+            if (selectedRuntime?.Zone == null)
+                return Array.Empty<NpcShip>();
+
+            List<NpcShip> spawned = new();
+            int safeRequest = Math.Min(FactionCombatEscalationService.EscalationWaveSize, requestedCount);
+            for (int i = 0; i < safeRequest; i++)
+            {
+                if (!TrySpawnTraffic(selectedRuntime, Console.WriteLine, battlePosition, encounterId, isEscalationReinforcement: true))
+                    break;
+
+                NpcShip reinforcement = selectedRuntime.ActiveShips.LastOrDefault(ship =>
+                    ship != null && ship.IsEscalationReinforcement &&
+                    string.Equals(ship.EscalationReinforcementEncounterId, encounterId, StringComparison.Ordinal));
+                if (reinforcement != null && !spawned.Contains(reinforcement))
+                    spawned.Add(reinforcement);
+            }
+
+            return spawned;
+        }
+
+        private ShipConfig SelectEscalationShipConfig(TrafficZoneConfig zone, ShipConfig fallback)
+        {
+            string factionId = FactionManager.NormalizeFactionId(zone?.FactionId);
+            return _config.GetAllShipConfigs()
+                .Where(candidate => candidate != null &&
+                    (string.Equals(candidate.Description, zone?.ShipDescription, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(FactionManager.NormalizeFactionId(candidate.FactionId), factionId, StringComparison.OrdinalIgnoreCase)))
+                .OrderByDescending(GetEscalationShipPriority)
+                .ThenBy(candidate => candidate.Description, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault() ?? fallback;
+        }
+
+        private static int GetEscalationShipPriority(ShipConfig shipConfig)
+        {
+            string description = shipConfig?.Description ?? string.Empty;
+            int priority = 0;
+            if (description.Contains("heavy", StringComparison.OrdinalIgnoreCase))
+                priority += 30;
+            if (description.Contains("fighter", StringComparison.OrdinalIgnoreCase))
+                priority += 20;
+            if (description.Contains("patrol", StringComparison.OrdinalIgnoreCase))
+                priority += 10;
+            return priority;
+        }
+
         private Vector3 DetermineSpawnPosition(TrafficZoneConfig zone, int sequence)
         {
             Vector3 center = zone.Center;
@@ -903,6 +994,14 @@ namespace Roguelancer
         }
 
         private Vector3 DetermineDistressSpawnPosition(Vector3 battlePosition, int sequence)
+        {
+            if (TryDetermineDistressSpawnPosition(battlePosition, sequence, out Vector3 safePosition))
+                return safePosition;
+
+            return battlePosition + new Vector3(2400f, 0f, 0f);
+        }
+
+        private bool TryDetermineDistressSpawnPosition(Vector3 battlePosition, int sequence, out Vector3 spawnPosition)
         {
             const float minimumBattleDistance = 1800f;
             const float baseSpawnDistance = 2400f;
@@ -935,10 +1034,14 @@ namespace Roguelancer
                 }
 
                 if (!collides)
-                    return candidate;
+                {
+                    spawnPosition = candidate;
+                    return true;
+                }
             }
 
-            return battlePosition + new Vector3(baseSpawnDistance, 0f, 0f);
+            spawnPosition = Vector3.Zero;
+            return false;
         }
 
         private Vector3 RandomOffset(float radius)
