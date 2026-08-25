@@ -242,9 +242,12 @@ namespace Roguelancer
         {
             Commodity commodity = cargoPod.GetCommodity();
             EquipmentDefinition equipment = cargoPod.GetEquipment();
+            ConsumableEquipmentDefinition consumable = cargoPod.GetConsumable();
             float distance = Vector3.Distance(playerPosition, cargoPod.Position);
-            string payloadName = equipment?.Name ?? commodity?.Name ?? "Cargo Pod";
-            string payloadLabel = equipment != null ? "Equipment salvage" : "Tractor cargo";
+            string payloadName = equipment?.Name ?? consumable?.Name ?? commodity?.Name ?? "Cargo Pod";
+            string payloadLabel = equipment != null
+                ? "Equipment salvage"
+                : consumable != null ? "Consumable salvage" : "Tractor cargo";
 
             return new NavTargetHudData
             {
@@ -258,11 +261,13 @@ namespace Roguelancer
                 FactionLabel = "Neutral Civilians",
                 StandingLabel = "Neutral (0.00)",
                 DistanceLabel = FormatDistance(distance),
-                StatusLabel = equipment != null || commodity != null
+                StatusLabel = equipment != null || consumable != null || commodity != null
                     ? $"{payloadLabel}: {payloadName} x{cargoPod.Quantity}"
                     : "Unknown cargo",
                 IntegrityLabel = "No hull data",
-                AccentColor = equipment != null ? Color.Orange : commodity?.DisplayColor ?? Color.LightSkyBlue,
+                AccentColor = equipment != null
+                    ? Color.Orange
+                    : consumable != null ? Color.LimeGreen : commodity?.DisplayColor ?? Color.LightSkyBlue,
                 CanGoto = false,
                 IsResolved = true
             };

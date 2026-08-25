@@ -18,6 +18,12 @@ namespace Roguelancer
         [JsonPropertyName("player_credits")]
         public int PlayerCredits { get; set; }
 
+        [JsonPropertyName("nanobots")]
+        public int Nanobots { get; set; }
+
+        [JsonPropertyName("shield_batteries")]
+        public int ShieldBatteries { get; set; }
+
         [JsonPropertyName("current_system_index")]
         public int CurrentSystemIndex { get; set; } = 1;
 

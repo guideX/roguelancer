@@ -127,6 +127,8 @@ namespace Roguelancer
         public string EscalationReinforcementEncounterId { get; private set; } = string.Empty;
         public bool IsFactionTransientReinforcement => IsDistressReinforcement || IsEscalationReinforcement;
 
+        public float CombatConsumableCooldownRemaining { get; private set; }
+
         /// <summary>
         /// Marks the authoritative player damage source used by bounded
         /// combat consequence attribution. It is intentionally one-way for
@@ -323,7 +325,20 @@ namespace Roguelancer
         public void SetLoadout(ShipLoadout loadout)
         {
             Loadout = loadout ?? ShipLoadout.CreateStarterLoadout(false);
+            CombatConsumableCooldownRemaining = 0f;
             RefreshShieldFromLoadout();
+        }
+
+        internal void StartCombatConsumableCooldown(float seconds)
+        {
+            CombatConsumableCooldownRemaining = Math.Max(
+                CombatConsumableCooldownRemaining,
+                float.IsNaN(seconds) || float.IsInfinity(seconds) ? 0f : Math.Max(0f, seconds));
+        }
+
+        public void ResetCombatConsumableState()
+        {
+            CombatConsumableCooldownRemaining = 0f;
         }
 
         public void RefreshShieldFromLoadout()
@@ -470,6 +485,11 @@ namespace Roguelancer
 
             // Update shield regeneration
             Shields?.Update(gameTime);
+
+            CombatConsumableCooldownRemaining = Math.Max(
+                0f,
+                CombatConsumableCooldownRemaining - Math.Max(0f, deltaTime));
+            CombatConsumableService.TryUseNpcConsumable(this, out _);
 
             // Emit damage smoke if hull is low
             DamageStage damageStage = DamageStage.None;

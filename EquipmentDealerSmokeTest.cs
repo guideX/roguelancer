@@ -67,9 +67,9 @@ internal sealed class EquipmentDealerSmokeTest
     private (bool Success, string FailureReason) ValidateDealerInventory()
     {
         IReadOnlyList<EquipmentDefinition> inventory = _equipmentDealer.AvailableEquipment;
-        if (inventory.Count != 19)
+        if (inventory.Count != 21)
         {
-            return Fail($"expected nineteen bounded dealer items, found {inventory.Count}");
+            return Fail($"expected twenty-one bounded dealer items, found {inventory.Count}");
         }
 
         if (inventory.Any(equipment => equipment == null || string.IsNullOrWhiteSpace(equipment.Id) || equipment.Price <= 0))
@@ -97,7 +97,9 @@ internal sealed class EquipmentDealerSmokeTest
             "liberty_heavy_shield",
             "rogue_scrap_shield",
             "rogue_combat_shield",
-            "professional_deflector"
+            "professional_deflector",
+            CombatConsumableIds.Nanobots,
+            CombatConsumableIds.ShieldBatteries
         };
         if (!expectedIds.All(expected => inventory.Any(equipment => string.Equals(equipment.Id, expected, StringComparison.OrdinalIgnoreCase))))
         {

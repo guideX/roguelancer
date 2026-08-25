@@ -32,7 +32,9 @@ namespace Roguelancer
             "liberty_heavy_shield",
             "rogue_scrap_shield",
             "rogue_combat_shield",
-            "professional_deflector"
+            "professional_deflector",
+            CombatConsumableIds.Nanobots,
+            CombatConsumableIds.ShieldBatteries
         };
         private static readonly Dictionary<EquipmentType, string> _fallbackByType = new Dictionary<EquipmentType, string>
         {
@@ -272,6 +274,30 @@ namespace Roguelancer
                 Capacity = 65f,
                 RegenerationRate = 18f,
                 RegenerationDelay = 2.5f
+            });
+
+            Register(new ConsumableEquipmentDefinition
+            {
+                Id = CombatConsumableIds.Nanobots,
+                Name = "Nanobots",
+                Description = "A sealed repair swarm that restores damaged hull plating in flight.",
+                EquipmentType = EquipmentType.Consumable,
+                Price = 600,
+                ConsumableType = CombatConsumableType.Nanobots,
+                MaximumCarryQuantity = CombatConsumableInventory.MaximumNanobots,
+                RestorationAmount = 25f
+            });
+
+            Register(new ConsumableEquipmentDefinition
+            {
+                Id = CombatConsumableIds.ShieldBatteries,
+                Name = "Shield Batteries",
+                Description = "A disposable shield cell that restores charge to the mounted generator.",
+                EquipmentType = EquipmentType.Consumable,
+                Price = 700,
+                ConsumableType = CombatConsumableType.ShieldBattery,
+                MaximumCarryQuantity = CombatConsumableInventory.MaximumShieldBatteries,
+                RestorationAmount = 30f
             });
 
             Register(new ShieldEquipmentDefinition

@@ -91,6 +91,10 @@ namespace Roguelancer
         // Cargo hold
         public CargoHold CargoHold { get; private set; }
 
+        // Carried combat supplies remain on the authoritative loadout, but
+        // are intentionally not mountable equipment or commodity cargo.
+        public CombatConsumableInventory CombatConsumables => Loadout?.CombatConsumables;
+
         // Equipment/loadout backbone
         public ShipLoadout Loadout { get; private set; }
         
@@ -256,6 +260,12 @@ namespace Roguelancer
                 Shields.AbsorbDamage(Math.Max(0f, Shields.MaxShields - preservedCharge));
             }
         }
+
+        public bool TryUseNanobot(out string message) =>
+            CombatConsumableService.TryUseNanobot(this, out message);
+
+        public bool TryUseShieldBattery(out string message) =>
+            CombatConsumableService.TryUseShieldBattery(this, out message);
         
         /// <summary>
         /// Set new hull integrity (used when purchasing a new ship)
@@ -413,6 +423,32 @@ namespace Roguelancer
             bool tPressed = keyboardState.IsKeyDown(Keys.T) && _previousKeyboardState.IsKeyUp(Keys.T);
             bool shiftTPressed = keyboardState.IsKeyDown(Keys.LeftShift) && tPressed;
             bool ctrlTPressed = keyboardState.IsKeyDown(Keys.LeftControl) && tPressed;
+            bool nanobotPressed = keyboardState.IsKeyDown(Keys.Y) && _previousKeyboardState.IsKeyUp(Keys.Y);
+            bool shieldBatteryPressed = keyboardState.IsKeyDown(Keys.K) && _previousKeyboardState.IsKeyUp(Keys.K);
+
+            if (nanobotPressed)
+            {
+                if (TryUseNanobot(out string nanobotMessage))
+                {
+                    _notificationManager?.ShowMessage(nanobotMessage, 2f);
+                }
+                else if (!string.IsNullOrWhiteSpace(nanobotMessage))
+                {
+                    _notificationManager?.ShowMessage(nanobotMessage, 2f);
+                }
+            }
+
+            if (shieldBatteryPressed)
+            {
+                if (TryUseShieldBattery(out string batteryMessage))
+                {
+                    _notificationManager?.ShowMessage(batteryMessage, 2f);
+                }
+                else if (!string.IsNullOrWhiteSpace(batteryMessage))
+                {
+                    _notificationManager?.ShowMessage(batteryMessage, 2f);
+                }
+            }
             
             if (keyboardState.IsKeyDown(Keys.Escape) && _previousKeyboardState.IsKeyUp(Keys.Escape))
             {
@@ -1163,6 +1199,7 @@ namespace Roguelancer
             MissileLaunchRequested = false;
             MineLaunchRequested = false;
             CountermeasureLaunchRequested = false;
+            _previousKeyboardState = Keyboard.GetState();
             Shields?.FullRestore();
         }
 

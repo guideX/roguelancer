@@ -337,7 +337,7 @@ namespace Roguelancer
                     bool emptyDecision = service.ShouldDrop(empty);
                     armed.ApplyDamage(armed.Hull.MaxHull + 1f, NpcDestructionSource.Npc);
                     IReadOnlyList<SalvageDrop> drops = new CombatSalvageService().EvaluateDestruction(armed);
-                    return armedDecision == emptyDecision && armedDecision && drops.Any(drop => !drop.IsEquipment);
+                    return armedDecision == emptyDecision && armedDecision && drops.Any(drop => drop.IsCommodity);
                 }
             }
 

@@ -15,7 +15,8 @@ namespace Roguelancer
     public enum SalvagePayloadType
     {
         Commodity,
-        Equipment
+        Equipment,
+        Consumable
     }
 
     /// <summary>
@@ -26,8 +27,11 @@ namespace Roguelancer
     {
         public SalvagePayloadType PayloadType { get; }
         public bool IsEquipment => PayloadType == SalvagePayloadType.Equipment;
+        public bool IsCommodity => PayloadType == SalvagePayloadType.Commodity;
+        public bool IsConsumable => PayloadType == SalvagePayloadType.Consumable;
         public string CommodityId { get; }
         public string EquipmentId { get; }
+        public string ConsumableId { get; }
         public int Quantity { get; }
         public int StackIndex { get; }
         public CombatSalvageTier Tier { get; }
@@ -37,6 +41,7 @@ namespace Roguelancer
             PayloadType = SalvagePayloadType.Commodity;
             CommodityId = commodityId ?? string.Empty;
             EquipmentId = string.Empty;
+            ConsumableId = string.Empty;
             Quantity = Math.Max(0, quantity);
             StackIndex = Math.Max(0, stackIndex);
             Tier = tier;
@@ -47,7 +52,19 @@ namespace Roguelancer
             return new SalvageDrop(
                 SalvagePayloadType.Equipment,
                 equipmentId,
+                string.Empty,
                 1,
+                stackIndex,
+                tier);
+        }
+
+        public static SalvageDrop ForConsumable(string consumableId, int quantity, int stackIndex, CombatSalvageTier tier)
+        {
+            return new SalvageDrop(
+                SalvagePayloadType.Consumable,
+                string.Empty,
+                consumableId,
+                quantity,
                 stackIndex,
                 tier);
         }
@@ -55,6 +72,7 @@ namespace Roguelancer
         private SalvageDrop(
             SalvagePayloadType payloadType,
             string equipmentId,
+            string consumableId,
             int quantity,
             int stackIndex,
             CombatSalvageTier tier)
@@ -62,6 +80,7 @@ namespace Roguelancer
             PayloadType = payloadType;
             CommodityId = string.Empty;
             EquipmentId = equipmentId ?? string.Empty;
+            ConsumableId = consumableId ?? string.Empty;
             Quantity = Math.Max(0, quantity);
             StackIndex = Math.Max(0, stackIndex);
             Tier = tier;
@@ -89,6 +108,8 @@ namespace Roguelancer
         public const int StandardMaximumQuantity = 3;
         public const int HeavyMinimumQuantity = 2;
         public const int HeavyMaximumQuantity = 5;
+        public const int StandardMaximumConsumableQuantity = 3;
+        public const int HeavyMaximumConsumableQuantity = 3;
 
         private static readonly string[] RogueCommodityPool =
         {
@@ -155,6 +176,8 @@ namespace Roguelancer
             {
                 AddShieldDrop(drops, destroyedShip, tier);
             }
+
+            AddConsumableDrops(drops, destroyedShip, tier);
 
             return drops.Count == 0 ? Array.Empty<SalvageDrop>() : drops;
         }
@@ -257,6 +280,37 @@ namespace Roguelancer
             drops.Add(SalvageDrop.ForEquipment(shield.Id, drops.Count, tier));
         }
 
+        private void AddConsumableDrops(List<SalvageDrop> drops, NpcShip destroyedShip, CombatSalvageTier tier)
+        {
+            if (drops == null || destroyedShip?.Loadout == null)
+            {
+                return;
+            }
+
+            string[] ids = { CombatConsumableIds.Nanobots, CombatConsumableIds.ShieldBatteries };
+            uint identityHash = GetIdentityHash(destroyedShip, tier);
+            int maximumQuantity = tier == CombatSalvageTier.Heavy
+                ? HeavyMaximumConsumableQuantity
+                : StandardMaximumConsumableQuantity;
+
+            for (int i = 0; i < ids.Length; i++)
+            {
+                string id = ids[i];
+                int remaining = Math.Max(0, destroyedShip.Loadout.GetOwnedCount(id));
+                if (remaining <= 0 || !ShouldDropConsumable(destroyedShip, tier, id))
+                {
+                    continue;
+                }
+
+                int desired = 1 + (int)(Hash(identityHash, $"consumable-quantity|{id}") % (uint)maximumQuantity);
+                int quantity = Math.Min(remaining, desired);
+                if (quantity > 0)
+                {
+                    drops.Add(SalvageDrop.ForConsumable(id, quantity, drops.Count, tier));
+                }
+            }
+        }
+
         public IReadOnlyList<SalvageDrop> ProcessDestruction(NpcShip destroyedShip) =>
             EvaluateDestruction(destroyedShip);
 
@@ -312,6 +366,12 @@ namespace Roguelancer
             return tier != CombatSalvageTier.None && ShouldDropShield(destroyedShip, tier);
         }
 
+        public bool ShouldDropConsumable(NpcShip destroyedShip, string consumableId)
+        {
+            CombatSalvageTier tier = DetermineTier(destroyedShip);
+            return tier != CombatSalvageTier.None && ShouldDropConsumable(destroyedShip, tier, consumableId);
+        }
+
         public Vector3 GetSpawnOffset(NpcShip destroyedShip, int stackIndex)
         {
             CombatSalvageTier tier = DetermineTier(destroyedShip);
@@ -358,6 +418,20 @@ namespace Roguelancer
             uint roll = Hash(GetIdentityHash(destroyedShip, tier), "shield-drop");
             // Independent bounded policy: 20% standard, 33% heavy.
             return tier == CombatSalvageTier.Heavy ? roll % 3u == 0u : roll % 5u == 0u;
+        }
+
+        private bool ShouldDropConsumable(NpcShip destroyedShip, CombatSalvageTier tier, string consumableId)
+        {
+            if (destroyedShip?.Loadout == null ||
+                !string.Equals(consumableId, CombatConsumableIds.Nanobots, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(consumableId, CombatConsumableIds.ShieldBatteries, StringComparison.OrdinalIgnoreCase) ||
+                destroyedShip.Loadout.GetOwnedCount(consumableId) <= 0)
+            {
+                return false;
+            }
+
+            uint roll = Hash(GetIdentityHash(destroyedShip, tier), $"consumable-drop|{consumableId}");
+            return tier == CombatSalvageTier.Heavy ? roll % 3u != 0u : roll % 2u == 0u;
         }
 
         private string[] GetCommodityPool(NpcShip destroyedShip)

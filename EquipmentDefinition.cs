@@ -46,6 +46,13 @@ namespace Roguelancer
         Mixed
     }
 
+    public enum CombatConsumableType
+    {
+        None,
+        Nanobots,
+        ShieldBattery
+    }
+
     /// <summary>
     /// Base definition for a piece of ship equipment.
     /// </summary>
@@ -246,6 +253,32 @@ namespace Roguelancer
         {
             return Name;
         }
+    }
+
+    /// <summary>
+    /// Canonical carried combat supply. These definitions intentionally have
+    /// no mount behavior; runtime quantities live on a ship's loadout.
+    /// </summary>
+    public sealed class ConsumableEquipmentDefinition : EquipmentDefinition
+    {
+        public CombatConsumableType ConsumableType { get; set; } = CombatConsumableType.None;
+        public int MaximumCarryQuantity { get; set; }
+        public float RestorationAmount { get; set; }
+
+        public bool IsValid => EquipmentType == EquipmentType.Consumable &&
+            Price > 0 &&
+            MaximumCarryQuantity > 0 &&
+            IsFinitePositive(RestorationAmount) &&
+            (ConsumableType == CombatConsumableType.Nanobots ||
+             ConsumableType == CombatConsumableType.ShieldBattery);
+
+        public override string GetStatsSummary()
+        {
+            return $"{base.GetStatsSummary()} | RESTORE {RestorationAmount:F0} | CARRY {MaximumCarryQuantity}";
+        }
+
+        private static bool IsFinitePositive(float value) =>
+            !float.IsNaN(value) && !float.IsInfinity(value) && value > 0f;
     }
 
     /// <summary>

@@ -7,7 +7,8 @@ namespace Roguelancer
     public enum CargoPodPayloadType
     {
         Commodity,
-        Equipment
+        Equipment,
+        Consumable
     }
 
     /// <summary>
@@ -19,8 +20,10 @@ namespace Roguelancer
     {
         public CargoPodPayloadType PayloadType { get; }
         public bool IsEquipment => PayloadType == CargoPodPayloadType.Equipment;
+        public bool IsConsumable => PayloadType == CargoPodPayloadType.Consumable;
         public string CommodityId { get; }
         public string EquipmentId { get; }
+        public string ConsumableId { get; }
         public int InitialQuantity { get; }
         public int Quantity => RemainingQuantity;
         public int RemainingQuantity { get; private set; }
@@ -42,6 +45,7 @@ namespace Roguelancer
             CargoPodPayloadType payloadType,
             string commodityId,
             string equipmentId,
+            string consumableId,
             int quantity,
             Vector3 position,
             Vector3 velocity,
@@ -51,6 +55,7 @@ namespace Roguelancer
             PayloadType = payloadType;
             CommodityId = commodityId;
             EquipmentId = equipmentId;
+            ConsumableId = consumableId;
             InitialQuantity = quantity;
             RemainingQuantity = quantity;
             Position = position;
@@ -73,6 +78,7 @@ namespace Roguelancer
                 CargoPodPayloadType.Commodity,
                 commodity.Id,
                 string.Empty,
+                string.Empty,
                 quantity,
                 position,
                 velocity,
@@ -93,6 +99,7 @@ namespace Roguelancer
 
             EquipmentDefinition equipment = EquipmentCatalog.GetById(equipmentId);
             if (equipment == null || string.IsNullOrWhiteSpace(equipment.Id) ||
+                equipment.EquipmentType == EquipmentType.Consumable ||
                 (equipment.EquipmentType == EquipmentType.ShieldGenerator &&
                  equipment is not ShieldEquipmentDefinition) ||
                 (equipment is ShieldEquipmentDefinition shield && !shield.IsValid) ||
@@ -105,12 +112,43 @@ namespace Roguelancer
                 CargoPodPayloadType.Equipment,
                 string.Empty,
                 equipment.Id,
+                string.Empty,
                 1,
                 position,
                 velocity,
                 lifetimeSeconds,
                 pickupRadius);
             return true;
+        }
+
+        public static bool TryCreateConsumable(
+            string consumableId,
+            int quantity,
+            Vector3 position,
+            Vector3 velocity,
+            float lifetimeSeconds,
+            float pickupRadius,
+            out CargoPod pod)
+        {
+            pod = null;
+            ConsumableEquipmentDefinition consumable = EquipmentCatalog.GetById(consumableId) as ConsumableEquipmentDefinition;
+            if (consumable == null || !consumable.IsValid || quantity <= 0 ||
+                lifetimeSeconds <= 0f || pickupRadius <= 0f)
+            {
+                return false;
+            }
+
+            pod = new CargoPod(
+                CargoPodPayloadType.Consumable,
+                string.Empty,
+                string.Empty,
+                consumable.Id,
+                Math.Min(quantity, consumable.MaximumCarryQuantity),
+                position,
+                velocity,
+                lifetimeSeconds,
+                pickupRadius);
+            return pod.RemainingQuantity > 0;
         }
 
         public void SetSalvageSource(NpcShip source, CombatSalvageTier tier)
@@ -129,7 +167,7 @@ namespace Roguelancer
 
         public Commodity GetCommodity()
         {
-            return !IsEquipment ? CommodityCatalog.GetById(CommodityId) : null;
+            return PayloadType == CargoPodPayloadType.Commodity ? CommodityCatalog.GetById(CommodityId) : null;
         }
 
         public EquipmentDefinition GetEquipment()
@@ -137,11 +175,18 @@ namespace Roguelancer
             return IsEquipment ? EquipmentCatalog.GetById(EquipmentId) : null;
         }
 
+        public ConsumableEquipmentDefinition GetConsumable()
+        {
+            return IsConsumable ? EquipmentCatalog.GetById(ConsumableId) as ConsumableEquipmentDefinition : null;
+        }
+
         public string GetPayloadName()
         {
             return IsEquipment
                 ? GetEquipment()?.Name ?? EquipmentId
-                : GetCommodity()?.Name ?? CommodityId;
+                : IsConsumable
+                    ? GetConsumable()?.Name ?? ConsumableId
+                    : GetCommodity()?.Name ?? CommodityId;
         }
 
         public void Update(float deltaTime)

@@ -174,8 +174,44 @@ namespace Roguelancer
 
         public void FullRestore()
         {
-            CurrentShields = MaxShields;
+            CurrentShields = IsFiniteNonNegative(MaxShields) ? MaxShields : 0f;
             _regenDelayTimer = 0f;
+        }
+
+        /// <summary>
+        /// Restores finite positive shield charge without exceeding the
+        /// authoritative mounted capacity.
+        /// </summary>
+        public bool TryRestore(float amount, out float restoredAmount)
+        {
+            restoredAmount = 0f;
+            if (!HasMountedShield || !IsFinitePositive(amount) ||
+                !IsFinitePositive(MaxShields) || !IsFiniteNonNegative(CurrentShields))
+            {
+                return false;
+            }
+
+            float missing = MaxShields - CurrentShields;
+            if (!IsFinitePositive(missing))
+            {
+                return false;
+            }
+
+            bool wasDown = CurrentShields <= 0f;
+            restoredAmount = Math.Min(amount, missing);
+            if (!IsFinitePositive(restoredAmount))
+            {
+                restoredAmount = 0f;
+                return false;
+            }
+
+            CurrentShields = MathHelper.Clamp(CurrentShields + restoredAmount, 0f, MaxShields);
+            if (wasDown && CurrentShields > 0f)
+            {
+                OnShieldsRestored?.Invoke();
+            }
+
+            return restoredAmount > 0f;
         }
 
         public Color GetShieldColor()

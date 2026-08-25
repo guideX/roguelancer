@@ -13,20 +13,28 @@ namespace Roguelancer
 
         private readonly List<ShipHardpoint> _hardpoints = new List<ShipHardpoint>();
         private readonly Dictionary<string, int> _ownedEquipment = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        private readonly CombatConsumableInventory _combatConsumables = new CombatConsumableInventory();
         private readonly bool _usesGenericFallbackLayout;
 
         public IReadOnlyList<ShipHardpoint> Hardpoints => _hardpoints;
 
         public IReadOnlyDictionary<string, int> OwnedEquipment => _ownedEquipment;
 
+        public CombatConsumableInventory CombatConsumables => _combatConsumables;
+
         public int OwnedEquipmentCount
         {
             get
             {
                 int total = 0;
-                foreach (int quantity in _ownedEquipment.Values)
+                foreach (KeyValuePair<string, int> entry in _ownedEquipment)
                 {
-                    total = Math.Min(MaximumOwnedEquipmentCount, total + Math.Max(0, quantity));
+                    if (IsConsumableId(entry.Key))
+                    {
+                        continue;
+                    }
+
+                    total = Math.Min(MaximumOwnedEquipmentCount, total + Math.Max(0, entry.Value));
                 }
 
                 return total;
@@ -87,6 +95,7 @@ namespace Roguelancer
                     MountStarterEquipment(explicitLoadout, "Thruster", "light_thruster", EquipmentType.Thruster);
                     MountStarterEquipment(explicitLoadout, "Scanner", "basic_scanner", EquipmentType.Scanner);
                     MountStarterEquipment(explicitLoadout, "CountermeasureRack", "basic_countermeasure_dropper", EquipmentType.CountermeasureDropper);
+                    AddStarterConsumables(explicitLoadout);
                 }
 
                 return explicitLoadout;
@@ -119,6 +128,7 @@ namespace Roguelancer
                 MountStarterEquipment(loadout, "Thruster", "light_thruster", EquipmentType.Thruster);
                 MountStarterEquipment(loadout, "Scanner", "basic_scanner", EquipmentType.Scanner);
                 MountStarterEquipment(loadout, "CountermeasureRack", "basic_countermeasure_dropper", EquipmentType.CountermeasureDropper);
+                AddStarterConsumables(loadout);
             }
 
             return loadout;
@@ -144,6 +154,7 @@ namespace Roguelancer
                     result._ownedEquipment[owned.Key] = owned.Value;
                 }
             }
+            result._combatConsumables.CopyFrom(_combatConsumables);
 
             List<(ShipHardpoint Source, EquipmentDefinition Equipment)> mounted = _hardpoints
                 .Where(hardpoint => hardpoint != null && !hardpoint.IsEmpty)
@@ -363,7 +374,12 @@ namespace Roguelancer
                 return 0;
             }
 
-            return _ownedEquipment.TryGetValue(equipmentId, out int count) ? count : 0;
+            if (IsConsumableId(equipmentId))
+            {
+                return _combatConsumables.GetQuantity(equipmentId);
+            }
+
+            return _ownedEquipment.TryGetValue(equipmentId, out int count) ? Math.Max(0, count) : 0;
         }
 
         public int GetMountedCount(string equipmentId)
@@ -378,11 +394,21 @@ namespace Roguelancer
 
         public int GetAvailableToMountCount(string equipmentId)
         {
+            if (IsConsumableId(equipmentId))
+            {
+                return 0;
+            }
+
             return Math.Max(0, GetOwnedCount(equipmentId) - GetMountedCount(equipmentId));
         }
 
         public int GetAvailableToSellCount(string equipmentId)
         {
+            if (IsConsumableId(equipmentId))
+            {
+                return GetOwnedCount(equipmentId);
+            }
+
             return GetAvailableToMountCount(equipmentId);
         }
 
@@ -398,14 +424,31 @@ namespace Roguelancer
                 return false;
             }
 
+            if (equipment is ConsumableEquipmentDefinition consumable)
+            {
+                if (!consumable.IsValid ||
+                    !_combatConsumables.TryAdd(consumable.Id, quantity))
+                {
+                    return false;
+                }
+
+                Console.WriteLine($"[LOADOUT] Added {quantity}x {equipment.Name} to carried supplies");
+                return true;
+            }
+
             if (quantity > AvailableOwnedEquipmentCapacity)
             {
                 return false;
             }
 
-            if (_ownedEquipment.ContainsKey(equipment.Id))
+            if (_ownedEquipment.TryGetValue(equipment.Id, out int currentQuantity))
             {
-                _ownedEquipment[equipment.Id] += quantity;
+                if (currentQuantity < 0 || quantity > int.MaxValue - currentQuantity)
+                {
+                    return false;
+                }
+
+                _ownedEquipment[equipment.Id] = currentQuantity + quantity;
             }
             else
             {
@@ -416,11 +459,49 @@ namespace Roguelancer
             return true;
         }
 
+        /// <summary>
+        /// Adds as much of a carried consumable stack as its per-type capacity
+        /// permits. Mountable equipment remains all-or-nothing.
+        /// </summary>
+        public bool TryAddOwnedEquipmentPartial(EquipmentDefinition equipment, int requestedQuantity, out int addedQuantity)
+        {
+            addedQuantity = 0;
+            if (equipment == null || requestedQuantity <= 0)
+            {
+                return false;
+            }
+
+            if (equipment is ConsumableEquipmentDefinition consumable)
+            {
+                return consumable.IsValid &&
+                    _combatConsumables.TryAddPartial(consumable.Id, requestedQuantity, out addedQuantity);
+            }
+
+            if (!AddOwnedEquipment(equipment, requestedQuantity))
+            {
+                return false;
+            }
+
+            addedQuantity = requestedQuantity;
+            return true;
+        }
+
         public bool RemoveOwnedEquipment(string equipmentId, int quantity = 1)
         {
             if (string.IsNullOrWhiteSpace(equipmentId) || quantity <= 0)
             {
                 return false;
+            }
+
+            if (IsConsumableId(equipmentId))
+            {
+                bool removedConsumable = _combatConsumables.TryRemove(equipmentId, quantity);
+                if (removedConsumable)
+                {
+                    Console.WriteLine($"[LOADOUT] Removed {quantity}x {equipmentId} from carried supplies");
+                }
+
+                return removedConsumable;
             }
 
             int ownedCount = GetOwnedCount(equipmentId);
@@ -647,9 +728,22 @@ namespace Roguelancer
             }
         }
 
+        private static void AddStarterConsumables(ShipLoadout loadout)
+        {
+            ConsumableEquipmentDefinition nanobots = EquipmentCatalog.GetById(CombatConsumableIds.Nanobots) as ConsumableEquipmentDefinition;
+            ConsumableEquipmentDefinition batteries = EquipmentCatalog.GetById(CombatConsumableIds.ShieldBatteries) as ConsumableEquipmentDefinition;
+            loadout?.AddOwnedEquipment(nanobots, 5);
+            loadout?.AddOwnedEquipment(batteries, 5);
+        }
+
         private static bool CanMount(EquipmentDefinition equipment)
         {
             if (equipment == null)
+            {
+                return false;
+            }
+
+            if (equipment is ConsumableEquipmentDefinition || equipment.EquipmentType == EquipmentType.Consumable)
             {
                 return false;
             }
@@ -660,6 +754,12 @@ namespace Roguelancer
             }
 
             return true;
+        }
+
+        private static bool IsConsumableId(string equipmentId)
+        {
+            return string.Equals(equipmentId, CombatConsumableIds.Nanobots, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(equipmentId, CombatConsumableIds.ShieldBatteries, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

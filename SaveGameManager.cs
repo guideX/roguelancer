@@ -214,6 +214,11 @@ namespace Roguelancer
                 }
             }
 
+            // These optional Phase 43 fields default to zero for older saves;
+            // CombatConsumableInventory clamps malformed values to its finite
+            // per-type limits.
+            loadout.CombatConsumables.SetQuantities(data.Nanobots, data.ShieldBatteries);
+
             return loadout;
         }
 
@@ -363,6 +368,11 @@ namespace Roguelancer
                 }
 
                 EquipmentDefinition definition = EquipmentCatalog.GetById(kvp.Key);
+                if (definition is ConsumableEquipmentDefinition)
+                {
+                    continue;
+                }
+
                 result.Add(new SaveOwnedEquipmentData
                 {
                     EquipmentId = definition?.Id ?? kvp.Key,
@@ -372,6 +382,13 @@ namespace Roguelancer
             }
 
             return result;
+        }
+
+        public (int Nanobots, int ShieldBatteries) CaptureConsumables(ShipLoadout loadout)
+        {
+            return loadout == null
+                ? (0, 0)
+                : (loadout.CombatConsumables.Nanobots, loadout.CombatConsumables.ShieldBatteries);
         }
 
         public List<SaveMountedEquipmentData> CaptureMountedEquipment(ShipLoadout loadout)

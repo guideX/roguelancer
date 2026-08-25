@@ -217,7 +217,9 @@ public sealed class StationEquipmentDealerUI
                 {
                     int owned = _playerShip?.Loadout?.GetOwnedCount(equipment.Id) ?? 0;
                     int mounted = _playerShip?.Loadout?.GetMountedCount(equipment.Id) ?? 0;
-                    string ownedText = $"{owned} owned / {mounted} equipped";
+                    string ownedText = equipment is ConsumableEquipmentDefinition
+                        ? $"{owned} carried"
+                        : $"{owned} owned / {mounted} equipped";
                     Vector2 ownedSize = _font.MeasureString(ownedText);
                     spriteBatch.DrawString(_font, ownedText, new Vector2(row.Right - ownedSize.X - 10, row.Y + 15), Color.LightGreen);
                 }
@@ -282,11 +284,16 @@ public sealed class StationEquipmentDealerUI
         y += 30;
 
         ShipLoadout loadout = _playerShip?.Loadout;
-        IReadOnlyList<ShipHardpoint> compatible = loadout == null
+        ConsumableEquipmentDefinition consumable = equipment as ConsumableEquipmentDefinition;
+        IReadOnlyList<ShipHardpoint> compatible = consumable != null
+            ? Array.Empty<ShipHardpoint>()
+            : loadout == null
             ? Array.Empty<ShipHardpoint>()
             : loadout.GetCompatibleHardpoints(equipment).ToList();
         IReadOnlyList<ShipHardpoint> empty = compatible.Where(hardpoint => hardpoint.IsEmpty).ToList();
-        string compatibility = compatible.Count == 0
+        string compatibility = consumable != null
+            ? "Carried supply (not mountable)"
+            : compatible.Count == 0
             ? "Incompatible with current ship"
             : empty.Count == 0
                 ? "Compatible: Yes (no empty hardpoint)"
@@ -318,7 +325,8 @@ public sealed class StationEquipmentDealerUI
         }
 
         string action = _ownedMode
-            ? mounted > 0 ? "[U] UNEQUIP   [S] SELL SPARE" : "[ENTER/E] EQUIP   [S] SELL"
+            ? consumable != null ? "[S] SELL   USE IN FLIGHT"
+            : mounted > 0 ? "[U] UNEQUIP   [S] SELL SPARE" : "[ENTER/E] EQUIP   [S] SELL"
             : access.IsAllowed ? "[ENTER/E or B] BUY" : "[LOCKED] REPUTATION REQUIRED";
         spriteBatch.DrawString(_font, action, new Vector2(x, Math.Min(y, detailPanel.Bottom - 30)), Color.Gold);
     }
@@ -373,6 +381,12 @@ public sealed class StationEquipmentDealerUI
         if (selected == null)
         {
             SetStatus("No owned equipment selected.", false);
+            return;
+        }
+
+        if (selected is ConsumableEquipmentDefinition)
+        {
+            SetStatus("Carried supplies are activated during flight.", false);
             return;
         }
 
@@ -446,12 +460,21 @@ public sealed class StationEquipmentDealerUI
             EquipmentType.MissileLauncher => Color.IndianRed,
             EquipmentType.MineDropper => Color.SandyBrown,
             EquipmentType.CountermeasureDropper => Color.MediumPurple,
+            EquipmentType.Consumable => Color.LimeGreen,
             _ => Color.White
         };
     }
 
     private static IEnumerable<string> GetStats(EquipmentDefinition equipment)
     {
+        if (equipment is ConsumableEquipmentDefinition consumable)
+        {
+            yield return $"Restoration: {consumable.RestorationAmount:0.#}";
+            yield return $"Carry limit: {consumable.MaximumCarryQuantity}";
+            yield return "Mount: None (carried supply)";
+            yield break;
+        }
+
         if (equipment is WeaponEquipmentDefinition weapon)
         {
             yield return $"Damage: {weapon.Damage:0.#}";

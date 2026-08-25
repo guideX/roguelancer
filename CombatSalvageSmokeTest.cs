@@ -69,13 +69,15 @@ namespace Roguelancer
 
             IReadOnlyList<SalvageDrop> firstDrop = firstService.EvaluateDestruction(first);
             IReadOnlyList<SalvageDrop> secondDrop = new CombatSalvageService().EvaluateDestruction(second);
-            if (firstDrop.Count != 1 || secondDrop.Count != 1)
+            List<SalvageDrop> firstCommodityDrops = firstDrop.Where(drop => drop != null && drop.IsCommodity).ToList();
+            List<SalvageDrop> secondCommodityDrops = secondDrop.Where(drop => drop != null && drop.IsCommodity).ToList();
+            if (firstCommodityDrops.Count != 1 || secondCommodityDrops.Count != 1)
             {
                 return Fail("eligible deterministic ships did not produce one standard drop");
             }
 
-            SalvageDrop left = firstDrop[0];
-            SalvageDrop right = secondDrop[0];
+            SalvageDrop left = firstCommodityDrops[0];
+            SalvageDrop right = secondCommodityDrops[0];
             return left.CommodityId == right.CommodityId && left.Quantity == right.Quantity &&
                    CommodityCatalog.GetById(left.CommodityId) != null &&
                    left.Tier == CombatSalvageTier.Standard
@@ -90,7 +92,7 @@ namespace Roguelancer
             NpcShip ship = CreateNpc(name, FactionManager.LibertyRogues, TrafficZoneBehaviorType.PirateAmbush);
             Destroy(ship, NpcDestructionSource.Environment);
             IReadOnlyList<SalvageDrop> drops = service.EvaluateDestruction(ship);
-            return !drops.Any(drop => drop != null && !drop.IsEquipment) && !service.ShouldDrop(ship)
+            return !drops.Any(drop => drop != null && drop.IsCommodity) && !service.ShouldDrop(ship)
                 ? Pass()
                 : Fail("stable no-drop identity unexpectedly produced salvage");
         }
@@ -102,14 +104,14 @@ namespace Roguelancer
             NpcShip standard = CreateNpc(standardName, FactionManager.LibertyRogues, TrafficZoneBehaviorType.PirateAmbush);
             Destroy(standard, NpcDestructionSource.Npc);
             IReadOnlyList<SalvageDrop> standardDrops = service.EvaluateDestruction(standard)
-                .Where(drop => drop != null && !drop.IsEquipment)
+                .Where(drop => drop != null && drop.IsCommodity)
                 .ToList();
 
             string heavyName = FindNameForDrop(service, FactionManager.LibertyRogues, "Warthog Heavy", heavy: true);
             NpcShip heavy = CreateNpc(heavyName, FactionManager.LibertyRogues, TrafficZoneBehaviorType.PirateAmbush, "SHIPS/WARTHOG/warthog");
             Destroy(heavy, NpcDestructionSource.Npc);
             IReadOnlyList<SalvageDrop> heavyDrops = service.EvaluateDestruction(heavy)
-                .Where(drop => drop != null && !drop.IsEquipment)
+                .Where(drop => drop != null && drop.IsCommodity)
                 .ToList();
 
             int heavyQuantity = heavyDrops.Sum(drop => drop.Quantity);

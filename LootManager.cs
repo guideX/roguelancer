@@ -77,16 +77,21 @@ namespace Roguelancer
             for (int i = 0; i < drops.Count && spawned < availableSlots; i++)
             {
                 SalvageDrop drop = drops[i];
-                Commodity commodity = drop.IsEquipment ? null : CommodityCatalog.GetById(drop.CommodityId);
+                Commodity commodity = drop.IsCommodity ? CommodityCatalog.GetById(drop.CommodityId) : null;
                 EquipmentDefinition equipment = drop.IsEquipment ? EquipmentCatalog.GetById(drop.EquipmentId) : null;
-                if ((!drop.IsEquipment && (commodity == null || drop.Quantity <= 0)) ||
+                ConsumableEquipmentDefinition consumable = drop.IsConsumable
+                    ? EquipmentCatalog.GetById(drop.ConsumableId) as ConsumableEquipmentDefinition
+                    : null;
+                if ((drop.IsCommodity && (commodity == null || drop.Quantity <= 0)) ||
                     (drop.IsEquipment && (equipment == null || drop.Quantity != 1)) ||
+                    (drop.IsConsumable && (consumable == null || !consumable.IsValid || drop.Quantity <= 0)) ||
                     !TryFindSpawnPosition(destroyedShip, drop.StackIndex, out Vector3 position))
                 {
                     continue;
                 }
 
                 Vector3 velocity = destroyedShip.Velocity * 0.15f;
+                CargoPod pod;
                 bool created = drop.IsEquipment
                     ? CargoPod.TryCreateEquipment(
                         equipment.Id,
@@ -94,15 +99,24 @@ namespace Roguelancer
                         velocity,
                         (float)CombatSalvageService.SalvageLifetimeSeconds,
                         CombatSalvageService.PickupRadius,
-                        out CargoPod pod)
-                    : CargoPod.TryCreate(
-                        commodity.Id,
-                        drop.Quantity,
-                        position,
-                        velocity,
-                        (float)CombatSalvageService.SalvageLifetimeSeconds,
-                        CombatSalvageService.PickupRadius,
-                        out pod);
+                        out pod)
+                    : drop.IsConsumable
+                        ? CargoPod.TryCreateConsumable(
+                            consumable.Id,
+                            drop.Quantity,
+                            position,
+                            velocity,
+                            (float)CombatSalvageService.SalvageLifetimeSeconds,
+                            CombatSalvageService.PickupRadius,
+                            out pod)
+                        : CargoPod.TryCreate(
+                            commodity.Id,
+                            drop.Quantity,
+                            position,
+                            velocity,
+                            (float)CombatSalvageService.SalvageLifetimeSeconds,
+                            CombatSalvageService.PickupRadius,
+                            out pod);
                 if (!created)
                 {
                     continue;
@@ -154,8 +168,10 @@ namespace Roguelancer
             float tractorRangeSquared = TractorActivationRange * TractorActivationRange;
             Dictionary<string, int> collectedByCommodity = new(StringComparer.OrdinalIgnoreCase);
             Dictionary<string, int> collectedByEquipment = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, int> collectedByConsumable = new(StringComparer.OrdinalIgnoreCase);
             bool cargoWasFull = false;
             bool equipmentStorageWasFull = false;
+            bool consumableStorageWasFull = false;
 
             for (int i = _activePods.Count - 1; i >= 0; i--)
             {
@@ -234,6 +250,51 @@ namespace Roguelancer
                     continue;
                 }
 
+                if (pod.IsConsumable)
+                {
+                    ConsumableEquipmentDefinition consumable = pod.GetConsumable();
+                    if (consumable == null || !consumable.IsValid)
+                    {
+                        log?.Invoke($"[LOOT] unknown consumable skipped: {pod.ConsumableId}");
+                        _activePods.RemoveAt(i);
+                        continue;
+                    }
+
+                    if (playerShip?.Loadout == null)
+                    {
+                        continue;
+                    }
+
+                    if (playerShip.Loadout.TryAddOwnedEquipmentPartial(consumable, pod.Quantity, out int collectedConsumableQuantity))
+                    {
+                        pod.TakeQuantity(collectedConsumableQuantity);
+                        if (collectedConsumableQuantity > 0)
+                        {
+                            collectedByConsumable[consumable.Name] = collectedByConsumable.TryGetValue(consumable.Name, out int current)
+                                ? current + collectedConsumableQuantity
+                                : collectedConsumableQuantity;
+                            log?.Invoke($"[SALVAGE] consumable collected: {consumable.Name} x{collectedConsumableQuantity}");
+                        }
+
+                        if (pod.IsDepleted)
+                        {
+                            _activePods.RemoveAt(i);
+                        }
+                        else
+                        {
+                            pod.CargoFullNotified = false;
+                        }
+                    }
+                    else if (!pod.CargoFullNotified)
+                    {
+                        pod.CargoFullNotified = true;
+                        consumableStorageWasFull = true;
+                        log?.Invoke("[LOOT] consumable storage full");
+                    }
+
+                    continue;
+                }
+
                 Commodity commodity = pod.GetCommodity();
                 if (commodity == null)
                 {
@@ -277,7 +338,7 @@ namespace Roguelancer
                 }
             }
 
-            if (collectedByCommodity.Count > 0 || collectedByEquipment.Count > 0)
+            if (collectedByCommodity.Count > 0 || collectedByEquipment.Count > 0 || collectedByConsumable.Count > 0)
             {
                 List<string> parts = new();
                 foreach (KeyValuePair<string, int> entry in collectedByCommodity)
@@ -290,17 +351,24 @@ namespace Roguelancer
                     parts.Add($"{entry.Value}x {entry.Key}");
                 }
 
+                foreach (KeyValuePair<string, int> entry in collectedByConsumable)
+                {
+                    parts.Add($"{entry.Value}x {entry.Key}");
+                }
+
                 LastPickupNotification = $"Salvaged: {string.Join(", ", parts)}";
                 notificationManager?.ShowMessage(LastPickupNotification, 2f);
             }
-            else if (cargoWasFull && equipmentStorageWasFull)
+            else if (cargoWasFull && (equipmentStorageWasFull || consumableStorageWasFull))
             {
                 LastPickupNotification = "Cargo hold and equipment storage full";
                 notificationManager?.ShowMessage(LastPickupNotification, 2f);
             }
-            else if (equipmentStorageWasFull)
+            else if (equipmentStorageWasFull || consumableStorageWasFull)
             {
-                LastPickupNotification = "Equipment storage full";
+                LastPickupNotification = consumableStorageWasFull && !equipmentStorageWasFull
+                    ? "Consumable storage full"
+                    : "Equipment storage full";
                 notificationManager?.ShowMessage(LastPickupNotification, 2f);
             }
             else if (cargoWasFull)
@@ -375,6 +443,23 @@ namespace Roguelancer
             if (nearestPod == null)
             {
                 return null;
+            }
+
+            if (nearestPod.IsConsumable)
+            {
+                ConsumableEquipmentDefinition consumable = nearestPod.GetConsumable();
+                if (consumable == null)
+                {
+                    return "Hold P: Tractor Consumable";
+                }
+
+                if (loadout != null && loadout.CombatConsumables.GetAvailableCapacity(consumable.Id) <= 0)
+                {
+                    return "Consumable storage full";
+                }
+
+                float consumableDistance = Vector3.Distance(playerPosition, nearestPod.Position);
+                return $"Hold P: Tractor {consumable.Name} x{nearestPod.Quantity}\n{FormatDistance(consumableDistance)}";
             }
 
             if (nearestPod.IsEquipment)
@@ -483,7 +568,9 @@ namespace Roguelancer
             {
                 Commodity commodity = pod.GetCommodity();
                 EquipmentDefinition equipment = pod.GetEquipment();
-                Color color = equipment != null ? Color.Orange : commodity?.DisplayColor ?? Color.White;
+                Color color = pod.IsConsumable
+                    ? Color.LimeGreen
+                    : equipment != null ? Color.Orange : commodity?.DisplayColor ?? Color.White;
                 pod.Draw(_graphicsDevice, _effect, view, projection, color, 12f);
             }
         }

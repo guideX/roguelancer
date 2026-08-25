@@ -146,7 +146,7 @@ namespace Roguelancer
             NpcShip equipmentShip = CreateFighter(equipmentName, StandardFaction, heavy: false);
             Destroy(equipmentShip, NpcDestructionSource.Npc);
             IReadOnlyList<SalvageDrop> equipmentDrops = service.EvaluateDestruction(equipmentShip);
-            return commodityDrops.Any(drop => !drop.IsEquipment && CommodityCatalog.GetById(drop.CommodityId) != null) &&
+            return commodityDrops.Any(drop => drop.IsCommodity && CommodityCatalog.GetById(drop.CommodityId) != null) &&
                    equipmentDrops.Any(drop => drop.IsEquipment)
                 ? Pass()
                 : Fail("equipment addition changed the commodity salvage path");

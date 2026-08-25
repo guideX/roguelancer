@@ -160,7 +160,16 @@ namespace Roguelancer
                 return false;
             }
 
-            if (loadout.AvailableOwnedEquipmentCapacity <= 0)
+            ConsumableEquipmentDefinition consumable = canonical as ConsumableEquipmentDefinition;
+            if (consumable != null && consumable.IsValid)
+            {
+                if (loadout.GetOwnedCount(consumable.Id) >= consumable.MaximumCarryQuantity)
+                {
+                    message = $"{canonical.Name} carry limit reached ({consumable.MaximumCarryQuantity}).";
+                    return false;
+                }
+            }
+            else if (loadout.AvailableOwnedEquipmentCapacity <= 0)
             {
                 message = $"Equipment storage full ({ShipLoadout.MaximumOwnedEquipmentCount} items).";
                 return false;
@@ -173,10 +182,10 @@ namespace Roguelancer
                 return false;
             }
 
-            // Ownership is kept in ShipLoadout rather than cargo, so there is no
-            // separate cargo-capacity gate. A type must still have at least one
-            // compatible hardpoint on the current ship to be useful equipment.
-            if (!loadout.GetCompatibleHardpoints(canonical).Any())
+            // Carried consumables have a per-type stack limit and deliberately
+            // have no hardpoint requirement. Mountable equipment still needs a
+            // compatible physical hardpoint on the current ship.
+            if (consumable == null && !loadout.GetCompatibleHardpoints(canonical).Any())
             {
                 message = $"{canonical.Name} is incompatible with the current ship.";
                 return false;
@@ -209,6 +218,12 @@ namespace Roguelancer
             if (loadout == null)
             {
                 message = "Loadout unavailable.";
+                return false;
+            }
+
+            if (canonical is ConsumableEquipmentDefinition)
+            {
+                message = $"{canonical.Name} is a carried supply and cannot be mounted.";
                 return false;
             }
 

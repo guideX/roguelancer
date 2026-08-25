@@ -160,6 +160,8 @@ namespace Roguelancer
                 TryAddAndMountShield(loadout, eligibleShields[shieldIndex]);
             }
 
+            AddCombatConsumables(loadout, profile, archetypeName, modelPath, combatRole, tier, heavy);
+
             // Existing traffic behavior is the mature role signal. Trader and
             // station traffic remain unarmed unless their archetype explicitly
             // identifies a fighter, in which case they get one defensive gun.
@@ -410,6 +412,71 @@ namespace Roguelancer
 
             loadout.RemoveOwnedEquipment(shield.Id, 1);
             return false;
+        }
+
+        private static void AddCombatConsumables(
+            ShipLoadout loadout,
+            NpcLoadoutPolicyProfile profile,
+            string archetypeName,
+            string modelPath,
+            TrafficZoneBehaviorType combatRole,
+            NpcLoadoutTier tier,
+            bool heavy)
+        {
+            if (loadout == null)
+            {
+                return;
+            }
+
+            string factionId = FactionManager.NormalizeFactionId(profile?.FactionId);
+            int nanobots;
+            int batteries;
+            if (profile?.IsCivilian == true || combatRole == TrafficZoneBehaviorType.TraderRoute)
+            {
+                nanobots = 1;
+                batteries = 1;
+            }
+            else if (string.Equals(factionId, FactionManager.LibertyNavy, StringComparison.OrdinalIgnoreCase))
+            {
+                nanobots = 3;
+                batteries = 3;
+            }
+            else if (string.Equals(factionId, FactionManager.LibertyPolice, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(factionId, FactionManager.LibertyCorporations, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(factionId, FactionManager.BountyHunters, StringComparison.OrdinalIgnoreCase))
+            {
+                nanobots = 2;
+                batteries = 2;
+            }
+            else
+            {
+                nanobots = 1;
+                batteries = 1;
+            }
+
+            if (tier == NpcLoadoutTier.High)
+            {
+                nanobots++;
+                batteries++;
+            }
+
+            if (heavy || IsHeavy(archetypeName, modelPath))
+            {
+                nanobots++;
+                batteries++;
+            }
+
+            if (string.Equals(factionId, FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(factionId, FactionManager.Junkers, StringComparison.OrdinalIgnoreCase))
+            {
+                nanobots = Math.Max(1, nanobots - 1);
+                batteries = Math.Max(1, batteries - 1);
+            }
+
+            ConsumableEquipmentDefinition nanobotDefinition = EquipmentCatalog.GetById(CombatConsumableIds.Nanobots) as ConsumableEquipmentDefinition;
+            ConsumableEquipmentDefinition batteryDefinition = EquipmentCatalog.GetById(CombatConsumableIds.ShieldBatteries) as ConsumableEquipmentDefinition;
+            loadout.AddOwnedEquipment(nanobotDefinition, Math.Min(CombatConsumableInventory.MaximumNanobots, nanobots));
+            loadout.AddOwnedEquipment(batteryDefinition, Math.Min(CombatConsumableInventory.MaximumShieldBatteries, batteries));
         }
 
         private static bool IsAvailableAtTier(WeaponEquipmentDefinition weapon, NpcLoadoutTier tier)

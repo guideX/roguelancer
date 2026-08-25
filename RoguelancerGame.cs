@@ -248,6 +248,7 @@ namespace Roguelancer {
         private readonly bool _runNpcLoadoutSmoke;
         private readonly bool _runWeaponProgressionSmoke;
         private readonly bool _runShieldEquipmentSmoke;
+        private readonly bool _runCombatConsumableSmoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -348,6 +349,7 @@ namespace Roguelancer {
             _runNpcLoadoutSmoke = args?.Any(arg => string.Equals(arg, "--npc-loadout-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runWeaponProgressionSmoke = args?.Any(arg => string.Equals(arg, "--weapon-progression-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runShieldEquipmentSmoke = args?.Any(arg => string.Equals(arg, "--shield-equipment-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runCombatConsumableSmoke = args?.Any(arg => string.Equals(arg, "--combat-consumable-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1357,6 +1359,11 @@ namespace Roguelancer {
                 var result = RunShieldEquipmentSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runCombatConsumableSmoke)
+            {
+                var result = RunCombatConsumableSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runFactionDistressResponseSmoke)
             {
                 var result = RunFactionDistressResponseSmokeTest();
@@ -1543,6 +1550,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("NPC loadout smoke", RunNpcLoadoutSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("weapon progression smoke", RunWeaponProgressionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("shield equipment smoke", RunShieldEquipmentSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("combat consumable smoke", RunCombatConsumableSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1837,6 +1845,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[SHIELD EQUIPMENT SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunCombatConsumableSmokeTest()
+        {
+            try
+            {
+                return new CombatConsumableSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[COMBAT CONSUMABLE SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2270,6 +2291,11 @@ namespace Roguelancer {
                 PlayerVelocity = SaveVector3Data.From(_playerShip?.Velocity ?? Vector3.Zero),
                 PlayerForward = SaveVector3Data.From(_playerShip?.Forward ?? Vector3.Forward)
             };
+
+            (int Nanobots, int ShieldBatteries) consumables = _saveGameManager?.CaptureConsumables(_playerShip?.Loadout)
+                ?? (0, 0);
+            saveData.Nanobots = consumables.Nanobots;
+            saveData.ShieldBatteries = consumables.ShieldBatteries;
 
             saveData.OwnedEquipment = _saveGameManager?.CaptureOwnedEquipment(_playerShip?.Loadout) ?? new List<SaveOwnedEquipmentData>();
             saveData.MountedEquipment = _saveGameManager?.CaptureMountedEquipment(_playerShip?.Loadout) ?? new List<SaveMountedEquipmentData>();
@@ -3946,7 +3972,8 @@ namespace Roguelancer {
             {
                 Commodity commodity = cargoPod.GetCommodity();
                 EquipmentDefinition equipment = cargoPod.GetEquipment();
-                string label = equipment?.Name ?? commodity?.Name ?? "cargo pod";
+                ConsumableEquipmentDefinition consumable = cargoPod.GetConsumable();
+                string label = equipment?.Name ?? consumable?.Name ?? commodity?.Name ?? "cargo pod";
                 _notificationManager?.ShowMessage($"GOTO unavailable for {label}");
                 Console.WriteLine($"[TARGETING] GOTO unavailable for cargo pod: {label}");
                 return false;
@@ -4660,7 +4687,7 @@ namespace Roguelancer {
                 hudX - panelPadding,
                 hudY - panelPadding,
                 totalBarWidth + panelPadding * 2,
-                barHeight * 3 + barSpacing * 2 + panelPadding * 2 + 40
+                barHeight * 3 + barSpacing * 2 + panelPadding * 2 + 70
             );
             _spriteBatch.Draw(_pixel, panelBg, Color.Black * 0.75f);
 
@@ -4720,6 +4747,14 @@ namespace Roguelancer {
                 Vector2 modeSize = _font.MeasureString(modeText);
                 _spriteBatch.DrawString(_font, modeText,
                     new Vector2(hudX + (totalBarWidth - modeSize.X) / 2, statusY + 18), Color.Yellow * 0.9f);
+
+                int supplyY = statusY + 38;
+                int nanobotCount = _playerShip.CombatConsumables?.Nanobots ?? 0;
+                int batteryCount = _playerShip.CombatConsumables?.ShieldBatteries ?? 0;
+                _spriteBatch.DrawString(_font, $"NANOBOTS {nanobotCount}",
+                    new Vector2(hudX + 18, supplyY), Color.LimeGreen);
+                _spriteBatch.DrawString(_font, $"SHIELD BATTERIES {batteryCount}",
+                    new Vector2(hudX + 190, supplyY), Color.LightSkyBlue);
             }
 
             // --- LEFT SIDE: weapon & mode indicators ---

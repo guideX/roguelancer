@@ -12,6 +12,7 @@ namespace Roguelancer
         ShieldGenerator,
         Thruster,
         Scanner,
-        TractorBeam
+        TractorBeam,
+        Consumable
     }
 }
