@@ -19,6 +19,7 @@ namespace Roguelancer
         public int DeliveryQuantity { get; set; }
         public NpcShip EscortTarget { get; set; }
         public Station EscortDestination { get; set; }
+        public TradeLane TargetTradeLane { get; set; }
         public bool EscortUnderAttackLogged { get; set; }
     }
 
@@ -33,6 +34,8 @@ namespace Roguelancer
         private readonly Action<NpcShip> _spawnedNpcDestroyedCallback;
         private readonly MarketManager _marketManager;
         private readonly MarketIntelligence _marketIntelligence;
+        private readonly Func<IReadOnlyList<TradeLane>> _tradeLaneProvider;
+        private readonly Action<Vector3, MissionDifficulty, string> _securityResponseCallback;
         private readonly Dictionary<int, MissionRuntimeState> _runtimeStates = new();
 
         public MissionWorldManager(
@@ -44,7 +47,9 @@ namespace Roguelancer
             Func<IReadOnlyList<Station>> stationProvider,
             Action<NpcShip> spawnedNpcDestroyedCallback = null,
             MarketManager marketManager = null,
-            MarketIntelligence marketIntelligence = null)
+            MarketIntelligence marketIntelligence = null,
+            Func<IReadOnlyList<TradeLane>> tradeLaneProvider = null,
+            Action<Vector3, MissionDifficulty, string> securityResponseCallback = null)
         {
             _missionManager = missionManager;
             _waypointSystem = waypointSystem;
@@ -55,6 +60,8 @@ namespace Roguelancer
             _spawnedNpcDestroyedCallback = spawnedNpcDestroyedCallback;
             _marketManager = marketManager;
             _marketIntelligence = marketIntelligence;
+            _tradeLaneProvider = tradeLaneProvider ?? (() => Array.Empty<TradeLane>());
+            _securityResponseCallback = securityResponseCallback;
         }
 
         public bool TryAcceptMission(Mission mission, out string failureReason)
@@ -87,6 +94,8 @@ namespace Roguelancer
                     return TryBindExportMission(state, out failureReason);
                 case MissionType.Escort:
                     return TryBindEscortMission(state, out failureReason);
+                case MissionType.TradeLaneDisruption:
+                    return TryBindTradeLaneDisruptionMission(state, out failureReason);
                 default:
                     failureReason = "unsupported mission type";
                     return false;
@@ -125,6 +134,12 @@ namespace Roguelancer
             }
 
             return stations.Where(station => station != null).ToList();
+        }
+
+        public IReadOnlyList<TradeLane> GetTradeLanes()
+        {
+            IReadOnlyList<TradeLane> lanes = _tradeLaneProvider?.Invoke() ?? Array.Empty<TradeLane>();
+            return lanes == null ? Array.Empty<TradeLane>() : lanes.Where(lane => lane != null).ToList();
         }
 
         public void RebindMission(Mission mission)
@@ -257,6 +272,10 @@ namespace Roguelancer
                     mission.TargetSpaceObject = state.EscortTarget;
                     mission.TargetPosition = state.EscortTarget.Position;
                 }
+            }
+            else if (mission.Type == MissionType.TradeLaneDisruption)
+            {
+                TryBindTradeLaneDisruptionMission(state, out _);
             }
         }
 
@@ -458,6 +477,74 @@ namespace Roguelancer
                     continue;
                 }
 
+                if (mission.Type == MissionType.TradeLaneDisruption)
+                {
+                    bool correctSystem = mission.TargetSystemIndex <= 0 ||
+                        currentSystemIndex <= 0 ||
+                        mission.TargetSystemIndex == currentSystemIndex;
+                    if (!correctSystem)
+                        break;
+
+                    TradeLane currentTargetLane = GetTradeLanes().FirstOrDefault(candidate =>
+                        string.Equals(candidate.LaneId, mission.TargetLaneId, StringComparison.OrdinalIgnoreCase));
+                    if (state.TargetTradeLane == null ||
+                        !ReferenceEquals(state.TargetTradeLane, currentTargetLane) ||
+                        !string.Equals(state.TargetTradeLane.LaneId, mission.TargetLaneId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!TryBindTradeLaneDisruptionMission(state, out string bindFailure))
+                        {
+                            pendingFailureMission = mission;
+                            pendingFailure = bindFailure;
+                            break;
+                        }
+                    }
+
+                    TradeLaneDisruptionInfo disruption = null;
+                    if (state.TargetTradeLane != null)
+                        state.TargetTradeLane.TryGetDisruptionInfo(mission.TargetRingIndex, out disruption);
+
+                    bool qualified = disruption != null &&
+                        disruption.State == TradeLaneDisruptionState.Disrupted &&
+                        disruption.Source == TradeLaneDisruptionSource.Player &&
+                        string.Equals(disruption.LaneId, mission.TargetLaneId, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(disruption.SegmentId, mission.TargetSegmentId, StringComparison.OrdinalIgnoreCase);
+
+                    if (qualified)
+                    {
+                        if (!mission.PlayerDisruptionObserved)
+                        {
+                            mission.PlayerDisruptionObserved = true;
+                            mission.LastQualifiedDisruptionAtSeconds = disruption.OccurredAtSeconds;
+                            _missionManager?.RecordTradeLaneDisruption(mission, disruption);
+                        }
+
+                        if (!mission.SecurityResponseTriggered)
+                        {
+                            _securityResponseCallback?.Invoke(
+                                mission.TargetPosition ?? Vector3.Zero,
+                                mission.Difficulty,
+                                mission.Id.ToString());
+                            mission.SecurityResponseTriggered = true;
+                        }
+
+                        mission.HoldProgressSeconds = Math.Min(
+                            Math.Max(0f, mission.HoldDurationSeconds),
+                            mission.HoldProgressSeconds + TradeLaneStateSanitizer.Elapsed(deltaTime));
+                        if (mission.HoldProgressSeconds >= mission.HoldDurationSeconds)
+                        {
+                            mission.ObjectiveComplete = true;
+                            pendingCompletion = mission;
+                        }
+                    }
+                    else if (disruption == null || disruption.State != TradeLaneDisruptionState.Disrupted)
+                    {
+                        mission.PlayerDisruptionObserved = false;
+                        mission.LastQualifiedDisruptionAtSeconds = -1d;
+                        mission.HoldProgressSeconds = 0f;
+                    }
+                    break;
+                }
+
                 if (mission.Type == MissionType.ReachLocation)
                 {
                     bool correctSystem = mission.TargetSystemIndex <= 0 ||
@@ -591,6 +678,64 @@ namespace Roguelancer
                 return false;
             }
 
+            return true;
+        }
+
+        private bool TryBindTradeLaneDisruptionMission(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            if (mission == null)
+            {
+                failureReason = "mission was null";
+                return false;
+            }
+
+            if (mission.Type != MissionType.TradeLaneDisruption ||
+                !string.Equals(mission.FactionId, FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase))
+            {
+                failureReason = "trade-lane disruption mission faction is invalid";
+                return false;
+            }
+
+            TradeLane lane = GetTradeLanes().FirstOrDefault(candidate =>
+                string.Equals(candidate.LaneId, mission.TargetLaneId, StringComparison.OrdinalIgnoreCase));
+            if (lane == null)
+            {
+                failureReason = "target trade lane is unavailable in this system";
+                return false;
+            }
+
+            if (mission.TargetRingIndex <= 0 ||
+                mission.TargetRingIndex >= lane.ForwardRings.Count - 1 ||
+                mission.TargetRingIndex >= lane.ReverseRings.Count ||
+                !string.Equals(
+                    mission.TargetSegmentId,
+                    $"{lane.LaneId}:ring:{mission.TargetRingIndex}",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                failureReason = "target trade-lane segment identity is invalid";
+                return false;
+            }
+
+            if (mission.TargetSystemIndex > 0 && lane.Config?.SystemIndex > 0 &&
+                mission.TargetSystemIndex != lane.Config.SystemIndex)
+            {
+                failureReason = "target trade lane belongs to another system";
+                return false;
+            }
+
+            TradelaneRing targetRing = lane.ForwardRings[mission.TargetRingIndex];
+            if (targetRing == null || !TradeLaneStateSanitizer.IsFinite(targetRing.Position))
+            {
+                failureReason = "target trade-lane ring position is invalid";
+                return false;
+            }
+
+            state.TargetTradeLane = lane;
+            mission.TargetPosition = targetRing.Position;
+            mission.TargetSpaceObject = targetRing;
+            mission.TargetLocation = lane.Config?.Name ?? lane.LaneId;
             return true;
         }
 

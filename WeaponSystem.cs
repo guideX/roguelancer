@@ -773,6 +773,53 @@ namespace Roguelancer
             
             return hits;
         }
+
+        /// <summary>
+        /// Applies player projectile damage to the authoritative trade-lane
+        /// ring state. Ring impacts consume the projectile even when the
+        /// accumulated damage has not crossed the disruption threshold.
+        /// </summary>
+        public int CheckTradeLaneCollisions(IReadOnlyList<TradeLane> tradeLanes)
+        {
+            if (tradeLanes == null || tradeLanes.Count == 0 || _projectiles.Count == 0)
+                return 0;
+
+            int hits = 0;
+            for (int projectileIndex = _projectiles.Count - 1; projectileIndex >= 0; projectileIndex--)
+            {
+                Projectile projectile = _projectiles[projectileIndex];
+                bool consumed = false;
+                for (int laneIndex = 0; laneIndex < tradeLanes.Count && !consumed; laneIndex++)
+                {
+                    TradeLane lane = tradeLanes[laneIndex];
+                    if (lane == null)
+                        continue;
+
+                    for (int ringIndex = 0; ringIndex < lane.ForwardRings.Count; ringIndex++)
+                    {
+                        TradelaneRing ring = lane.ForwardRings[ringIndex];
+                        if (ring == null || Vector3.DistanceSquared(projectile.Position, ring.Position) > ring.Radius * ring.Radius)
+                            continue;
+
+                        float damage = projectile.Damage > 0f
+                            ? projectile.Damage
+                            : (_weaponStats.TryGetValue(projectile.Type, out WeaponStats stats) ? stats.WeaponDamage : 0f);
+                        lane.ApplyRingDamage(
+                            ring.Index,
+                            damage,
+                            hostile: true,
+                            TradeLaneDisruptionSource.Player,
+                            "player-weapon");
+                        _projectiles.RemoveAt(projectileIndex);
+                        hits++;
+                        consumed = true;
+                        break;
+                    }
+                }
+            }
+
+            return hits;
+        }
         
         /// <summary>
         /// Check lightning beam collisions and apply energy/hull drain with chain lightning

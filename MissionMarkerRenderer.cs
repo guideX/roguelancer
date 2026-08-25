@@ -372,6 +372,7 @@ namespace Roguelancer
                 MissionType.FreightContract => new Color(100, 210, 255), // Freight blue
                 MissionType.ExportContract => new Color(120, 255, 150), // Export green
                 MissionType.Bounty => new Color(255, 80, 80),     // Red
+                MissionType.TradeLaneDisruption => new Color(255, 145, 55), // Sabotage amber
                 MissionType.Escort => new Color(255, 200, 50),    // Yellow-gold
                 _ => Color.White
             };

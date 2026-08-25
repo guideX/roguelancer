@@ -324,6 +324,39 @@ namespace Roguelancer
 
         [JsonPropertyName("issued_cargo_quantity")]
         public int IssuedCargoQuantity { get; set; }
+
+        [JsonPropertyName("target_lane_id")]
+        public string TargetLaneId { get; set; } = string.Empty;
+
+        [JsonPropertyName("target_segment_id")]
+        public string TargetSegmentId { get; set; } = string.Empty;
+
+        [JsonPropertyName("target_ring_index")]
+        public int TargetRingIndex { get; set; } = -1;
+
+        [JsonPropertyName("hold_duration_seconds")]
+        public float HoldDurationSeconds { get; set; }
+
+        [JsonPropertyName("hold_progress_seconds")]
+        public float HoldProgressSeconds { get; set; }
+
+        [JsonPropertyName("player_disruption_observed")]
+        public bool PlayerDisruptionObserved { get; set; }
+
+        [JsonPropertyName("last_qualified_disruption_at_seconds")]
+        public double LastQualifiedDisruptionAtSeconds { get; set; } = -1d;
+
+        [JsonPropertyName("police_reputation_penalty")]
+        public float PoliceReputationPenalty { get; set; }
+
+        [JsonPropertyName("police_consequence_applied")]
+        public bool PoliceConsequenceApplied { get; set; }
+
+        [JsonPropertyName("security_response_triggered")]
+        public bool SecurityResponseTriggered { get; set; }
+
+        [JsonPropertyName("failure_reason")]
+        public string FailureReason { get; set; } = string.Empty;
     }
 
     /// <summary>

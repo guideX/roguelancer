@@ -28,6 +28,7 @@ namespace Roguelancer
         PoliceEnforcementPaid,
         PoliceEnforcementUnableToPay,
         PoliceEnforcementRefused,
+        TradeLaneDisrupted,
         ManualDebug,
         Other
     }

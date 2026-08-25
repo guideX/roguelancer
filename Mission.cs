@@ -14,7 +14,8 @@ namespace Roguelancer
         FreightContract,
         ExportContract,
         Bounty,
-        Escort
+        Escort,
+        TradeLaneDisruption
     }
 
     public enum MissionDifficulty
@@ -142,6 +143,7 @@ namespace Roguelancer
         public const string PatrolSweepId = "patrol-sweep";
         public const string RogueHuntId = "rogue-hunt";
         public const string PriorityDispatchId = "priority-dispatch";
+        public const string TradeLaneDisruptionId = "trade-lane-disruption";
 
         private static readonly IReadOnlyList<MissionDefinition> Definitions = new[]
         {
@@ -219,7 +221,7 @@ namespace Roguelancer
         private static int _nextId = 1;
 
         public int Id { get; }
-        public string DefinitionId { get; }
+        public string DefinitionId { get; private set; }
         public string Title { get; }
         public MissionType Type { get; }
         public MissionDifficulty Difficulty { get; }
@@ -270,10 +272,25 @@ namespace Roguelancer
         public Vector3? TargetPosition { get; set; }
         public SpaceObject TargetSpaceObject { get; set; }
 
+        // Trade-lane disruption missions persist canonical target identity. The
+        // lane/ring object itself is always rebound from these IDs at runtime.
+        public string TargetLaneId { get; set; } = string.Empty;
+        public string TargetSegmentId { get; set; } = string.Empty;
+        public int TargetRingIndex { get; set; } = -1;
+        public float HoldDurationSeconds { get; set; }
+        public float HoldProgressSeconds { get; set; }
+        public bool PlayerDisruptionObserved { get; set; }
+        public double LastQualifiedDisruptionAtSeconds { get; set; } = -1d;
+        public float PoliceReputationPenalty { get; set; }
+        public bool PoliceConsequenceApplied { get; set; }
+        public bool SecurityResponseTriggered { get; set; }
+        public string FailureReason { get; set; } = string.Empty;
+
         public bool IsExpired => TimeLimit > 0 && ElapsedTime >= TimeLimit;
         public float TimeRemaining => TimeLimit > 0 ? Math.Max(0, TimeLimit - ElapsedTime) : -1;
         public bool IsActive => Status is MissionStatus.Accepted or MissionStatus.InProgress;
         public bool HasUnclaimedReward => Status == MissionStatus.Completed && !RewardPaid;
+        public bool IsTradeLaneDisruptionMission() => Type == MissionType.TradeLaneDisruption;
 
         public Mission(
             MissionType type,
@@ -394,6 +411,56 @@ namespace Roguelancer
                 TargetCount = quantity
             };
 
+            return mission;
+        }
+
+        public static Mission CreateTradeLaneDisruption(
+            string laneId,
+            string segmentId,
+            int ringIndex,
+            string laneName,
+            Vector3 targetPosition,
+            int targetSystemIndex,
+            MissionDifficulty difficulty,
+            int reward,
+            float holdDurationSeconds,
+            string description,
+            float policeReputationPenalty,
+            string offeredBy = "Liberty Rogue Contact")
+        {
+            if (string.IsNullOrWhiteSpace(laneId) || string.IsNullOrWhiteSpace(segmentId) ||
+                ringIndex < 0 || string.IsNullOrWhiteSpace(laneName) || reward <= 0 ||
+                holdDurationSeconds <= 0f || float.IsNaN(holdDurationSeconds) ||
+                float.IsInfinity(holdDurationSeconds) || !TradeLaneStateSanitizer.IsFinite(targetPosition))
+            {
+                return null;
+            }
+
+            Mission mission = new Mission(
+                MissionType.TradeLaneDisruption,
+                difficulty,
+                $"{laneName} [{segmentId}]",
+                laneName,
+                reward,
+                0f,
+                description,
+                FactionManager.LibertyRogues,
+                title: "Trade-Lane Disruption")
+            {
+                DefinitionId = MissionCatalog.TradeLaneDisruptionId,
+                OfferedBy = offeredBy ?? "Liberty Rogue Contact",
+                TargetLocation = laneName,
+                TargetSystemIndex = Math.Max(0, targetSystemIndex),
+                TargetCount = 1,
+                RequiredProgress = 1,
+                TargetPosition = targetPosition,
+                TargetLaneId = laneId.Trim(),
+                TargetSegmentId = segmentId.Trim(),
+                TargetRingIndex = ringIndex,
+                HoldDurationSeconds = Math.Clamp(holdDurationSeconds, 1f, 30f),
+                HoldProgressSeconds = 0f,
+                PoliceReputationPenalty = Math.Clamp(policeReputationPenalty, -0.05f, 0f)
+            };
             return mission;
         }
 
@@ -613,7 +680,18 @@ namespace Roguelancer
             float reputationReward = 0f,
             bool reputationRewardApplied = false,
             float? minimumEmployerReputation = null,
-            float? maximumEmployerReputation = null)
+            float? maximumEmployerReputation = null,
+            string targetLaneId = "",
+            string targetSegmentId = "",
+            int targetRingIndex = -1,
+            float holdDurationSeconds = 0f,
+            float holdProgressSeconds = 0f,
+            bool playerDisruptionObserved = false,
+            double lastQualifiedDisruptionAtSeconds = -1d,
+            float policeReputationPenalty = 0f,
+            bool policeConsequenceApplied = false,
+            bool securityResponseTriggered = false,
+            string failureReason = "")
         {
             Mission mission = new Mission(
                 id,
@@ -657,6 +735,23 @@ namespace Roguelancer
                 maximumEmployerReputation);
             mission.ElapsedTime = Math.Max(0f, elapsedTime);
             mission.ObjectiveRadius = Math.Clamp(objectiveRadius <= 0 ? 500 : objectiveRadius, 1, 10000);
+            mission.TargetLaneId = targetLaneId ?? string.Empty;
+            mission.TargetSegmentId = targetSegmentId ?? string.Empty;
+            mission.TargetRingIndex = targetRingIndex;
+            mission.HoldDurationSeconds = float.IsNaN(holdDurationSeconds) || float.IsInfinity(holdDurationSeconds)
+                ? 0f
+                : Math.Clamp(holdDurationSeconds, 0f, 30f);
+            mission.HoldProgressSeconds = float.IsNaN(holdProgressSeconds) || float.IsInfinity(holdProgressSeconds)
+                ? 0f
+                : Math.Clamp(holdProgressSeconds, 0f, mission.HoldDurationSeconds);
+            mission.PlayerDisruptionObserved = playerDisruptionObserved;
+            mission.LastQualifiedDisruptionAtSeconds = double.IsNaN(lastQualifiedDisruptionAtSeconds) || double.IsInfinity(lastQualifiedDisruptionAtSeconds)
+                ? -1d
+                : lastQualifiedDisruptionAtSeconds;
+            mission.PoliceReputationPenalty = Math.Clamp(policeReputationPenalty, -0.05f, 0f);
+            mission.PoliceConsequenceApplied = policeConsequenceApplied;
+            mission.SecurityResponseTriggered = securityResponseTriggered;
+            mission.FailureReason = failureReason ?? string.Empty;
             return mission;
         }
 
@@ -705,6 +800,7 @@ namespace Roguelancer
             MissionType.ExportContract => "BULK EXPORT",
             MissionType.Bounty => "BOUNTY",
             MissionType.Escort => "ESCORT",
+            MissionType.TradeLaneDisruption => "TRADE-LANE DISRUPTION",
             _ => "MISSION"
         };
 
@@ -772,6 +868,8 @@ namespace Roguelancer
                     ? $"{RequiredQuantity:N0} units"
                     : $"{commodity.Name} x{RequiredQuantity:N0}";
             }
+            if (Type == MissionType.TradeLaneDisruption)
+                return string.IsNullOrWhiteSpace(TargetSegmentId) ? TargetLocation : $"{TargetLocation} / {TargetSegmentId}";
             if (!string.IsNullOrWhiteSpace(Target))
             {
                 if (Type == MissionType.Escort && TargetSpaceObject is NpcShip escortShip && !escortShip.IsDestroyed)
@@ -805,6 +903,7 @@ namespace Roguelancer
             MissionType.ExportContract => $"Haul {GetTargetLabel()} from {OriginStationName} to {GetDestinationLabel()}",
             MissionType.Bounty => $"Destroy {GetTargetLabel()}",
             MissionType.Escort => $"Escort {GetTargetLabel()} to {GetDestinationLabel()}",
+            MissionType.TradeLaneDisruption => $"Disrupt {GetTargetLabel()} and hold it offline",
             _ => Description
         };
 
@@ -820,6 +919,7 @@ namespace Roguelancer
             MissionType.FreightContract => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : $"Deliver {GetTargetLabel()} to destination",
             MissionType.ExportContract => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : $"Haul {GetTargetLabel()} to destination",
             MissionType.Escort => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty,
+            MissionType.TradeLaneDisruption => GetTradeLaneHudStatus(),
             _ => string.Empty
         };
 
@@ -830,7 +930,19 @@ namespace Roguelancer
             MissionType.CourierDelivery => ObjectiveComplete ? "Cargo delivered" : $"Deliver package to {GetDestinationLabel()}",
             MissionType.FreightContract => ObjectiveComplete ? "Freight delivered" : $"Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
             MissionType.ExportContract => ObjectiveComplete ? "Export delivered" : $"Haul {GetTargetLabel()} to {GetDestinationLabel()}",
+            MissionType.TradeLaneDisruption => GetTradeLaneHudStatus(),
             _ => GetObjectiveText()
         };
+
+        public string GetTradeLaneHudStatus()
+        {
+            if (Type != MissionType.TradeLaneDisruption)
+                return string.Empty;
+            if (ObjectiveComplete)
+                return "COMPLETE";
+            if (!PlayerDisruptionObserved || HoldProgressSeconds <= 0f)
+                return "TARGET OPERATIONAL";
+            return $"TARGET DISRUPTED | HOLD {HoldProgressSeconds:0.0} / {HoldDurationSeconds:0.0}s";
+        }
     }
 }

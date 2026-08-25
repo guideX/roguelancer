@@ -34,6 +34,7 @@ namespace Roguelancer
         private readonly CargoHold _cargoHold;
         private readonly Dictionary<string, Mission> _freightOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _exportOffers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Mission> _tradeLaneDisruptionOffers = new(StringComparer.OrdinalIgnoreCase);
         private ReputationManager _reputationManager;
         private MissionWaypointSystem _waypointSystem;
         private MissionWorldManager _worldManager;
@@ -70,6 +71,10 @@ namespace Roguelancer
         public const int ExportMaximumReward = 100_000;
         public const int MarketOpportunityMaximumEntries = 8;
         public const float MissionFailureReputationPenalty = -0.02f;
+        public const float TradeLaneDisruptionHoldSeconds = 10f;
+        public const float TradeLaneEasyPolicePenalty = -0.02f;
+        public const float TradeLaneMediumPolicePenalty = -0.03f;
+        public const float TradeLaneHardPolicePenalty = -0.05f;
 
         public static float GetMissionReputationReward(Mission mission)
         {
@@ -86,6 +91,7 @@ namespace Roguelancer
             float baseReward = mission.Type switch
             {
                 MissionType.Bounty or MissionType.DestroyHostiles => 0.035f,
+                MissionType.TradeLaneDisruption => 0.020f,
                 MissionType.Escort => 0.030f,
                 MissionType.FreightContract or MissionType.ExportContract => 0.025f,
                 MissionType.CourierDelivery => 0.020f,
@@ -267,6 +273,7 @@ namespace Roguelancer
             _countedHostileKills.Clear();
             _freightOffers.Clear();
             _exportOffers.Clear();
+            _tradeLaneDisruptionOffers.Clear();
             _worldManager?.ClearState();
         }
 
@@ -279,6 +286,15 @@ namespace Roguelancer
             if (restoredActive != null)
             {
                 restoredActive.Status = MissionStatus.InProgress;
+                if (restoredActive.Type == MissionType.TradeLaneDisruption)
+                {
+                    // Phase 47 disruption is transient world state. Loading an
+                    // active mission restores identity, never a stale hold.
+                    restoredActive.HoldProgressSeconds = 0f;
+                    restoredActive.PlayerDisruptionObserved = false;
+                    restoredActive.LastQualifiedDisruptionAtSeconds = -1d;
+                    restoredActive.SecurityResponseTriggered = false;
+                }
                 _activeMissions.Add(restoredActive);
                 RegisterFreightReservation(restoredActive);
                 _waypointSystem?.RegisterMission(restoredActive);
@@ -312,7 +328,130 @@ namespace Roguelancer
                 .ToList();
             missions.AddRange(GenerateFreightContracts(originStation));
             missions.AddRange(GenerateExportContracts(originStation));
+            missions.AddRange(GenerateTradeLaneDisruptionMissions(originStation));
             return missions;
+        }
+
+        public List<Mission> GenerateTradeLaneDisruptionMissions(Station originStation)
+        {
+            List<Mission> offers = new();
+            if (originStation == null || !string.Equals(
+                    FactionManager.NormalizeFactionId(originStation.FactionId),
+                    FactionManager.LibertyRogues,
+                    StringComparison.OrdinalIgnoreCase) || _worldManager == null)
+            {
+                return offers;
+            }
+
+            IReadOnlyList<TradeLane> lanes = _worldManager.GetTradeLanes();
+            if (lanes == null || lanes.Count == 0)
+                return offers;
+
+            List<TradeLane> eligibleLanes = lanes
+                .Where(lane => lane != null && lane.Config != null && lane.ForwardRings.Count >= 3 &&
+                    ((originStation.Config?.SystemIndex ?? 0) <= 0 || lane.Config.SystemIndex <= 0 ||
+                     lane.Config.SystemIndex == originStation.Config.SystemIndex))
+                .Where(lane => lane != null && !lane.IsBroken && lane.CanUseRoute(TradeLaneDirection.Forward))
+                .OrderBy(lane => lane.LaneId, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (eligibleLanes.Count == 0)
+                return offers;
+
+            string originIdentity = Mission.BuildStationIdentity(originStation);
+            MissionDifficulty[] difficulties = { MissionDifficulty.Easy, MissionDifficulty.Medium, MissionDifficulty.Hard };
+            for (int i = 0; i < difficulties.Length; i++)
+            {
+                MissionDifficulty difficulty = difficulties[i];
+                TradeLane lane = eligibleLanes[i % eligibleLanes.Count];
+                int intermediateCount = lane.ForwardRings.Count - 2;
+                int ringIndex = 1 + ((i * 2 + StableStringHash(lane.LaneId)) % intermediateCount + intermediateCount) % intermediateCount;
+                if (lane.GetDisruptionState(ringIndex) != TradeLaneDisruptionState.Operational)
+                    continue;
+
+                string segmentId = $"{lane.LaneId}:ring:{ringIndex}";
+                if (_activeMissions.Any(active => active != null && active.IsTradeLaneDisruptionMission() &&
+                        string.Equals(active.TargetLaneId, lane.LaneId, StringComparison.OrdinalIgnoreCase) &&
+                        active.TargetRingIndex == ringIndex))
+                {
+                    continue;
+                }
+
+                string key = $"{originIdentity}|{difficulty}|{lane.LaneId}|{ringIndex}";
+                if (!_tradeLaneDisruptionOffers.TryGetValue(key, out Mission offer) ||
+                    offer == null || offer.Status != MissionStatus.Available)
+                {
+                    float recovery = TradeLaneStateSanitizer.Positive(
+                        lane.Config.DisruptionRecoverySeconds,
+                        TradeLane.DefaultRecoveryDurationSeconds);
+                    float hold = Math.Min(TradeLaneDisruptionHoldSeconds, Math.Max(1f, recovery * 0.75f));
+                    offer = Mission.CreateTradeLaneDisruption(
+                        lane.LaneId,
+                        segmentId,
+                        ringIndex,
+                        lane.Config.Name,
+                        lane.ForwardRings[ringIndex].Position,
+                        lane.Config.SystemIndex,
+                        difficulty,
+                        GetTradeLaneReward(difficulty),
+                        hold,
+                        GetTradeLaneFlavor(i, lane.Config.Name),
+                        GetTradeLanePolicePenalty(difficulty),
+                        offeredBy: $"{originStation.Name} Rogue Contact");
+                    if (offer == null)
+                        continue;
+
+                    offer.MinimumEmployerReputation = GetTradeLaneMinimumReputation(difficulty);
+                    offer.SetOrigin(originStation);
+                    _tradeLaneDisruptionOffers[key] = offer;
+                }
+
+                offers.Add(offer);
+            }
+
+            return offers;
+        }
+
+        private static int GetTradeLaneReward(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Medium => 5_500,
+            MissionDifficulty.Hard => 9_000,
+            _ => 3_000
+        };
+
+        private static float GetTradeLanePolicePenalty(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Medium => TradeLaneMediumPolicePenalty,
+            MissionDifficulty.Hard => TradeLaneHardPolicePenalty,
+            _ => TradeLaneEasyPolicePenalty
+        };
+
+        private static float GetTradeLaneMinimumReputation(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Medium => 0f,
+            MissionDifficulty.Hard => ReputationManager.FriendlyThreshold,
+            _ => 0f
+        };
+
+        private static string GetTradeLaneFlavor(int variant, string laneName)
+        {
+            string[] flavors =
+            {
+                $"Cripple the {laneName} commercial corridor and open a window for Rogue raiders.",
+                $"Interrupt Liberty shipping on the {laneName}; make the Police explain the dead lane.",
+                $"Isolate transports on the {laneName} and embarrass Liberty security before the convoy reroutes."
+            };
+            return flavors[Math.Abs(variant) % flavors.Length];
+        }
+
+        private static int StableStringHash(string value)
+        {
+            unchecked
+            {
+                int hash = 17;
+                foreach (char character in value ?? string.Empty)
+                    hash = hash * 31 + character;
+                return hash & int.MaxValue;
+            }
         }
 
         /// <summary>
@@ -969,9 +1108,10 @@ namespace Roguelancer
             if (!string.IsNullOrWhiteSpace(mission.DefinitionId))
             {
                 MissionDefinition definition = MissionCatalog.GetById(mission.DefinitionId);
-                if (definition == null || definition.Type != mission.Type ||
+                if (mission.Type != MissionType.TradeLaneDisruption &&
+                    (definition == null || definition.Type != mission.Type ||
                     definition.RewardCredits != mission.Reward ||
-                    definition.TargetCount != mission.RequiredProgress)
+                    definition.TargetCount != mission.RequiredProgress))
                     return RejectAcceptance(mission, "mission definition is invalid");
             }
 
@@ -979,6 +1119,17 @@ namespace Roguelancer
                 return RejectAcceptance(mission, "hostile target count is invalid");
             if (mission.Type == MissionType.ReachLocation && string.IsNullOrWhiteSpace(mission.TargetLocation))
                 return RejectAcceptance(mission, "patrol target metadata is invalid");
+
+            if (mission.Type == MissionType.TradeLaneDisruption)
+            {
+                if (!string.Equals(FactionManager.NormalizeFactionId(mission.FactionId), FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase) ||
+                    originStation == null || !string.Equals(FactionManager.NormalizeFactionId(originStation.FactionId), FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase) ||
+                    string.IsNullOrWhiteSpace(mission.TargetLaneId) || string.IsNullOrWhiteSpace(mission.TargetSegmentId) ||
+                    mission.TargetRingIndex < 0 || mission.HoldDurationSeconds <= 0f)
+                {
+                    return RejectAcceptance(mission, "trade-lane disruption metadata or Rogue employer is invalid");
+                }
+            }
 
             if (mission.Type == MissionType.CourierDelivery &&
                 (string.IsNullOrWhiteSpace(mission.PackageId) || mission.PackageQuantity <= 0 ||
@@ -1433,6 +1584,7 @@ namespace Roguelancer
             }
 
             ReleaseFreightReservation(mission);
+            mission.FailureReason = string.IsNullOrWhiteSpace(reason) ? "mission failed" : reason;
             mission.Status = MissionStatus.Failed;
             _activeMissions.Remove(mission);
             _completedMissions.Add(mission);
@@ -1500,6 +1652,37 @@ namespace Roguelancer
                 mission.ObjectiveComplete = true;
                 CompleteMission(mission);
             }
+            return true;
+        }
+
+        public bool RecordTradeLaneDisruption(Mission mission, TradeLaneDisruptionInfo disruption)
+        {
+            if (mission == null || disruption == null ||
+                !ReferenceEquals(ActiveMission, mission) ||
+                mission.Type != MissionType.TradeLaneDisruption ||
+                disruption.Source != TradeLaneDisruptionSource.Player ||
+                !string.Equals(mission.TargetLaneId, disruption.LaneId, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(mission.TargetSegmentId, disruption.SegmentId, StringComparison.OrdinalIgnoreCase) ||
+                mission.PoliceConsequenceApplied)
+            {
+                return false;
+            }
+
+            mission.PoliceConsequenceApplied = true;
+            if (_reputationManager != null && Math.Abs(mission.PoliceReputationPenalty) >= ReputationManager.Precision)
+            {
+                _reputationManager.TemporaryHostility.RecordHostileAction(
+                    FactionManager.LibertyPolice,
+                    "trade-lane infrastructure disruption",
+                    FactionCombatConsequenceService.TemporaryHostilityDurationSeconds,
+                    causedByPlayerAggression: true);
+                _reputationManager.AdjustReputationDirect(
+                    FactionManager.LibertyPolice,
+                    mission.PoliceReputationPenalty,
+                    ReputationChangeReason.TradeLaneDisrupted);
+            }
+
+            Console.WriteLine($"[MISSION] Player-attributed trade-lane disruption qualified: {disruption.SegmentId} (mission #{mission.Id})");
             return true;
         }
 

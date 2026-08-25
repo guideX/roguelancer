@@ -44,6 +44,7 @@ namespace Roguelancer
         private readonly FactionCombatEscalationService _combatEscalation;
         private readonly FactionCombatDisengagementService _combatDisengagement;
         private readonly FactionCombatCommunicationService _combatCommunication;
+        private ReputationManager _reputationManager;
         private ContentManager _content;
 
         public TrafficManager(ConfigurationManager config, List<NpcShip> npcShips, List<SpaceObject> spaceObjects, Action<NpcShip> onNpcDestroyed = null, ContentManager content = null)
@@ -144,6 +145,8 @@ namespace Roguelancer
 
             float deltaTime = Math.Max(0f, (float)gameTime.ElapsedGameTime.TotalSeconds);
 
+            _reputationManager = reputationManager;
+            _distressResponse.SetReputationManager(reputationManager);
             _combatCommunication.Update(deltaTime, playerShip);
             _combatEscalation.SetReputationManager(reputationManager);
             _combatDisengagement.SetReputationManager(reputationManager);
@@ -209,6 +212,32 @@ namespace Roguelancer
             TryReportCommunication(() => _combatCommunication.NotifyCombatDamage(attacker, damagedShip, damage));
             _combatDisengagement.RecordNpcDamage(attacker, damagedShip, damage);
             return result;
+        }
+
+        public int RequestTradeLaneSecurityResponse(Vector3 disruptionPosition, MissionDifficulty difficulty, string missionId)
+        {
+            int requestedCount = difficulty == MissionDifficulty.Easy ? 1 : FactionDistressResponseService.ReinforcementWaveSize;
+            FactionDistressResponseResult result = _distressResponse.ProcessInfrastructureDisruption(
+                FactionManager.LibertyPolice,
+                disruptionPosition,
+                $"trade-lane-mission-{missionId}",
+                requestedCount);
+            TryReportCommunication(() => _combatCommunication.NotifyDistressResponse(result));
+
+            if (result.SpawnedShipCount <= 0)
+                return 0;
+
+            foreach (NpcShip ship in _npcShips)
+            {
+                if (ship == null || ship.IsDestroyed || !ship.IsDistressReinforcement ||
+                    !string.Equals(ship.DistressReinforcementEncounterId, result.EncounterId, StringComparison.Ordinal))
+                    continue;
+
+                if (_reputationManager?.IsFactionCurrentlyHostile(FactionManager.LibertyPolice) == true)
+                    ship.SetPlayerTarget(disruptionPosition, NpcPlayerTargetReason.FactionDisposition);
+            }
+
+            return result.SpawnedShipCount;
         }
 
         public void ResetTransientDistressState()

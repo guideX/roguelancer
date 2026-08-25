@@ -151,6 +151,15 @@ namespace Roguelancer
                     }
                     break;
 
+                case MissionType.TradeLaneDisruption:
+                    if (mission.TargetPosition.HasValue)
+                    {
+                        data.ResolvedTarget = mission.TargetPosition.Value;
+                        data.TargetObject = mission.TargetSpaceObject;
+                        data.DestinationObject = mission.TargetSpaceObject;
+                    }
+                    break;
+
                 case MissionType.DestroyHostiles:
                     if (mission.TargetSpaceObject != null)
                     {

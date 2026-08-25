@@ -134,12 +134,15 @@ namespace Roguelancer
                 MissionType.CourierDelivery => $"Destination: {data.Mission.GetDestinationLabel()}",
                 MissionType.FreightContract => $"Destination: {data.Mission.GetDestinationLabel()}",
                 MissionType.ExportContract => $"Destination: {data.Mission.GetDestinationLabel()}",
+                MissionType.TradeLaneDisruption => $"Segment: {data.Mission.GetTargetLabel()}",
                 MissionType.Escort => data.TargetObject is NpcShip
                     ? $"Escort: {data.Mission.GetTargetLabel()}"
                     : $"Destination: {data.Mission.GetDestinationLabel()}",
                 _ => data.Mission.GetObjectiveText()
             };
-            string statusLine = data.ResolvedTarget != null
+            string statusLine = data.Mission.Type == MissionType.TradeLaneDisruption
+                ? $"Status: {data.Mission.GetTradeLaneHudStatus()}"
+                : data.ResolvedTarget != null
                 ? escortMission && data.TargetObject is NpcShip && data.DestinationObject != null
                     ? $"Status: Escort en route to {data.Mission.GetDestinationLabel()}"
                     : "Status: Objective resolved"
@@ -253,6 +256,7 @@ namespace Roguelancer
                 MissionType.FreightContract => "[FREIGHT]",
                 MissionType.ExportContract => "[EXPORT]",
                 MissionType.Bounty => "[BOUNTY]",
+                MissionType.TradeLaneDisruption => "[SABOTAGE]",
                 MissionType.Escort => "[ESCORT]",
                 _ => "[MISSION]"
             };
@@ -265,6 +269,7 @@ namespace Roguelancer
                 MissionType.CourierDelivery => data.Mission.GetDestinationLabel(),
                 MissionType.FreightContract => data.Mission.GetDestinationLabel(),
                 MissionType.ExportContract => data.Mission.GetDestinationLabel(),
+                MissionType.TradeLaneDisruption => data.Mission.GetTargetLabel(),
                 _ => data.Mission.Destination
             };
 
@@ -399,6 +404,7 @@ namespace Roguelancer
                 MissionType.FreightContract => "F",
                 MissionType.ExportContract => "X",
                 MissionType.Bounty => "B",
+                MissionType.TradeLaneDisruption => "S",
                 MissionType.Escort => "E",
                 _ => "M"
             };
@@ -420,6 +426,7 @@ namespace Roguelancer
                 MissionType.FreightContract => ">> APPROACHING FREIGHT DESTINATION <<",
                 MissionType.ExportContract => ">> APPROACHING EXPORT DESTINATION <<",
                 MissionType.Bounty => ">> TARGET NEARBY <<",
+                MissionType.TradeLaneDisruption => ">> DISRUPTION TARGET NEARBY <<",
                 MissionType.Escort => ">> NEAR ESCORT WAYPOINT <<",
                 _ => ">> NEAR OBJECTIVE <<"
             };
@@ -519,6 +526,7 @@ namespace Roguelancer
                 MissionType.FreightContract => new Color(100, 210, 255),
                 MissionType.ExportContract => new Color(120, 255, 150),
                 MissionType.Bounty => new Color(255, 80, 80),
+                MissionType.TradeLaneDisruption => new Color(255, 145, 55),
                 MissionType.Escort => new Color(255, 200, 50),
                 _ => Color.White
             };
@@ -573,6 +581,7 @@ namespace Roguelancer
                 MissionType.CourierDelivery => data.Mission.GetDestinationLabel(),
                 MissionType.FreightContract => data.Mission.GetDestinationLabel(),
                 MissionType.ExportContract => data.Mission.GetDestinationLabel(),
+                MissionType.TradeLaneDisruption => data.Mission.GetTargetLabel(),
                 _ => data.Mission.GetDestinationLabel()
             };
             if (label.Length > 20) label = label.Substring(0, 17) + "...";

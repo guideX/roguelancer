@@ -303,6 +303,8 @@ public sealed class StationMissionBoardUI
                 ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - Reserved {_cargoHold?.GetMissionCargoQuantity(active.Id) ?? 0}/{active.RequiredQuantity} - {active.GetDestinationLabel()}"
             : active.Type == MissionType.ExportContract
                 ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - Loaded {_cargoHold?.GetMissionCargoQuantity(active.Id) ?? 0}/{active.RequiredQuantity} - {active.GetDestinationLabel()}"
+            : active.Type == MissionType.TradeLaneDisruption
+                ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - {active.GetTradeLaneHudStatus()}"
                 : $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - {active.GetHudProgressLine()}"
             : completed != null
                 ? $"MISSION COMPLETE: {completed.Title} - {completed.Reward:N0} CR"
@@ -405,6 +407,15 @@ public sealed class StationMissionBoardUI
             y += 24;
             spriteBatch.DrawString(_font, $"Free cargo space: {freeSpace} space", new Vector2(x, y),
                 freeSpace >= requiredVolume ? Color.Cyan : Color.OrangeRed);
+            y += 26;
+        }
+        else if (mission.Type == MissionType.TradeLaneDisruption)
+        {
+            spriteBatch.DrawString(_font, $"Lane: {mission.TargetLocation}", new Vector2(x, y), Color.Orange);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Segment: {mission.TargetSegmentId}", new Vector2(x, y), Color.Orange);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Hold offline: {mission.HoldDurationSeconds:0.0}s", new Vector2(x, y), Color.LightGreen);
             y += 26;
         }
         spriteBatch.DrawString(_font, $"Reward: {mission.Reward:N0} CR", new Vector2(x, y), Color.Yellow);
@@ -606,6 +617,7 @@ public sealed class StationMissionBoardUI
         MissionType.FreightContract => Color.LightSkyBlue,
         MissionType.ExportContract => Color.LightGreen,
         MissionType.Bounty => Color.Red,
+        MissionType.TradeLaneDisruption => Color.Orange,
         MissionType.Escort => Color.Yellow,
         _ => Color.White
     };

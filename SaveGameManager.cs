@@ -583,7 +583,18 @@ namespace Roguelancer
                     DeliveredQuantity = mission.DeliveredQuantity,
                     CommodityId = mission.CommodityId ?? string.Empty,
                     RequiredQuantity = mission.RequiredQuantity,
-                    IssuedCargoQuantity = mission.IssuedCargoQuantity
+                    IssuedCargoQuantity = mission.IssuedCargoQuantity,
+                    TargetLaneId = mission.TargetLaneId ?? string.Empty,
+                    TargetSegmentId = mission.TargetSegmentId ?? string.Empty,
+                    TargetRingIndex = mission.TargetRingIndex,
+                    HoldDurationSeconds = mission.HoldDurationSeconds,
+                    HoldProgressSeconds = mission.HoldProgressSeconds,
+                    PlayerDisruptionObserved = mission.PlayerDisruptionObserved,
+                    LastQualifiedDisruptionAtSeconds = mission.LastQualifiedDisruptionAtSeconds,
+                    PoliceReputationPenalty = mission.PoliceReputationPenalty,
+                    PoliceConsequenceApplied = mission.PoliceConsequenceApplied,
+                    SecurityResponseTriggered = mission.SecurityResponseTriggered,
+                    FailureReason = mission.FailureReason ?? string.Empty
                 });
             }
 
@@ -801,7 +812,18 @@ namespace Roguelancer
                 data.ReputationReward,
                 data.ReputationRewardApplied,
                 data.MinimumEmployerReputation,
-                data.MaximumEmployerReputation);
+                data.MaximumEmployerReputation,
+                data.TargetLaneId,
+                data.TargetSegmentId,
+                data.TargetRingIndex,
+                data.HoldDurationSeconds,
+                data.HoldProgressSeconds,
+                data.PlayerDisruptionObserved,
+                data.LastQualifiedDisruptionAtSeconds,
+                data.PoliceReputationPenalty,
+                data.PoliceConsequenceApplied,
+                data.SecurityResponseTriggered,
+                data.FailureReason);
         }
 
         private static float NormalizeStanding(float value)

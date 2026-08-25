@@ -68,6 +68,7 @@ public sealed class FactionDistressResponseService
     private readonly Func<string, Vector3, string, int, IReadOnlyList<NpcShip>> _spawnReinforcements;
     private readonly Action<string>? _log;
     private readonly Dictionary<EncounterKey, EncounterRecord> _encounters = new();
+    private readonly Dictionary<string, EncounterRecord> _infrastructureEncounters = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ResponseContextKey, float> _lastResponseTimes = new();
     private readonly Dictionary<NpcShip, PlayerDamageObservation> _observedPlayerDamage = new();
     private float _simulationTime;
@@ -188,6 +189,73 @@ public sealed class FactionDistressResponseService
         return count;
     }
 
+    public FactionDistressResponseResult ProcessInfrastructureDisruption(
+        string factionId,
+        Vector3 contextPosition,
+        string sourceId,
+        int requestedCount = ReinforcementWaveSize)
+    {
+        string normalizedFaction = FactionManager.NormalizeFactionId(factionId);
+        if (!IsSupportedFaction(normalizedFaction) || !TradeLaneStateSanitizer.IsFinite(contextPosition) ||
+            string.IsNullOrWhiteSpace(sourceId))
+        {
+            return Rejected("invalid infrastructure disruption response");
+        }
+
+        string encounterKey = $"infrastructure:{normalizedFaction}:{sourceId}";
+        if (!_infrastructureEncounters.TryGetValue(encounterKey, out EncounterRecord? encounter))
+        {
+            encounter = new EncounterRecord
+            {
+                Id = $"distress-infrastructure-{_nextEncounterSerial++}",
+                LastSeenTime = _simulationTime
+            };
+            _infrastructureEncounters[encounterKey] = encounter;
+        }
+        else
+        {
+            encounter.LastSeenTime = _simulationTime;
+        }
+
+        if (encounter.WaveRequested)
+        {
+            return new FactionDistressResponseResult(
+                true, false, false, 0, 0, encounter.Id, normalizedFaction, "infrastructure response already answered");
+        }
+
+        ResponseContextKey context = GetContextKey(normalizedFaction, contextPosition);
+        if (_lastResponseTimes.TryGetValue(context, out float lastResponseTime) &&
+            _simulationTime - lastResponseTime < ReinforcementCooldownSeconds)
+        {
+            return new FactionDistressResponseResult(
+                true, false, true, 0, 0, encounter.Id, normalizedFaction, "faction response cooldown active");
+        }
+
+        int activeCount = CountActiveReinforcements(normalizedFaction, contextPosition);
+        int safeRequest = Math.Min(ReinforcementWaveSize, Math.Min(Math.Max(0, requestedCount),
+            Math.Max(0, ActiveReinforcementCap - activeCount)));
+        IReadOnlyList<NpcShip> spawned = safeRequest > 0
+            ? _spawnReinforcements(normalizedFaction, contextPosition, encounter.Id, safeRequest) ?? Array.Empty<NpcShip>()
+            : Array.Empty<NpcShip>();
+        for (int i = 0; i < spawned.Count; i++)
+            spawned[i]?.MarkDistressReinforcement(encounter.Id);
+
+        encounter.WaveRequested = true;
+        _lastResponseTimes[context] = _simulationTime;
+        FactionDistressResponseResult result = new(
+            true,
+            spawned.Count > 0,
+            false,
+            0,
+            spawned.Count,
+            encounter.Id,
+            normalizedFaction,
+            spawned.Count > 0 ? "infrastructure response inbound" : "response cap or spawn unavailable");
+        if (spawned.Count > 0)
+            ResponseGenerated?.Invoke(result);
+        return result;
+    }
+
     public void Reset()
     {
         for (int i = 0; i < _npcShips.Count; i++)
@@ -201,6 +269,7 @@ public sealed class FactionDistressResponseService
         }
 
         _encounters.Clear();
+        _infrastructureEncounters.Clear();
         _lastResponseTimes.Clear();
         _observedPlayerDamage.Clear();
         _simulationTime = 0f;
@@ -428,6 +497,24 @@ public sealed class FactionDistressResponseService
             {
                 for (int i = 0; i < expiredEncounters.Count; i++)
                     _encounters.Remove(expiredEncounters[i]);
+            }
+        }
+
+        if (_infrastructureEncounters.Count > 0)
+        {
+            List<string>? expiredInfrastructure = null;
+            foreach (KeyValuePair<string, EncounterRecord> entry in _infrastructureEncounters)
+            {
+                if (_simulationTime - entry.Value.LastSeenTime < EncounterExpirySeconds)
+                    continue;
+                expiredInfrastructure ??= new List<string>();
+                expiredInfrastructure.Add(entry.Key);
+            }
+
+            if (expiredInfrastructure != null)
+            {
+                for (int i = 0; i < expiredInfrastructure.Count; i++)
+                    _infrastructureEncounters.Remove(expiredInfrastructure[i]);
             }
         }
 
