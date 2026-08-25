@@ -32,6 +32,10 @@ namespace Roguelancer
         
         // Energy system
         public ShipEnergy Energy { get; private set; }
+
+        // Weapon energy is a separate combat resource. Energy remains the
+        // legacy movement/afterburner pool and is intentionally not shared.
+        public WeaponEnergy WeaponEnergy { get; private set; }
         
         // Shield system
         public ShieldSystem Shields { get; private set; }
@@ -176,6 +180,7 @@ namespace Roguelancer
             InitializeEnergy();
             InitializeShields();
             RefreshShieldFromLoadout();
+            RefreshWeaponEnergyFromLoadout();
         }
 
         public void SetNotificationManager(NotificationManager manager)
@@ -231,6 +236,18 @@ namespace Roguelancer
         public void InitializeEnergy(float maxEnergy = 200f, float regenRate = 50f, float regenDelay = 2f)
         {
             Energy = new ShipEnergy(maxEnergy, regenRate, regenDelay);
+        }
+
+        /// <summary>
+        /// Rebinds weapon energy to the one canonical mounted powerplant.
+        /// Mounting/restoring a plant starts its transient charge full; an
+        /// unmounted ship has zero usable weapon energy.
+        /// </summary>
+        public void RefreshWeaponEnergyFromLoadout(bool restoreFull = true)
+        {
+            PowerplantEquipmentDefinition powerplant = Loadout?.GetMountedPowerplant();
+            WeaponEnergy = new WeaponEnergy();
+            WeaponEnergy.Configure(powerplant, restoreFull);
         }
 
         /// <summary>
@@ -303,6 +320,11 @@ namespace Roguelancer
         public void UpdateEnergy(GameTime gameTime)
         {
             Energy?.Update(gameTime);
+        }
+
+        public void UpdateWeaponEnergy(GameTime gameTime)
+        {
+            WeaponEnergy?.Update(gameTime, Hull?.IsDestroyed != true);
         }
 
         // Stub action methods
@@ -386,6 +408,7 @@ namespace Roguelancer
             
             // Update energy system
             UpdateEnergy(gameTime);
+            UpdateWeaponEnergy(gameTime);
 
             // Update shield system
             Shields?.Update(gameTime);
@@ -1201,6 +1224,7 @@ namespace Roguelancer
             CountermeasureLaunchRequested = false;
             _previousKeyboardState = Keyboard.GetState();
             Shields?.FullRestore();
+            WeaponEnergy?.FullRestore();
         }
 
         /// <summary>
@@ -1230,6 +1254,7 @@ namespace Roguelancer
         {
             Loadout = loadout ?? ShipLoadout.CreateStarterLoadout();
             RefreshShieldFromLoadout();
+            RefreshWeaponEnergyFromLoadout();
         }
 
         /// <summary>
@@ -1250,12 +1275,14 @@ namespace Roguelancer
             {
                 Loadout = target == null ? ShipLoadout.CreateStarterLoadout(false) : new ShipLoadout(target);
                 RefreshShieldFromLoadout();
+                RefreshWeaponEnergyFromLoadout();
                 LastHardpointReconfigurationWarnings = Array.Empty<string>();
                 return;
             }
 
             Loadout = Loadout.ReconfigureHardpoints(target, out List<string> warnings);
             RefreshShieldFromLoadout();
+            RefreshWeaponEnergyFromLoadout();
             LastHardpointReconfigurationWarnings = warnings;
             foreach (string warning in warnings)
             {
@@ -1286,6 +1313,11 @@ namespace Roguelancer
         public WeaponEquipmentDefinition GetPrimaryMountedGun()
         {
             return Loadout?.GetPrimaryMountedGun();
+        }
+
+        public PowerplantEquipmentDefinition GetMountedPowerplant()
+        {
+            return Loadout?.GetMountedPowerplant();
         }
 
         public IEnumerable<EquipmentDefinition> GetMountedMissileLaunchers()

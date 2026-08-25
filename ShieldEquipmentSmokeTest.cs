@@ -398,6 +398,9 @@ namespace Roguelancer
         {
             Ship player = new(Vector3.Zero);
             ShipLoadout loadout = ShipLoadout.CreateStarterLoadout(false);
+            PowerplantEquipmentDefinition powerplant = (PowerplantEquipmentDefinition)EquipmentCatalog.GetById("civilian_powerplant");
+            loadout.AddOwnedEquipment(powerplant);
+            loadout.TryMountEquipment(powerplant, out _);
             ShieldEquipmentDefinition shield = Shield(shieldId);
             loadout.AddOwnedEquipment(shield);
             loadout.TryMountEquipment(shield, out _);
@@ -413,6 +416,9 @@ namespace Roguelancer
                 ModelPath = heavy ? "SHIPS/WARTHOG/warthog" : "SMOKE/fighter"
             };
             ShipLoadout loadout = ShipLoadout.CreateStarterLoadout(false);
+            PowerplantEquipmentDefinition powerplant = (PowerplantEquipmentDefinition)EquipmentCatalog.GetById("civilian_powerplant");
+            loadout.AddOwnedEquipment(powerplant);
+            loadout.TryMountEquipment(powerplant, out _);
             ShieldEquipmentDefinition shield = Shield(shieldId);
             loadout.AddOwnedEquipment(shield);
             loadout.TryMountEquipment(shield, out _);
@@ -428,6 +434,9 @@ namespace Roguelancer
                 ModelPath = "SMOKE/fighter"
             };
             ShipLoadout loadout = ShipLoadout.CreateStarterLoadout(false);
+            PowerplantEquipmentDefinition powerplant = (PowerplantEquipmentDefinition)EquipmentCatalog.GetById("civilian_powerplant");
+            loadout.AddOwnedEquipment(powerplant);
+            loadout.TryMountEquipment(powerplant, out _);
             WeaponEquipmentDefinition gun = (WeaponEquipmentDefinition)EquipmentCatalog.GetById(gunId);
             loadout.AddOwnedEquipment(gun);
             loadout.TryMountEquipment(gun, out _);

@@ -95,6 +95,7 @@ namespace Roguelancer
                     MountStarterEquipment(explicitLoadout, "Thruster", "light_thruster", EquipmentType.Thruster);
                     MountStarterEquipment(explicitLoadout, "Scanner", "basic_scanner", EquipmentType.Scanner);
                     MountStarterEquipment(explicitLoadout, "CountermeasureRack", "basic_countermeasure_dropper", EquipmentType.CountermeasureDropper);
+                    MountStarterEquipment(explicitLoadout, "Powerplant", "civilian_powerplant", EquipmentType.Powerplant);
                     AddStarterConsumables(explicitLoadout);
                 }
 
@@ -114,6 +115,7 @@ namespace Roguelancer
                 new ShipHardpoint { Id = "MineRack", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.MineDropper } },
                 new ShipHardpoint { Id = "CountermeasureRack", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.CountermeasureDropper } },
                 new ShipHardpoint { Id = "ShieldGenerator", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.ShieldGenerator } },
+                new ShipHardpoint { Id = "Powerplant", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Powerplant } },
                 new ShipHardpoint { Id = "Thruster", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Thruster } },
                 new ShipHardpoint { Id = "Scanner", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Scanner } },
                 new ShipHardpoint { Id = "TractorBeam", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.TractorBeam } }
@@ -128,6 +130,7 @@ namespace Roguelancer
                 MountStarterEquipment(loadout, "Thruster", "light_thruster", EquipmentType.Thruster);
                 MountStarterEquipment(loadout, "Scanner", "basic_scanner", EquipmentType.Scanner);
                 MountStarterEquipment(loadout, "CountermeasureRack", "basic_countermeasure_dropper", EquipmentType.CountermeasureDropper);
+                MountStarterEquipment(loadout, "Powerplant", "civilian_powerplant", EquipmentType.Powerplant);
                 AddStarterConsumables(loadout);
             }
 
@@ -163,6 +166,7 @@ namespace Roguelancer
 
             HashSet<string> placedSourceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             bool shieldPlaced = false;
+            bool powerplantPlaced = false;
             foreach (var entry in mounted)
             {
                 if (entry.Equipment == null)
@@ -173,12 +177,15 @@ namespace Roguelancer
 
                 ShipHardpoint sameId = result.GetHardpointById(entry.Source.Id);
                 bool isShield = entry.Equipment is ShieldEquipmentDefinition;
+                bool isPowerplant = entry.Equipment is PowerplantEquipmentDefinition;
                 if (sameId != null && sameId.IsEmpty && CanMount(entry.Equipment) &&
-                    (!isShield || !shieldPlaced) && sameId.CanAccept(entry.Equipment))
+                    (!isShield || !shieldPlaced) && (!isPowerplant || !powerplantPlaced) &&
+                    sameId.CanAccept(entry.Equipment))
                 {
                     sameId.MountedEquipmentId = entry.Equipment.Id;
                     placedSourceIds.Add(entry.Source.Id);
                     shieldPlaced |= isShield;
+                    powerplantPlaced |= isPowerplant;
                 }
             }
 
@@ -196,9 +203,16 @@ namespace Roguelancer
                 }
 
                 bool isShield = entry.Equipment is ShieldEquipmentDefinition;
+                bool isPowerplant = entry.Equipment is PowerplantEquipmentDefinition;
                 if (isShield && shieldPlaced)
                 {
                     warnings.Add($"unmounted {entry.Equipment.Id} from {entry.Source.Id}; only one shield hardpoint is supported");
+                    continue;
+                }
+
+                if (isPowerplant && powerplantPlaced)
+                {
+                    warnings.Add($"unmounted {entry.Equipment.Id} from {entry.Source.Id}; only one powerplant is supported");
                     continue;
                 }
 
@@ -207,6 +221,7 @@ namespace Roguelancer
                 {
                     remapped.MountedEquipmentId = entry.Equipment.Id;
                     shieldPlaced |= isShield;
+                    powerplantPlaced |= isPowerplant;
                     warnings.Add($"remapped {entry.Equipment.Id} from {entry.Source.Id} to {remapped.Id}");
                 }
                 else
@@ -228,6 +243,7 @@ namespace Roguelancer
                 new ShipHardpoint { Id = "MineRack", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.MineDropper } },
                 new ShipHardpoint { Id = "CountermeasureRack", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.CountermeasureDropper } },
                 new ShipHardpoint { Id = "ShieldGenerator", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.ShieldGenerator } },
+                new ShipHardpoint { Id = "Powerplant", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Powerplant } },
                 new ShipHardpoint { Id = "Thruster", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Thruster } },
                 new ShipHardpoint { Id = "Scanner", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.Scanner } },
                 new ShipHardpoint { Id = "TractorBeam", AllowedEquipmentTypes = new List<EquipmentType> { EquipmentType.TractorBeam } }
@@ -293,6 +309,28 @@ namespace Roguelancer
         }
 
         public bool HasMountedShield() => GetMountedShield() != null;
+
+        public PowerplantEquipmentDefinition GetMountedPowerplant()
+        {
+            foreach (var hardpoint in _hardpoints)
+            {
+                if (hardpoint == null || string.IsNullOrWhiteSpace(hardpoint.MountedEquipmentId))
+                {
+                    continue;
+                }
+
+                EquipmentDefinition definition = EquipmentCatalog.GetById(hardpoint.MountedEquipmentId);
+                if (definition is PowerplantEquipmentDefinition powerplant &&
+                    powerplant.IsValid && definition.EquipmentType == EquipmentType.Powerplant)
+                {
+                    return powerplant;
+                }
+            }
+
+            return null;
+        }
+
+        public bool HasMountedPowerplant() => GetMountedPowerplant() != null;
 
         public IEnumerable<EquipmentDefinition> GetMountedMissileLaunchers()
         {
@@ -569,6 +607,12 @@ namespace Roguelancer
                 return false;
             }
 
+            if (equipment is PowerplantEquipmentDefinition && HasMountedPowerplant())
+            {
+                message = "Only one powerplant can be mounted at a time.";
+                return false;
+            }
+
             int availableToMount = GetAvailableToMountCount(equipment.Id);
             if (availableToMount <= 0)
             {
@@ -613,6 +657,12 @@ namespace Roguelancer
             if (equipment is ShieldEquipmentDefinition && HasMountedShield())
             {
                 message = "Only one shield can be mounted at a time.";
+                return false;
+            }
+
+            if (equipment is PowerplantEquipmentDefinition && HasMountedPowerplant())
+            {
+                message = "Only one powerplant can be mounted at a time.";
                 return false;
             }
 
@@ -751,6 +801,12 @@ namespace Roguelancer
             if (equipment.EquipmentType == EquipmentType.ShieldGenerator)
             {
                 return equipment is ShieldEquipmentDefinition shield && shield.IsValid;
+            }
+
+            if (equipment.EquipmentType == EquipmentType.Powerplant)
+            {
+                return equipment is PowerplantEquipmentDefinition powerplant && powerplant.IsValid &&
+                       EquipmentCatalog.GetById(powerplant.Id) == powerplant;
             }
 
             return true;

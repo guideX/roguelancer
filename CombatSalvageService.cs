@@ -177,6 +177,11 @@ namespace Roguelancer
                 AddShieldDrop(drops, destroyedShip, tier);
             }
 
+            if (ShouldDropPowerplant(destroyedShip, tier))
+            {
+                AddPowerplantDrop(drops, destroyedShip, tier);
+            }
+
             AddConsumableDrops(drops, destroyedShip, tier);
 
             return drops.Count == 0 ? Array.Empty<SalvageDrop>() : drops;
@@ -280,6 +285,28 @@ namespace Roguelancer
             drops.Add(SalvageDrop.ForEquipment(shield.Id, drops.Count, tier));
         }
 
+        private static void AddPowerplantDrop(List<SalvageDrop> drops, NpcShip destroyedShip, CombatSalvageTier tier)
+        {
+            PowerplantEquipmentDefinition powerplant = destroyedShip?.Loadout?.GetMountedPowerplant();
+            if (powerplant == null || !powerplant.IsValid)
+            {
+                return;
+            }
+
+            int maximumObjects = tier == CombatSalvageTier.Heavy
+                ? HeavyMaximumEquipmentObjectsPerDestruction
+                : StandardMaximumEquipmentObjectsPerDestruction;
+            if (drops.Count(drop => drop != null && drop.IsEquipment) >= maximumObjects)
+            {
+                return;
+            }
+
+            // The exact mounted canonical ID is preserved. The existing
+            // per-destruction equipment bound still applies, and the shared
+            // LootManager live-object cap remains the final world bound.
+            drops.Add(SalvageDrop.ForEquipment(powerplant.Id, drops.Count, tier));
+        }
+
         private void AddConsumableDrops(List<SalvageDrop> drops, NpcShip destroyedShip, CombatSalvageTier tier)
         {
             if (drops == null || destroyedShip?.Loadout == null)
@@ -372,6 +399,12 @@ namespace Roguelancer
             return tier != CombatSalvageTier.None && ShouldDropConsumable(destroyedShip, tier, consumableId);
         }
 
+        public bool ShouldDropPowerplant(NpcShip destroyedShip)
+        {
+            CombatSalvageTier tier = DetermineTier(destroyedShip);
+            return tier != CombatSalvageTier.None && ShouldDropPowerplant(destroyedShip, tier);
+        }
+
         public Vector3 GetSpawnOffset(NpcShip destroyedShip, int stackIndex)
         {
             CombatSalvageTier tier = DetermineTier(destroyedShip);
@@ -418,6 +451,19 @@ namespace Roguelancer
             uint roll = Hash(GetIdentityHash(destroyedShip, tier), "shield-drop");
             // Independent bounded policy: 20% standard, 33% heavy.
             return tier == CombatSalvageTier.Heavy ? roll % 3u == 0u : roll % 5u == 0u;
+        }
+
+        private bool ShouldDropPowerplant(NpcShip destroyedShip, CombatSalvageTier tier)
+        {
+            PowerplantEquipmentDefinition powerplant = destroyedShip?.Loadout?.GetMountedPowerplant();
+            if (powerplant == null || !powerplant.IsValid || EquipmentCatalog.GetById(powerplant.Id) != powerplant)
+            {
+                return false;
+            }
+
+            uint roll = Hash(GetIdentityHash(destroyedShip, tier), "powerplant-drop");
+            // Independent conservative policy: 20% standard and 30% heavy.
+            return tier == CombatSalvageTier.Heavy ? roll % 10u < 3u : roll % 10u < 2u;
         }
 
         private bool ShouldDropConsumable(NpcShip destroyedShip, CombatSalvageTier tier, string consumableId)

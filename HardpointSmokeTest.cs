@@ -35,9 +35,9 @@ namespace Roguelancer
             ShipLoadout loadout = ShipLoadout.CreateForShip(scimitar);
             string[] expectedIds = { "PrimaryGunLeft", "PrimaryGunRight", "MissileRack" };
 
-            if (!scimitar.HasExplicitHardpointMetadata || loadout.Hardpoints.Count != 9)
+            if (!scimitar.HasExplicitHardpointMetadata || loadout.Hardpoints.Count != 10)
             {
-                return Fail($"expected explicit Scimitar metadata with nine hardpoints, found {loadout.Hardpoints.Count}");
+                return Fail($"expected explicit Scimitar metadata with ten hardpoints, found {loadout.Hardpoints.Count}");
             }
 
             if (!expectedIds.All(id => loadout.GetHardpointById(id)?.CanAccept(EquipmentCatalog.GetById(id == "MissileRack" ? "basic_missile_launcher" : "rogue_blaster")) == true))

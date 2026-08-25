@@ -33,6 +33,13 @@ namespace Roguelancer
             "rogue_scrap_shield",
             "rogue_combat_shield",
             "professional_deflector",
+            "civilian_powerplant",
+            "liberty_patrol_powerplant",
+            "liberty_military_powerplant",
+            "liberty_heavy_powerplant",
+            "rogue_scrap_powerplant",
+            "rogue_combat_powerplant",
+            "professional_powerplant",
             CombatConsumableIds.Nanobots,
             CombatConsumableIds.ShieldBatteries
         };
@@ -43,6 +50,7 @@ namespace Roguelancer
             { EquipmentType.MineDropper, "basic_mine_dropper" },
             { EquipmentType.CountermeasureDropper, "basic_countermeasure_dropper" },
             { EquipmentType.ShieldGenerator, "civilian_shield_generator" },
+            { EquipmentType.Powerplant, "civilian_powerplant" },
             { EquipmentType.Thruster, "light_thruster" },
             { EquipmentType.Scanner, "basic_scanner" }
         };
@@ -368,6 +376,97 @@ namespace Roguelancer
                 Capacity = 75f,
                 RegenerationRate = 16f,
                 RegenerationDelay = 2.5f
+            });
+
+            Register(new PowerplantEquipmentDefinition
+            {
+                Id = "civilian_powerplant",
+                Name = "Civilian Powerplant",
+                Description = "A modest, dependable plant for civilian and starter craft.",
+                EquipmentType = EquipmentType.Powerplant,
+                Price = 3500,
+                Family = PowerplantFamily.Civilian,
+                ProgressionTier = PowerplantProgressionTier.Low,
+                EnergyCapacity = 180f,
+                EnergyRegenerationRate = 30f
+            });
+
+            Register(new PowerplantEquipmentDefinition
+            {
+                Id = "liberty_patrol_powerplant",
+                Name = "Liberty Patrol Powerplant",
+                Description = "A balanced patrol plant tuned for reliable sustained fire.",
+                EquipmentType = EquipmentType.Powerplant,
+                Price = 5500,
+                Family = PowerplantFamily.Liberty,
+                ProgressionTier = PowerplantProgressionTier.Standard,
+                EnergyCapacity = 220f,
+                EnergyRegenerationRate = 36f
+            });
+
+            Register(new PowerplantEquipmentDefinition
+            {
+                Id = "liberty_military_powerplant",
+                Name = "Liberty Military Powerplant",
+                Description = "A military-grade plant with stronger combat reserves.",
+                EquipmentType = EquipmentType.Powerplant,
+                Price = 9000,
+                Family = PowerplantFamily.Liberty,
+                ProgressionTier = PowerplantProgressionTier.Standard,
+                EnergyCapacity = 280f,
+                EnergyRegenerationRate = 44f
+            });
+
+            Register(new PowerplantEquipmentDefinition
+            {
+                Id = "liberty_heavy_powerplant",
+                Name = "Liberty Heavy Powerplant",
+                Description = "A high-output plant for heavy military hulls and weapons.",
+                EquipmentType = EquipmentType.Powerplant,
+                Price = 14500,
+                Family = PowerplantFamily.Liberty,
+                ProgressionTier = PowerplantProgressionTier.High,
+                EnergyCapacity = 360f,
+                EnergyRegenerationRate = 52f
+            });
+
+            Register(new PowerplantEquipmentDefinition
+            {
+                Id = "rogue_scrap_powerplant",
+                Name = "Rogue Scrap Powerplant",
+                Description = "An improvised plant that is cheap, rough, and serviceable.",
+                EquipmentType = EquipmentType.Powerplant,
+                Price = 2600,
+                Family = PowerplantFamily.Rogue,
+                ProgressionTier = PowerplantProgressionTier.Low,
+                EnergyCapacity = 160f,
+                EnergyRegenerationRate = 24f
+            });
+
+            Register(new PowerplantEquipmentDefinition
+            {
+                Id = "rogue_combat_powerplant",
+                Name = "Rogue Combat Powerplant",
+                Description = "A scavenged combat plant rebuilt for aggressive raider craft.",
+                EquipmentType = EquipmentType.Powerplant,
+                Price = 7500,
+                Family = PowerplantFamily.Rogue,
+                ProgressionTier = PowerplantProgressionTier.Standard,
+                EnergyCapacity = 260f,
+                EnergyRegenerationRate = 38f
+            });
+
+            Register(new PowerplantEquipmentDefinition
+            {
+                Id = "professional_powerplant",
+                Name = "Professional Powerplant",
+                Description = "A refined commercial plant with efficient combat recovery.",
+                EquipmentType = EquipmentType.Powerplant,
+                Price = 12000,
+                Family = PowerplantFamily.Professional,
+                ProgressionTier = PowerplantProgressionTier.High,
+                EnergyCapacity = 320f,
+                EnergyRegenerationRate = 50f
             });
 
             Register(new EquipmentDefinition

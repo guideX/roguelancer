@@ -219,6 +219,28 @@ namespace Roguelancer
             // per-type limits.
             loadout.CombatConsumables.SetQuantities(data.Nanobots, data.ShieldBatteries);
 
+            // Phase 44 intentionally keeps schema 10. Older schema-10 saves
+            // have no powerplant fields because mounted/owned equipment is
+            // catalog-backed. If a malformed/old loadout has a valid owned
+            // plant but no active mount, use that existing item first; only
+            // add the deterministic civilian fallback when none is owned.
+            if (loadout.GetMountedPowerplant() == null)
+            {
+                PowerplantEquipmentDefinition existing = loadout.OwnedEquipment.Keys
+                    .Select(id => EquipmentCatalog.GetById(id))
+                    .OfType<PowerplantEquipmentDefinition>()
+                    .OrderBy(plant => plant.Id, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
+                PowerplantEquipmentDefinition starter = existing ??
+                    EquipmentCatalog.GetById("civilian_powerplant") as PowerplantEquipmentDefinition ??
+                    EquipmentCatalog.GetFallbackForType(EquipmentType.Powerplant) as PowerplantEquipmentDefinition;
+                if (starter != null && (existing != null || loadout.AddOwnedEquipment(starter, 1)) &&
+                    !loadout.TryMountEquipment(starter, out string powerplantMessage))
+                {
+                    warnings.Add(powerplantMessage);
+                }
+            }
+
             return loadout;
         }
 

@@ -395,6 +395,9 @@ namespace Roguelancer
                 120f,
                 20_000f);
             ShipLoadout loadout = ShipLoadout.CreateStarterLoadout(false);
+            PowerplantEquipmentDefinition powerplant = (PowerplantEquipmentDefinition)EquipmentCatalog.GetById("civilian_powerplant");
+            loadout.AddOwnedEquipment(powerplant);
+            loadout.TryMountEquipment(powerplant, out _);
             loadout.AddOwnedEquipment(gun, 1);
             loadout.TryMountEquipment(gun, out _);
             npc.SetLoadout(loadout);

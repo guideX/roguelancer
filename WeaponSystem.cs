@@ -95,8 +95,12 @@ namespace Roguelancer
         private float _refireTimer = 0f; // Time until next shot can be fired
         private bool _isFiring = false; // Track if weapon is actively firing
         
-        // Energy system reference
-        private ShipEnergy _energy;
+        // Weapon energy is separate from the ship's movement/afterburner
+        // energy. The legacy ShipEnergy adapter remains for old direct test
+        // callers, but gameplay binds through SetWeaponEnergySystem.
+        private WeaponEnergy _weaponEnergy;
+        private ShipEnergy _legacyEnergy;
+        private bool _fireAuthorized = true;
 
         public class WeaponStats
         {
@@ -507,8 +511,17 @@ namespace Roguelancer
         /// </summary>
         public void StartFiring(Vector3 origin, Vector3 direction, Vector3 shipVelocity)
         {
+            if (!_fireAuthorized)
+            {
+                return;
+            }
+
             _isFiring = true;
             WeaponStats stats = GetCurrentWeaponStats() ?? GetBaseWeaponStats(CurrentWeapon);
+            if (stats == null || !IsFinitePositive(stats.EnergyCost))
+            {
+                return;
+            }
             
             // Special handling for Wunderwafffle (chain lightning)
             if (CurrentWeapon == WeaponType.Wunderwafffle)
@@ -517,7 +530,7 @@ namespace Roguelancer
                 if (_refireTimer <= 0f)
                 {
                     // Check if we have enough energy
-                    if (_energy != null && !_energy.TryConsume(stats.EnergyCost))
+                    if (!TrySpendWeaponEnergy(stats.EnergyCost))
                     {
                         return; // Not enough energy
                     }
@@ -574,7 +587,7 @@ namespace Roguelancer
             if (_refireTimer <= 0f)
             {
                 // Check if we have enough energy
-                if (_energy != null && !_energy.TryConsume(stats.EnergyCost))
+                if (!TrySpendWeaponEnergy(stats.EnergyCost))
                 {
                     // Not enough energy - don't fire
                     return;
@@ -982,7 +995,7 @@ namespace Roguelancer
                     WeaponStats stats = _weaponStats[WeaponType.ChargeBeam];
                     float energyNeeded = stats.EnergyCost * dt;
                     
-                    if (_energy != null && !_energy.TryConsume(energyNeeded))
+                    if (!TrySpendWeaponEnergy(energyNeeded))
                     {
                         // Out of energy - stop firing
                         Console.WriteLine($"⚡ CHARGE BEAM: Out of energy! Beam stopped.");
@@ -1477,12 +1490,61 @@ namespace Roguelancer
         }
         
         /// <summary>
-        /// Set the energy system for this weapon system
+        /// Set the legacy movement energy adapter for old direct callers.
         /// </summary>
         public void SetEnergySystem(ShipEnergy energy)
         {
-            _energy = energy;
+            _legacyEnergy = energy;
+            _weaponEnergy = null;
         }
+
+        /// <summary>
+        /// Bind the authoritative per-ship weapon-energy pool. Thrusters and
+        /// afterburners remain on Ship.Energy and never use this binding.
+        /// </summary>
+        public void SetWeaponEnergySystem(WeaponEnergy energy)
+        {
+            _weaponEnergy = energy;
+            _legacyEnergy = null;
+        }
+
+        /// <summary>
+        /// Gameplay can disable firing when no valid mounted gun exists while
+        /// low-level visual/test projectile APIs retain their old seam.
+        /// </summary>
+        public void SetFireAuthorization(bool authorized)
+        {
+            _fireAuthorized = authorized;
+            if (!authorized)
+            {
+                StopFiring();
+            }
+        }
+
+        private bool TrySpendWeaponEnergy(float amount)
+        {
+            if (!IsFinitePositive(amount))
+            {
+                return false;
+            }
+
+            if (_weaponEnergy != null)
+            {
+                return _weaponEnergy.TrySpend(amount);
+            }
+
+            if (_legacyEnergy != null)
+            {
+                return _legacyEnergy.TryConsume(amount);
+            }
+
+            // Standalone visual/debug firing remains energy-independent until
+            // a ship runtime explicitly binds a resource.
+            return true;
+        }
+
+        private static bool IsFinitePositive(float value) =>
+            !float.IsNaN(value) && !float.IsInfinity(value) && value > 0f;
         
         /// <summary>
         /// Set ship references for chain lightning targeting

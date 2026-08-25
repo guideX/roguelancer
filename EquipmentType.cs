@@ -10,6 +10,7 @@ namespace Roguelancer
         MineDropper,
         CountermeasureDropper,
         ShieldGenerator,
+        Powerplant,
         Thruster,
         Scanner,
         TractorBeam,

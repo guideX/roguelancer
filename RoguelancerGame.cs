@@ -249,6 +249,7 @@ namespace Roguelancer {
         private readonly bool _runWeaponProgressionSmoke;
         private readonly bool _runShieldEquipmentSmoke;
         private readonly bool _runCombatConsumableSmoke;
+        private readonly bool _runWeaponEnergySmoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -350,6 +351,7 @@ namespace Roguelancer {
             _runWeaponProgressionSmoke = args?.Any(arg => string.Equals(arg, "--weapon-progression-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runShieldEquipmentSmoke = args?.Any(arg => string.Equals(arg, "--shield-equipment-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runCombatConsumableSmoke = args?.Any(arg => string.Equals(arg, "--combat-consumable-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runWeaponEnergySmoke = args?.Any(arg => string.Equals(arg, "--weapon-energy-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -453,6 +455,7 @@ namespace Roguelancer {
             WeaponEquipmentDefinition mountedGun = _playerShip.GetPrimaryMountedGun();
             if (mountedGun == null)
             {
+                _weaponSystem.SetFireAuthorization(false);
                 _weaponSystem.ClearWeaponProfileOverride();
                 WeaponType defaultWeaponType = _weaponSystem.CurrentWeapon;
                 WeaponSystem.WeaponStats defaultStats = _weaponSystem.GetCurrentWeaponStats();
@@ -507,6 +510,7 @@ namespace Roguelancer {
             }
 
             _activeMountedGunId = mountedGun.Id;
+            _weaponSystem.SetFireAuthorization(true);
             _activeMountedGunWeaponType = mappedWeaponType;
             _wasUsingMountedGun = true;
             _mountedWeaponHudLogSignature = logSignature;
@@ -1190,7 +1194,7 @@ namespace Roguelancer {
 
             // Initialize weapon system (blasters)
             _weaponSystem = new WeaponSystem(GraphicsDevice);
-            _weaponSystem.SetEnergySystem(_playerShip.Energy);
+            _weaponSystem.SetWeaponEnergySystem(_playerShip.WeaponEnergy);
 
             // Initialize missile system (mounted launchers)
             _missileSystem = new MissileSystem(GraphicsDevice);
@@ -1362,6 +1366,11 @@ namespace Roguelancer {
             else if (_runCombatConsumableSmoke)
             {
                 var result = RunCombatConsumableSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runWeaponEnergySmoke)
+            {
+                var result = RunWeaponEnergySmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runFactionDistressResponseSmoke)
@@ -1551,6 +1560,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("weapon progression smoke", RunWeaponProgressionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("shield equipment smoke", RunShieldEquipmentSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("combat consumable smoke", RunCombatConsumableSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("weapon energy smoke", RunWeaponEnergySmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1858,6 +1868,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[COMBAT CONSUMABLE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunWeaponEnergySmokeTest()
+        {
+            try
+            {
+                return new WeaponEnergySmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WEAPON ENERGY SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2396,7 +2419,7 @@ namespace Roguelancer {
 
             if (_weaponSystem != null)
             {
-                _weaponSystem.SetEnergySystem(_playerShip.Energy);
+                _weaponSystem.SetWeaponEnergySystem(_playerShip.WeaponEnergy);
             }
 
             _gotoAutopilot?.Initialize(
@@ -4723,13 +4746,13 @@ namespace Roguelancer {
 
             // --- ENERGY BAR (Green) ---
             int energyBarY = hullBarY + barHeight + barSpacing;
-            float energyPercent = _playerShip.Energy.EnergyPercentage;
+            float energyPercent = _playerShip.WeaponEnergy?.EnergyPercentage ?? 0f;
             Color energyColor = new Color(50, 220, 80);
             Color energyDim = new Color(15, 60, 20);
             DrawSegmentedBar(hudX, energyBarY, totalBarWidth, barHeight, segmentCount, segmentGap, segmentWidth, energyPercent, energyColor, energyDim);
 
             if (_font != null) {
-                _spriteBatch.DrawString(_font, $"ENERGY {energyPercent * 100:F0}%",
+                _spriteBatch.DrawString(_font, _playerShip.WeaponEnergy?.GetHudText() ?? "ENERGY 0/0",
                     new Vector2(hudX + totalBarWidth + 10, energyBarY - 2), energyColor);
             }
 
@@ -5375,7 +5398,7 @@ namespace Roguelancer {
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
             _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
-            _weaponSystem?.SetEnergySystem(_playerShip.Energy);
+            _weaponSystem?.SetWeaponEnergySystem(_playerShip.WeaponEnergy);
 
             Console.WriteLine($"[SHIP PURCHASE] New ship fully configured with hull: {_playerShip.Hull.MaxHull}, energy: {_playerShip.Energy.MaxEnergy}, shields: {_playerShip.Shields?.MaxShields ?? 0}");
         }

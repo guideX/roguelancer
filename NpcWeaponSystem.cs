@@ -215,6 +215,14 @@ namespace Roguelancer
                     continue;
                 }
 
+                // The NPC volley preserves mounted-gun order. Each gun owns
+                // one authoritative spend attempt immediately before its
+                // projectile is created; an empty pool blocks only that gun.
+                if (npc.WeaponEnergy == null || !npc.WeaponEnergy.TrySpend(weapon.EnergyCost))
+                {
+                    continue;
+                }
+
                 Vector3 direction = baseDirection;
                 direction.X += (float)(_random.NextDouble() * 2d - 1d) * AccuracySpread;
                 direction.Y += (float)(_random.NextDouble() * 2d - 1d) * AccuracySpread;

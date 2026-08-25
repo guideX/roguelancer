@@ -211,6 +211,10 @@ namespace Roguelancer
 
         // Shield system
         public ShieldSystem Shields { get; private set; }
+
+        // Weapon energy is independent from the player's movement energy and
+        // is bound to the NPC's canonical mounted powerplant.
+        public WeaponEnergy WeaponEnergy { get; private set; }
         
         // Event to signal when the ship is destroyed
         public event Action<NpcShip> OnDestroyed;
@@ -327,6 +331,7 @@ namespace Roguelancer
             Loadout = loadout ?? ShipLoadout.CreateStarterLoadout(false);
             CombatConsumableCooldownRemaining = 0f;
             RefreshShieldFromLoadout();
+            RefreshWeaponEnergyFromLoadout();
         }
 
         internal void StartCombatConsumableCooldown(float seconds)
@@ -347,6 +352,13 @@ namespace Roguelancer
             Shields = shield == null
                 ? new ShieldSystem()
                 : new ShieldSystem(shield);
+        }
+
+        public void RefreshWeaponEnergyFromLoadout()
+        {
+            PowerplantEquipmentDefinition powerplant = Loadout?.GetMountedPowerplant();
+            WeaponEnergy = new WeaponEnergy();
+            WeaponEnergy.Configure(powerplant, restoreFull: true);
         }
 
         public void SetEncounterState(
@@ -477,6 +489,10 @@ namespace Roguelancer
             if (IsDestroyed) return; // Don't update if destroyed
 
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            // Weapon energy belongs to the ship runtime. Destroyed ships are
+            // never updated and therefore never regenerate.
+            WeaponEnergy?.Update(gameTime, shipAlive: true);
 
             if (TrafficLifetimeSeconds > 0f || !string.IsNullOrWhiteSpace(TrafficZoneId))
             {

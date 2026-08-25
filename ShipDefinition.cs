@@ -123,6 +123,7 @@ namespace Roguelancer
                 new("MineRack", EquipmentType.MineDropper, new Vector3(0.00f, 0.20f, 1.45f)),
                 new("CountermeasureRack", EquipmentType.CountermeasureDropper, new Vector3(0.00f, 1.55f, 2.25f)),
                 new("ShieldGenerator", EquipmentType.ShieldGenerator, Vector3.Zero),
+                new("Powerplant", EquipmentType.Powerplant, new Vector3(0.00f, -0.20f, 0.85f)),
                 new("Thruster", EquipmentType.Thruster, new Vector3(0.00f, 0.00f, 4.65f)),
                 new("Scanner", EquipmentType.Scanner, new Vector3(0.00f, 0.55f, -0.75f)),
                 new("TractorBeam", EquipmentType.TractorBeam, new Vector3(0.00f, -0.15f, -2.10f))
@@ -141,6 +142,7 @@ namespace Roguelancer
                 new("TransportMineRack", EquipmentType.MineDropper, new Vector3(0.00f, 0.55f, 3.10f)),
                 new("CountermeasureRack", EquipmentType.CountermeasureDropper, new Vector3(0.00f, 2.20f, 4.35f)),
                 new("ShieldGenerator", EquipmentType.ShieldGenerator, Vector3.Zero),
+                new("Powerplant", EquipmentType.Powerplant, new Vector3(0.00f, 0.25f, 1.40f)),
                 new("Thruster", EquipmentType.Thruster, new Vector3(0.00f, 0.00f, 8.50f)),
                 new("Scanner", EquipmentType.Scanner, new Vector3(0.00f, 1.00f, -2.00f)),
                 new("TractorBeam", EquipmentType.TractorBeam, new Vector3(0.00f, 0.20f, -4.10f))

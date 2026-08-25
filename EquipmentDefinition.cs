@@ -46,6 +46,28 @@ namespace Roguelancer
         Mixed
     }
 
+    /// <summary>
+    /// Authored powerplant family metadata used by deterministic NPC loadout
+    /// policy. Runtime charge belongs to WeaponEnergy, not this definition.
+    /// </summary>
+    public enum PowerplantFamily
+    {
+        Civilian,
+        Liberty,
+        Rogue,
+        Professional
+    }
+
+    /// <summary>
+    /// Bounded progression bands for canonical powerplant selection.
+    /// </summary>
+    public enum PowerplantProgressionTier
+    {
+        Low,
+        Standard,
+        High
+    }
+
     public enum CombatConsumableType
     {
         None,
@@ -311,6 +333,34 @@ namespace Roguelancer
 
         private static bool IsFiniteNonNegative(float value) =>
             !float.IsNaN(value) && !float.IsInfinity(value) && value >= 0f;
+    }
+
+    /// <summary>
+    /// Canonical ship powerplant metadata. The per-ship weapon-energy charge
+    /// is deliberately kept in WeaponEnergy so definitions remain immutable
+    /// catalog data.
+    /// </summary>
+    public sealed class PowerplantEquipmentDefinition : EquipmentDefinition
+    {
+        public PowerplantFamily Family { get; set; } = PowerplantFamily.Civilian;
+        public PowerplantProgressionTier ProgressionTier { get; set; } = PowerplantProgressionTier.Low;
+        public float EnergyCapacity { get; set; }
+        public float EnergyRegenerationRate { get; set; }
+
+        public bool IsValid => EquipmentType == EquipmentType.Powerplant &&
+            Price > 0 &&
+            IsFinitePositive(EnergyCapacity) &&
+            IsFinitePositive(EnergyRegenerationRate) &&
+            Enum.IsDefined(typeof(PowerplantFamily), Family) &&
+            Enum.IsDefined(typeof(PowerplantProgressionTier), ProgressionTier);
+
+        public override string GetStatsSummary()
+        {
+            return $"{base.GetStatsSummary()} | {Family} {ProgressionTier} | CAP {EnergyCapacity:F0} | REGEN {EnergyRegenerationRate:F1}/s";
+        }
+
+        private static bool IsFinitePositive(float value) =>
+            !float.IsNaN(value) && !float.IsInfinity(value) && value > 0f;
     }
 
     /// <summary>

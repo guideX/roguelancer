@@ -147,6 +147,12 @@ namespace Roguelancer
             bool heavy = IsHeavy(archetypeName, modelPath);
             string identity = BuildIdentity(archetypeName, factionId, modelPath, combatRole, tier);
 
+            // Every normal NPC receives one deterministic plant before its
+            // weapons are selected, so the mounted guns and energy budget are
+            // authored as one coherent loadout snapshot.
+            PowerplantEquipmentDefinition powerplant = SelectPowerplant(profile, tier, heavy, combatRole);
+            TryAddAndMountPowerplant(loadout, powerplant);
+
             // Defensive equipment is independent from offensive capability:
             // civilian and trader traffic may receive a modest shield while
             // remaining completely unarmed.
@@ -250,6 +256,18 @@ namespace Roguelancer
         {
             return equipment is ShieldEquipmentDefinition shield && shield.IsValid &&
                    EquipmentCatalog.GetById(shield.Id) == shield;
+        }
+
+        public static bool IsValidNpcPowerplant(EquipmentDefinition equipment)
+        {
+            return equipment is PowerplantEquipmentDefinition powerplant && powerplant.IsValid &&
+                   EquipmentCatalog.GetById(powerplant.Id) == powerplant;
+        }
+
+        public static PowerplantEquipmentDefinition GetNpcPowerplant(ShipLoadout loadout)
+        {
+            PowerplantEquipmentDefinition powerplant = loadout?.GetMountedPowerplant();
+            return IsValidNpcPowerplant(powerplant) ? powerplant : null;
         }
 
         /// <summary>
@@ -411,6 +429,72 @@ namespace Roguelancer
                 return true;
 
             loadout.RemoveOwnedEquipment(shield.Id, 1);
+            return false;
+        }
+
+        private static PowerplantEquipmentDefinition SelectPowerplant(
+            NpcLoadoutPolicyProfile profile,
+            NpcLoadoutTier tier,
+            bool heavy,
+            TrafficZoneBehaviorType combatRole)
+        {
+            string factionId = FactionManager.NormalizeFactionId(profile?.FactionId);
+            bool supportRole = combatRole == TrafficZoneBehaviorType.TraderRoute ||
+                               combatRole == TrafficZoneBehaviorType.StationTraffic;
+
+            string id;
+            if (profile?.IsCivilian == true || supportRole && string.Equals(factionId, FactionManager.NeutralCivilians, StringComparison.OrdinalIgnoreCase))
+            {
+                id = "civilian_powerplant";
+            }
+            else if (string.Equals(factionId, FactionManager.LibertyPolice, StringComparison.OrdinalIgnoreCase))
+            {
+                id = tier == NpcLoadoutTier.High || heavy
+                    ? "liberty_heavy_powerplant"
+                    : "liberty_patrol_powerplant";
+            }
+            else if (string.Equals(factionId, FactionManager.LibertyNavy, StringComparison.OrdinalIgnoreCase))
+            {
+                id = tier == NpcLoadoutTier.High || heavy
+                    ? "liberty_heavy_powerplant"
+                    : "liberty_military_powerplant";
+            }
+            else if (string.Equals(factionId, FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(factionId, FactionManager.Junkers, StringComparison.OrdinalIgnoreCase))
+            {
+                id = tier == NpcLoadoutTier.Low && !heavy
+                    ? "rogue_scrap_powerplant"
+                    : "rogue_combat_powerplant";
+            }
+            else if (string.Equals(factionId, FactionManager.LibertyCorporations, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(factionId, FactionManager.BountyHunters, StringComparison.OrdinalIgnoreCase))
+            {
+                id = tier == NpcLoadoutTier.Low && !heavy
+                    ? "liberty_patrol_powerplant"
+                    : "professional_powerplant";
+            }
+            else
+            {
+                id = "civilian_powerplant";
+            }
+
+            return EquipmentCatalog.GetById(id) as PowerplantEquipmentDefinition ??
+                   EquipmentCatalog.GetFallbackForType(EquipmentType.Powerplant) as PowerplantEquipmentDefinition;
+        }
+
+        private static bool TryAddAndMountPowerplant(ShipLoadout loadout, PowerplantEquipmentDefinition powerplant)
+        {
+            if (!IsValidNpcPowerplant(powerplant) || !loadout.AddOwnedEquipment(powerplant, 1))
+            {
+                return false;
+            }
+
+            if (loadout.TryMountEquipment(powerplant, out _))
+            {
+                return true;
+            }
+
+            loadout.RemoveOwnedEquipment(powerplant.Id, 1);
             return false;
         }
 

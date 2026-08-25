@@ -318,6 +318,7 @@ namespace Roguelancer
             if (success)
             {
                 playerShip?.RefreshShieldFromLoadout();
+                playerShip?.RefreshWeaponEnergyFromLoadout();
             }
 
             return success;
@@ -350,6 +351,7 @@ namespace Roguelancer
             if (success)
             {
                 playerShip?.RefreshShieldFromLoadout();
+                playerShip?.RefreshWeaponEnergyFromLoadout();
             }
 
             return success;
