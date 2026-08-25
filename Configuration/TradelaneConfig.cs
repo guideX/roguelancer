@@ -7,6 +7,9 @@ namespace Roguelancer.Configuration {
     /// Rings are auto-generated along the path between start and end positions.
     /// </summary>
     public class TradelaneConfig {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+
         [JsonPropertyName("name")]
         public string Name { get; set; } = "Tradelane";
 
@@ -66,6 +69,27 @@ namespace Roguelancer.Configuration {
         public float RingVerticalOffset { get; set; } = 30f;
 
         /// <summary>
+        /// Small stable lateral separation used by the two traffic streams.
+        /// It keeps opposing ships readable without creating two unrelated
+        /// highways.
+        /// </summary>
+        [JsonPropertyName("traffic_lateral_offset")]
+        public float TrafficLateralOffset { get; set; } = 24f;
+
+        /// <summary>
+        /// Hostile infrastructure damage required to disrupt one ring.
+        /// </summary>
+        [JsonPropertyName("disruption_damage_threshold")]
+        public float DisruptionDamageThreshold { get; set; } = 100f;
+
+        /// <summary>
+        /// Transient ring recovery duration. Phase 47 intentionally keeps
+        /// disruption out of save data.
+        /// </summary>
+        [JsonPropertyName("disruption_recovery_seconds")]
+        public float DisruptionRecoverySeconds { get; set; } = 45f;
+
+        /// <summary>
         /// Extended range at which the player can initiate docking with a tradelane ring.
         /// </summary>
         [JsonPropertyName("docking_range")]
@@ -89,10 +113,39 @@ namespace Roguelancer.Configuration {
         [JsonIgnore]
         public Vector3 EndPosition => new Vector3(EndPositionX, EndPositionY, EndPositionZ);
 
+        [JsonIgnore]
+        public string StableId => string.IsNullOrWhiteSpace(Id)
+            ? NormalizeId(Name)
+            : Id.Trim();
+
         /// <summary>
         /// Helper to get ring energy color
         /// </summary>
         [JsonIgnore]
         public Color RingColor => new Color(RingColorR, RingColorG, RingColorB);
+
+        private static string NormalizeId(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "tradelane";
+
+            var chars = new System.Text.StringBuilder(value.Length);
+            bool previousWasSeparator = false;
+            foreach (char character in value.Trim().ToLowerInvariant())
+            {
+                if (char.IsLetterOrDigit(character))
+                {
+                    chars.Append(character);
+                    previousWasSeparator = false;
+                }
+                else if (!previousWasSeparator)
+                {
+                    chars.Append('_');
+                    previousWasSeparator = true;
+                }
+            }
+
+            return chars.ToString().Trim('_');
+        }
     }
 }

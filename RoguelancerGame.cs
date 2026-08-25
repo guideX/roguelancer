@@ -252,6 +252,7 @@ namespace Roguelancer {
         private readonly bool _runWeaponEnergySmoke;
         private readonly bool _runThrusterEnergySmoke;
         private readonly bool _runCruiseDriveSmoke;
+        private readonly bool _runTradeLaneHardeningSmoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -356,6 +357,7 @@ namespace Roguelancer {
             _runWeaponEnergySmoke = args?.Any(arg => string.Equals(arg, "--weapon-energy-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runThrusterEnergySmoke = args?.Any(arg => string.Equals(arg, "--thruster-energy-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runCruiseDriveSmoke = args?.Any(arg => string.Equals(arg, "--cruise-drive-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runTradeLaneHardeningSmoke = args?.Any(arg => string.Equals(arg, "--trade-lane-hardening-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -850,6 +852,7 @@ namespace Roguelancer {
             _tradelaneManager = new TradelaneManager(GraphicsDevice, null);
             _tradelaneManager.LoadAllConfigs();
             _tradelaneManager.LoadTradelanesForSystem(_currentSystemIndex);
+            _tradelaneManager.SetNpcShips(_npcShips);
 
             // Add jump holes as targetable space objects
             foreach (var jh in _jumpHoleManager.GetJumpHolesAsSpaceObjects()) {
@@ -1260,6 +1263,7 @@ namespace Roguelancer {
                 _tradelaneManager.LoadAllConfigs();
                 _tradelaneManager.LoadTradelanesForSystem(_currentSystemIndex);
                 _tradelaneManager.LoadContent(Content);
+                _tradelaneManager.SetNpcShips(_npcShips);
             }
 
             // Initialize system map overlay
@@ -1377,6 +1381,11 @@ namespace Roguelancer {
             else if (_runCruiseDriveSmoke)
             {
                 var result = RunCruiseDriveSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runTradeLaneHardeningSmoke)
+            {
+                var result = RunTradeLaneHardeningSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runFactionDistressResponseSmoke)
@@ -1569,6 +1578,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("weapon energy smoke", RunWeaponEnergySmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("thruster energy smoke", RunThrusterEnergySmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("cruise drive smoke", RunCruiseDriveSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("trade lane hardening smoke", RunTradeLaneHardeningSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1915,6 +1925,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[CRUISE DRIVE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunTradeLaneHardeningSmokeTest()
+        {
+            try
+            {
+                return new TradeLaneHardeningSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TRADE LANE HARDENING SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2387,6 +2410,10 @@ namespace Roguelancer {
 
             ClearTradePlanNavigation();
 
+            // Trade-lane transit and transient disruption are intentionally
+            // runtime-only. A load always starts ordinary free flight.
+            _tradelaneManager?.ResetTransientState();
+
             HandleSystemChange(targetSystemIndex, null);
 
             ShipDefinition shipDefinition = _shipDealer?.GetShipByName(saveData.CurrentShipName) ?? _shipDealer?.CurrentPlayerShip;
@@ -2611,7 +2638,13 @@ namespace Roguelancer {
             }
 
             // Update tradelane manager (handles transit lock)
-            _tradelaneManager?.Update(gameTime, _playerShip, keyboardState);
+            _tradelaneManager?.Update(gameTime, _playerShip, _npcShips, keyboardState);
+            if (_weaponSystem != null)
+            {
+                _weaponSystem.SetFireAuthorization(
+                    _playerShip?.IsTradeLaneTransit != true &&
+                    _playerShip?.CruiseDrive.BlocksStandardWeapons != true);
+            }
 
             // Keep autopilot obstacle list up-to-date
             _gotoAutopilot?.Initialize(
@@ -3066,7 +3099,7 @@ namespace Roguelancer {
             }
 
             SyncMountedGunWeaponProfile();
-            if (_playerShip?.CruiseDrive.BlocksStandardWeapons == true)
+            if (_playerShip?.IsTradeLaneTransit == true || _playerShip?.CruiseDrive.BlocksStandardWeapons == true)
             {
                 _weaponSystem.SetFireAuthorization(false);
             }

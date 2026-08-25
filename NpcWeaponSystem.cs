@@ -137,10 +137,10 @@ namespace Roguelancer
                     continue;
                 }
 
-                if (npc.CruiseDrive.BlocksStandardWeapons)
+                if (npc.IsTradeLaneTransit || npc.CruiseDrive.BlocksStandardWeapons)
                 {
-                    // NPCs obey the same active-cruise gun restriction as the
-                    // player. Charging remains allowed to fire.
+                    // Lane travelers and active-cruise NPCs both obey the
+                    // explicit standard-weapon restriction.
                     continue;
                 }
 

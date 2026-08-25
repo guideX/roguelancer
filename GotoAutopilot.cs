@@ -361,7 +361,7 @@ namespace Roguelancer
 
             foreach (var lane in lanes)
             {
-                if (lane.IsBroken) continue;
+                if (lane.IsBroken || (!lane.CanUseRoute(TradeLaneDirection.Forward) && !lane.CanUseRoute(TradeLaneDirection.Reverse))) continue;
 
                 // Check both directions
                 CheckLaneDirection(start, end, lane, lane.ForwardRings, ref bestScore, ref bestLane, ref bestEntry);
@@ -446,8 +446,12 @@ namespace Roguelancer
         {
             if (rings == null || rings.Count < 2) return;
 
-            TradelaneRing entryRing = rings[0];
-            TradelaneRing exitRing = rings[rings.Count - 1];
+            bool reverse = ReferenceEquals(rings, lane.ReverseRings);
+            TradeLaneDirection direction = reverse ? TradeLaneDirection.Reverse : TradeLaneDirection.Forward;
+            if (!lane.CanUseRoute(direction)) return;
+
+            TradelaneRing entryRing = reverse ? rings[rings.Count - 1] : rings[0];
+            TradelaneRing exitRing = reverse ? rings[0] : rings[rings.Count - 1];
 
             if (entryRing.IsDestroyed) return;
 

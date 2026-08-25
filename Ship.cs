@@ -75,6 +75,7 @@ namespace Roguelancer
         public bool IsAfterburnerActive { get; private set; }
         public CruiseDrive CruiseDrive { get; } = new CruiseDrive();
         public bool IsCruiseActive => CruiseDrive.IsActive;
+        public bool IsTradeLaneTransit { get; private set; }
         public bool EnginesKilled { get; set; }
         public bool AfterburnerJustActivated { get; private set; }
         public bool IsFreeFlightMode => _isFreeFlightMode;
@@ -125,6 +126,13 @@ namespace Roguelancer
         public bool MissileLaunchRequested { get; private set; }
         public bool MineLaunchRequested { get; private set; }
         public bool CountermeasureLaunchRequested { get; private set; }
+
+        /// <summary>
+        /// Authoritative notification for hostile hits, including shield-only
+        /// damage. Transient world systems may observe it without owning
+        /// combat resolution.
+        /// </summary>
+        public event Action<float, bool> CombatDamageReceived;
         
         // Docking system
         private Station _nearestStation = null;
@@ -228,7 +236,7 @@ namespace Roguelancer
             bool activated = CruiseDrive.TryActivate(
                 Hull?.IsDestroyed != true,
                 docked,
-                validMovement && !EnginesKilled && !_newtonianMode);
+                validMovement && !EnginesKilled && !_newtonianMode && !IsTradeLaneTransit);
             if (activated)
             {
                 IsAfterburnerActive = false;
@@ -242,7 +250,7 @@ namespace Roguelancer
             bool changed = CruiseDrive.ToggleActivation(
                 Hull?.IsDestroyed != true,
                 docked,
-                validMovement && !EnginesKilled && !_newtonianMode);
+                validMovement && !EnginesKilled && !_newtonianMode && !IsTradeLaneTransit);
             if (changed && CruiseDrive.IsChargingOrActive)
             {
                 IsAfterburnerActive = false;
@@ -265,6 +273,14 @@ namespace Roguelancer
                 return false;
 
             CruiseDrive.DisruptByDamage(damage, hostile);
+            try
+            {
+                CombatDamageReceived?.Invoke(damage, hostile);
+            }
+            catch
+            {
+                // Optional observers cannot interrupt authoritative damage.
+            }
             float hullDamage = Shields?.AbsorbDamage(damage) ?? damage;
             if (hullDamage > 0f)
             {
@@ -509,6 +525,17 @@ namespace Roguelancer
             {
                 _damageSmokeParticles?.Emit(Position - Forward * 15, Velocity, damageStage);
             }
+
+            if (IsTradeLaneTransit)
+            {
+                StopAfterburner();
+                CruiseDrive.Cancel(CruiseCancellationReason.IncompatibleFlight);
+                AfterburnerJustActivated = false;
+                _previousKeyboardState = keyboardState;
+                _prevLeftMouseState = mouseState.LeftButton;
+                _previousScrollWheelValue = mouseState.ScrollWheelValue;
+                return;
+            }
             
             bool spacebarPressed = keyboardState.IsKeyDown(Keys.Space) && _previousKeyboardState.IsKeyUp(Keys.Space);
             bool leftMouseHeld = mouseState.LeftButton == ButtonState.Pressed;
@@ -608,15 +635,8 @@ namespace Roguelancer
             
             if (tabJustPressed && !IsAfterburnerActive)
             {
-                if (CruiseDrive.IsChargingOrActive)
+                if (TryActivateAfterburner())
                 {
-                    CancelCruise(CruiseCancellationReason.AfterburnerActivation);
-                }
-
-                // Afterburn is available only from the mounted thruster pool.
-                if (!EnginesKilled && ThrusterEnergy?.CanAfterburn(Hull?.IsDestroyed != true) == true)
-                {
-                    IsAfterburnerActive = true;
                     _notificationManager?.ShowMessage("Afterburner Engaged");
                 }
                 else
@@ -1292,6 +1312,7 @@ namespace Roguelancer
 
         public void Reset()
         {
+            IsTradeLaneTransit = false;
             IsAfterburnerActive = false;
             CruiseDrive.Reset();
             _throttle = 0f;
@@ -1303,6 +1324,32 @@ namespace Roguelancer
             Shields?.FullRestore();
             WeaponEnergy?.FullRestore();
             ThrusterEnergy?.FullRestore();
+        }
+
+        public bool TryActivateAfterburner()
+        {
+            if (IsTradeLaneTransit || EnginesKilled || Hull?.IsDestroyed == true ||
+                ThrusterEnergy?.CanAfterburn(true) != true)
+                return false;
+            if (CruiseDrive.IsChargingOrActive)
+                CancelCruise(CruiseCancellationReason.AfterburnerActivation);
+            IsAfterburnerActive = true;
+            return true;
+        }
+
+        public void StopAfterburner()
+        {
+            IsAfterburnerActive = false;
+        }
+
+        public void SetTradeLaneTransit(bool inTransit)
+        {
+            IsTradeLaneTransit = inTransit;
+            if (inTransit)
+            {
+                StopAfterburner();
+                CruiseDrive.Cancel(CruiseCancellationReason.IncompatibleFlight);
+            }
         }
 
         /// <summary>

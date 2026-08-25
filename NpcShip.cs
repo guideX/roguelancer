@@ -80,6 +80,10 @@ namespace Roguelancer
         public float TrafficLoiterRadius { get; private set; } = 900f;
         public Vector3? TrafficRouteStart { get; private set; }
         public Vector3? TrafficRouteEnd { get; private set; }
+        public bool IsTradeLaneTransit { get; private set; }
+        public string TradeLaneId { get; private set; } = string.Empty;
+        public TradeLaneDirection? TradeLaneDirection { get; private set; }
+        public int TradeLaneRingIndex { get; private set; } = -1;
         public TrafficEncounterState EncounterState { get; private set; } = TrafficEncounterState.Cruising;
         public Vector3? EncounterTargetPosition { get; private set; }
         public Vector3? EncounterEscapePosition { get; private set; }
@@ -236,6 +240,12 @@ namespace Roguelancer
         // target itself.
         public event Action<NpcShip> PlayerTargetAcquired;
 
+        /// <summary>
+        /// Fires before shield absorption for qualifying combat hits so lane
+        /// transit can eject safely even when shields absorb the whole hit.
+        /// </summary>
+        public event Action<NpcShip, float, NpcDestructionSource, bool> CombatDamageReceived;
+
         private float _patrolRadius;
         private Vector3 _patrolCenter;
         private float _patrolAngle;
@@ -257,8 +267,15 @@ namespace Roguelancer
             _patrolRadius = patrolRadius;
             _patrolSpeed = patrolSpeed;
             FactionId = FactionManager.NormalizeFactionId(factionId);
-            _bobPhase = (float)(new Random().NextDouble() * MathHelper.TwoPi);
-            _bobSpeed = 0.3f + (float)(new Random().NextDouble() * 0.4f);
+            // Stable presentation phase: traffic direction and movement must
+            // remain repeatable across smoke runs and new sessions.
+            int visualSeed = 17;
+            foreach (char character in name ?? string.Empty)
+                visualSeed = unchecked(visualSeed * 31 + character);
+            visualSeed = unchecked(visualSeed + (int)(startPosition.X * 3f) + (int)(startPosition.Z * 5f));
+            float normalizedSeed = (Math.Abs(visualSeed) % 10000) / 10000f;
+            _bobPhase = normalizedSeed * MathHelper.TwoPi;
+            _bobSpeed = 0.3f + normalizedSeed * 0.4f;
             
             // Initialize hull integrity
             Hull = new HullIntegrity(75f); // NPCs start with 75 hull points
@@ -396,6 +413,14 @@ namespace Roguelancer
                 return false;
 
             CruiseDrive.DisruptByDamage(damage, hostile);
+            try
+            {
+                CombatDamageReceived?.Invoke(this, damage, source, hostile);
+            }
+            catch
+            {
+                // Optional observers cannot interrupt authoritative damage.
+            }
             float hullDamage = Shields?.AbsorbDamage(damage) ?? damage;
             if (hullDamage > 0f)
             {
@@ -586,6 +611,14 @@ namespace Roguelancer
                 damageSmoke?.Emit(Position - Forward * 15, Velocity, damageStage);
             }
 
+            if (IsTradeLaneTransit)
+            {
+                IsAfterburnerActive = false;
+                CruiseDrive.Cancel(CruiseCancellationReason.IncompatibleFlight);
+                ThrusterEnergy?.Advance(deltaTime, afterburnRequested: false, shipAlive: true);
+                return;
+            }
+
             bool factionTargetInvalid = FactionCombatTarget != null &&
                 (!IsFactionCombatDisengagementManaged
                     ? !HasValidFactionCombatTarget(TrafficActivationRange)
@@ -678,6 +711,14 @@ namespace Roguelancer
             );
             
             return Quaternion.CreateFromRotationMatrix(rotationMatrix);
+        }
+
+        public void SetFacing(Vector3 direction)
+        {
+            if (direction.LengthSquared() < 0.0001f || float.IsNaN(direction.LengthSquared()))
+                return;
+            direction.Normalize();
+            _rotation = CreateRotationFromDirection(direction);
         }
 
         private void UpdateCircularPatrolBehavior(float deltaTime, float radius, float cruiseSpeed, float patrolSpeed)
@@ -977,5 +1018,25 @@ namespace Roguelancer
 
         private static bool IsFinitePositive(float value) =>
             !float.IsNaN(value) && !float.IsInfinity(value) && value > 0f;
+
+        public void SetTradeLaneTransit(bool inTransit, string laneId = null, TradeLaneDirection? direction = null, int ringIndex = -1)
+        {
+            IsTradeLaneTransit = inTransit;
+            if (inTransit)
+            {
+                TradeLaneId = laneId ?? string.Empty;
+                TradeLaneDirection = direction;
+                TradeLaneRingIndex = ringIndex;
+                IsAfterburnerActive = false;
+                CruiseDrive.Cancel(CruiseCancellationReason.IncompatibleFlight);
+            }
+            else
+            {
+                TradeLaneId = string.Empty;
+                TradeLaneDirection = null;
+                TradeLaneRingIndex = -1;
+                IsAfterburnerActive = false;
+            }
+        }
     }
 }

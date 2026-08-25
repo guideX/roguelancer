@@ -34,7 +34,9 @@ namespace Roguelancer
         private readonly ConfigurationManager _config;
         private readonly List<NpcShip> _npcShips;
         private readonly List<SpaceObject> _spaceObjects;
-        private readonly Random _random = new();
+        // Stable placement keeps traffic population and directional lane
+        // assignment repeatable across smoke runs.
+        private readonly Random _random = new(4707);
         private readonly Dictionary<string, TrafficZoneRuntime> _zonesById = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<NpcShip, TrafficShipRuntime> _shipRuntimes = new();
         private readonly Action<NpcShip> _onNpcDestroyed;
@@ -1044,7 +1046,12 @@ namespace Roguelancer
                 Vector3 routeStart = zone.RouteStart.Value;
                 Vector3 routeEnd = zone.RouteEnd.Value;
                 Vector3 anchor = (sequence % 2 == 0) ? routeStart : routeEnd;
-                return anchor + RandomOffset(Math.Min(600f, radius * 0.15f));
+                float lateral = Math.Min(600f, radius * 0.15f);
+                int slot = sequence % 4;
+                return anchor + new Vector3(
+                    (slot - 1.5f) * lateral * 0.35f,
+                    ((sequence % 3) - 1) * lateral * 0.08f,
+                    ((slot % 2 == 0 ? 1f : -1f) * lateral * 0.2f));
             }
 
             float angle = (float)(_random.NextDouble() * MathHelper.TwoPi);

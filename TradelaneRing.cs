@@ -64,6 +64,14 @@ namespace Roguelancer {
         /// </summary>
         public bool IsDestroyed { get; set; }
 
+        /// <summary>
+        /// Permanent destruction is distinct from the lane's transient
+        /// disruption state. TradeLane owns the latter at route level.
+        /// </summary>
+        public bool IsOperational => !IsDestroyed;
+
+        public int SegmentIndex => Index;
+
         private float _pulseTimer;
         private const float PulseDuration = 0.6f;
         private float _ambientGlowPhase;
@@ -84,11 +92,14 @@ namespace Roguelancer {
             Direction = direction;
             _ambientGlowPhase = index * 0.5f;
 
-            _pulseEffect = new BasicEffect(graphicsDevice) {
-                VertexColorEnabled = true,
-                LightingEnabled = false,
-                FogEnabled = false
-            };
+            if (graphicsDevice != null)
+            {
+                _pulseEffect = new BasicEffect(graphicsDevice) {
+                    VertexColorEnabled = true,
+                    LightingEnabled = false,
+                    FogEnabled = false
+                };
+            }
 
             _pulseVertices = new VertexPositionColor[(PulseSegments + 1) * 2];
         }
@@ -180,7 +191,7 @@ namespace Roguelancer {
         /// Draw the energy pulse ring effect (additive blending)
         /// </summary>
         public void DrawEnergyEffect(Matrix view, Matrix projection) {
-            if (IsDestroyed) return;
+            if (IsDestroyed || _graphicsDevice == null || _pulseEffect == null) return;
 
             // Ambient glow ring
             float ambientAlpha = (float)(Math.Sin(_ambientGlowPhase) * 0.15f + 0.25f);
