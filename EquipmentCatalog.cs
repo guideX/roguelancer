@@ -40,6 +40,13 @@ namespace Roguelancer
             "rogue_scrap_powerplant",
             "rogue_combat_powerplant",
             "professional_powerplant",
+            "civilian_thruster",
+            "liberty_patrol_thruster",
+            "liberty_military_thruster",
+            "liberty_heavy_thruster",
+            "rogue_scrap_thruster",
+            "rogue_combat_thruster",
+            "professional_thruster",
             CombatConsumableIds.Nanobots,
             CombatConsumableIds.ShieldBatteries
         };
@@ -51,7 +58,7 @@ namespace Roguelancer
             { EquipmentType.CountermeasureDropper, "basic_countermeasure_dropper" },
             { EquipmentType.ShieldGenerator, "civilian_shield_generator" },
             { EquipmentType.Powerplant, "civilian_powerplant" },
-            { EquipmentType.Thruster, "light_thruster" },
+            { EquipmentType.Thruster, "civilian_thruster" },
             { EquipmentType.Scanner, "basic_scanner" }
         };
 
@@ -469,13 +476,124 @@ namespace Roguelancer
                 EnergyRegenerationRate = 50f
             });
 
-            Register(new EquipmentDefinition
+            Register(new ThrusterEquipmentDefinition
+            {
+                Id = "civilian_thruster",
+                Name = "Civilian Thruster",
+                Description = "A dependable entry-level thruster with finite afterburn reserves.",
+                EquipmentType = EquipmentType.Thruster,
+                Price = 6000,
+                Family = ThrusterFamily.Civilian,
+                ProgressionTier = ThrusterProgressionTier.Low,
+                EnergyCapacity = 240f,
+                EnergyRegenerationRate = 36f,
+                AfterburnDrainRate = 40f,
+                AfterburnSpeedMultiplier = 2.00f
+            });
+
+            Register(new ThrusterEquipmentDefinition
+            {
+                Id = "liberty_patrol_thruster",
+                Name = "Liberty Patrol Thruster",
+                Description = "A balanced patrol thruster tuned for reliable pursuit bursts.",
+                EquipmentType = EquipmentType.Thruster,
+                Price = 8500,
+                Family = ThrusterFamily.Liberty,
+                ProgressionTier = ThrusterProgressionTier.Standard,
+                EnergyCapacity = 280f,
+                EnergyRegenerationRate = 44f,
+                AfterburnDrainRate = 50f,
+                AfterburnSpeedMultiplier = 2.05f
+            });
+
+            Register(new ThrusterEquipmentDefinition
+            {
+                Id = "liberty_military_thruster",
+                Name = "Liberty Military Thruster",
+                Description = "A military thruster with stronger reserves for combat pilots.",
+                EquipmentType = EquipmentType.Thruster,
+                Price = 12500,
+                Family = ThrusterFamily.Liberty,
+                ProgressionTier = ThrusterProgressionTier.Standard,
+                EnergyCapacity = 340f,
+                EnergyRegenerationRate = 52f,
+                AfterburnDrainRate = 58f,
+                AfterburnSpeedMultiplier = 2.10f
+            });
+
+            Register(new ThrusterEquipmentDefinition
+            {
+                Id = "liberty_heavy_thruster",
+                Name = "Liberty Heavy Thruster",
+                Description = "A high-capacity military thruster for heavy hulls.",
+                EquipmentType = EquipmentType.Thruster,
+                Price = 19000,
+                Family = ThrusterFamily.Liberty,
+                ProgressionTier = ThrusterProgressionTier.High,
+                EnergyCapacity = 420f,
+                EnergyRegenerationRate = 60f,
+                AfterburnDrainRate = 66f,
+                AfterburnSpeedMultiplier = 2.15f
+            });
+
+            Register(new ThrusterEquipmentDefinition
+            {
+                Id = "rogue_scrap_thruster",
+                Name = "Rogue Scrap Thruster",
+                Description = "An improvised thruster assembled from salvaged parts.",
+                EquipmentType = EquipmentType.Thruster,
+                Price = 4200,
+                Family = ThrusterFamily.Rogue,
+                ProgressionTier = ThrusterProgressionTier.Low,
+                EnergyCapacity = 220f,
+                EnergyRegenerationRate = 32f,
+                AfterburnDrainRate = 44f,
+                AfterburnSpeedMultiplier = 1.95f
+            });
+
+            Register(new ThrusterEquipmentDefinition
+            {
+                Id = "rogue_combat_thruster",
+                Name = "Rogue Combat Thruster",
+                Description = "A rebuilt raider thruster for aggressive short bursts.",
+                EquipmentType = EquipmentType.Thruster,
+                Price = 10500,
+                Family = ThrusterFamily.Rogue,
+                ProgressionTier = ThrusterProgressionTier.Standard,
+                EnergyCapacity = 300f,
+                EnergyRegenerationRate = 46f,
+                AfterburnDrainRate = 52f,
+                AfterburnSpeedMultiplier = 2.10f
+            });
+
+            Register(new ThrusterEquipmentDefinition
+            {
+                Id = "professional_thruster",
+                Name = "Professional Thruster",
+                Description = "An efficient commercial thruster favored by specialists.",
+                EquipmentType = EquipmentType.Thruster,
+                Price = 16000,
+                Family = ThrusterFamily.Professional,
+                ProgressionTier = ThrusterProgressionTier.High,
+                EnergyCapacity = 360f,
+                EnergyRegenerationRate = 58f,
+                AfterburnDrainRate = 65f,
+                AfterburnSpeedMultiplier = 2.20f
+            });
+
+            Register(new ThrusterEquipmentDefinition
             {
                 Id = "light_thruster",
                 Name = "Light Thruster",
-                Description = "A lightweight thruster package for improved responsiveness.",
+                Description = "Legacy starter thruster retained for older schema-10 saves.",
                 EquipmentType = EquipmentType.Thruster,
-                Price = 6000
+                Price = 6000,
+                Family = ThrusterFamily.Civilian,
+                ProgressionTier = ThrusterProgressionTier.Low,
+                EnergyCapacity = 240f,
+                EnergyRegenerationRate = 36f,
+                AfterburnDrainRate = 40f,
+                AfterburnSpeedMultiplier = 2.00f
             });
 
             Register(new EquipmentDefinition

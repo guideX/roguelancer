@@ -250,6 +250,7 @@ namespace Roguelancer {
         private readonly bool _runShieldEquipmentSmoke;
         private readonly bool _runCombatConsumableSmoke;
         private readonly bool _runWeaponEnergySmoke;
+        private readonly bool _runThrusterEnergySmoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -352,6 +353,7 @@ namespace Roguelancer {
             _runShieldEquipmentSmoke = args?.Any(arg => string.Equals(arg, "--shield-equipment-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runCombatConsumableSmoke = args?.Any(arg => string.Equals(arg, "--combat-consumable-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runWeaponEnergySmoke = args?.Any(arg => string.Equals(arg, "--weapon-energy-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runThrusterEnergySmoke = args?.Any(arg => string.Equals(arg, "--thruster-energy-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1373,6 +1375,11 @@ namespace Roguelancer {
                 var result = RunWeaponEnergySmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runThrusterEnergySmoke)
+            {
+                var result = RunThrusterEnergySmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runFactionDistressResponseSmoke)
             {
                 var result = RunFactionDistressResponseSmokeTest();
@@ -1561,6 +1568,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("shield equipment smoke", RunShieldEquipmentSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("combat consumable smoke", RunCombatConsumableSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("weapon energy smoke", RunWeaponEnergySmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("thruster energy smoke", RunThrusterEnergySmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1881,6 +1889,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[WEAPON ENERGY SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunThrusterEnergySmokeTest()
+        {
+            try
+            {
+                return new ThrusterEnergySmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[THRUSTER ENERGY SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -4691,7 +4712,7 @@ namespace Roguelancer {
             int screenHeight = GraphicsDevice.Viewport.Height;
 
             // === FREELANCER-STYLE BOTTOM CENTER HUD ===
-            // Three segmented bars: Shields (blue) | Hull (red) | Energy (green)
+            // Four segmented bars: Shields (blue) | Hull (red) | Energy (green) | Thruster (orange)
             int totalBarWidth = 500;
             int barHeight = 16;
             int barSpacing = 4;
@@ -4702,7 +4723,7 @@ namespace Roguelancer {
             // Position: bottom center of screen
             int hudX = (screenWidth - totalBarWidth) / 2;
             int hudBottomMargin = 50;
-            int hudY = screenHeight - hudBottomMargin - (barHeight * 3 + barSpacing * 2 + 60);
+            int hudY = screenHeight - hudBottomMargin - (barHeight * 4 + barSpacing * 3 + 60);
 
             // Background panel
             int panelPadding = 12;
@@ -4710,7 +4731,7 @@ namespace Roguelancer {
                 hudX - panelPadding,
                 hudY - panelPadding,
                 totalBarWidth + panelPadding * 2,
-                barHeight * 3 + barSpacing * 2 + panelPadding * 2 + 70
+                barHeight * 4 + barSpacing * 3 + panelPadding * 2 + 70
             );
             _spriteBatch.Draw(_pixel, panelBg, Color.Black * 0.75f);
 
@@ -4756,8 +4777,20 @@ namespace Roguelancer {
                     new Vector2(hudX + totalBarWidth + 10, energyBarY - 2), energyColor);
             }
 
+            // --- THRUSTER BAR (Orange) ---
+            int thrusterBarY = energyBarY + barHeight + barSpacing;
+            float thrusterPercent = _playerShip.ThrusterEnergy?.EnergyPercentage ?? 0f;
+            Color thrusterColor = new Color(255, 150, 45);
+            Color thrusterDim = new Color(80, 40, 10);
+            DrawSegmentedBar(hudX, thrusterBarY, totalBarWidth, barHeight, segmentCount, segmentGap, segmentWidth, thrusterPercent, thrusterColor, thrusterDim);
+
+            if (_font != null) {
+                _spriteBatch.DrawString(_font, _playerShip.ThrusterEnergy?.GetHudText() ?? "THRUSTER 0/0",
+                    new Vector2(hudX + totalBarWidth + 10, thrusterBarY - 2), thrusterColor);
+            }
+
             // --- STATUS TEXT below bars ---
-            int statusY = energyBarY + barHeight + 8;
+            int statusY = thrusterBarY + barHeight + 8;
             if (_font != null) {
                 // Speed & throttle
                 string speedText = $"SPD: {Math.Abs(_playerShip.Speed):F0}  THR: {_playerShip.GetThrottle() * 100:F0}%";

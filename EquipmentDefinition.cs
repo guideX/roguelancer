@@ -68,6 +68,28 @@ namespace Roguelancer
         High
     }
 
+    /// <summary>
+    /// Authored thruster family metadata used by deterministic NPC loadout
+    /// policy. Runtime charge belongs to ThrusterEnergy, not this definition.
+    /// </summary>
+    public enum ThrusterFamily
+    {
+        Civilian,
+        Liberty,
+        Rogue,
+        Professional
+    }
+
+    /// <summary>
+    /// Bounded progression bands for canonical thruster selection.
+    /// </summary>
+    public enum ThrusterProgressionTier
+    {
+        Low,
+        Standard,
+        High
+    }
+
     public enum CombatConsumableType
     {
         None,
@@ -361,6 +383,40 @@ namespace Roguelancer
 
         private static bool IsFinitePositive(float value) =>
             !float.IsNaN(value) && !float.IsInfinity(value) && value > 0f;
+    }
+
+    /// <summary>
+    /// Canonical afterburner/thruster metadata. Per-ship charge is deliberately
+    /// kept in ThrusterEnergy so catalog definitions remain immutable data.
+    /// </summary>
+    public sealed class ThrusterEquipmentDefinition : EquipmentDefinition
+    {
+        public ThrusterFamily Family { get; set; } = ThrusterFamily.Civilian;
+        public ThrusterProgressionTier ProgressionTier { get; set; } = ThrusterProgressionTier.Low;
+        public float EnergyCapacity { get; set; }
+        public float EnergyRegenerationRate { get; set; }
+        public float AfterburnDrainRate { get; set; }
+        public float AfterburnSpeedMultiplier { get; set; } = 2f;
+
+        public bool IsValid => EquipmentType == EquipmentType.Thruster &&
+            Price > 0 &&
+            IsFinitePositive(EnergyCapacity) &&
+            IsFinitePositive(EnergyRegenerationRate) &&
+            IsFinitePositive(AfterburnDrainRate) &&
+            IsFiniteBoundedPositive(AfterburnSpeedMultiplier, 1f, 3f) &&
+            Enum.IsDefined(typeof(ThrusterFamily), Family) &&
+            Enum.IsDefined(typeof(ThrusterProgressionTier), ProgressionTier);
+
+        public override string GetStatsSummary()
+        {
+            return $"{base.GetStatsSummary()} | {Family} {ProgressionTier} | CAP {EnergyCapacity:F0} | REGEN {EnergyRegenerationRate:F1}/s | DRAIN {AfterburnDrainRate:F1}/s | BOOST {AfterburnSpeedMultiplier:F2}x";
+        }
+
+        private static bool IsFinitePositive(float value) =>
+            !float.IsNaN(value) && !float.IsInfinity(value) && value > 0f;
+
+        private static bool IsFiniteBoundedPositive(float value, float minimum, float maximum) =>
+            IsFinitePositive(value) && value >= minimum && value <= maximum;
     }
 
     /// <summary>

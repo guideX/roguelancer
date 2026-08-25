@@ -103,6 +103,9 @@ namespace Roguelancer
                 (equipment.EquipmentType == EquipmentType.ShieldGenerator &&
                  equipment is not ShieldEquipmentDefinition) ||
                 (equipment is ShieldEquipmentDefinition shield && !shield.IsValid) ||
+                (equipment.EquipmentType == EquipmentType.Thruster &&
+                 equipment is not ThrusterEquipmentDefinition) ||
+                (equipment is ThrusterEquipmentDefinition thruster && !thruster.IsValid) ||
                 lifetimeSeconds <= 0f || pickupRadius <= 0f)
             {
                 return false;

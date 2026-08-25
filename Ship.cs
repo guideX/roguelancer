@@ -33,9 +33,11 @@ namespace Roguelancer
         // Energy system
         public ShipEnergy Energy { get; private set; }
 
-        // Weapon energy is a separate combat resource. Energy remains the
-        // legacy movement/afterburner pool and is intentionally not shared.
+        // Weapon and thruster energy are separate combat resources. Energy is
+        // retained as a legacy general ship-system pool for compatibility but
+        // afterburning no longer consumes it.
         public WeaponEnergy WeaponEnergy { get; private set; }
+        public ThrusterEnergy ThrusterEnergy { get; private set; }
         
         // Shield system
         public ShieldSystem Shields { get; private set; }
@@ -63,9 +65,6 @@ namespace Roguelancer
         public bool EnginesKilled { get; set; }
         public bool AfterburnerJustActivated { get; private set; }
         public bool IsFreeFlightMode => _isFreeFlightMode;
-        
-        // Afterburner energy cost
-        private const float AfterburnerEnergyDrainPerSecond = 40f; // Energy consumed per second while afterburner is active
         
         // Cruise charge system
         public bool IsCruiseCharging { get; set; }
@@ -167,6 +166,7 @@ namespace Roguelancer
             Hull = new HullIntegrity(100f);
             Hull.OnDestroyed += () =>
             {
+                IsAfterburnerActive = false;
                 Console.WriteLine("💀 PLAYER SHIP DESTROYED!");
                 _notificationManager?.ShowMessage("SHIP DESTROYED", 5f);
                 // Trigger player ship explosion
@@ -181,6 +181,7 @@ namespace Roguelancer
             InitializeShields();
             RefreshShieldFromLoadout();
             RefreshWeaponEnergyFromLoadout();
+            RefreshThrusterFromLoadout();
         }
 
         public void SetNotificationManager(NotificationManager manager)
@@ -248,6 +249,22 @@ namespace Roguelancer
             PowerplantEquipmentDefinition powerplant = Loadout?.GetMountedPowerplant();
             WeaponEnergy = new WeaponEnergy();
             WeaponEnergy.Configure(powerplant, restoreFull);
+        }
+
+        /// <summary>
+        /// Rebinds the dedicated thruster-energy runtime from the one mounted
+        /// canonical thruster. A newly mounted thruster starts full; an
+        /// unmounted or invalid thruster has no usable afterburn energy.
+        /// </summary>
+        public void RefreshThrusterFromLoadout(bool restoreFull = true)
+        {
+            ThrusterEquipmentDefinition thruster = Loadout?.GetMountedThruster();
+            ThrusterEnergy = new ThrusterEnergy();
+            ThrusterEnergy.Configure(thruster, restoreFull);
+            if (!ThrusterEnergy.HasMountedThruster)
+            {
+                IsAfterburnerActive = false;
+            }
         }
 
         /// <summary>
@@ -527,8 +544,8 @@ namespace Roguelancer
             
             if (tabJustPressed && !IsAfterburnerActive)
             {
-                // Only activate if we have energy and are not in depletion cooldown
-                if (Energy != null && !Energy.IsDepleted && Energy.CurrentEnergy > 0f)
+                // Afterburn is available only from the mounted thruster pool.
+                if (!EnginesKilled && ThrusterEnergy?.CanAfterburn(Hull?.IsDestroyed != true) == true)
                 {
                     IsAfterburnerActive = true;
                     IsCruiseActive = false;
@@ -538,7 +555,7 @@ namespace Roguelancer
                 }
                 else
                 {
-                    _notificationManager?.ShowMessage("Afterburner Unavailable - No Energy");
+                    _notificationManager?.ShowMessage("Afterburner Unavailable - No Thruster Energy");
                 }
             }
             else if (tabJustReleased && IsAfterburnerActive)
@@ -548,18 +565,6 @@ namespace Roguelancer
                 _notificationManager?.ShowMessage("Afterburner Disengaged");
             }
             
-            // Consume energy while afterburner is active
-            if (IsAfterburnerActive && Energy != null)
-            {
-                float energyCost = AfterburnerEnergyDrainPerSecond * deltaTime;
-                if (!Energy.TryConsume(energyCost))
-                {
-                    // Out of energy — force deactivate
-                    IsAfterburnerActive = false;
-                    _notificationManager?.ShowMessage("Afterburner Cut Out - Energy Depleted");
-                }
-            }
-
             if (cruiseKeyPressed && (_previousKeyboardState.IsKeyUp(Keys.W) || _previousKeyboardState.IsKeyUp(Keys.LeftShift)))
             {
                 if (!IsCruiseActive && !IsCruiseCharging)
@@ -576,6 +581,23 @@ namespace Roguelancer
                     _cruiseChargeTimer = 0f;
                     _notificationManager?.ShowMessage("Cruise Deactivated");
                 }
+            }
+
+            // Advance the authoritative thruster pool only after all held
+            // state transitions above have been resolved. Ordinary movement
+            // never reaches this path as an energy consumer.
+            if (EnginesKilled)
+            {
+                IsAfterburnerActive = false;
+            }
+            bool thrusterAfterburning = ThrusterEnergy?.Advance(
+                gameTime,
+                IsAfterburnerActive,
+                Hull?.IsDestroyed != true) == true;
+            if (IsAfterburnerActive && !thrusterAfterburning)
+            {
+                IsAfterburnerActive = false;
+                _notificationManager?.ShowMessage("Afterburner Cut Out - Thruster Energy Depleted");
             }
 
             AfterburnerJustActivated = IsAfterburnerActive && !wasAfterburnerActive;
@@ -677,7 +699,9 @@ namespace Roguelancer
                 {
                     if (_throttle >= 0)
                     {
-                        _targetSpeed = IsAfterburnerActive ? AfterburnerSpeed : MaxSpeed * _throttle;
+                        _targetSpeed = IsAfterburnerActive
+                            ? AfterburnerSpeed * MathHelper.Clamp((ThrusterEnergy?.AfterburnSpeedMultiplier ?? 2f) / 2f, 0.5f, 1.5f)
+                            : MaxSpeed * _throttle;
                     }
                     else
                     {
@@ -1225,6 +1249,7 @@ namespace Roguelancer
             _previousKeyboardState = Keyboard.GetState();
             Shields?.FullRestore();
             WeaponEnergy?.FullRestore();
+            ThrusterEnergy?.FullRestore();
         }
 
         /// <summary>
@@ -1255,6 +1280,7 @@ namespace Roguelancer
             Loadout = loadout ?? ShipLoadout.CreateStarterLoadout();
             RefreshShieldFromLoadout();
             RefreshWeaponEnergyFromLoadout();
+            RefreshThrusterFromLoadout();
         }
 
         /// <summary>
@@ -1276,6 +1302,7 @@ namespace Roguelancer
                 Loadout = target == null ? ShipLoadout.CreateStarterLoadout(false) : new ShipLoadout(target);
                 RefreshShieldFromLoadout();
                 RefreshWeaponEnergyFromLoadout();
+                RefreshThrusterFromLoadout();
                 LastHardpointReconfigurationWarnings = Array.Empty<string>();
                 return;
             }
@@ -1283,6 +1310,7 @@ namespace Roguelancer
             Loadout = Loadout.ReconfigureHardpoints(target, out List<string> warnings);
             RefreshShieldFromLoadout();
             RefreshWeaponEnergyFromLoadout();
+            RefreshThrusterFromLoadout();
             LastHardpointReconfigurationWarnings = warnings;
             foreach (string warning in warnings)
             {
@@ -1318,6 +1346,11 @@ namespace Roguelancer
         public PowerplantEquipmentDefinition GetMountedPowerplant()
         {
             return Loadout?.GetMountedPowerplant();
+        }
+
+        public ThrusterEquipmentDefinition GetMountedThruster()
+        {
+            return Loadout?.GetMountedThruster();
         }
 
         public IEnumerable<EquipmentDefinition> GetMountedMissileLaunchers()

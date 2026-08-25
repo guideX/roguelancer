@@ -319,6 +319,7 @@ namespace Roguelancer
             {
                 playerShip?.RefreshShieldFromLoadout();
                 playerShip?.RefreshWeaponEnergyFromLoadout();
+                playerShip?.RefreshThrusterFromLoadout();
             }
 
             return success;
@@ -352,6 +353,7 @@ namespace Roguelancer
             {
                 playerShip?.RefreshShieldFromLoadout();
                 playerShip?.RefreshWeaponEnergyFromLoadout();
+                playerShip?.RefreshThrusterFromLoadout();
             }
 
             return success;

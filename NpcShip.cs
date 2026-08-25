@@ -215,6 +215,8 @@ namespace Roguelancer
         // Weapon energy is independent from the player's movement energy and
         // is bound to the NPC's canonical mounted powerplant.
         public WeaponEnergy WeaponEnergy { get; private set; }
+        public ThrusterEnergy ThrusterEnergy { get; private set; }
+        public bool IsAfterburnerActive { get; private set; }
         
         // Event to signal when the ship is destroyed
         public event Action<NpcShip> OnDestroyed;
@@ -252,6 +254,7 @@ namespace Roguelancer
             Hull = new HullIntegrity(75f); // NPCs start with 75 hull points
             Hull.OnDestroyed += () =>
             {
+                IsAfterburnerActive = false;
                 WasAliveImmediatelyBeforeDestruction = true;
                 DestructionSource = _pendingDestructionSource;
                 Console.WriteLine($"NPC SHIP '{Name}' DESTROYED!");
@@ -332,6 +335,7 @@ namespace Roguelancer
             CombatConsumableCooldownRemaining = 0f;
             RefreshShieldFromLoadout();
             RefreshWeaponEnergyFromLoadout();
+            RefreshThrusterFromLoadout();
         }
 
         internal void StartCombatConsumableCooldown(float seconds)
@@ -359,6 +363,14 @@ namespace Roguelancer
             PowerplantEquipmentDefinition powerplant = Loadout?.GetMountedPowerplant();
             WeaponEnergy = new WeaponEnergy();
             WeaponEnergy.Configure(powerplant, restoreFull: true);
+        }
+
+        public void RefreshThrusterFromLoadout()
+        {
+            ThrusterEquipmentDefinition thruster = Loadout?.GetMountedThruster();
+            ThrusterEnergy = new ThrusterEnergy();
+            ThrusterEnergy.Configure(thruster, restoreFull: true);
+            IsAfterburnerActive = false;
         }
 
         public void SetEncounterState(
@@ -451,6 +463,7 @@ namespace Roguelancer
 
         public void ClearEncounterState()
         {
+            IsAfterburnerActive = false;
             EncounterState = TrafficEncounterState.Cruising;
             EncounterTargetPosition = null;
             EncounterEscapePosition = null;
@@ -486,7 +499,12 @@ namespace Roguelancer
         
         public void Update(GameTime gameTime, DamageSmokeParticles damageSmoke, Ship playerShip = null, ReputationManager reputationManager = null)
         {
-            if (IsDestroyed) return; // Don't update if destroyed
+            if (IsDestroyed)
+            {
+                IsAfterburnerActive = false;
+                ThrusterEnergy?.Advance(gameTime, afterburnRequested: false, shipAlive: false);
+                return;
+            }
 
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
@@ -655,6 +673,8 @@ namespace Roguelancer
                     _trafficRouteTowardEnd = !_trafficRouteTowardEnd;
                     _trafficRouteHoldTimer = 0f;
                 }
+                IsAfterburnerActive = false;
+                ThrusterEnergy?.Advance(deltaTime, afterburnRequested: false, shipAlive: true);
             }
             else
             {
@@ -785,6 +805,20 @@ namespace Roguelancer
         {
             Vector3 toTarget = targetPosition - Position;
             float distanceToTarget = toTarget.Length();
+            bool shouldAfterburn = ShouldUseAfterburner(distanceToTarget);
+            IsAfterburnerActive = ThrusterEnergy?.Advance(
+                deltaTime,
+                afterburnRequested: shouldAfterburn,
+                shipAlive: !IsDestroyed) == true;
+
+            float commandedSpeed = cruiseSpeed;
+            if (IsAfterburnerActive)
+            {
+                commandedSpeed *= MathHelper.Clamp(
+                    ThrusterEnergy.AfterburnSpeedMultiplier,
+                    1f,
+                    3f);
+            }
 
             if (distanceToTarget > 1f)
             {
@@ -805,7 +839,7 @@ namespace Roguelancer
                     _rotation.Normalize();
                 }
 
-                Speed = MathHelper.Lerp(Speed, Math.Min(distanceToTarget * 20f, cruiseSpeed), deltaTime * 2f);
+                Speed = MathHelper.Lerp(Speed, Math.Min(distanceToTarget * 20f, commandedSpeed), deltaTime * 2f);
             }
             else
             {
@@ -815,5 +849,34 @@ namespace Roguelancer
             Velocity = Forward * Speed;
             Position += Velocity * deltaTime;
         }
+
+        private bool ShouldUseAfterburner(float distanceToTarget)
+        {
+            if (!IsFinitePositive(distanceToTarget) || !IsFinitePositive(TrafficCruiseSpeed))
+            {
+                return false;
+            }
+
+            if (EncounterState == TrafficEncounterState.Fleeing)
+            {
+                return distanceToTarget > 300f;
+            }
+
+            bool engaged = EncounterState == TrafficEncounterState.AttackingTrader ||
+                           EncounterState == TrafficEncounterState.AttackingPlayer ||
+                           EncounterState == TrafficEncounterState.InterceptingPirate ||
+                           EncounterState == TrafficEncounterState.AttackingFactionNpc;
+            if (!engaged)
+            {
+                return false;
+            }
+
+            float weaponRange = NpcEquipmentLoadoutFactory.GetFiringRange(Loadout);
+            float activationDistance = Math.Max(1000f, weaponRange * 1.35f);
+            return distanceToTarget > activationDistance;
+        }
+
+        private static bool IsFinitePositive(float value) =>
+            !float.IsNaN(value) && !float.IsInfinity(value) && value > 0f;
     }
 }

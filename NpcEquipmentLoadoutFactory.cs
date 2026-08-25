@@ -147,9 +147,12 @@ namespace Roguelancer
             bool heavy = IsHeavy(archetypeName, modelPath);
             string identity = BuildIdentity(archetypeName, factionId, modelPath, combatRole, tier);
 
-            // Every normal NPC receives one deterministic plant before its
-            // weapons are selected, so the mounted guns and energy budget are
-            // authored as one coherent loadout snapshot.
+            // Every normal NPC receives one deterministic thruster and plant
+            // before its weapons are selected, so movement and weapon budgets
+            // are authored as one coherent loadout snapshot.
+            ThrusterEquipmentDefinition thruster = SelectThruster(profile, tier, heavy, combatRole);
+            TryAddAndMountThruster(loadout, thruster);
+
             PowerplantEquipmentDefinition powerplant = SelectPowerplant(profile, tier, heavy, combatRole);
             TryAddAndMountPowerplant(loadout, powerplant);
 
@@ -262,6 +265,18 @@ namespace Roguelancer
         {
             return equipment is PowerplantEquipmentDefinition powerplant && powerplant.IsValid &&
                    EquipmentCatalog.GetById(powerplant.Id) == powerplant;
+        }
+
+        public static bool IsValidNpcThruster(EquipmentDefinition equipment)
+        {
+            return equipment is ThrusterEquipmentDefinition thruster && thruster.IsValid &&
+                   EquipmentCatalog.GetById(thruster.Id) == thruster;
+        }
+
+        public static ThrusterEquipmentDefinition GetNpcThruster(ShipLoadout loadout)
+        {
+            ThrusterEquipmentDefinition thruster = loadout?.GetMountedThruster();
+            return IsValidNpcThruster(thruster) ? thruster : null;
         }
 
         public static PowerplantEquipmentDefinition GetNpcPowerplant(ShipLoadout loadout)
@@ -480,6 +495,72 @@ namespace Roguelancer
 
             return EquipmentCatalog.GetById(id) as PowerplantEquipmentDefinition ??
                    EquipmentCatalog.GetFallbackForType(EquipmentType.Powerplant) as PowerplantEquipmentDefinition;
+        }
+
+        private static ThrusterEquipmentDefinition SelectThruster(
+            NpcLoadoutPolicyProfile profile,
+            NpcLoadoutTier tier,
+            bool heavy,
+            TrafficZoneBehaviorType combatRole)
+        {
+            string factionId = FactionManager.NormalizeFactionId(profile?.FactionId);
+            bool supportRole = combatRole == TrafficZoneBehaviorType.TraderRoute ||
+                               combatRole == TrafficZoneBehaviorType.StationTraffic;
+
+            string id;
+            if (profile?.IsCivilian == true || supportRole && string.Equals(factionId, FactionManager.NeutralCivilians, StringComparison.OrdinalIgnoreCase))
+            {
+                id = "civilian_thruster";
+            }
+            else if (string.Equals(factionId, FactionManager.LibertyPolice, StringComparison.OrdinalIgnoreCase))
+            {
+                id = tier == NpcLoadoutTier.High || heavy
+                    ? "liberty_heavy_thruster"
+                    : "liberty_patrol_thruster";
+            }
+            else if (string.Equals(factionId, FactionManager.LibertyNavy, StringComparison.OrdinalIgnoreCase))
+            {
+                id = tier == NpcLoadoutTier.High || heavy
+                    ? "liberty_heavy_thruster"
+                    : "liberty_military_thruster";
+            }
+            else if (string.Equals(factionId, FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(factionId, FactionManager.Junkers, StringComparison.OrdinalIgnoreCase))
+            {
+                id = tier == NpcLoadoutTier.Low && !heavy
+                    ? "rogue_scrap_thruster"
+                    : "rogue_combat_thruster";
+            }
+            else if (string.Equals(factionId, FactionManager.LibertyCorporations, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(factionId, FactionManager.BountyHunters, StringComparison.OrdinalIgnoreCase))
+            {
+                id = tier == NpcLoadoutTier.Low && !heavy
+                    ? "liberty_patrol_thruster"
+                    : "professional_thruster";
+            }
+            else
+            {
+                id = "civilian_thruster";
+            }
+
+            return EquipmentCatalog.GetById(id) as ThrusterEquipmentDefinition ??
+                   EquipmentCatalog.GetFallbackForType(EquipmentType.Thruster) as ThrusterEquipmentDefinition;
+        }
+
+        private static bool TryAddAndMountThruster(ShipLoadout loadout, ThrusterEquipmentDefinition thruster)
+        {
+            if (!IsValidNpcThruster(thruster) || !loadout.AddOwnedEquipment(thruster, 1))
+            {
+                return false;
+            }
+
+            if (loadout.TryMountEquipment(thruster, out _))
+            {
+                return true;
+            }
+
+            loadout.RemoveOwnedEquipment(thruster.Id, 1);
+            return false;
         }
 
         private static bool TryAddAndMountPowerplant(ShipLoadout loadout, PowerplantEquipmentDefinition powerplant)

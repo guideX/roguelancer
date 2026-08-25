@@ -241,6 +241,29 @@ namespace Roguelancer
                 }
             }
 
+            // Phase 45 keeps schema 10. Thruster ownership and mounting are
+            // already represented by the catalog-backed equipment lists, so
+            // schema-10 saves from before this feature simply have no
+            // thruster entries. Preserve any valid owned thruster first;
+            // otherwise add exactly one deterministic civilian fallback.
+            if (loadout.GetMountedThruster() == null)
+            {
+                ThrusterEquipmentDefinition existing = loadout.OwnedEquipment.Keys
+                    .Select(id => EquipmentCatalog.GetById(id))
+                    .OfType<ThrusterEquipmentDefinition>()
+                    .Where(thruster => thruster.IsValid)
+                    .OrderBy(thruster => thruster.Id, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
+                ThrusterEquipmentDefinition starter = existing ??
+                    EquipmentCatalog.GetById("civilian_thruster") as ThrusterEquipmentDefinition ??
+                    EquipmentCatalog.GetFallbackForType(EquipmentType.Thruster) as ThrusterEquipmentDefinition;
+                if (starter != null && (existing != null || loadout.AddOwnedEquipment(starter, 1)) &&
+                    !loadout.TryMountEquipment(starter, out string thrusterMessage))
+                {
+                    warnings.Add(thrusterMessage);
+                }
+            }
+
             return loadout;
         }
 

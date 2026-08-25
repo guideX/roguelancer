@@ -67,9 +67,9 @@ internal sealed class EquipmentDealerSmokeTest
     private (bool Success, string FailureReason) ValidateDealerInventory()
     {
         IReadOnlyList<EquipmentDefinition> inventory = _equipmentDealer.AvailableEquipment;
-        if (inventory.Count != 28)
+        if (inventory.Count != 35)
         {
-            return Fail($"expected twenty-eight bounded dealer items, found {inventory.Count}");
+            return Fail($"expected thirty-five bounded dealer items, found {inventory.Count}");
         }
 
         if (inventory.Any(equipment => equipment == null || string.IsNullOrWhiteSpace(equipment.Id) || equipment.Price <= 0))
@@ -105,6 +105,13 @@ internal sealed class EquipmentDealerSmokeTest
             "rogue_scrap_powerplant",
             "rogue_combat_powerplant",
             "professional_powerplant",
+            "civilian_thruster",
+            "liberty_patrol_thruster",
+            "liberty_military_thruster",
+            "liberty_heavy_thruster",
+            "rogue_scrap_thruster",
+            "rogue_combat_thruster",
+            "professional_thruster",
             CombatConsumableIds.Nanobots,
             CombatConsumableIds.ShieldBatteries
         };
