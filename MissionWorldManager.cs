@@ -20,6 +20,11 @@ namespace Roguelancer
         public NpcShip EscortTarget { get; set; }
         public Station EscortDestination { get; set; }
         public TradeLane TargetTradeLane { get; set; }
+        // Transient encounter binding is deliberately not serialized. A
+        // restored active defense mission starts unbound and reconstructs its
+        // Rogue group once; a live encounter that has been defeated must not
+        // be mistaken for that load/rebind case.
+        public bool TradeLaneDefenseEncounterBound { get; set; }
         public bool EscortUnderAttackLogged { get; set; }
     }
 
@@ -36,6 +41,7 @@ namespace Roguelancer
         private readonly MarketIntelligence _marketIntelligence;
         private readonly Func<IReadOnlyList<TradeLane>> _tradeLaneProvider;
         private readonly Action<Vector3, MissionDifficulty, string> _securityResponseCallback;
+        private readonly Action<NpcShip> _retiredNpcCallback;
         private readonly Dictionary<int, MissionRuntimeState> _runtimeStates = new();
 
         public MissionWorldManager(
@@ -49,7 +55,8 @@ namespace Roguelancer
             MarketManager marketManager = null,
             MarketIntelligence marketIntelligence = null,
             Func<IReadOnlyList<TradeLane>> tradeLaneProvider = null,
-            Action<Vector3, MissionDifficulty, string> securityResponseCallback = null)
+            Action<Vector3, MissionDifficulty, string> securityResponseCallback = null,
+            Action<NpcShip> retiredNpcCallback = null)
         {
             _missionManager = missionManager;
             _waypointSystem = waypointSystem;
@@ -62,6 +69,7 @@ namespace Roguelancer
             _marketIntelligence = marketIntelligence;
             _tradeLaneProvider = tradeLaneProvider ?? (() => Array.Empty<TradeLane>());
             _securityResponseCallback = securityResponseCallback;
+            _retiredNpcCallback = retiredNpcCallback;
         }
 
         public bool TryAcceptMission(Mission mission, out string failureReason)
@@ -96,6 +104,8 @@ namespace Roguelancer
                     return TryBindEscortMission(state, out failureReason);
                 case MissionType.TradeLaneDisruption:
                     return TryBindTradeLaneDisruptionMission(state, out failureReason);
+                case MissionType.TradeLaneDefense:
+                    return TryBindTradeLaneDefenseMission(state, out failureReason);
                 default:
                     failureReason = "unsupported mission type";
                     return false;
@@ -122,6 +132,8 @@ namespace Roguelancer
 
         public void ClearState()
         {
+            foreach (MissionRuntimeState state in _runtimeStates.Values.ToList())
+                CleanupMissionTransientNpcs(state);
             _runtimeStates.Clear();
         }
 
@@ -277,6 +289,10 @@ namespace Roguelancer
             {
                 TryBindTradeLaneDisruptionMission(state, out _);
             }
+            else if (mission.Type == MissionType.TradeLaneDefense)
+            {
+                TryBindTradeLaneDefenseMission(state, out _);
+            }
         }
 
         public void OnMissionFinished(Mission mission)
@@ -286,6 +302,8 @@ namespace Roguelancer
                 return;
             }
 
+            if (_runtimeStates.TryGetValue(mission.Id, out MissionRuntimeState state))
+                CleanupMissionTransientNpcs(state);
             _runtimeStates.Remove(mission.Id);
         }
 
@@ -317,6 +335,18 @@ namespace Roguelancer
                             mission,
                             "mission target was destroyed without player attribution");
                     }
+                    return;
+                }
+
+                if (mission.Type == MissionType.TradeLaneDefense &&
+                    state.MissionHostiles.Contains(destroyedShip))
+                {
+                    // Keep destroyed mission ships in the bounded ownership
+                    // set until the mission finishes. The game-level
+                    // destruction callback removes them from targetable
+                    // systems, while retaining ownership here lets the
+                    // completion cleanup remove every transient reference.
+                    UpdateDefenseAttackerCount(state);
                     return;
                 }
 
@@ -475,6 +505,38 @@ namespace Roguelancer
                 if (mission == null || mission.Status != MissionStatus.Active)
                 {
                     continue;
+                }
+
+                if (mission.Type == MissionType.TradeLaneDefense)
+                {
+                    bool correctSystem = mission.TargetSystemIndex <= 0 ||
+                        currentSystemIndex <= 0 ||
+                        mission.TargetSystemIndex == currentSystemIndex;
+                    if (!correctSystem)
+                        break;
+
+                    if (!TryBindTradeLaneDefenseMission(state, out string defenseBindFailure))
+                    {
+                        pendingFailureMission = mission;
+                        pendingFailure = defenseBindFailure;
+                        break;
+                    }
+
+                    UpdateTradeLaneDefenseMission(
+                        state,
+                        TradeLaneStateSanitizer.Elapsed(deltaTime),
+                        out bool defenseComplete,
+                        out string defenseFailure);
+                    if (!string.IsNullOrWhiteSpace(defenseFailure))
+                    {
+                        pendingFailureMission = mission;
+                        pendingFailure = defenseFailure;
+                    }
+                    else if (defenseComplete)
+                    {
+                        pendingCompletion = mission;
+                    }
+                    break;
                 }
 
                 if (mission.Type == MissionType.TradeLaneDisruption)
@@ -737,6 +799,355 @@ namespace Roguelancer
             mission.TargetSpaceObject = targetRing;
             mission.TargetLocation = lane.Config?.Name ?? lane.LaneId;
             return true;
+        }
+
+        private bool TryBindTradeLaneDefenseMission(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            if (mission == null)
+            {
+                failureReason = "mission was null";
+                return false;
+            }
+
+            if (mission.Type != MissionType.TradeLaneDefense ||
+                !string.Equals(
+                    FactionManager.NormalizeFactionId(mission.FactionId),
+                    FactionManager.LibertyPolice,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                failureReason = "trade-lane defense mission faction is invalid";
+                return false;
+            }
+
+            TradeLane lane = GetTradeLanes().FirstOrDefault(candidate =>
+                string.Equals(candidate.LaneId, mission.TargetLaneId, StringComparison.OrdinalIgnoreCase));
+            if (lane == null)
+            {
+                failureReason = "target trade lane is unavailable in this system";
+                return false;
+            }
+
+            if (mission.TargetRingIndex <= 0 ||
+                mission.TargetRingIndex >= lane.ForwardRings.Count - 1 ||
+                mission.TargetRingIndex >= lane.ReverseRings.Count ||
+                !string.Equals(
+                    mission.TargetSegmentId,
+                    $"{lane.LaneId}:ring:{mission.TargetRingIndex}",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                failureReason = "target trade-lane segment identity is invalid";
+                return false;
+            }
+
+            if (mission.TargetSystemIndex > 0 && lane.Config?.SystemIndex > 0 &&
+                mission.TargetSystemIndex != lane.Config.SystemIndex)
+            {
+                failureReason = "target trade lane belongs to another system";
+                return false;
+            }
+
+            TradelaneRing targetRing = lane.ForwardRings[mission.TargetRingIndex];
+            if (targetRing == null || !TradeLaneStateSanitizer.IsFinite(targetRing.Position))
+            {
+                failureReason = "target trade-lane ring position is invalid";
+                return false;
+            }
+
+            state.TargetTradeLane = lane;
+            mission.TargetPosition = targetRing.Position;
+            mission.TargetSpaceObject = targetRing;
+            mission.TargetLocation = lane.Config?.Name ?? lane.LaneId;
+            mission.DefenseAttackForceSize = mission.DefenseAttackForceSize > 0
+                ? Math.Clamp(mission.DefenseAttackForceSize, 2, 4)
+                : Math.Clamp(mission.TargetCount > 0 ? mission.TargetCount : GetTradeLaneDefenseAttackForceSize(mission.Difficulty), 2, 4);
+            mission.TargetCount = mission.DefenseAttackForceSize;
+            mission.RequiredProgress = mission.DefenseAttackForceSize;
+            mission.DefenseActivationRadius = mission.DefenseActivationRadius > 0f
+                ? Math.Clamp(mission.DefenseActivationRadius, 250f, 5000f)
+                : 1200f;
+            mission.DefenseFailureHoldSeconds = mission.DefenseFailureHoldSeconds > 0f
+                ? Math.Clamp(mission.DefenseFailureHoldSeconds, 1f, 30f)
+                : GetTradeLaneDefenseHoldSeconds(lane);
+            if (!Enum.IsDefined(typeof(TradeLaneDefenseStage), mission.DefenseStage))
+                mission.DefenseStage = TradeLaneDefenseStage.EnRoute;
+
+            if ((mission.DefenseStage == TradeLaneDefenseStage.AttackActive ||
+                 mission.DefenseStage == TradeLaneDefenseStage.AwaitingRecovery) &&
+                state.MissionHostiles.Count == 0 &&
+                !state.TradeLaneDefenseEncounterBound)
+            {
+                if (!SpawnTradeLaneDefenseAttackers(state, out failureReason))
+                    return false;
+            }
+
+            UpdateDefenseAttackerCount(state);
+            return true;
+        }
+
+        private void UpdateTradeLaneDefenseMission(
+            MissionRuntimeState state,
+            float deltaTime,
+            out bool complete,
+            out string failureReason)
+        {
+            complete = false;
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            TradeLane lane = state?.TargetTradeLane;
+            if (mission == null || lane == null || _playerShip == null)
+            {
+                failureReason = "defense encounter binding became invalid";
+                return;
+            }
+
+            UpdateDefenseAttackerCount(state);
+            if (mission.DefenseStage == TradeLaneDefenseStage.EnRoute)
+            {
+                bool inDefenseArea = mission.TargetPosition.HasValue &&
+                    Vector3.Distance(_playerShip.Position, mission.TargetPosition.Value) <= mission.DefenseActivationRadius;
+                if (!inDefenseArea)
+                    return;
+
+                // A stale/pre-existing disruption is not a hostile mission
+                // failure. Wait for the shared lane to be operational before
+                // the defense encounter officially begins.
+                if (lane.GetDisruptionState(mission.TargetRingIndex) != TradeLaneDisruptionState.Operational)
+                    return;
+
+                if (!SpawnTradeLaneDefenseAttackers(state, out failureReason))
+                    return;
+            }
+
+            if (mission.DefenseStage != TradeLaneDefenseStage.AttackActive &&
+                mission.DefenseStage != TradeLaneDefenseStage.AwaitingRecovery)
+            {
+                return;
+            }
+
+            UpdateDefenseAttackerCount(state);
+            lane.TryGetDisruptionInfo(mission.TargetRingIndex, out TradeLaneDisruptionInfo disruption);
+            bool hostileMissionDisruption = IsMissionDefenseDisruption(state, disruption);
+            bool genuinelyDisrupted = disruption != null &&
+                disruption.State == TradeLaneDisruptionState.Disrupted &&
+                hostileMissionDisruption;
+
+            if (genuinelyDisrupted)
+            {
+                mission.DefenseStage = TradeLaneDefenseStage.AwaitingRecovery;
+                mission.DefenseFailureHoldProgressSeconds = Math.Min(
+                    mission.DefenseFailureHoldSeconds,
+                    mission.DefenseFailureHoldProgressSeconds + deltaTime);
+                if (mission.DefenseFailureHoldProgressSeconds >= mission.DefenseFailureHoldSeconds)
+                {
+                    mission.DefenseStage = TradeLaneDefenseStage.Failed;
+                    failureReason = "Liberty Rogues held the trade lane offline";
+                }
+                return;
+            }
+
+            mission.DefenseFailureHoldProgressSeconds = 0f;
+            if (disruption == null || disruption.State != TradeLaneDisruptionState.Disrupted)
+                mission.DefenseStage = TradeLaneDefenseStage.AttackActive;
+
+            if (mission.DefenseAttackersRemaining <= 0 &&
+                lane.GetDisruptionState(mission.TargetRingIndex) == TradeLaneDisruptionState.Operational)
+            {
+                mission.DefenseStage = TradeLaneDefenseStage.Successful;
+                mission.ObjectiveComplete = true;
+                complete = true;
+            }
+            else if (mission.DefenseAttackersRemaining <= 0)
+            {
+                mission.DefenseStage = TradeLaneDefenseStage.AwaitingRecovery;
+            }
+        }
+
+        private bool SpawnTradeLaneDefenseAttackers(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            if (mission == null || state.TargetTradeLane == null || _playerShip == null)
+            {
+                failureReason = "defense spawn binding is unavailable";
+                return false;
+            }
+
+            if (state.MissionHostiles.Count > 0)
+            {
+                mission.DefenseStage = TradeLaneDefenseStage.AttackActive;
+                mission.DefenseActivationStarted = true;
+                state.TradeLaneDefenseEncounterBound = true;
+                return true;
+            }
+
+            const int maximumMissionNpcPopulation = 64;
+            int requested = Math.Clamp(
+                mission.DefenseAttackForceSize > 0
+                    ? mission.DefenseAttackForceSize
+                    : GetTradeLaneDefenseAttackForceSize(mission.Difficulty),
+                2,
+                4);
+            Vector3 anchor = mission.TargetPosition ?? state.TargetTradeLane.ForwardRings[mission.TargetRingIndex].Position;
+            Vector3[] offsets =
+            {
+                new Vector3(-850f, 120f, 260f),
+                new Vector3(850f, -80f, -220f),
+                new Vector3(-420f, -160f, -760f),
+                new Vector3(470f, 200f, 720f)
+            };
+
+            for (int i = 0; i < requested && _npcShips.Count < maximumMissionNpcPopulation; i++)
+            {
+                Vector3 spawnPosition = anchor + offsets[i];
+                NpcShip attacker = new NpcShip(
+                    $"[MISSION] Trade-Lane Defense Rogue {i + 1}",
+                    spawnPosition,
+                    anchor,
+                    900f,
+                    0f,
+                    FactionManager.LibertyRogues);
+                attacker.ConfigureTrafficBehavior(
+                    TrafficZoneBehaviorType.PirateAmbush,
+                    $"mission-trade-lane-defense-{mission.Id}",
+                    anchor,
+                    1200f,
+                    220f,
+                    12000f);
+                attacker.OnDestroyed += npc => _spawnedNpcDestroyedCallback?.Invoke(npc);
+                attacker.Model = _playerShip.Model;
+                attacker.SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
+                    attacker.Name,
+                    attacker.FactionId,
+                    attacker.ModelPath,
+                    TrafficZoneBehaviorType.PirateAmbush,
+                    MapMissionLoadoutTier(mission.Difficulty)));
+                _npcShips.Add(attacker);
+                _spaceObjects.Add(attacker);
+                state.MissionHostiles.Add(attacker);
+                mission.TargetSpaceObject ??= attacker;
+            }
+
+            UpdateDefenseAttackerCount(state);
+            if (mission.DefenseAttackersRemaining < requested)
+            {
+                int spawned = mission.DefenseAttackersRemaining;
+                CleanupMissionTransientNpcs(state);
+                failureReason = $"the full Rogue defense force could not be spawned ({spawned}/{requested})";
+                return false;
+            }
+
+            mission.DefenseAttackForceSize = requested;
+            mission.TargetCount = requested;
+            mission.RequiredProgress = requested;
+            mission.DefenseStage = TradeLaneDefenseStage.AttackActive;
+            mission.DefenseActivationStarted = true;
+            state.TradeLaneDefenseEncounterBound = true;
+            Console.WriteLine($"[MISSION] Trade-lane defense attack started with {mission.DefenseAttackersRemaining}/{requested} Rogue ships (mission #{mission.Id})");
+            return true;
+        }
+
+        private void UpdateDefenseAttackerCount(MissionRuntimeState state)
+        {
+            if (state?.Mission == null || state.Mission.Type != MissionType.TradeLaneDefense)
+                return;
+
+            state.MissionHostiles.RemoveWhere(attacker =>
+                attacker == null || !_npcShips.Contains(attacker));
+            state.Mission.DefenseAttackersRemaining = state.MissionHostiles.Count(attacker =>
+                attacker != null && !attacker.IsDestroyed && _npcShips.Contains(attacker));
+        }
+
+        private static bool IsMissionDefenseDisruption(
+            MissionRuntimeState state,
+            TradeLaneDisruptionInfo disruption)
+        {
+            return state?.Mission != null && disruption != null &&
+                disruption.Source == TradeLaneDisruptionSource.Npc &&
+                state.MissionHostiles.Any(attacker => attacker != null && !attacker.IsDestroyed &&
+                    string.Equals(attacker.Name, disruption.SourceName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public TradeLaneAttackTarget GetTradeLaneAttackTarget(NpcShip npc)
+        {
+            if (npc == null || npc.IsDestroyed)
+                return null;
+
+            foreach (MissionRuntimeState state in _runtimeStates.Values)
+            {
+                Mission mission = state.Mission;
+                if (mission == null || mission.Status != MissionStatus.Active ||
+                    mission.Type != MissionType.TradeLaneDefense ||
+                    mission.DefenseStage != TradeLaneDefenseStage.AttackActive ||
+                    !state.MissionHostiles.Contains(npc) || state.TargetTradeLane == null ||
+                    mission.TargetRingIndex < 0 || mission.TargetRingIndex >= state.TargetTradeLane.ForwardRings.Count)
+                {
+                    continue;
+                }
+
+                if (mission.TargetPosition.HasValue &&
+                    Vector3.DistanceSquared(npc.Position, mission.TargetPosition.Value) >
+                    mission.DefenseActivationRadius * mission.DefenseActivationRadius * 9f)
+                {
+                    return null;
+                }
+
+                return new TradeLaneAttackTarget
+                {
+                    Lane = state.TargetTradeLane,
+                    RingIndex = mission.TargetRingIndex,
+                    Position = state.TargetTradeLane.ForwardRings[mission.TargetRingIndex].Position,
+                    SourceName = npc.Name ?? string.Empty
+                };
+            }
+
+            return null;
+        }
+
+        public int GetTradeLaneDefenseAttackerCount(Mission mission)
+        {
+            if (mission == null || !_runtimeStates.TryGetValue(mission.Id, out MissionRuntimeState state))
+                return 0;
+            UpdateDefenseAttackerCount(state);
+            return mission.DefenseAttackersRemaining;
+        }
+
+        private void CleanupMissionTransientNpcs(MissionRuntimeState state)
+        {
+            if (state?.Mission == null || state.Mission.Type != MissionType.TradeLaneDefense)
+                return;
+
+            foreach (NpcShip attacker in state.MissionHostiles.ToList())
+            {
+                if (attacker == null)
+                    continue;
+
+                attacker.ClearEncounterState();
+                _npcShips.Remove(attacker);
+                _spaceObjects.Remove(attacker);
+                _retiredNpcCallback?.Invoke(attacker);
+            }
+
+            state.MissionHostiles.Clear();
+            state.TradeLaneDefenseEncounterBound = false;
+            state.Mission.DefenseAttackersRemaining = 0;
+        }
+
+        private static int GetTradeLaneDefenseAttackForceSize(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Medium => 3,
+            MissionDifficulty.Hard => 4,
+            MissionDifficulty.Deadly => 4,
+            _ => 2
+        };
+
+        private static float GetTradeLaneDefenseHoldSeconds(TradeLane lane)
+        {
+            float recovery = TradeLaneStateSanitizer.Positive(
+                lane?.Config?.DisruptionRecoverySeconds ?? 0f,
+                TradeLane.DefaultRecoveryDurationSeconds);
+            return Math.Min(MissionManager.TradeLaneDefenseHoldSeconds, Math.Max(1f, recovery * 0.75f));
         }
 
         private bool TryBindDestroyHostilesMission(MissionRuntimeState state, out string failureReason)

@@ -254,6 +254,7 @@ namespace Roguelancer {
         private readonly bool _runCruiseDriveSmoke;
         private readonly bool _runTradeLaneHardeningSmoke;
         private readonly bool _runTradeLaneDisruptionMissionSmoke;
+        private readonly bool _runTradeLaneDefenseMissionSmoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -360,6 +361,7 @@ namespace Roguelancer {
             _runCruiseDriveSmoke = args?.Any(arg => string.Equals(arg, "--cruise-drive-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTradeLaneHardeningSmoke = args?.Any(arg => string.Equals(arg, "--trade-lane-hardening-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTradeLaneDisruptionMissionSmoke = args?.Any(arg => string.Equals(arg, "--trade-lane-disruption-mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runTradeLaneDefenseMissionSmoke = args?.Any(arg => string.Equals(arg, "--trade-lane-defense-mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1244,8 +1246,15 @@ namespace Roguelancer {
                 _commodityDealer?.MarketManager,
                 _marketIntelligence,
                 () => _tradelaneManager?.GetTradeLanes() ?? new List<TradeLane>(),
-                (position, difficulty, missionId) => _trafficManager?.RequestTradeLaneSecurityResponse(position, difficulty, missionId));
+                (position, difficulty, missionId) => _trafficManager?.RequestTradeLaneSecurityResponse(position, difficulty, missionId),
+                npc =>
+                {
+                    _npcWeaponSystem?.RemoveNpc(npc);
+                    _trafficManager?.NotifyNpcDestroyed(npc);
+                });
             _missionManager?.SetWorldManager(_missionWorldManager);
+            if (_npcWeaponSystem != null)
+                _npcWeaponSystem.TradeLaneTargetResolver = npc => _missionWorldManager?.GetTradeLaneAttackTarget(npc);
             _stationDockUI?.SetMissionWorldManager(_missionWorldManager);
             if (_performanceAutoMission)
             {
@@ -1395,6 +1404,11 @@ namespace Roguelancer {
             else if (_runTradeLaneDisruptionMissionSmoke)
             {
                 var result = RunTradeLaneDisruptionMissionSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runTradeLaneDefenseMissionSmoke)
+            {
+                var result = RunTradeLaneDefenseMissionSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runFactionDistressResponseSmoke)
@@ -1589,6 +1603,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("cruise drive smoke", RunCruiseDriveSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("trade lane hardening smoke", RunTradeLaneHardeningSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("trade-lane disruption mission smoke", RunTradeLaneDisruptionMissionSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("trade-lane defense mission smoke", RunTradeLaneDefenseMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1961,6 +1976,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[TRADE-LANE DISRUPTION MISSION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunTradeLaneDefenseMissionSmokeTest()
+        {
+            try
+            {
+                return new TradeLaneDefenseMissionSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TRADE-LANE DEFENSE MISSION SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }

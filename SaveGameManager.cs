@@ -594,7 +594,14 @@ namespace Roguelancer
                     PoliceReputationPenalty = mission.PoliceReputationPenalty,
                     PoliceConsequenceApplied = mission.PoliceConsequenceApplied,
                     SecurityResponseTriggered = mission.SecurityResponseTriggered,
-                    FailureReason = mission.FailureReason ?? string.Empty
+                    FailureReason = mission.FailureReason ?? string.Empty,
+                    DefenseStage = mission.DefenseStage,
+                    DefenseAttackForceSize = mission.DefenseAttackForceSize,
+                    DefenseAttackersRemaining = mission.DefenseAttackersRemaining,
+                    DefenseActivationRadius = mission.DefenseActivationRadius,
+                    DefenseFailureHoldSeconds = mission.DefenseFailureHoldSeconds,
+                    DefenseFailureHoldProgressSeconds = mission.DefenseFailureHoldProgressSeconds,
+                    DefenseActivationStarted = mission.DefenseActivationStarted
                 });
             }
 
@@ -823,7 +830,14 @@ namespace Roguelancer
                 data.PoliceReputationPenalty,
                 data.PoliceConsequenceApplied,
                 data.SecurityResponseTriggered,
-                data.FailureReason);
+                data.FailureReason,
+                data.DefenseStage,
+                data.DefenseAttackForceSize,
+                data.DefenseAttackersRemaining,
+                data.DefenseActivationRadius,
+                data.DefenseFailureHoldSeconds,
+                data.DefenseFailureHoldProgressSeconds,
+                data.DefenseActivationStarted);
         }
 
         private static float NormalizeStanding(float value)

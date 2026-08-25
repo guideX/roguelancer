@@ -15,7 +15,17 @@ namespace Roguelancer
         ExportContract,
         Bounty,
         Escort,
-        TradeLaneDisruption
+        TradeLaneDisruption,
+        TradeLaneDefense
+    }
+
+    public enum TradeLaneDefenseStage
+    {
+        EnRoute,
+        AttackActive,
+        AwaitingRecovery,
+        Successful,
+        Failed
     }
 
     public enum MissionDifficulty
@@ -144,6 +154,7 @@ namespace Roguelancer
         public const string RogueHuntId = "rogue-hunt";
         public const string PriorityDispatchId = "priority-dispatch";
         public const string TradeLaneDisruptionId = "trade-lane-disruption";
+        public const string TradeLaneDefenseId = "trade-lane-defense";
 
         private static readonly IReadOnlyList<MissionDefinition> Definitions = new[]
         {
@@ -286,11 +297,22 @@ namespace Roguelancer
         public bool SecurityResponseTriggered { get; set; }
         public string FailureReason { get; set; } = string.Empty;
 
+        // Defense attackers are transient world objects. These fields keep
+        // the durable encounter contract saveable and deterministic.
+        public TradeLaneDefenseStage DefenseStage { get; set; } = TradeLaneDefenseStage.EnRoute;
+        public int DefenseAttackForceSize { get; set; }
+        public int DefenseAttackersRemaining { get; set; }
+        public float DefenseActivationRadius { get; set; }
+        public float DefenseFailureHoldSeconds { get; set; }
+        public float DefenseFailureHoldProgressSeconds { get; set; }
+        public bool DefenseActivationStarted { get; set; }
+
         public bool IsExpired => TimeLimit > 0 && ElapsedTime >= TimeLimit;
         public float TimeRemaining => TimeLimit > 0 ? Math.Max(0, TimeLimit - ElapsedTime) : -1;
         public bool IsActive => Status is MissionStatus.Accepted or MissionStatus.InProgress;
         public bool HasUnclaimedReward => Status == MissionStatus.Completed && !RewardPaid;
         public bool IsTradeLaneDisruptionMission() => Type == MissionType.TradeLaneDisruption;
+        public bool IsTradeLaneDefenseMission() => Type == MissionType.TradeLaneDefense;
 
         public Mission(
             MissionType type,
@@ -460,6 +482,63 @@ namespace Roguelancer
                 HoldDurationSeconds = Math.Clamp(holdDurationSeconds, 1f, 30f),
                 HoldProgressSeconds = 0f,
                 PoliceReputationPenalty = Math.Clamp(policeReputationPenalty, -0.05f, 0f)
+            };
+            return mission;
+        }
+
+        public static Mission CreateTradeLaneDefense(
+            string laneId,
+            string segmentId,
+            int ringIndex,
+            string laneName,
+            Vector3 targetPosition,
+            int targetSystemIndex,
+            MissionDifficulty difficulty,
+            int reward,
+            int attackForceSize,
+            float activationRadius,
+            float failureHoldSeconds,
+            string description,
+            string offeredBy = "Liberty Police")
+        {
+            if (string.IsNullOrWhiteSpace(laneId) || string.IsNullOrWhiteSpace(segmentId) ||
+                ringIndex < 0 || string.IsNullOrWhiteSpace(laneName) || reward <= 0 ||
+                attackForceSize < 2 || attackForceSize > 4 ||
+                activationRadius <= 0f || float.IsNaN(activationRadius) || float.IsInfinity(activationRadius) ||
+                failureHoldSeconds <= 0f || float.IsNaN(failureHoldSeconds) ||
+                float.IsInfinity(failureHoldSeconds) || !TradeLaneStateSanitizer.IsFinite(targetPosition))
+            {
+                return null;
+            }
+
+            Mission mission = new Mission(
+                MissionType.TradeLaneDefense,
+                difficulty,
+                $"{laneName} [{segmentId}]",
+                laneName,
+                reward,
+                0f,
+                description,
+                FactionManager.LibertyPolice,
+                title: "Trade-Lane Defense")
+            {
+                DefinitionId = MissionCatalog.TradeLaneDefenseId,
+                OfferedBy = offeredBy ?? "Liberty Police",
+                TargetLocation = laneName,
+                TargetSystemIndex = Math.Max(0, targetSystemIndex),
+                TargetCount = attackForceSize,
+                RequiredProgress = attackForceSize,
+                TargetPosition = targetPosition,
+                TargetLaneId = laneId.Trim(),
+                TargetSegmentId = segmentId.Trim(),
+                TargetRingIndex = ringIndex,
+                DefenseStage = TradeLaneDefenseStage.EnRoute,
+                DefenseAttackForceSize = attackForceSize,
+                DefenseAttackersRemaining = 0,
+                DefenseActivationRadius = Math.Clamp(activationRadius, 250f, 5000f),
+                DefenseFailureHoldSeconds = Math.Clamp(failureHoldSeconds, 1f, 30f),
+                DefenseFailureHoldProgressSeconds = 0f,
+                DefenseActivationStarted = false
             };
             return mission;
         }
@@ -691,7 +770,14 @@ namespace Roguelancer
             float policeReputationPenalty = 0f,
             bool policeConsequenceApplied = false,
             bool securityResponseTriggered = false,
-            string failureReason = "")
+            string failureReason = "",
+            TradeLaneDefenseStage defenseStage = TradeLaneDefenseStage.EnRoute,
+            int defenseAttackForceSize = 0,
+            int defenseAttackersRemaining = 0,
+            float defenseActivationRadius = 0f,
+            float defenseFailureHoldSeconds = 0f,
+            float defenseFailureHoldProgressSeconds = 0f,
+            bool defenseActivationStarted = false)
         {
             Mission mission = new Mission(
                 id,
@@ -752,6 +838,21 @@ namespace Roguelancer
             mission.PoliceConsequenceApplied = policeConsequenceApplied;
             mission.SecurityResponseTriggered = securityResponseTriggered;
             mission.FailureReason = failureReason ?? string.Empty;
+            mission.DefenseStage = Enum.IsDefined(typeof(TradeLaneDefenseStage), defenseStage)
+                ? defenseStage
+                : TradeLaneDefenseStage.EnRoute;
+            mission.DefenseAttackForceSize = Math.Clamp(defenseAttackForceSize, 0, 4);
+            mission.DefenseAttackersRemaining = Math.Clamp(defenseAttackersRemaining, 0, mission.DefenseAttackForceSize);
+            mission.DefenseActivationRadius = float.IsNaN(defenseActivationRadius) || float.IsInfinity(defenseActivationRadius)
+                ? 0f
+                : Math.Clamp(defenseActivationRadius, 0f, 5000f);
+            mission.DefenseFailureHoldSeconds = float.IsNaN(defenseFailureHoldSeconds) || float.IsInfinity(defenseFailureHoldSeconds)
+                ? 0f
+                : Math.Clamp(defenseFailureHoldSeconds, 0f, 30f);
+            mission.DefenseFailureHoldProgressSeconds = float.IsNaN(defenseFailureHoldProgressSeconds) || float.IsInfinity(defenseFailureHoldProgressSeconds)
+                ? 0f
+                : Math.Clamp(defenseFailureHoldProgressSeconds, 0f, mission.DefenseFailureHoldSeconds);
+            mission.DefenseActivationStarted = defenseActivationStarted;
             return mission;
         }
 
@@ -801,6 +902,7 @@ namespace Roguelancer
             MissionType.Bounty => "BOUNTY",
             MissionType.Escort => "ESCORT",
             MissionType.TradeLaneDisruption => "TRADE-LANE DISRUPTION",
+            MissionType.TradeLaneDefense => "TRADE-LANE DEFENSE",
             _ => "MISSION"
         };
 
@@ -870,6 +972,8 @@ namespace Roguelancer
             }
             if (Type == MissionType.TradeLaneDisruption)
                 return string.IsNullOrWhiteSpace(TargetSegmentId) ? TargetLocation : $"{TargetLocation} / {TargetSegmentId}";
+            if (Type == MissionType.TradeLaneDefense)
+                return string.IsNullOrWhiteSpace(TargetSegmentId) ? TargetLocation : $"{TargetLocation} / {TargetSegmentId}";
             if (!string.IsNullOrWhiteSpace(Target))
             {
                 if (Type == MissionType.Escort && TargetSpaceObject is NpcShip escortShip && !escortShip.IsDestroyed)
@@ -904,6 +1008,7 @@ namespace Roguelancer
             MissionType.Bounty => $"Destroy {GetTargetLabel()}",
             MissionType.Escort => $"Escort {GetTargetLabel()} to {GetDestinationLabel()}",
             MissionType.TradeLaneDisruption => $"Disrupt {GetTargetLabel()} and hold it offline",
+            MissionType.TradeLaneDefense => $"Defend {GetTargetLabel()} against Liberty Rogues",
             _ => Description
         };
 
@@ -920,6 +1025,7 @@ namespace Roguelancer
             MissionType.ExportContract => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : $"Haul {GetTargetLabel()} to destination",
             MissionType.Escort => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty,
             MissionType.TradeLaneDisruption => GetTradeLaneHudStatus(),
+            MissionType.TradeLaneDefense => GetTradeLaneDefenseHudStatus(),
             _ => string.Empty
         };
 
@@ -931,6 +1037,7 @@ namespace Roguelancer
             MissionType.FreightContract => ObjectiveComplete ? "Freight delivered" : $"Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
             MissionType.ExportContract => ObjectiveComplete ? "Export delivered" : $"Haul {GetTargetLabel()} to {GetDestinationLabel()}",
             MissionType.TradeLaneDisruption => GetTradeLaneHudStatus(),
+            MissionType.TradeLaneDefense => GetTradeLaneDefenseHudStatus(),
             _ => GetObjectiveText()
         };
 
@@ -943,6 +1050,21 @@ namespace Roguelancer
             if (!PlayerDisruptionObserved || HoldProgressSeconds <= 0f)
                 return "TARGET OPERATIONAL";
             return $"TARGET DISRUPTED | HOLD {HoldProgressSeconds:0.0} / {HoldDurationSeconds:0.0}s";
+        }
+
+        public string GetTradeLaneDefenseHudStatus()
+        {
+            if (Type != MissionType.TradeLaneDefense)
+                return string.Empty;
+            if (Status == MissionStatus.Failed || DefenseStage == TradeLaneDefenseStage.Failed)
+                return "DEFENSE FAILED";
+            if (ObjectiveComplete || DefenseStage == TradeLaneDefenseStage.Successful)
+                return "DEFENSE SUCCESSFUL";
+            if (DefenseStage == TradeLaneDefenseStage.EnRoute)
+                return $"PROCEED TO {TargetLocation} / {TargetSegmentId}";
+            if (DefenseStage == TradeLaneDefenseStage.AwaitingRecovery)
+                return $"LANE DISRUPTED — RECOVER {DefenseFailureHoldProgressSeconds:0.0} / {DefenseFailureHoldSeconds:0.0}s";
+            return $"DEFEND LANE | ROGUES REMAINING: {Math.Max(0, DefenseAttackersRemaining)}";
         }
     }
 }

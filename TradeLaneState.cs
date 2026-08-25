@@ -27,6 +27,19 @@ namespace Roguelancer
         Environment
     }
 
+    /// <summary>
+    /// Shared objective descriptor consumed by the ordinary NPC projectile
+    /// system when a hostile ship is assigned to attack lane infrastructure.
+    /// The lane remains the only owner of disruption and recovery state.
+    /// </summary>
+    public sealed class TradeLaneAttackTarget
+    {
+        public TradeLane Lane { get; internal set; }
+        public int RingIndex { get; internal set; } = -1;
+        public Vector3 Position { get; internal set; }
+        public string SourceName { get; internal set; } = string.Empty;
+    }
+
     public enum TradeLaneTransitExitReason
     {
         Completed,

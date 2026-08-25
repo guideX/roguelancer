@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Roguelancer
 {
@@ -23,6 +24,7 @@ namespace Roguelancer
             public string WeaponId;
             public NpcShip Owner;
             public NpcShip Target;
+            public TradeLaneAttackTarget LaneTarget;
         }
 
         private sealed class NpcWeaponProfile
@@ -39,6 +41,13 @@ namespace Roguelancer
         private readonly BasicEffect _effect;
         private readonly Random _random = new();
         private ReputationManager _reputationManager;
+
+        /// <summary>
+        /// Resolves a bounded infrastructure objective for ordinary NPC
+        /// projectiles. A faction or player combat target still takes
+        /// precedence, so mission attackers remain normal combatants.
+        /// </summary>
+        public Func<NpcShip, TradeLaneAttackTarget> TradeLaneTargetResolver { get; set; }
 
         private const float AccuracySpread = 0.06f;
 
@@ -95,6 +104,33 @@ namespace Roguelancer
                 if (projectile.Life <= 0f)
                 {
                     _projectiles.RemoveAt(i);
+                    continue;
+                }
+
+                if (projectile.LaneTarget != null)
+                {
+                    TradeLaneAttackTarget laneTarget = projectile.LaneTarget;
+                    TradelaneRing ring = laneTarget.Lane?.ForwardRings
+                        .FirstOrDefault(candidate => candidate != null && candidate.Index == laneTarget.RingIndex);
+                    if (ring == null || laneTarget.Lane.IsBroken)
+                    {
+                        _projectiles.RemoveAt(i);
+                        continue;
+                    }
+
+                    if (Vector3.Distance(projectile.Position, ring.Position) < ring.Radius + 5f)
+                    {
+                        laneTarget.Lane.ApplyRingDamage(
+                            laneTarget.RingIndex,
+                            projectile.Damage,
+                            hostile: true,
+                            TradeLaneDisruptionSource.Npc,
+                            string.IsNullOrWhiteSpace(laneTarget.SourceName)
+                                ? projectile.Owner?.Name
+                                : laneTarget.SourceName);
+                        _projectiles.RemoveAt(i);
+                    }
+
                     continue;
                 }
 
@@ -157,12 +193,20 @@ namespace Roguelancer
                     playerShip != null &&
                     (_reputationManager == null || npc.HasValidPlayerTarget(_reputationManager));
 
-                if (!hasFactionTarget && !hasPlayerTarget)
+                TradeLaneAttackTarget laneTarget = !hasFactionTarget && !hasPlayerTarget
+                    ? TradeLaneTargetResolver?.Invoke(npc)
+                    : null;
+
+                if (!hasFactionTarget && !hasPlayerTarget && laneTarget == null)
                 {
                     continue;
                 }
 
-                Vector3 targetPosition = hasFactionTarget ? factionTarget.Position : playerShip.Position;
+                Vector3 targetPosition = hasFactionTarget
+                    ? factionTarget.Position
+                    : hasPlayerTarget
+                        ? playerShip.Position
+                        : laneTarget.Position;
                 if (Vector3.Distance(npc.Position, targetPosition) > profile.FiringRange)
                 {
                     continue;
@@ -183,6 +227,7 @@ namespace Roguelancer
                     npc,
                     targetPosition,
                     hasFactionTarget ? factionTarget : null,
+                    laneTarget,
                     profile);
                 _fireCooldowns[npc] = fired > 0 ? profile.RefireRate : 0.1f;
             }
@@ -192,6 +237,7 @@ namespace Roguelancer
             NpcShip npc,
             Vector3 targetPosition,
             NpcShip target,
+            TradeLaneAttackTarget laneTarget,
             NpcWeaponProfile profile)
         {
             string targetLabel = target == null ? "player" : $"{target.Name} ({target.FactionId})";
@@ -239,7 +285,8 @@ namespace Roguelancer
                     Damage = weapon.Damage,
                     WeaponId = weapon.Id,
                     Owner = npc,
-                    Target = target
+                    Target = target,
+                    LaneTarget = laneTarget
                 };
 
                 _projectiles.Add(projectile);
@@ -392,6 +439,10 @@ namespace Roguelancer
         {
             _fireCooldowns.Remove(npc);
             _weaponProfiles.Remove(npc);
+            if (npc == null || _projectiles.Count == 0)
+                return;
+
+            _projectiles.RemoveAll(projectile => projectile.Owner == npc);
         }
     }
 }

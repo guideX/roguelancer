@@ -357,6 +357,27 @@ namespace Roguelancer
 
         [JsonPropertyName("failure_reason")]
         public string FailureReason { get; set; } = string.Empty;
+
+        [JsonPropertyName("defense_stage")]
+        public TradeLaneDefenseStage DefenseStage { get; set; } = TradeLaneDefenseStage.EnRoute;
+
+        [JsonPropertyName("defense_attack_force_size")]
+        public int DefenseAttackForceSize { get; set; }
+
+        [JsonPropertyName("defense_attackers_remaining")]
+        public int DefenseAttackersRemaining { get; set; }
+
+        [JsonPropertyName("defense_activation_radius")]
+        public float DefenseActivationRadius { get; set; }
+
+        [JsonPropertyName("defense_failure_hold_seconds")]
+        public float DefenseFailureHoldSeconds { get; set; }
+
+        [JsonPropertyName("defense_failure_hold_progress_seconds")]
+        public float DefenseFailureHoldProgressSeconds { get; set; }
+
+        [JsonPropertyName("defense_activation_started")]
+        public bool DefenseActivationStarted { get; set; }
     }
 
     /// <summary>
