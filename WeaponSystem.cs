@@ -738,19 +738,17 @@ namespace Roguelancer
                     }
                     float hullBefore = hull.CurrentHull;
                     
-                    // Route damage through shields first
-                    float hullDamage = damage;
-                    if (shields != null)
+                    // NpcShip owns the authoritative shield/hull boundary and
+                    // cruise-disruption notification. Keep the legacy hull
+                    // path for standalone callers without an NpcShip target.
+                    if (playerTarget != null)
                     {
-                        hullDamage = shields.AbsorbDamage(damage);
+                        playerTarget.ApplyCombatDamage(damage, NpcDestructionSource.Player, hostile: true);
                     }
-                    
-                    // Apply remaining damage to hull
-                    if (hullDamage > 0f)
+                    else
                     {
-                        if (playerTarget != null)
-                            playerTarget.ApplyDamage(hullDamage, NpcDestructionSource.Player);
-                        else
+                        float hullDamage = shields?.AbsorbDamage(damage) ?? damage;
+                        if (hullDamage > 0f)
                             hull.TakeDamage(hullDamage);
                     }
                     float hullAfter = hull.CurrentHull;
@@ -876,12 +874,7 @@ namespace Roguelancer
             {
                 npcTarget.MarkDamagedByPlayer(hullDamage);
 
-                float npcHullDamage = hullDamage;
-                if (npcTarget.Shields != null)
-                    npcHullDamage = npcTarget.Shields.AbsorbDamage(hullDamage);
-
-                if (npcHullDamage > 0f)
-                    npcTarget.ApplyDamage(npcHullDamage, NpcDestructionSource.Player);
+                npcTarget.ApplyCombatDamage(hullDamage, NpcDestructionSource.Player, hostile: true);
 
                 return;
             }

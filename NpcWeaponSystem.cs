@@ -122,16 +122,7 @@ namespace Roguelancer
                     float distanceToPlayer = Vector3.Distance(projectile.Position, playerShip.Position);
                     if (distanceToPlayer < playerShip.CollisionRadius + 5f)
                     {
-                        float hullDamage = projectile.Damage;
-                        if (playerShip.Shields != null)
-                        {
-                            hullDamage = playerShip.Shields.AbsorbDamage(projectile.Damage);
-                        }
-
-                        if (hullDamage > 0f)
-                        {
-                            playerShip.Hull.TakeDamage(hullDamage);
-                        }
+                        playerShip.ApplyCombatDamage(projectile.Damage, hostile: true);
 
                         _projectiles.RemoveAt(i);
                     }
@@ -143,6 +134,13 @@ namespace Roguelancer
             {
                 if (npc == null || npc.IsDestroyed)
                 {
+                    continue;
+                }
+
+                if (npc.CruiseDrive.BlocksStandardWeapons)
+                {
+                    // NPCs obey the same active-cruise gun restriction as the
+                    // player. Charging remains allowed to fire.
                     continue;
                 }
 
@@ -303,16 +301,7 @@ namespace Roguelancer
 
             NpcShipDamaged?.Invoke(attacker, target, damage);
 
-            float hullDamage = damage;
-            if (target.Shields != null)
-            {
-                hullDamage = target.Shields.AbsorbDamage(damage);
-            }
-
-            if (hullDamage > 0f)
-            {
-                target.ApplyDamage(hullDamage, NpcDestructionSource.Npc);
-            }
+            target.ApplyCombatDamage(damage, NpcDestructionSource.Npc, hostile: true);
         }
 
         /// <summary>

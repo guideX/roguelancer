@@ -12,6 +12,8 @@ namespace Roguelancer
     /// </summary>
     public class Ship
     {
+        public const string CruiseControlBinding = "Shift+W";
+
         // Position and orientation
         public Vector3 Position { get; set; }
         public Matrix Orientation { get; private set; }
@@ -21,7 +23,17 @@ namespace Roguelancer
         public float Speed { get; private set; }
         public float MaxSpeed { get; set; } = 250f;
         public float MaxReverseSpeed { get; set; } = 150f;
-        public float CruiseSpeed { get; set; } = 600f;
+        private float _configuredCruiseSpeed = 600f;
+        /// <summary>
+        /// Compatibility-facing cruise speed reference. The runtime policy is
+        /// owned by CruiseDrive and guarantees at least its canonical 3.5x
+        /// normal-speed multiplier.
+        /// </summary>
+        public float CruiseSpeed
+        {
+            get => CruiseDrive.GetEffectiveSpeed(MaxSpeed, _configuredCruiseSpeed);
+            set => _configuredCruiseSpeed = float.IsNaN(value) || float.IsInfinity(value) || value < 0f ? 0f : value;
+        }
         public float AfterburnerSpeed { get; set; } = 500f;
         /// <summary>Developer-only travel convenience; normal gameplay keeps this at one.</summary>
         public float ValidationTravelMultiplier { get; set; } = 1f;
@@ -61,19 +73,14 @@ namespace Roguelancer
 
         // Special states
         public bool IsAfterburnerActive { get; private set; }
-        public bool IsCruiseActive { get; set; }
+        public CruiseDrive CruiseDrive { get; } = new CruiseDrive();
+        public bool IsCruiseActive => CruiseDrive.IsActive;
         public bool EnginesKilled { get; set; }
         public bool AfterburnerJustActivated { get; private set; }
         public bool IsFreeFlightMode => _isFreeFlightMode;
-        
-        // Cruise charge system
-        public bool IsCruiseCharging { get; set; }
-        public float CruiseChargeProgress => _cruiseChargeTimer / CruiseChargeTime;
-        private float _cruiseChargeTimer = 0f;
-        private const float CruiseChargeTime = 3f;
-        private const float CruiseLungeTime = 0.8f;
-        private const float CruiseChargePhase = 1.5f;
-        private const float CruiseBurstTime = 0.7f;
+        public bool IsCruiseCharging => CruiseDrive.IsCharging;
+        public float CruiseChargeProgress => CruiseDrive.ChargeProgress;
+        public string CruiseHudText => CruiseDrive.GetHudText();
 
         // Keyboard state tracking
         private KeyboardState _previousKeyboardState;
@@ -167,6 +174,7 @@ namespace Roguelancer
             Hull.OnDestroyed += () =>
             {
                 IsAfterburnerActive = false;
+                CruiseDrive.Reset();
                 Console.WriteLine("💀 PLAYER SHIP DESTROYED!");
                 _notificationManager?.ShowMessage("SHIP DESTROYED", 5f);
                 // Trigger player ship explosion
@@ -212,8 +220,59 @@ namespace Roguelancer
         /// Control methods for GotoAutopilot to manipulate ship state.
         /// </summary>
         public void SetEnginesKilled(bool killed) => EnginesKilled = killed;
-        public void SetCruiseActive(bool active) => IsCruiseActive = active;
-        public void SetCruiseCharging(bool charging) => IsCruiseCharging = charging;
+        public float GetEffectiveCruiseSpeed() =>
+            CruiseDrive.GetEffectiveSpeed(MaxSpeed, _configuredCruiseSpeed, ValidationTravelMultiplier);
+
+        public bool TryActivateCruise(bool docked = false, bool validMovement = true)
+        {
+            bool activated = CruiseDrive.TryActivate(
+                Hull?.IsDestroyed != true,
+                docked,
+                validMovement && !EnginesKilled && !_newtonianMode);
+            if (activated)
+            {
+                IsAfterburnerActive = false;
+            }
+
+            return activated;
+        }
+
+        public bool ToggleCruise(bool docked = false, bool validMovement = true)
+        {
+            bool changed = CruiseDrive.ToggleActivation(
+                Hull?.IsDestroyed != true,
+                docked,
+                validMovement && !EnginesKilled && !_newtonianMode);
+            if (changed && CruiseDrive.IsChargingOrActive)
+            {
+                IsAfterburnerActive = false;
+            }
+
+            return changed;
+        }
+
+        public bool CancelCruise(CruiseCancellationReason reason = CruiseCancellationReason.Manual) =>
+            CruiseDrive.Cancel(reason);
+
+        /// <summary>
+        /// Authoritative combat boundary for player damage. A positive
+        /// hostile result disrupts cruise before shield absorption so a
+        /// shield-only hit still breaks travel mode.
+        /// </summary>
+        public bool ApplyCombatDamage(float damage, bool hostile = true)
+        {
+            if (Hull == null || Hull.IsDestroyed || float.IsNaN(damage) || float.IsInfinity(damage) || damage <= 0f)
+                return false;
+
+            CruiseDrive.DisruptByDamage(damage, hostile);
+            float hullDamage = Shields?.AbsorbDamage(damage) ?? damage;
+            if (hullDamage > 0f)
+            {
+                Hull.TakeDamage(hullDamage);
+            }
+
+            return true;
+        }
         
         /// <summary>
         /// Set the explosion particles system for this ship
@@ -386,6 +445,7 @@ namespace Roguelancer
                 return false;
             }
 
+            CancelCruise(CruiseCancellationReason.Docking);
             _isDocking = true;
             Console.WriteLine($"[DOCK] Initiating docking at {_nearestStation.Name}");
             return true;
@@ -498,11 +558,9 @@ namespace Roguelancer
                     _notificationManager?.ShowMessage("Mouse Mode");
                 }
 
-                if (IsCruiseActive || IsCruiseCharging)
+                if (CruiseDrive.IsChargingOrActive)
                 {
-                    IsCruiseActive = false;
-                    IsCruiseCharging = false;
-                    _cruiseChargeTimer = 0f;
+                    CancelCruise(CruiseCancellationReason.Manual);
                     _notificationManager?.ShowMessage("Cruise Mode Deactivated");
                     Console.WriteLine("ESC: Cruise mode cancelled");
                 }
@@ -535,7 +593,13 @@ namespace Roguelancer
             if (fireWeapons) FireActiveWeapons();
             
             bool wasAfterburnerActive = IsAfterburnerActive;
-            bool cruiseKeyPressed = keyboardState.IsKeyDown(Keys.LeftShift) && keyboardState.IsKeyDown(Keys.W);
+            bool leftShiftHeld = keyboardState.IsKeyDown(Keys.LeftShift);
+            bool rightShiftHeld = keyboardState.IsKeyDown(Keys.RightShift);
+            bool cruiseKeyHeld = (leftShiftHeld || rightShiftHeld) && keyboardState.IsKeyDown(Keys.W);
+            bool cruiseKeyPressed = cruiseKeyHeld &&
+                (_previousKeyboardState.IsKeyUp(Keys.W) ||
+                 (leftShiftHeld && _previousKeyboardState.IsKeyUp(Keys.LeftShift)) ||
+                 (rightShiftHeld && _previousKeyboardState.IsKeyUp(Keys.RightShift)));
 
             // 1. Handle Afterburner state (TAB key) - Hold to activate
             bool tabHeld = keyboardState.IsKeyDown(Keys.Tab);
@@ -544,13 +608,15 @@ namespace Roguelancer
             
             if (tabJustPressed && !IsAfterburnerActive)
             {
+                if (CruiseDrive.IsChargingOrActive)
+                {
+                    CancelCruise(CruiseCancellationReason.AfterburnerActivation);
+                }
+
                 // Afterburn is available only from the mounted thruster pool.
                 if (!EnginesKilled && ThrusterEnergy?.CanAfterburn(Hull?.IsDestroyed != true) == true)
                 {
                     IsAfterburnerActive = true;
-                    IsCruiseActive = false;
-                    IsCruiseCharging = false;
-                    _cruiseChargeTimer = 0f;
                     _notificationManager?.ShowMessage("Afterburner Engaged");
                 }
                 else
@@ -565,21 +631,22 @@ namespace Roguelancer
                 _notificationManager?.ShowMessage("Afterburner Disengaged");
             }
             
-            if (cruiseKeyPressed && (_previousKeyboardState.IsKeyUp(Keys.W) || _previousKeyboardState.IsKeyUp(Keys.LeftShift)))
+            if (cruiseKeyPressed)
             {
-                if (!IsCruiseActive && !IsCruiseCharging)
+                if (CruiseDrive.IsChargingOrActive)
                 {
-                    IsCruiseCharging = true;
-                    _cruiseChargeTimer = 0f;
+                    CancelCruise(CruiseCancellationReason.Manual);
+                    _notificationManager?.ShowMessage("Cruise Deactivated");
+                }
+                else if (TryActivateCruise())
+                {
                     IsAfterburnerActive = false;
                     _notificationManager?.ShowMessage("Cruise Charging");
                 }
                 else
                 {
-                    IsCruiseActive = false;
-                    IsCruiseCharging = false;
-                    _cruiseChargeTimer = 0f;
-                    _notificationManager?.ShowMessage("Cruise Deactivated");
+                    _notificationManager?.ShowMessage(
+                        CruiseDrive.IsCoolingDown ? "Cruise Unavailable - Cooling Down" : "Cruise Unavailable");
                 }
             }
 
@@ -589,6 +656,7 @@ namespace Roguelancer
             if (EnginesKilled)
             {
                 IsAfterburnerActive = false;
+                CruiseDrive.Cancel(CruiseCancellationReason.IncompatibleFlight);
             }
             bool thrusterAfterburning = ThrusterEnergy?.Advance(
                 gameTime,
@@ -616,8 +684,7 @@ namespace Roguelancer
                     _throttle = 0f; 
                     _targetSpeed = 0f; 
                     IsAfterburnerActive = false; 
-                    IsCruiseActive = false;
-                    IsCruiseCharging = false;
+                    CancelCruise(CruiseCancellationReason.IncompatibleFlight);
                     _wasEnginesKilled = true;
                 }
             }
@@ -670,11 +737,9 @@ namespace Roguelancer
                     _throttle = MathHelper.Clamp(_throttle + throttleStep, -1f, 1f);
                     
                     // Exit cruise mode when scrolling down (slowing down)
-                    if (scrollWheelDelta < 0 && (IsCruiseActive || IsCruiseCharging))
+                    if (scrollWheelDelta < 0 && CruiseDrive.IsChargingOrActive)
                     {
-                        IsCruiseActive = false;
-                        IsCruiseCharging = false;
-                        _cruiseChargeTimer = 0f;
+                        CancelCruise(CruiseCancellationReason.Manual);
                         _notificationManager?.ShowMessage("Cruise Mode Deactivated");
                         Console.WriteLine("Mouse wheel: Cruise mode deactivated");
                     }
@@ -831,26 +896,23 @@ namespace Roguelancer
             Orientation = Matrix.CreateFromQuaternion(_rotation);
             
             UpdateGoto(deltaTime);
-            
-            if (IsCruiseCharging)
+
+            CruiseDrive.Advance(
+                deltaTime,
+                Hull?.IsDestroyed != true,
+                _isDocking || _gotoAutopilot?.IsDocked == true,
+                !EnginesKilled && !_newtonianMode);
+
+            float commandedSpeed = IsCruiseActive ? GetEffectiveCruiseSpeed() : _targetSpeed;
+            if (EnginesKilled)
             {
-                float validationMultiplier = MathHelper.Clamp(ValidationTravelMultiplier, 1f, 20f);
-                if (_cruiseChargeTimer < CruiseLungeTime) Speed = MathHelper.Lerp(Speed, MaxSpeed * 3f * validationMultiplier, deltaTime * 20f);
-                else if (_cruiseChargeTimer < CruiseChargePhase) Speed = MathHelper.Lerp(Speed, MaxSpeed * 3.5f * validationMultiplier, deltaTime * 6f);
-                else Speed = MathHelper.Lerp(Speed, CruiseSpeed * validationMultiplier, deltaTime * 30f);
+                commandedSpeed = 0f;
             }
-            else if (IsCruiseActive) 
-            {
-                Speed = MathHelper.Lerp(Speed, CruiseSpeed * MathHelper.Clamp(ValidationTravelMultiplier, 1f, 20f), deltaTime * 10f);
-            }
-            else if (EnginesKilled) 
-            {
-                Speed = MathHelper.Lerp(Speed, 0f, deltaTime * 0.5f);
-            }
-            else 
-            {
-                Speed = MathHelper.Lerp(Speed, _targetSpeed, deltaTime * 5f);
-            }
+
+            float speedRate = IsCruiseActive
+                ? Math.Max(1f, Acceleration) * CruiseDrive.AccelerationMultiplier
+                : Math.Max(1f, Acceleration) * 5f;
+            Speed = ApproachSpeed(Speed, commandedSpeed, speedRate, deltaTime);
 
             if (_newtonianMode)
             {
@@ -876,24 +938,20 @@ namespace Roguelancer
             _pitchTiltAngle = MathHelper.Lerp(_pitchTiltAngle, pitchInput * PitchTiltAmount, deltaTime * 5f);
             _bankTiltAngle = MathHelper.Lerp(_bankTiltAngle, -yawInput * BankTiltAmount, deltaTime * 4f);
             
-            if (IsCruiseCharging)
-            {
-                _cruiseChargeTimer += deltaTime;
-                if (_cruiseChargeTimer >= CruiseChargePhase && !IsCruiseActive)
-                {
-                    IsCruiseActive = true;
-                    _targetSpeed = CruiseSpeed;
-                }
-                if (_cruiseChargeTimer >= CruiseChargeTime)
-                {
-                    IsCruiseCharging = false;
-                    _cruiseChargeTimer = 0f;
-                }
-            }
-
             _prevLeftMouseState = mouseState.LeftButton; 
             _previousKeyboardState = keyboardState;
             _previousScrollWheelValue = mouseState.ScrollWheelValue;
+        }
+
+        private static float ApproachSpeed(float current, float target, float acceleration, float deltaTime)
+        {
+            if (float.IsNaN(current) || float.IsInfinity(current)) current = 0f;
+            if (float.IsNaN(target) || float.IsInfinity(target)) target = 0f;
+            if (float.IsNaN(acceleration) || float.IsInfinity(acceleration) || acceleration <= 0f) acceleration = 1f;
+            if (float.IsNaN(deltaTime) || float.IsInfinity(deltaTime) || deltaTime <= 0f) return current;
+
+            float step = acceleration * Math.Min(deltaTime, 60f);
+            return current + MathHelper.Clamp(target - current, -step, step);
         }
 
         public void Draw(Matrix view, Matrix projection, Vector3 lightDirection)
@@ -997,7 +1055,9 @@ namespace Roguelancer
         public string GetFlightStatus()
         {
             if (EnginesKilled) return "ENGINES KILLED";
-            if (IsCruiseActive) return "CRUISE";
+            if (CruiseDrive.IsActive) return "CRUISE ACTIVE";
+            if (CruiseDrive.IsCharging) return "CRUISE CHARGING";
+            if (CruiseDrive.IsCoolingDown) return "CRUISE COOLDOWN";
             if (IsAfterburnerActive) return "AFTERBURNER";
             if (_throttle < 0) return "REVERSE";
             return "NORMAL";
@@ -1011,6 +1071,7 @@ namespace Roguelancer
         public bool ActivateGoto(SpaceObject target, bool preferDirectStationApproach)
         {
             if (target == null) return false;
+            CancelCruise(CruiseCancellationReason.IncompatibleFlight);
             _gotoTarget = target;
             _gotoActive = true;
             _dockAssistActive = preferDirectStationApproach && target is Station;
@@ -1041,13 +1102,11 @@ namespace Roguelancer
                 float distance = Vector3.Distance(Position, target.Position);
                 if (distance > 5000f)
                 {
-                    IsCruiseCharging = true;
-                    _cruiseChargeTimer = 0f;
+                    TryActivateCruise(validMovement: true);
                 }
                 else
                 {
-                    IsCruiseActive = false;
-                    IsCruiseCharging = false;
+                    CancelCruise(CruiseCancellationReason.TargetInvalid);
                 }
             }
 
@@ -1114,9 +1173,7 @@ namespace Roguelancer
                     _dockAssistTarget = null;
                     _autopilotTargetSpeed = -1f;
                     EnginesKilled = !_gotoAutopilot.WasDockingDenied;
-                    IsCruiseActive = false;
-                    IsCruiseCharging = false;
-                    _cruiseChargeTimer = 0f;
+                    CancelCruise(CruiseCancellationReason.Docking);
                 }
 
                 // Apply autopilot target speed override
@@ -1136,17 +1193,13 @@ namespace Roguelancer
             {
                 CancelGoto();
                 EnginesKilled = true;
-                IsCruiseActive = false;
-                IsCruiseCharging = false;
-                _cruiseChargeTimer = 0f;
+                CancelCruise(CruiseCancellationReason.IncompatibleFlight);
                 return;
             }
 
-            if ((IsCruiseActive || IsCruiseCharging) && distance < 1500f)
+            if (CruiseDrive.IsChargingOrActive && distance < 1500f)
             {
-                IsCruiseActive = false;
-                IsCruiseCharging = false;
-                _cruiseChargeTimer = 0f;
+                CancelCruise(CruiseCancellationReason.TargetInvalid);
             }
 
             Vector3 desiredForward = Vector3.Normalize(toTarget);
@@ -1169,7 +1222,8 @@ namespace Roguelancer
 
             if (alignment > 0.7f)
             {
-                if (IsCruiseActive || IsCruiseCharging) _targetSpeed = CruiseSpeed;
+                if (IsCruiseActive) _targetSpeed = CruiseSpeed;
+                else if (IsCruiseCharging) _targetSpeed = MaxSpeed;
                 else if (distance > 1500f) _targetSpeed = MaxSpeed;
                 else if (distance > 800f) _targetSpeed = MaxSpeed * MathHelper.Lerp(0.8f, 1.0f, (distance - 800f) / 700f);
                 else if (distance > 300f) _targetSpeed = MaxSpeed * MathHelper.Lerp(0.1f, 0.8f, (distance - 300f) / 500f);
@@ -1179,14 +1233,11 @@ namespace Roguelancer
             {
                 if (IsCruiseActive && Speed > CruiseSpeed * 0.5f)
                 {
-                    IsCruiseActive = false;
-                    IsCruiseCharging = false;
-                    _cruiseChargeTimer = 0f;
+                    CancelCruise(CruiseCancellationReason.TargetInvalid);
                 }
                 else if (IsCruiseCharging && alignment < 0.3f)
                 {
-                    IsCruiseCharging = false;
-                    _cruiseChargeTimer = 0f;
+                    CancelCruise(CruiseCancellationReason.TargetInvalid);
                 }
                 _targetSpeed = MaxSpeed * 0.5f;
             }
@@ -1195,6 +1246,10 @@ namespace Roguelancer
         public void ToggleNewtonianMode()
         {
             _newtonianMode = !_newtonianMode;
+            if (_newtonianMode)
+            {
+                CancelCruise(CruiseCancellationReason.IncompatibleFlight);
+            }
             if (!_newtonianMode) _newtonianVelocity = Forward * Speed;
             else _newtonianVelocity = Velocity;
             _notificationManager?.ShowMessage(_newtonianMode ? "Newtonian Flight" : "Standard Flight");
@@ -1238,9 +1293,7 @@ namespace Roguelancer
         public void Reset()
         {
             IsAfterburnerActive = false;
-            IsCruiseActive = false;
-            IsCruiseCharging = false;
-            _cruiseChargeTimer = 0f;
+            CruiseDrive.Reset();
             _throttle = 0f;
             _targetSpeed = 0f;
             MissileLaunchRequested = false;

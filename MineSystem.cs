@@ -271,17 +271,8 @@ namespace Roguelancer
                     continue;
                 }
 
-                float hullDamage = damage;
                 npc.MarkDamagedByPlayer(damage);
-                if (npc.Shields != null)
-                {
-                    hullDamage = npc.Shields.AbsorbDamage(damage);
-                }
-
-                if (hullDamage > 0f)
-                {
-                    npc.ApplyDamage(hullDamage, NpcDestructionSource.Player);
-                }
+                npc.ApplyCombatDamage(damage, NpcDestructionSource.Player, hostile: true);
 
                 Vector3 impactDirection = npc.Position - mine.Position;
                 if (impactDirection.LengthSquared() < 0.0001f)

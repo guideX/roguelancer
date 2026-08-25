@@ -203,8 +203,7 @@ namespace Roguelancer
             _preferDirectStationApproach = false;
             _avoidanceOffset = Vector3.Zero;
             _ship?.SetAutopilotTargetSpeed(0f);
-            _ship?.SetCruiseActive(false);
-            _ship?.SetCruiseCharging(false);
+            _ship?.CancelCruise(CruiseCancellationReason.Docking);
             _ship?.SetEnginesKilled(false);
             _notifications?.ShowMessage(LastDockingDeniedReason, 3f);
             OnDockingDenied?.Invoke(LastDockingDeniedReason);
@@ -843,8 +842,7 @@ namespace Roguelancer
             // Exit cruise if close
             if (_ship.IsCruiseActive && distToTarget < cruiseDropDist)
             {
-                _ship.SetCruiseActive(false);
-                _ship.SetCruiseCharging(false);
+                _ship.CancelCruise(CruiseCancellationReason.TargetInvalid);
             }
 
             // Only engage cruise when far away and aligned
@@ -852,13 +850,13 @@ namespace Roguelancer
             if (distToTarget > cruiseDropDist * 2.0f && !_ship.IsCruiseActive && !_ship.IsCruiseCharging && alignment > 0.9f)
             {
                 // Engage cruise for long legs only when well-aligned
-                _ship.SetCruiseCharging(true);
+                _ship.TryActivateCruise(validMovement: true);
             }
 
             float speed;
             if (_ship.IsCruiseActive)
             {
-                speed = _ship.CruiseSpeed;
+                speed = _ship.GetEffectiveCruiseSpeed();
             }
             else if (distToTarget > brakeStart)
             {

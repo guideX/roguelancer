@@ -234,17 +234,8 @@ namespace Roguelancer
                             continue;
                         }
 
-                        float hullDamage = missile.Damage;
                         npc.MarkDamagedByPlayer(missile.Damage);
-                        if (npc.Shields != null)
-                        {
-                            hullDamage = npc.Shields.AbsorbDamage(missile.Damage);
-                        }
-
-                        if (hullDamage > 0f)
-                        {
-                            npc.ApplyDamage(hullDamage, NpcDestructionSource.Player);
-                        }
+                        npc.ApplyCombatDamage(missile.Damage, NpcDestructionSource.Player, hostile: true);
 
                         Vector3 impactDirection = missile.Velocity;
                         if (impactDirection.LengthSquared() < 0.0001f)

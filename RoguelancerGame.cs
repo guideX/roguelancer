@@ -251,6 +251,7 @@ namespace Roguelancer {
         private readonly bool _runCombatConsumableSmoke;
         private readonly bool _runWeaponEnergySmoke;
         private readonly bool _runThrusterEnergySmoke;
+        private readonly bool _runCruiseDriveSmoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -354,6 +355,7 @@ namespace Roguelancer {
             _runCombatConsumableSmoke = args?.Any(arg => string.Equals(arg, "--combat-consumable-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runWeaponEnergySmoke = args?.Any(arg => string.Equals(arg, "--weapon-energy-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runThrusterEnergySmoke = args?.Any(arg => string.Equals(arg, "--thruster-energy-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runCruiseDriveSmoke = args?.Any(arg => string.Equals(arg, "--cruise-drive-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -712,15 +714,7 @@ namespace Roguelancer {
         private void OnRemotePlayerHit(string targetPlayerId, float damage) {
             if (targetPlayerId == _networkManager?.PlayerId) {
                 // We got hit! Route through shields first
-                float hullDamage = damage;
-                if (_playerShip?.Shields != null)
-                {
-                    hullDamage = _playerShip.Shields.AbsorbDamage(damage);
-                }
-                if (hullDamage > 0f)
-                {
-                    _playerShip?.Hull.TakeDamage(hullDamage);
-                }
+                _playerShip?.ApplyCombatDamage(damage, hostile: true);
                 _notificationManager?.ShowMessage($"Hit! -{damage:F0}", 1f);
             }
         }
@@ -1380,6 +1374,11 @@ namespace Roguelancer {
                 var result = RunThrusterEnergySmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runCruiseDriveSmoke)
+            {
+                var result = RunCruiseDriveSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runFactionDistressResponseSmoke)
             {
                 var result = RunFactionDistressResponseSmokeTest();
@@ -1569,6 +1568,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("combat consumable smoke", RunCombatConsumableSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("weapon energy smoke", RunWeaponEnergySmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("thruster energy smoke", RunThrusterEnergySmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("cruise drive smoke", RunCruiseDriveSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -1902,6 +1902,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[THRUSTER ENERGY SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunCruiseDriveSmokeTest()
+        {
+            try
+            {
+                return new CruiseDriveSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRUISE DRIVE SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -3053,6 +3066,10 @@ namespace Roguelancer {
             }
 
             SyncMountedGunWeaponProfile();
+            if (_playerShip?.CruiseDrive.BlocksStandardWeapons == true)
+            {
+                _weaponSystem.SetFireAuthorization(false);
+            }
 
             // RIGHT MOUSE BUTTON: Fire weapons or charge beam!
             if (mouseState.RightButton == ButtonState.Pressed) {
@@ -4864,8 +4881,15 @@ namespace Roguelancer {
 
                 if (_playerShip.IsAfterburnerActive)
                     _spriteBatch.DrawString(_font, "AFTERBURNER", new Vector2(leftPanelX + 10, ly += 22), Color.OrangeRed);
-                if (_playerShip.IsCruiseActive)
-                    _spriteBatch.DrawString(_font, "CRUISE", new Vector2(leftPanelX + 10, ly += 22), Color.Cyan);
+                string cruiseHudText = _playerShip.CruiseHudText;
+                Color cruiseHudColor = _playerShip.CruiseDrive.State switch
+                {
+                    CruiseDriveState.Charging => Color.Yellow,
+                    CruiseDriveState.Active => Color.Cyan,
+                    CruiseDriveState.Cooldown => Color.Orange,
+                    _ => Color.LightGreen
+                };
+                _spriteBatch.DrawString(_font, cruiseHudText, new Vector2(leftPanelX + 10, ly += 22), cruiseHudColor);
                 if (_playerShip.IsNewtonianMode)
                     _spriteBatch.DrawString(_font, "NEWTONIAN", new Vector2(leftPanelX + 10, ly += 22), Color.Lime);
                 if (_camera.IsTurretViewActive)

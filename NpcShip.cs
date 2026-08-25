@@ -217,6 +217,16 @@ namespace Roguelancer
         public WeaponEnergy WeaponEnergy { get; private set; }
         public ThrusterEnergy ThrusterEnergy { get; private set; }
         public bool IsAfterburnerActive { get; private set; }
+        public CruiseDrive CruiseDrive { get; } = new CruiseDrive();
+        public bool IsCruiseActive => CruiseDrive.IsActive;
+        public bool IsCruiseCharging => CruiseDrive.IsCharging;
+        public float CruiseChargeProgress => CruiseDrive.ChargeProgress;
+        public string CruiseHudText => CruiseDrive.GetHudText();
+
+        // Combat pursuit keeps the established afterburn behavior through
+        // 10km; intrinsic cruise begins only on genuinely long legs.
+        private const float NpcCruiseStartDistance = 11000f;
+        private const float NpcCruiseExitDistance = 4500f;
         
         // Event to signal when the ship is destroyed
         public event Action<NpcShip> OnDestroyed;
@@ -255,6 +265,7 @@ namespace Roguelancer
             Hull.OnDestroyed += () =>
             {
                 IsAfterburnerActive = false;
+                CruiseDrive.Reset();
                 WasAliveImmediatelyBeforeDestruction = true;
                 DestructionSource = _pendingDestructionSource;
                 Console.WriteLine($"NPC SHIP '{Name}' DESTROYED!");
@@ -333,6 +344,7 @@ namespace Roguelancer
         {
             Loadout = loadout ?? ShipLoadout.CreateStarterLoadout(false);
             CombatConsumableCooldownRemaining = 0f;
+            CruiseDrive.Reset();
             RefreshShieldFromLoadout();
             RefreshWeaponEnergyFromLoadout();
             RefreshThrusterFromLoadout();
@@ -373,6 +385,26 @@ namespace Roguelancer
             IsAfterburnerActive = false;
         }
 
+        /// <summary>
+        /// Authoritative NPC damage boundary. Shield-only positive hostile
+        /// hits disrupt cruise before absorption; direct test/environmental
+        /// Hull.TakeDamage calls remain intentionally non-attributed.
+        /// </summary>
+        public bool ApplyCombatDamage(float damage, NpcDestructionSource source, bool hostile = true)
+        {
+            if (IsDestroyed || float.IsNaN(damage) || float.IsInfinity(damage) || damage <= 0f)
+                return false;
+
+            CruiseDrive.DisruptByDamage(damage, hostile);
+            float hullDamage = Shields?.AbsorbDamage(damage) ?? damage;
+            if (hullDamage > 0f)
+            {
+                ApplyDamage(hullDamage, source);
+            }
+
+            return true;
+        }
+
         public void SetEncounterState(
             TrafficEncounterState encounterState,
             Vector3? targetPosition = null,
@@ -388,6 +420,10 @@ namespace Roguelancer
             EncounterState = encounterState;
             EncounterTargetPosition = targetPosition;
             EncounterEscapePosition = escapePosition;
+            if (!targetPosition.HasValue && !escapePosition.HasValue)
+            {
+                CruiseDrive.Cancel(CruiseCancellationReason.TargetInvalid);
+            }
             PlayerTargetReason = encounterState == TrafficEncounterState.AttackingPlayer
                 ? playerTargetReason
                 : NpcPlayerTargetReason.None;
@@ -454,6 +490,7 @@ namespace Roguelancer
             IsFactionCombatDisengagementManaged = false;
             if (wasFactionCombat || wasLegacyNpcCombat)
             {
+                CruiseDrive.Cancel(CruiseCancellationReason.TargetInvalid);
                 EncounterState = TrafficEncounterState.Cruising;
                 EncounterTargetPosition = null;
                 EncounterEscapePosition = null;
@@ -464,6 +501,7 @@ namespace Roguelancer
         public void ClearEncounterState()
         {
             IsAfterburnerActive = false;
+            CruiseDrive.Cancel(CruiseCancellationReason.TargetInvalid);
             EncounterState = TrafficEncounterState.Cruising;
             EncounterTargetPosition = null;
             EncounterEscapePosition = null;
@@ -502,11 +540,14 @@ namespace Roguelancer
             if (IsDestroyed)
             {
                 IsAfterburnerActive = false;
+                CruiseDrive.Reset();
                 ThrusterEnergy?.Advance(gameTime, afterburnRequested: false, shipAlive: false);
                 return;
             }
 
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            CruiseDrive.Advance(deltaTime, shipAlive: true, docked: false, validMovement: true);
 
             // Weapon energy belongs to the ship runtime. Destroyed ships are
             // never updated and therefore never regenerate.
@@ -805,14 +846,43 @@ namespace Roguelancer
         {
             Vector3 toTarget = targetPosition - Position;
             float distanceToTarget = toTarget.Length();
-            bool shouldAfterburn = ShouldUseAfterburner(distanceToTarget);
+            if (!IsFinitePositive(distanceToTarget))
+            {
+                IsAfterburnerActive = false;
+                CruiseDrive.Cancel(CruiseCancellationReason.TargetInvalid);
+                ThrusterEnergy?.Advance(deltaTime, afterburnRequested: false, shipAlive: !IsDestroyed);
+                return;
+            }
+
+            if (CruiseDrive.IsChargingOrActive && distanceToTarget <= NpcCruiseExitDistance)
+            {
+                CruiseDrive.Cancel(CruiseCancellationReason.TargetInvalid);
+            }
+            else if (!CruiseDrive.IsChargingOrActive && ShouldUseCruise(distanceToTarget))
+            {
+                if (CruiseDrive.TryActivate(shipAlive: !IsDestroyed, docked: false, validMovement: true))
+                {
+                    IsAfterburnerActive = false;
+                }
+            }
+
+            bool shouldAfterburn = !CruiseDrive.IsChargingOrActive && ShouldUseAfterburner(distanceToTarget);
             IsAfterburnerActive = ThrusterEnergy?.Advance(
                 deltaTime,
                 afterburnRequested: shouldAfterburn,
                 shipAlive: !IsDestroyed) == true;
 
+            if (CruiseDrive.IsChargingOrActive)
+            {
+                IsAfterburnerActive = false;
+            }
+
             float commandedSpeed = cruiseSpeed;
-            if (IsAfterburnerActive)
+            if (CruiseDrive.IsActive)
+            {
+                commandedSpeed = CruiseDrive.GetEffectiveSpeed(cruiseSpeed);
+            }
+            else if (IsAfterburnerActive)
             {
                 commandedSpeed *= MathHelper.Clamp(
                     ThrusterEnergy.AfterburnSpeedMultiplier,
@@ -839,11 +909,15 @@ namespace Roguelancer
                     _rotation.Normalize();
                 }
 
-                Speed = MathHelper.Lerp(Speed, Math.Min(distanceToTarget * 20f, commandedSpeed), deltaTime * 2f);
+                float targetSpeed = Math.Min(distanceToTarget * 20f, commandedSpeed);
+                float acceleration = CruiseDrive.IsActive
+                    ? Math.Max(20f, cruiseSpeed * CruiseDrive.AccelerationMultiplier)
+                    : Math.Max(20f, cruiseSpeed * 2f);
+                Speed = ApproachSpeed(Speed, targetSpeed, acceleration, deltaTime);
             }
             else
             {
-                Speed = MathHelper.Lerp(Speed, 0f, deltaTime * 2f);
+                Speed = ApproachSpeed(Speed, 0f, Math.Max(20f, cruiseSpeed * 2f), deltaTime);
             }
 
             Velocity = Forward * Speed;
@@ -874,6 +948,31 @@ namespace Roguelancer
             float weaponRange = NpcEquipmentLoadoutFactory.GetFiringRange(Loadout);
             float activationDistance = Math.Max(1000f, weaponRange * 1.35f);
             return distanceToTarget > activationDistance;
+        }
+
+        private bool ShouldUseCruise(float distanceToTarget)
+        {
+            if (!IsFinitePositive(distanceToTarget) || distanceToTarget < NpcCruiseStartDistance)
+            {
+                return false;
+            }
+
+            bool hasNavigationContext = EncounterTargetPosition.HasValue ||
+                EncounterEscapePosition.HasValue ||
+                TrafficRouteStart.HasValue ||
+                TrafficRouteEnd.HasValue;
+            return hasNavigationContext;
+        }
+
+        private static float ApproachSpeed(float current, float target, float acceleration, float deltaTime)
+        {
+            if (float.IsNaN(current) || float.IsInfinity(current)) current = 0f;
+            if (float.IsNaN(target) || float.IsInfinity(target)) target = 0f;
+            if (float.IsNaN(acceleration) || float.IsInfinity(acceleration) || acceleration <= 0f) acceleration = 1f;
+            if (float.IsNaN(deltaTime) || float.IsInfinity(deltaTime) || deltaTime <= 0f) return current;
+
+            float step = acceleration * Math.Min(deltaTime, 60f);
+            return current + MathHelper.Clamp(target - current, -step, step);
         }
 
         private static bool IsFinitePositive(float value) =>
