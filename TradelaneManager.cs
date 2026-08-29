@@ -453,6 +453,12 @@ namespace Roguelancer
             }
         }
 
+        public void EjectNpcFromTransit(NpcShip npc)
+        {
+            if (npc != null)
+                EjectTraveler(npc, TradeLaneTransitExitReason.Manual);
+        }
+
         private void TickNpcEntryCooldowns(float deltaTime)
         {
             if (_npcEntryCooldowns.Count == 0)

@@ -47,6 +47,8 @@ namespace Roguelancer
         private ReputationManager _reputationManager;
         private ContentManager _content;
 
+        public Func<NpcShip, NpcShip> MissionTargetResolver { get; set; }
+
         public TrafficManager(ConfigurationManager config, List<NpcShip> npcShips, List<SpaceObject> spaceObjects, Action<NpcShip> onNpcDestroyed = null, ContentManager content = null)
         {
             _config = config ?? new ConfigurationManager();
@@ -138,7 +140,7 @@ namespace Roguelancer
 
         public void Update(GameTime gameTime, Ship playerShip, ReputationManager reputationManager, Action<string> log = null)
         {
-            if (gameTime == null || _zonesById.Count == 0)
+            if (gameTime == null)
             {
                 return;
             }
@@ -192,6 +194,29 @@ namespace Roguelancer
                 }
 
                 _shipRuntimes.Remove(destroyedShip);
+            }
+        }
+
+        public void RegisterMissionNpc(NpcShip ship)
+        {
+            if (ship == null)
+                return;
+            _combatDisengagement.RegisterShip(ship);
+            _combatCommunication.RegisterShip(ship);
+        }
+
+        public void UnregisterMissionNpc(NpcShip ship)
+        {
+            if (ship == null)
+                return;
+
+            _combatDisengagement.UnregisterShip(ship);
+            _combatCommunication.UnregisterShip(ship);
+            _shipRuntimes.Remove(ship);
+            foreach (NpcShip other in _npcShips)
+            {
+                if (other != null && other.FactionCombatTarget == ship)
+                    other.ClearFactionCombatTarget();
             }
         }
 
@@ -601,15 +626,20 @@ namespace Roguelancer
                     continue;
                 }
 
-                // Leave newly eligible player hostility for NpcShip's live
-                // player-disposition path. This preserves the explicit order:
-                // current valid target, player, then faction contact.
+                // A mission-owned objective is a stronger local objective than
+                // newly eligible player hostility. This preserves the explicit
+                // order: current valid target, mission target, player, then
+                // ordinary faction contact.
                 float playerRange = Math.Max(100f, source.TrafficActivationRange);
                 bool playerTargetEligible = playerShip != null && reputationManager != null &&
                     (FactionDispositionEvaluator.IsHostile(source.FactionId, reputationManager) ||
                         (source.WasDamagedByPlayer && reputationManager.IsTemporarilyHostile(source.FactionId))) &&
                     Vector3.DistanceSquared(source.Position, playerShip.Position) <= playerRange * playerRange;
-                if (playerTargetEligible && source.EncounterState == TrafficEncounterState.Cruising)
+                float missionTargetRange = Math.Max(100f, source.TrafficActivationRange);
+                NpcShip missionTarget = MissionTargetResolver?.Invoke(source);
+                bool hasMissionTarget = NpcFactionCombatTargeting.IsValidMissionTarget(source, missionTarget, missionTargetRange) &&
+                    !_combatDisengagement.IsTargetAcquisitionSuppressed(source, missionTarget);
+                if (playerTargetEligible && source.EncounterState == TrafficEncounterState.Cruising && !hasMissionTarget)
                     continue;
 
                 List<NpcShip> nearbyCandidates = new();
@@ -635,7 +665,9 @@ namespace Roguelancer
                 }
 
                 float range = Math.Max(100f, source.TrafficActivationRange);
-                NpcShip target = NpcFactionCombatTargeting.SelectNearestHostileTarget(source, nearbyCandidates, range);
+                NpcShip target = hasMissionTarget
+                    ? missionTarget
+                    : NpcFactionCombatTargeting.SelectNearestHostileTarget(source, nearbyCandidates, range);
                 if (target == null)
                     continue;
 
@@ -644,7 +676,9 @@ namespace Roguelancer
                 if (!source.SetFactionCombatTarget(
                     target,
                     preserveLegacyState,
-                    FactionCombatTargetOrigin.OrdinaryAcquisition))
+                    hasMissionTarget
+                        ? FactionCombatTargetOrigin.MissionObjective
+                        : FactionCombatTargetOrigin.OrdinaryAcquisition))
                 {
                     continue;
                 }

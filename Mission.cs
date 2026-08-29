@@ -16,7 +16,8 @@ namespace Roguelancer
         Bounty,
         Escort,
         TradeLaneDisruption,
-        TradeLaneDefense
+        TradeLaneDefense,
+        ConvoyEscort
     }
 
     public enum TradeLaneDefenseStage
@@ -24,6 +25,16 @@ namespace Roguelancer
         EnRoute,
         AttackActive,
         AwaitingRecovery,
+        Successful,
+        Failed
+    }
+
+    public enum ConvoyEscortStage
+    {
+        Rendezvous,
+        Escorting,
+        EncounterActive,
+        ApproachingDestination,
         Successful,
         Failed
     }
@@ -155,6 +166,7 @@ namespace Roguelancer
         public const string PriorityDispatchId = "priority-dispatch";
         public const string TradeLaneDisruptionId = "trade-lane-disruption";
         public const string TradeLaneDefenseId = "trade-lane-defense";
+        public const string ConvoyEscortId = "convoy-escort";
 
         private static readonly IReadOnlyList<MissionDefinition> Definitions = new[]
         {
@@ -307,12 +319,48 @@ namespace Roguelancer
         public float DefenseFailureHoldProgressSeconds { get; set; }
         public bool DefenseActivationStarted { get; set; }
 
+        // Convoy escort state is durable mission data. Convoy and Rogue NPC
+        // instances are transient and are reconstructed from these bounded
+        // identities after a load or world rebind.
+        public string ConvoyRouteId { get; set; } = string.Empty;
+        public string ConvoyRouteLaneId { get; set; } = string.Empty;
+        public string ConvoyRouteSegmentId { get; set; } = string.Empty;
+        public TradeLaneDirection ConvoyRouteDirection { get; set; } = TradeLaneDirection.Forward;
+        public string ConvoyFactionId { get; set; } = FactionManager.LibertyCorporations;
+        public string ConvoyHostileFactionId { get; set; } = FactionManager.LibertyRogues;
+        public string ConvoyShipArchetype { get; set; } = "Transport Ship Alpha";
+        public int ConvoyRouteRingIndex { get; set; } = -1;
+        public int ConvoyEncounterRingIndex { get; set; } = -1;
+        public int ConvoyShipCount { get; set; }
+        public int ConvoyRequiredSurvivors { get; set; } = 1;
+        public int ConvoySurvivors { get; set; }
+        public int ConvoyDestroyedCount { get; set; }
+        public int ConvoyDestroyedMask { get; set; }
+        public int ConvoyArrivedCount { get; set; }
+        public int ConvoyArrivedMask { get; set; }
+        public int ConvoyAttackForceSize { get; set; }
+        public int ConvoyAttackersRemaining { get; set; }
+        public ConvoyEscortStage ConvoyStage { get; set; } = ConvoyEscortStage.Rendezvous;
+        public float ConvoyRendezvousRadius { get; set; } = 2200f;
+        public float ConvoyAbandonmentRadius { get; set; } = 9000f;
+        public float ConvoyAbandonmentGraceSeconds { get; set; } = 25f;
+        public float ConvoyAbandonmentProgressSeconds { get; set; }
+        public float ConvoyArrivalRadius { get; set; } = 3000f;
+        public bool ConvoyRouteStarted { get; set; }
+        public bool ConvoyEncounterActivated { get; set; }
+        public bool ConvoyEncounterResolved { get; set; }
+        public bool ConvoyEncounterSpawnAttempted { get; set; }
+        public Vector3? ConvoyRendezvousPosition { get; set; }
+        public Vector3? ConvoyEncounterPosition { get; set; }
+        public Vector3? ConvoyDestinationPosition { get; set; }
+
         public bool IsExpired => TimeLimit > 0 && ElapsedTime >= TimeLimit;
         public float TimeRemaining => TimeLimit > 0 ? Math.Max(0, TimeLimit - ElapsedTime) : -1;
         public bool IsActive => Status is MissionStatus.Accepted or MissionStatus.InProgress;
         public bool HasUnclaimedReward => Status == MissionStatus.Completed && !RewardPaid;
         public bool IsTradeLaneDisruptionMission() => Type == MissionType.TradeLaneDisruption;
         public bool IsTradeLaneDefenseMission() => Type == MissionType.TradeLaneDefense;
+        public bool IsConvoyEscortMission() => Type == MissionType.ConvoyEscort;
 
         public Mission(
             MissionType type,
@@ -540,6 +588,89 @@ namespace Roguelancer
                 DefenseFailureHoldProgressSeconds = 0f,
                 DefenseActivationStarted = false
             };
+            return mission;
+        }
+
+        public static Mission CreateConvoyEscort(
+            string routeId,
+            string laneId,
+            string segmentId,
+            TradeLaneDirection direction,
+            string laneName,
+            Station origin,
+            Station destination,
+            Vector3 rendezvousPosition,
+            Vector3 encounterPosition,
+            int encounterRingIndex,
+            int convoySize,
+            int attackForceSize,
+            int reward,
+            MissionDifficulty difficulty,
+            string description,
+            string offeredBy)
+        {
+            if (string.IsNullOrWhiteSpace(routeId) || string.IsNullOrWhiteSpace(laneId) ||
+                string.IsNullOrWhiteSpace(segmentId) || string.IsNullOrWhiteSpace(laneName) ||
+                origin == null || destination == null || ReferenceEquals(origin, destination) ||
+                !TradeLaneStateSanitizer.IsFinite(rendezvousPosition) ||
+                !TradeLaneStateSanitizer.IsFinite(encounterPosition) || encounterRingIndex < 1 ||
+                convoySize is < 2 or > 4 || attackForceSize is < 2 or > 6 || reward <= 0)
+            {
+                return null;
+            }
+
+            Mission mission = new Mission(
+                MissionType.ConvoyEscort,
+                difficulty,
+                "Merchant convoy",
+                destination.Name,
+                reward,
+                0f,
+                description,
+                FactionManager.NormalizeFactionId(origin.FactionId),
+                title: "Convoy Escort")
+            {
+                DefinitionId = MissionCatalog.ConvoyEscortId,
+                OfferedBy = offeredBy ?? origin.Name ?? "Commercial Operations",
+                TargetLocation = laneName,
+                TargetSystemIndex = destination.Config?.SystemIndex ?? origin.Config?.SystemIndex ?? 0,
+                TargetCount = convoySize,
+                RequiredProgress = 1,
+                TargetPosition = rendezvousPosition,
+                DestinationStationId = BuildStationIdentity(destination),
+                ConvoyRouteId = routeId.Trim(),
+                ConvoyRouteLaneId = laneId.Trim(),
+                ConvoyRouteSegmentId = segmentId.Trim(),
+                ConvoyRouteDirection = direction,
+                ConvoyFactionId = FactionManager.LibertyCorporations,
+                ConvoyHostileFactionId = FactionManager.LibertyRogues,
+                ConvoyShipArchetype = "Transport Ship Alpha",
+                ConvoyRouteRingIndex = -1,
+                ConvoyEncounterRingIndex = encounterRingIndex,
+                ConvoyShipCount = convoySize,
+                ConvoyRequiredSurvivors = 1,
+                ConvoySurvivors = convoySize,
+                ConvoyDestroyedCount = 0,
+                ConvoyDestroyedMask = 0,
+                ConvoyArrivedCount = 0,
+                ConvoyArrivedMask = 0,
+                ConvoyAttackForceSize = attackForceSize,
+                ConvoyAttackersRemaining = 0,
+                ConvoyStage = ConvoyEscortStage.Rendezvous,
+                ConvoyRendezvousRadius = 2200f,
+                ConvoyAbandonmentRadius = 9000f,
+                ConvoyAbandonmentGraceSeconds = 25f,
+                ConvoyAbandonmentProgressSeconds = 0f,
+                ConvoyArrivalRadius = 3000f,
+                ConvoyRouteStarted = false,
+                ConvoyEncounterActivated = false,
+                ConvoyEncounterResolved = false,
+                ConvoyEncounterSpawnAttempted = false,
+                ConvoyRendezvousPosition = rendezvousPosition,
+                ConvoyEncounterPosition = encounterPosition,
+                ConvoyDestinationPosition = destination.Position
+            };
+            mission.SetOrigin(origin);
             return mission;
         }
 
@@ -777,7 +908,38 @@ namespace Roguelancer
             float defenseActivationRadius = 0f,
             float defenseFailureHoldSeconds = 0f,
             float defenseFailureHoldProgressSeconds = 0f,
-            bool defenseActivationStarted = false)
+            bool defenseActivationStarted = false,
+            string convoyRouteId = "",
+            string convoyRouteLaneId = "",
+            string convoyRouteSegmentId = "",
+            TradeLaneDirection convoyRouteDirection = TradeLaneDirection.Forward,
+            string convoyFactionId = "",
+            string convoyHostileFactionId = "",
+            string convoyShipArchetype = "",
+            int convoyRouteRingIndex = -1,
+            int convoyEncounterRingIndex = -1,
+            int convoyShipCount = 0,
+            int convoyRequiredSurvivors = 1,
+            int convoySurvivors = 0,
+            int convoyDestroyedCount = 0,
+            int convoyDestroyedMask = 0,
+            int convoyArrivedCount = 0,
+            int convoyArrivedMask = 0,
+            int convoyAttackForceSize = 0,
+            int convoyAttackersRemaining = 0,
+            ConvoyEscortStage convoyStage = ConvoyEscortStage.Rendezvous,
+            float convoyRendezvousRadius = 2200f,
+            float convoyAbandonmentRadius = 9000f,
+            float convoyAbandonmentGraceSeconds = 25f,
+            float convoyAbandonmentProgressSeconds = 0f,
+            float convoyArrivalRadius = 3000f,
+            bool convoyRouteStarted = false,
+            bool convoyEncounterActivated = false,
+            bool convoyEncounterResolved = false,
+            bool convoyEncounterSpawnAttempted = false,
+            SaveVector3Data convoyRendezvousPosition = null,
+            SaveVector3Data convoyEncounterPosition = null,
+            SaveVector3Data convoyDestinationPosition = null)
         {
             Mission mission = new Mission(
                 id,
@@ -853,7 +1015,55 @@ namespace Roguelancer
                 ? 0f
                 : Math.Clamp(defenseFailureHoldProgressSeconds, 0f, mission.DefenseFailureHoldSeconds);
             mission.DefenseActivationStarted = defenseActivationStarted;
+            mission.ConvoyRouteId = convoyRouteId ?? string.Empty;
+            mission.ConvoyRouteLaneId = convoyRouteLaneId ?? string.Empty;
+            mission.ConvoyRouteSegmentId = convoyRouteSegmentId ?? string.Empty;
+            mission.ConvoyRouteDirection = Enum.IsDefined(typeof(TradeLaneDirection), convoyRouteDirection)
+                ? convoyRouteDirection
+                : TradeLaneDirection.Forward;
+            mission.ConvoyFactionId = FactionManager.NormalizeFactionId(
+                string.IsNullOrWhiteSpace(convoyFactionId) ? FactionManager.LibertyCorporations : convoyFactionId);
+            mission.ConvoyHostileFactionId = FactionManager.NormalizeFactionId(
+                string.IsNullOrWhiteSpace(convoyHostileFactionId) ? FactionManager.LibertyRogues : convoyHostileFactionId);
+            mission.ConvoyShipArchetype = string.IsNullOrWhiteSpace(convoyShipArchetype)
+                ? "Transport Ship Alpha"
+                : convoyShipArchetype.Trim();
+            mission.ConvoyRouteRingIndex = convoyRouteRingIndex;
+            mission.ConvoyEncounterRingIndex = convoyEncounterRingIndex;
+            mission.ConvoyShipCount = Math.Clamp(convoyShipCount, 0, 4);
+            mission.ConvoyRequiredSurvivors = Math.Clamp(convoyRequiredSurvivors, 1, Math.Max(1, mission.ConvoyShipCount));
+            mission.ConvoySurvivors = Math.Clamp(convoySurvivors, 0, mission.ConvoyShipCount);
+            mission.ConvoyDestroyedCount = Math.Clamp(convoyDestroyedCount, 0, mission.ConvoyShipCount);
+            int convoyMaskLimit = mission.ConvoyShipCount >= 4 ? 15 : (1 << mission.ConvoyShipCount) - 1;
+            mission.ConvoyDestroyedMask = convoyDestroyedMask & convoyMaskLimit;
+            mission.ConvoyArrivedCount = Math.Clamp(convoyArrivedCount, 0, mission.ConvoyShipCount);
+            mission.ConvoyArrivedMask = convoyArrivedMask & convoyMaskLimit;
+            mission.ConvoyAttackForceSize = Math.Clamp(convoyAttackForceSize, 0, 6);
+            mission.ConvoyAttackersRemaining = Math.Clamp(convoyAttackersRemaining, 0, mission.ConvoyAttackForceSize);
+            mission.ConvoyStage = Enum.IsDefined(typeof(ConvoyEscortStage), convoyStage)
+                ? convoyStage
+                : ConvoyEscortStage.Rendezvous;
+            mission.ConvoyRendezvousRadius = SanitizeConvoyRadius(convoyRendezvousRadius, 2200f, 250f, 5000f);
+            mission.ConvoyAbandonmentRadius = SanitizeConvoyRadius(convoyAbandonmentRadius, 9000f, 2500f, 20000f);
+            mission.ConvoyAbandonmentGraceSeconds = SanitizeConvoyRadius(convoyAbandonmentGraceSeconds, 25f, 5f, 60f);
+            mission.ConvoyAbandonmentProgressSeconds = SanitizeConvoyRadius(
+                convoyAbandonmentProgressSeconds, 0f, 0f, mission.ConvoyAbandonmentGraceSeconds);
+            mission.ConvoyArrivalRadius = SanitizeConvoyRadius(convoyArrivalRadius, 3000f, 500f, 10000f);
+            mission.ConvoyRouteStarted = convoyRouteStarted;
+            mission.ConvoyEncounterActivated = convoyEncounterActivated;
+            mission.ConvoyEncounterResolved = convoyEncounterResolved;
+            mission.ConvoyEncounterSpawnAttempted = convoyEncounterSpawnAttempted;
+            mission.ConvoyRendezvousPosition = convoyRendezvousPosition?.ToVector3();
+            mission.ConvoyEncounterPosition = convoyEncounterPosition?.ToVector3();
+            mission.ConvoyDestinationPosition = convoyDestinationPosition?.ToVector3();
             return mission;
+        }
+
+        private static float SanitizeConvoyRadius(float value, float fallback, float minimum, float maximum)
+        {
+            return float.IsNaN(value) || float.IsInfinity(value)
+                ? fallback
+                : Math.Clamp(value, minimum, maximum);
         }
 
         public void SetOrigin(Station station)
@@ -903,6 +1113,7 @@ namespace Roguelancer
             MissionType.Escort => "ESCORT",
             MissionType.TradeLaneDisruption => "TRADE-LANE DISRUPTION",
             MissionType.TradeLaneDefense => "TRADE-LANE DEFENSE",
+            MissionType.ConvoyEscort => "CONVOY ESCORT",
             _ => "MISSION"
         };
 
@@ -974,6 +1185,8 @@ namespace Roguelancer
                 return string.IsNullOrWhiteSpace(TargetSegmentId) ? TargetLocation : $"{TargetLocation} / {TargetSegmentId}";
             if (Type == MissionType.TradeLaneDefense)
                 return string.IsNullOrWhiteSpace(TargetSegmentId) ? TargetLocation : $"{TargetLocation} / {TargetSegmentId}";
+            if (Type == MissionType.ConvoyEscort)
+                return $"Merchant convoy ({Math.Max(0, ConvoySurvivors)} / {Math.Max(0, ConvoyShipCount)})";
             if (!string.IsNullOrWhiteSpace(Target))
             {
                 if (Type == MissionType.Escort && TargetSpaceObject is NpcShip escortShip && !escortShip.IsDestroyed)
@@ -992,7 +1205,7 @@ namespace Roguelancer
 
         public string GetDestinationLabel() => !string.IsNullOrWhiteSpace(Destination)
             ? Destination.Trim()
-            : Type is MissionType.Escort or MissionType.Delivery or MissionType.CourierDelivery or MissionType.FreightContract or MissionType.ExportContract ? "Destination unavailable" : "Location unavailable";
+            : Type is MissionType.Escort or MissionType.ConvoyEscort or MissionType.Delivery or MissionType.CourierDelivery or MissionType.FreightContract or MissionType.ExportContract ? "Destination unavailable" : "Location unavailable";
 
         public string GetTargetFactionLabel() => FactionManager.GetFactionDisplayName(
             string.IsNullOrWhiteSpace(BountyTargetFactionId) ? FactionId : BountyTargetFactionId);
@@ -1009,6 +1222,7 @@ namespace Roguelancer
             MissionType.Escort => $"Escort {GetTargetLabel()} to {GetDestinationLabel()}",
             MissionType.TradeLaneDisruption => $"Disrupt {GetTargetLabel()} and hold it offline",
             MissionType.TradeLaneDefense => $"Defend {GetTargetLabel()} against Liberty Rogues",
+            MissionType.ConvoyEscort => $"Escort merchant convoy ({ConvoyShipCount} freighters) from {OriginStationName} to {GetDestinationLabel()}",
             _ => Description
         };
 
@@ -1026,6 +1240,7 @@ namespace Roguelancer
             MissionType.Escort => string.IsNullOrWhiteSpace(Destination) ? "Destination unavailable" : string.Empty,
             MissionType.TradeLaneDisruption => GetTradeLaneHudStatus(),
             MissionType.TradeLaneDefense => GetTradeLaneDefenseHudStatus(),
+            MissionType.ConvoyEscort => GetConvoyEscortHudStatus(),
             _ => string.Empty
         };
 
@@ -1038,6 +1253,7 @@ namespace Roguelancer
             MissionType.ExportContract => ObjectiveComplete ? "Export delivered" : $"Haul {GetTargetLabel()} to {GetDestinationLabel()}",
             MissionType.TradeLaneDisruption => GetTradeLaneHudStatus(),
             MissionType.TradeLaneDefense => GetTradeLaneDefenseHudStatus(),
+            MissionType.ConvoyEscort => GetConvoyEscortHudStatus(),
             _ => GetObjectiveText()
         };
 
@@ -1065,6 +1281,30 @@ namespace Roguelancer
             if (DefenseStage == TradeLaneDefenseStage.AwaitingRecovery)
                 return $"LANE DISRUPTED — RECOVER {DefenseFailureHoldProgressSeconds:0.0} / {DefenseFailureHoldSeconds:0.0}s";
             return $"DEFEND LANE | ROGUES REMAINING: {Math.Max(0, DefenseAttackersRemaining)}";
+        }
+
+        public string GetConvoyEscortHudStatus()
+        {
+            if (Type != MissionType.ConvoyEscort)
+                return string.Empty;
+            if (Status == MissionStatus.Failed || ConvoyStage == ConvoyEscortStage.Failed)
+                return "ESCORT FAILED";
+            if (ObjectiveComplete || ConvoyStage == ConvoyEscortStage.Successful)
+                return "ESCORT SUCCESSFUL";
+            if (ConvoyStage == ConvoyEscortStage.Rendezvous)
+                return "PROCEED TO CONVOY RENDEZVOUS";
+            if (ConvoyStage == ConvoyEscortStage.EncounterActive)
+            {
+                string threat = ConvoyAttackersRemaining > 0 ? "ROGUE INTERCEPTORS DETECTED" : "INTERCEPTION RESOLVED";
+                return ConvoyAbandonmentProgressSeconds > 0f
+                    ? $"RETURN TO CONVOY — ABANDONMENT IN {Math.Max(0f, ConvoyAbandonmentGraceSeconds - ConvoyAbandonmentProgressSeconds):0}s"
+                    : $"{threat} | CONVOY SHIPS REMAINING: {Math.Max(0, ConvoySurvivors)} / {Math.Max(0, ConvoyShipCount)}";
+            }
+            if (ConvoyStage == ConvoyEscortStage.ApproachingDestination)
+                return $"CONVOY APPROACHING DESTINATION | SHIPS REMAINING: {Math.Max(0, ConvoySurvivors)} / {Math.Max(0, ConvoyShipCount)}";
+            if (ConvoyAbandonmentProgressSeconds > 0f)
+                return $"RETURN TO CONVOY — ABANDONMENT IN {Math.Max(0f, ConvoyAbandonmentGraceSeconds - ConvoyAbandonmentProgressSeconds):0}s";
+            return $"ESCORT CONVOY TO DESTINATION | SHIPS REMAINING: {Math.Max(0, ConvoySurvivors)} / {Math.Max(0, ConvoyShipCount)}";
         }
     }
 }

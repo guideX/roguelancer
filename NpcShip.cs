@@ -39,7 +39,8 @@ namespace Roguelancer
     {
         OrdinaryAcquisition,
         DistressResponse,
-        EscalationResponse
+        EscalationResponse,
+        MissionObjective
     }
 
     /// <summary>
@@ -84,6 +85,7 @@ namespace Roguelancer
         public string TradeLaneId { get; private set; } = string.Empty;
         public TradeLaneDirection? TradeLaneDirection { get; private set; }
         public int TradeLaneRingIndex { get; private set; } = -1;
+        public bool IsMissionHoldPosition { get; private set; }
         public TrafficEncounterState EncounterState { get; private set; } = TrafficEncounterState.Cruising;
         public Vector3? EncounterTargetPosition { get; private set; }
         public Vector3? EncounterEscapePosition { get; private set; }
@@ -254,6 +256,7 @@ namespace Roguelancer
         private float _bobSpeed;
         private float _trafficRouteHoldTimer;
         private bool _trafficRouteTowardEnd = true;
+        private Vector3 _missionHoldAnchor;
         private Quaternion _rotation = Quaternion.Identity; // Use Quaternion instead of Matrix
         
         public Vector3 Forward => Vector3.Transform(Vector3.Forward, _rotation);
@@ -477,7 +480,10 @@ namespace Roguelancer
             bool preserveExistingEncounterState = false,
             FactionCombatTargetOrigin targetOrigin = FactionCombatTargetOrigin.OrdinaryAcquisition)
         {
-            if (!NpcFactionCombatTargeting.IsValidHostileTarget(this, target))
+            bool validTarget = targetOrigin == FactionCombatTargetOrigin.MissionObjective
+                ? NpcFactionCombatTargeting.IsValidMissionTarget(this, target)
+                : NpcFactionCombatTargeting.IsValidHostileTarget(this, target);
+            if (!validTarget)
                 return false;
 
             FactionCombatTarget = target;
@@ -502,7 +508,9 @@ namespace Roguelancer
         }
 
         public bool HasValidFactionCombatTarget(float? maxDistance = null) =>
-            NpcFactionCombatTargeting.IsValidHostileTarget(this, FactionCombatTarget, maxDistance);
+            FactionCombatTargetOrigin == FactionCombatTargetOrigin.MissionObjective
+                ? NpcFactionCombatTargeting.IsValidMissionTarget(this, FactionCombatTarget, maxDistance)
+                : NpcFactionCombatTargeting.IsValidHostileTarget(this, FactionCombatTarget, maxDistance);
 
         public void ClearFactionCombatTarget()
         {
@@ -613,6 +621,17 @@ namespace Roguelancer
 
             if (IsTradeLaneTransit)
             {
+                IsAfterburnerActive = false;
+                CruiseDrive.Cancel(CruiseCancellationReason.IncompatibleFlight);
+                ThrusterEnergy?.Advance(deltaTime, afterburnRequested: false, shipAlive: true);
+                return;
+            }
+
+            if (IsMissionHoldPosition)
+            {
+                Position = _missionHoldAnchor;
+                Velocity = Vector3.Zero;
+                Speed = 0f;
                 IsAfterburnerActive = false;
                 CruiseDrive.Cancel(CruiseCancellationReason.IncompatibleFlight);
                 ThrusterEnergy?.Advance(deltaTime, afterburnRequested: false, shipAlive: true);
@@ -1036,6 +1055,19 @@ namespace Roguelancer
                 TradeLaneDirection = null;
                 TradeLaneRingIndex = -1;
                 IsAfterburnerActive = false;
+            }
+        }
+
+        public void SetMissionHoldPosition(bool hold, Vector3? anchor = null)
+        {
+            IsMissionHoldPosition = hold;
+            if (hold)
+            {
+                _missionHoldAnchor = anchor ?? Position;
+                Position = _missionHoldAnchor;
+                Velocity = Vector3.Zero;
+                Speed = 0f;
+                ClearEncounterState();
             }
         }
     }

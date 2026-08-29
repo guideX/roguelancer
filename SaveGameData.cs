@@ -378,6 +378,99 @@ namespace Roguelancer
 
         [JsonPropertyName("defense_activation_started")]
         public bool DefenseActivationStarted { get; set; }
+
+        [JsonPropertyName("convoy_route_id")]
+        public string ConvoyRouteId { get; set; } = string.Empty;
+
+        [JsonPropertyName("convoy_route_lane_id")]
+        public string ConvoyRouteLaneId { get; set; } = string.Empty;
+
+        [JsonPropertyName("convoy_route_segment_id")]
+        public string ConvoyRouteSegmentId { get; set; } = string.Empty;
+
+        [JsonPropertyName("convoy_route_direction")]
+        public TradeLaneDirection ConvoyRouteDirection { get; set; } = TradeLaneDirection.Forward;
+
+        [JsonPropertyName("convoy_faction_id")]
+        public string ConvoyFactionId { get; set; } = string.Empty;
+
+        [JsonPropertyName("convoy_hostile_faction_id")]
+        public string ConvoyHostileFactionId { get; set; } = string.Empty;
+
+        [JsonPropertyName("convoy_ship_archetype")]
+        public string ConvoyShipArchetype { get; set; } = string.Empty;
+
+        [JsonPropertyName("convoy_route_ring_index")]
+        public int ConvoyRouteRingIndex { get; set; } = -1;
+
+        [JsonPropertyName("convoy_encounter_ring_index")]
+        public int ConvoyEncounterRingIndex { get; set; } = -1;
+
+        [JsonPropertyName("convoy_ship_count")]
+        public int ConvoyShipCount { get; set; }
+
+        [JsonPropertyName("convoy_required_survivors")]
+        public int ConvoyRequiredSurvivors { get; set; } = 1;
+
+        [JsonPropertyName("convoy_survivors")]
+        public int ConvoySurvivors { get; set; }
+
+        [JsonPropertyName("convoy_destroyed_count")]
+        public int ConvoyDestroyedCount { get; set; }
+
+        [JsonPropertyName("convoy_destroyed_mask")]
+        public int ConvoyDestroyedMask { get; set; }
+
+        [JsonPropertyName("convoy_arrived_count")]
+        public int ConvoyArrivedCount { get; set; }
+
+        [JsonPropertyName("convoy_arrived_mask")]
+        public int ConvoyArrivedMask { get; set; }
+
+        [JsonPropertyName("convoy_attack_force_size")]
+        public int ConvoyAttackForceSize { get; set; }
+
+        [JsonPropertyName("convoy_attackers_remaining")]
+        public int ConvoyAttackersRemaining { get; set; }
+
+        [JsonPropertyName("convoy_stage")]
+        public ConvoyEscortStage ConvoyStage { get; set; } = ConvoyEscortStage.Rendezvous;
+
+        [JsonPropertyName("convoy_rendezvous_radius")]
+        public float ConvoyRendezvousRadius { get; set; }
+
+        [JsonPropertyName("convoy_abandonment_radius")]
+        public float ConvoyAbandonmentRadius { get; set; }
+
+        [JsonPropertyName("convoy_abandonment_grace_seconds")]
+        public float ConvoyAbandonmentGraceSeconds { get; set; }
+
+        [JsonPropertyName("convoy_abandonment_progress_seconds")]
+        public float ConvoyAbandonmentProgressSeconds { get; set; }
+
+        [JsonPropertyName("convoy_arrival_radius")]
+        public float ConvoyArrivalRadius { get; set; }
+
+        [JsonPropertyName("convoy_route_started")]
+        public bool ConvoyRouteStarted { get; set; }
+
+        [JsonPropertyName("convoy_encounter_activated")]
+        public bool ConvoyEncounterActivated { get; set; }
+
+        [JsonPropertyName("convoy_encounter_resolved")]
+        public bool ConvoyEncounterResolved { get; set; }
+
+        [JsonPropertyName("convoy_encounter_spawn_attempted")]
+        public bool ConvoyEncounterSpawnAttempted { get; set; }
+
+        [JsonPropertyName("convoy_rendezvous_position")]
+        public SaveVector3Data ConvoyRendezvousPosition { get; set; }
+
+        [JsonPropertyName("convoy_encounter_position")]
+        public SaveVector3Data ConvoyEncounterPosition { get; set; }
+
+        [JsonPropertyName("convoy_destination_position")]
+        public SaveVector3Data ConvoyDestinationPosition { get; set; }
     }
 
     /// <summary>

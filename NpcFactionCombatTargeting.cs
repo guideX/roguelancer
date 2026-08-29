@@ -46,6 +46,26 @@ public static class NpcFactionCombatTargeting
     }
 
     /// <summary>
+    /// Validates a target supplied by an active mission objective. The mission
+    /// owns the exception to the broad faction matrix; all runtime combat,
+    /// damage, disengagement, and weapon behavior remains unchanged.
+    /// </summary>
+    public static bool IsValidMissionTarget(NpcShip? source, NpcShip? target, float? maxDistance = null)
+    {
+        if (source == null || target == null || source == target ||
+            source.IsDestroyed || target.IsDestroyed)
+        {
+            return false;
+        }
+
+        if (!maxDistance.HasValue)
+            return true;
+
+        float distance = Math.Max(0f, maxDistance.Value);
+        return Vector3.DistanceSquared(source.Position, target.Position) <= distance * distance;
+    }
+
+    /// <summary>
     /// Selects the nearest eligible local contact. Distance is primary; name
     /// and then source-order are deterministic tie breakers, so updates do not
     /// randomly retarget a ship when contacts are equally close.

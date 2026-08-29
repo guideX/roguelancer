@@ -121,6 +121,13 @@ namespace Roguelancer
                     data.ResolvedTarget = escortNpc.Position;
                     mission.TargetPosition = data.ResolvedTarget;
                 }
+                else if (mission.Type == MissionType.ConvoyEscort &&
+                    mission.ConvoyStage != ConvoyEscortStage.Rendezvous &&
+                    data.TargetObject is NpcShip convoyLeader && !convoyLeader.IsDestroyed)
+                {
+                    data.ResolvedTarget = convoyLeader.Position;
+                    mission.TargetPosition = data.ResolvedTarget;
+                }
 
                 if (data.ResolvedTarget == null) continue;
 
@@ -243,6 +250,24 @@ namespace Roguelancer
                     }
 
                     break;
+
+                case MissionType.ConvoyEscort:
+                    if (mission.ConvoyStage == ConvoyEscortStage.Rendezvous && mission.ConvoyRendezvousPosition.HasValue)
+                    {
+                        data.ResolvedTarget = mission.ConvoyRendezvousPosition.Value;
+                    }
+                    else if (mission.TargetSpaceObject is NpcShip convoyLeader && !convoyLeader.IsDestroyed)
+                    {
+                        data.ResolvedTarget = convoyLeader.Position;
+                        data.TargetObject = convoyLeader;
+                    }
+                    else if (mission.TargetPosition.HasValue)
+                    {
+                        data.ResolvedTarget = mission.TargetPosition.Value;
+                    }
+
+                    data.DestinationObject = FindSpaceObjectByName(spaceObjects, mission.Destination);
+                    break;
             }
         }
 
@@ -320,6 +345,9 @@ namespace Roguelancer
                 MissionType.CourierDelivery => data.Mission.GetDestinationLabel(),
                 MissionType.FreightContract => data.Mission.GetDestinationLabel(),
                 MissionType.ExportContract => data.Mission.GetDestinationLabel(),
+                MissionType.ConvoyEscort => data.Mission.ConvoyStage == ConvoyEscortStage.Rendezvous
+                    ? "Convoy Rendezvous"
+                    : data.Mission.GetDestinationLabel(),
                 _ => data.Mission.Destination
             };
 

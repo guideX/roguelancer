@@ -126,7 +126,7 @@ namespace Roguelancer
             string title = "ACTIVE OBJECTIVE";
             string typeLine = $"Type: {data.Mission.GetTypeLabel()}";
             string objective = data.Mission.GetObjectiveText();
-            bool escortMission = data.Mission.Type == MissionType.Escort;
+            bool escortMission = data.Mission.Type == MissionType.Escort || data.Mission.Type == MissionType.ConvoyEscort;
             string targetLine = data.Mission.Type switch
             {
                 MissionType.Bounty => $"Target: {data.Mission.GetTargetLabel()}",
@@ -138,10 +138,13 @@ namespace Roguelancer
                 MissionType.Escort => data.TargetObject is NpcShip
                     ? $"Escort: {data.Mission.GetTargetLabel()}"
                     : $"Destination: {data.Mission.GetDestinationLabel()}",
+                MissionType.ConvoyEscort => data.Mission.ConvoyStage == ConvoyEscortStage.Rendezvous
+                    ? "Rendezvous: Merchant convoy"
+                    : $"Convoy: {data.Mission.ConvoySurvivors} / {data.Mission.ConvoyShipCount} ships",
                 _ => data.Mission.GetObjectiveText()
             };
-            string statusLine = data.Mission.Type == MissionType.TradeLaneDisruption
-                ? $"Status: {data.Mission.GetTradeLaneHudStatus()}"
+            string statusLine = data.Mission.Type == MissionType.TradeLaneDisruption || data.Mission.Type == MissionType.ConvoyEscort
+                ? $"Status: {data.Mission.GetHudProgressLine()}"
                 : data.ResolvedTarget != null
                 ? escortMission && data.TargetObject is NpcShip && data.DestinationObject != null
                     ? $"Status: Escort en route to {data.Mission.GetDestinationLabel()}"
@@ -528,6 +531,7 @@ namespace Roguelancer
                 MissionType.Bounty => new Color(255, 80, 80),
                 MissionType.TradeLaneDisruption => new Color(255, 145, 55),
                 MissionType.Escort => new Color(255, 200, 50),
+                MissionType.ConvoyEscort => new Color(255, 220, 90),
                 _ => Color.White
             };
         }

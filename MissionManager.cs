@@ -36,6 +36,7 @@ namespace Roguelancer
         private readonly Dictionary<string, Mission> _exportOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _tradeLaneDisruptionOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _tradeLaneDefenseOffers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Mission> _convoyEscortOffers = new(StringComparer.OrdinalIgnoreCase);
         private ReputationManager _reputationManager;
         private MissionWaypointSystem _waypointSystem;
         private MissionWorldManager _worldManager;
@@ -95,6 +96,7 @@ namespace Roguelancer
                 MissionType.Bounty or MissionType.DestroyHostiles => 0.035f,
                 MissionType.TradeLaneDisruption => 0.020f,
                 MissionType.TradeLaneDefense => 0.025f,
+                MissionType.ConvoyEscort => 0.030f,
                 MissionType.Escort => 0.030f,
                 MissionType.FreightContract or MissionType.ExportContract => 0.025f,
                 MissionType.CourierDelivery => 0.020f,
@@ -278,6 +280,7 @@ namespace Roguelancer
             _exportOffers.Clear();
             _tradeLaneDisruptionOffers.Clear();
             _tradeLaneDefenseOffers.Clear();
+            _convoyEscortOffers.Clear();
             _worldManager?.ClearState();
         }
 
@@ -306,6 +309,20 @@ namespace Roguelancer
                     // an in-progress encounter is rebound.
                     restoredActive.DefenseAttackersRemaining = 0;
                     restoredActive.DefenseFailureHoldProgressSeconds = 0f;
+                }
+                else if (restoredActive.Type == MissionType.ConvoyEscort)
+                {
+                    // Convoy and Rogue objects are transient. The durable
+                    // masks/stage and remaining wave count survive so an
+                    // interrupted encounter can rebuild one bounded force;
+                    // completed encounters never respawn their attackers.
+                    restoredActive.ConvoyAttackersRemaining = restoredActive.ConvoyStage == ConvoyEscortStage.EncounterActive &&
+                        restoredActive.ConvoyEncounterActivated && !restoredActive.ConvoyEncounterResolved
+                        ? Math.Clamp(restoredActive.ConvoyAttackersRemaining > 0
+                            ? restoredActive.ConvoyAttackersRemaining
+                            : restoredActive.ConvoyAttackForceSize, 1, 6)
+                        : 0;
+                    restoredActive.ConvoyAbandonmentProgressSeconds = 0f;
                 }
                 _activeMissions.Add(restoredActive);
                 RegisterFreightReservation(restoredActive);
@@ -342,6 +359,7 @@ namespace Roguelancer
             missions.AddRange(GenerateExportContracts(originStation));
             missions.AddRange(GenerateTradeLaneDisruptionMissions(originStation));
             missions.AddRange(GenerateTradeLaneDefenseMissions(originStation));
+            missions.AddRange(GenerateConvoyEscortMissions(originStation));
             return missions;
         }
 
@@ -503,6 +521,174 @@ namespace Roguelancer
             }
 
             return offers;
+        }
+
+        public List<Mission> GenerateConvoyEscortMissions(Station originStation)
+        {
+            List<Mission> offers = new();
+            if (originStation == null || _worldManager == null)
+                return offers;
+
+            string originFaction = FactionManager.NormalizeFactionId(originStation.FactionId);
+            if (originFaction != FactionManager.LibertyPolice &&
+                originFaction != FactionManager.LibertyCorporations &&
+                originFaction != FactionManager.NeutralCivilians)
+            {
+                return offers;
+            }
+
+            IReadOnlyList<TradeLane> lanes = _worldManager.GetTradeLanes();
+            IReadOnlyList<Station> stations = _worldManager.GetKnownStations();
+            if (lanes == null || lanes.Count == 0 || stations == null || stations.Count < 2)
+                return offers;
+
+            int systemIndex = originStation.Config?.SystemIndex ?? 0;
+            var candidates = new List<(TradeLane Lane, TradeLaneDirection Direction, Station Destination, float Length)>();
+            foreach (TradeLane lane in lanes)
+            {
+                if (lane?.Config == null || lane.IsBroken || lane.Config.SystemIndex != systemIndex)
+                    continue;
+
+                foreach (TradeLaneDirection direction in new[] { TradeLaneDirection.Forward, TradeLaneDirection.Reverse })
+                {
+                    IReadOnlyList<TradelaneRing> route = lane.GetRouteRings(direction);
+                    if (route == null || route.Count < 3 || !lane.CanUseRoute(direction))
+                        continue;
+
+                    TradelaneRing exit = lane.GetExitRing(direction);
+                    if (exit == null)
+                        continue;
+
+                    Station destination = stations
+                        .Where(candidate => candidate != null && !ReferenceEquals(candidate, originStation) &&
+                            !string.Equals(Mission.BuildStationIdentity(candidate), Mission.BuildStationIdentity(originStation), StringComparison.OrdinalIgnoreCase) &&
+                            (candidate.Config?.SystemIndex ?? systemIndex) == systemIndex)
+                        .Select(candidate => new
+                        {
+                            Station = candidate,
+                            Distance = Vector3.Distance(exit.Position, candidate.Position)
+                        })
+                        .Where(candidate => candidate.Distance <= Math.Max(4500f, lane.Config.DockingRange * 5f))
+                        .OrderBy(candidate => candidate.Distance)
+                        .ThenBy(candidate => candidate.Station.Name, StringComparer.OrdinalIgnoreCase)
+                        .Select(candidate => candidate.Station)
+                        .FirstOrDefault();
+                    if (destination == null)
+                        continue;
+
+                    float length = Vector3.Distance(route[0].Position, route[route.Count - 1].Position);
+                    candidates.Add((lane, direction, destination, length));
+                }
+            }
+
+            candidates = candidates
+                .OrderBy(candidate => candidate.Length)
+                .ThenBy(candidate => candidate.Lane.LaneId, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(candidate => candidate.Direction)
+                .ToList();
+            if (candidates.Count == 0)
+                return offers;
+
+            string employerFaction = originFaction == FactionManager.LibertyPolice
+                ? FactionManager.LibertyPolice
+                : FactionManager.LibertyCorporations;
+            string originIdentity = Mission.BuildStationIdentity(originStation);
+            MissionDifficulty[] difficulties = { MissionDifficulty.Easy, MissionDifficulty.Medium, MissionDifficulty.Hard };
+            for (int i = 0; i < difficulties.Length; i++)
+            {
+                MissionDifficulty difficulty = difficulties[i];
+                var candidate = candidates[Math.Min(i, candidates.Count - 1)];
+                TradeLane lane = candidate.Lane;
+                IReadOnlyList<TradelaneRing> route = lane.GetRouteRings(candidate.Direction);
+                if (route == null || route.Count < 3)
+                    continue;
+
+                int convoySize = GetConvoyEscortShipCount(difficulty);
+                int attackForceSize = GetConvoyEscortAttackForceSize(difficulty);
+                int encounterRingIndex = Math.Clamp(route.Count / 2, 1, route.Count - 2);
+                Vector3 entryPosition = lane.GetRingTravelPosition(route[0], candidate.Direction);
+                Vector3 travelDirection = lane.GetTravelForward(candidate.Direction);
+                Vector3 rendezvousPosition = entryPosition - travelDirection * 900f;
+                Vector3 encounterPosition = lane.GetRingTravelPosition(route[encounterRingIndex], candidate.Direction);
+                string segmentId = $"{lane.LaneId}:escort:{candidate.Direction.ToString().ToLowerInvariant()}";
+                string routeId = $"{lane.LaneId}:{candidate.Direction.ToString().ToLowerInvariant()}:{route.Count}";
+                string key = $"{originIdentity}|{difficulty}|{routeId}|{Mission.BuildStationIdentity(candidate.Destination)}";
+
+                if (_activeMissions.Any(active => active != null && active.IsConvoyEscortMission() &&
+                        string.Equals(active.ConvoyRouteId, routeId, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                if (!_convoyEscortOffers.TryGetValue(key, out Mission offer) ||
+                    offer == null || offer.Status != MissionStatus.Available)
+                {
+                    offer = Mission.CreateConvoyEscort(
+                        routeId,
+                        lane.LaneId,
+                        segmentId,
+                        candidate.Direction,
+                        lane.Config.Name,
+                        originStation,
+                        candidate.Destination,
+                        rendezvousPosition,
+                        encounterPosition,
+                        encounterRingIndex,
+                        convoySize,
+                        attackForceSize,
+                        GetConvoyEscortReward(difficulty),
+                        difficulty,
+                        GetConvoyEscortFlavor(i, lane.Config.Name, candidate.Destination.Name),
+                        offeredBy: $"{originStation.Name} {(employerFaction == FactionManager.LibertyPolice ? "Police Operations" : "Commercial Operations")}");
+                    if (offer == null)
+                        continue;
+
+                    offer.FactionId = employerFaction;
+                    offer.MinimumEmployerReputation = GetConvoyEscortMinimumReputation(difficulty);
+                    offer.SetOrigin(originStation);
+                    _convoyEscortOffers[key] = offer;
+                }
+
+                offers.Add(offer);
+            }
+
+            return offers;
+        }
+
+        private static int GetConvoyEscortShipCount(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Hard or MissionDifficulty.Deadly => 4,
+            MissionDifficulty.Medium => 3,
+            _ => 2
+        };
+
+        private static int GetConvoyEscortAttackForceSize(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Hard or MissionDifficulty.Deadly => 5,
+            MissionDifficulty.Medium => 3,
+            _ => 2
+        };
+
+        private static int GetConvoyEscortReward(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Hard or MissionDifficulty.Deadly => 13_000,
+            MissionDifficulty.Medium => 8_500,
+            _ => 5_000
+        };
+
+        private static float GetConvoyEscortMinimumReputation(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Hard or MissionDifficulty.Deadly => ReputationManager.FriendlyThreshold,
+            _ => 0f
+        };
+
+        private static string GetConvoyEscortFlavor(int variant, string laneName, string destinationName)
+        {
+            string[] flavors =
+            {
+                $"A civilian freight convoy requires protection en route to {destinationName}. Liberty Rogue activity has been reported along the {laneName} corridor.",
+                $"Merchant ships need an armed escort through the {laneName}. Rendezvous, stay with the convoy, and get the survivors to {destinationName}.",
+                $"Commercial traffic is being hunted on the {laneName}. Protect the convoy through the Rogue interception and deliver it to {destinationName}."
+            };
+            return flavors[Math.Abs(variant) % flavors.Length];
         }
 
         private static int GetTradeLaneReward(MissionDifficulty difficulty) => difficulty switch
@@ -1243,7 +1429,7 @@ namespace Roguelancer
             if (!string.IsNullOrWhiteSpace(mission.DefinitionId))
             {
                 MissionDefinition definition = MissionCatalog.GetById(mission.DefinitionId);
-                if (mission.Type is not MissionType.TradeLaneDisruption and not MissionType.TradeLaneDefense &&
+                if (mission.Type is not MissionType.TradeLaneDisruption and not MissionType.TradeLaneDefense and not MissionType.ConvoyEscort &&
                     (definition == null || definition.Type != mission.Type ||
                     definition.RewardCredits != mission.Reward ||
                     definition.TargetCount != mission.RequiredProgress))
@@ -1284,6 +1470,33 @@ namespace Roguelancer
                     mission.DefenseFailureHoldSeconds <= 0f)
                 {
                     return RejectAcceptance(mission, "trade-lane defense metadata or Police employer is invalid");
+                }
+            }
+
+            if (mission.Type == MissionType.ConvoyEscort)
+            {
+                string employerFaction = FactionManager.NormalizeFactionId(mission.FactionId);
+                string originFaction = FactionManager.NormalizeFactionId(originStation?.FactionId);
+                if (originStation == null ||
+                    (employerFaction != FactionManager.LibertyPolice && employerFaction != FactionManager.LibertyCorporations) ||
+                    (originFaction != FactionManager.LibertyPolice && originFaction != FactionManager.LibertyCorporations &&
+                     originFaction != FactionManager.NeutralCivilians) ||
+                    string.IsNullOrWhiteSpace(mission.ConvoyRouteId) ||
+                    string.IsNullOrWhiteSpace(mission.ConvoyRouteLaneId) ||
+                    string.IsNullOrWhiteSpace(mission.ConvoyRouteSegmentId) ||
+                    FactionManager.NormalizeFactionId(mission.ConvoyFactionId) != FactionManager.LibertyCorporations ||
+                    FactionManager.NormalizeFactionId(mission.ConvoyHostileFactionId) != FactionManager.LibertyRogues ||
+                    mission.ConvoyShipCount is < 2 or > 4 ||
+                    mission.ConvoyRequiredSurvivors is < 1 or > 4 ||
+                    mission.ConvoyAttackForceSize is < 2 or > 6 ||
+                    !mission.ConvoyRendezvousPosition.HasValue ||
+                    !mission.ConvoyEncounterPosition.HasValue ||
+                    !mission.ConvoyDestinationPosition.HasValue ||
+                    !TradeLaneStateSanitizer.IsFinite(mission.ConvoyRendezvousPosition.Value) ||
+                    !TradeLaneStateSanitizer.IsFinite(mission.ConvoyEncounterPosition.Value) ||
+                    !TradeLaneStateSanitizer.IsFinite(mission.ConvoyDestinationPosition.Value))
+                {
+                    return RejectAcceptance(mission, "convoy escort metadata or commercial employer is invalid");
                 }
             }
 
@@ -1741,6 +1954,8 @@ namespace Roguelancer
 
             ReleaseFreightReservation(mission);
             mission.FailureReason = string.IsNullOrWhiteSpace(reason) ? "mission failed" : reason;
+            if (mission.Type == MissionType.ConvoyEscort)
+                mission.ConvoyStage = ConvoyEscortStage.Failed;
             mission.Status = MissionStatus.Failed;
             _activeMissions.Remove(mission);
             _completedMissions.Add(mission);

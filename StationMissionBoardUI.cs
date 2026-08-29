@@ -418,6 +418,17 @@ public sealed class StationMissionBoardUI
             spriteBatch.DrawString(_font, $"Hold offline: {mission.HoldDurationSeconds:0.0}s", new Vector2(x, y), Color.LightGreen);
             y += 26;
         }
+        else if (mission.Type == MissionType.ConvoyEscort)
+        {
+            spriteBatch.DrawString(_font, $"Origin: {mission.OriginStationName}", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Destination: {mission.GetDestinationLabel()}", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Convoy: {mission.ConvoyShipCount} civilian freighters", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Threat: {mission.ConvoyAttackForceSize} Liberty Rogue interceptors | Route: {mission.TargetLocation}", new Vector2(x, y), Color.Orange);
+            y += 26;
+        }
         spriteBatch.DrawString(_font, $"Reward: {mission.Reward:N0} CR", new Vector2(x, y), Color.Yellow);
         y += 30;
         string action = _missionManager.ActiveMission == null ? "[ENTER] ACCEPT" : "ACTIVE MISSION BLOCKS ACCEPT";
