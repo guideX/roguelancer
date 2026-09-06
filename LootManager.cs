@@ -22,6 +22,11 @@ namespace Roguelancer
         private readonly SpriteFont _font;
         private readonly Texture2D _pixel;
         private Func<IEnumerable<SpaceObject>> _worldObjectsProvider;
+        private Func<NpcShip, MissionCargoDrop> _missionCargoResolver;
+        private Action<CargoPod> _missionCargoPodSpawnedCallback;
+        private Action<CargoPod, int> _missionCargoPodCollectedCallback;
+        private Action<CargoPod, int> _missionCargoPodExpiredCallback;
+        private Action<MissionCargoDrop> _missionCargoUnavailableCallback;
 
         private bool _hasLastPlayerState;
         private Vector3 _lastPlayerPosition;
@@ -64,16 +69,183 @@ namespace Roguelancer
             _worldObjectsProvider = worldObjectsProvider;
         }
 
-        public int SpawnLootForDestroyedNpc(NpcShip destroyedShip, Action<string> log = null)
+        public void ConfigureMissionCargoCallbacks(
+            Func<NpcShip, MissionCargoDrop> resolver,
+            Action<CargoPod> podSpawned,
+            Action<CargoPod, int> podCollected,
+            Action<CargoPod, int> podExpired,
+            Action<MissionCargoDrop> cargoUnavailable)
         {
-            IReadOnlyList<SalvageDrop> drops = _salvageService.EvaluateDestruction(destroyedShip);
-            if (drops.Count == 0 || _activePods.Count >= CombatSalvageService.MaxLiveSalvageObjects)
+            _missionCargoResolver = resolver;
+            _missionCargoPodSpawnedCallback = podSpawned;
+            _missionCargoPodCollectedCallback = podCollected;
+            _missionCargoPodExpiredCallback = podExpired;
+            _missionCargoUnavailableCallback = cargoUnavailable;
+        }
+
+        public List<SaveCargoPodData> CaptureMissionCargoPods()
+        {
+            var result = new List<SaveCargoPodData>();
+            foreach (CargoPod pod in _activePods)
             {
-                return 0;
+                if (pod == null || !pod.IsMissionCargo || pod.IsDepleted || pod.IsExpired ||
+                    string.IsNullOrWhiteSpace(pod.CommodityId) || pod.Quantity <= 0 ||
+                    !TradeLaneStateSanitizer.IsFinite(pod.Position) ||
+                    !TradeLaneStateSanitizer.IsFinite(pod.Velocity))
+                    continue;
+
+                result.Add(new SaveCargoPodData
+                {
+                    MissionId = pod.MissionId,
+                    MissionCargoSourceIndex = pod.MissionCargoSourceIndex,
+                    CommodityId = pod.CommodityId,
+                    Quantity = Math.Clamp(pod.Quantity, 1, 40),
+                    AgeSeconds = MathHelper.Clamp(pod.AgeSeconds, 0f, pod.LifetimeSeconds),
+                    Position = SaveVector3Data.From(pod.Position),
+                    Velocity = SaveVector3Data.From(pod.Velocity),
+                    SourceNpcName = pod.SourceNpcName ?? string.Empty
+                });
             }
 
+            return result;
+        }
+
+        public int RestoreMissionCargoPods(
+            IEnumerable<SaveCargoPodData> savedPods,
+            Func<int, bool> missionActivePredicate = null)
+        {
+            if (savedPods == null)
+                return 0;
+
+            var restoredKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            int restored = 0;
+            foreach (SaveCargoPodData data in savedPods)
+            {
+                if (data == null || data.MissionId <= 0 || data.Quantity <= 0 ||
+                    (missionActivePredicate != null && !missionActivePredicate(data.MissionId)) ||
+                    string.IsNullOrWhiteSpace(data.CommodityId))
+                    continue;
+
+                Commodity commodity = CommodityCatalog.GetById(data.CommodityId);
+                Vector3 position = data.Position?.ToVector3() ?? Vector3.Zero;
+                Vector3 velocity = data.Velocity?.ToVector3() ?? Vector3.Zero;
+                float age = float.IsNaN(data.AgeSeconds) || float.IsInfinity(data.AgeSeconds)
+                    ? 0f
+                    : Math.Max(0f, data.AgeSeconds);
+                string key = $"{data.MissionId}:{data.MissionCargoSourceIndex}";
+                if (commodity == null || age >= CombatSalvageService.SalvageLifetimeSeconds ||
+                    _activePods.Count >= CombatSalvageService.MaxLiveSalvageObjects ||
+                    !restoredKeys.Add(key) || !TradeLaneStateSanitizer.IsFinite(position) ||
+                    !TradeLaneStateSanitizer.IsFinite(velocity) ||
+                    !IsSpawnPositionAvailable(position, null) ||
+                    !CargoPod.TryCreate(
+                        commodity.Id,
+                        Math.Clamp(data.Quantity, 1, 40),
+                        position,
+                        velocity,
+                        (float)CombatSalvageService.SalvageLifetimeSeconds,
+                        CombatSalvageService.PickupRadius,
+                        out CargoPod pod))
+                    continue;
+
+                pod.SetMissionCargoAttribution(data.MissionId, data.MissionCargoSourceIndex, data.SourceNpcName);
+                pod.RestoreAge(age);
+                _activePods.Add(pod);
+                restored++;
+            }
+
+            return restored;
+        }
+
+        public void ReleaseMissionCargoAttribution(int missionId)
+        {
+            if (missionId <= 0)
+                return;
+
+            foreach (CargoPod pod in _activePods)
+            {
+                if (pod?.MissionId == missionId)
+                    pod.ClearMissionCargoAttribution();
+            }
+        }
+
+        /// <summary>
+        /// Moves currently owned attributed mission cargo back into the
+        /// physical loot system. The source index stays unset because this is
+        /// a player jettison, not a second transport release.
+        /// </summary>
+        public bool TryJettisonMissionCargo(
+            CargoHold cargoHold,
+            int missionId,
+            Commodity commodity,
+            int quantity,
+            Vector3 position,
+            Vector3 velocity,
+            out CargoPod pod)
+        {
+            pod = null;
+            if (cargoHold == null || missionId <= 0 || commodity == null || quantity <= 0 || quantity > 40 ||
+                !TradeLaneStateSanitizer.IsFinite(position) || !TradeLaneStateSanitizer.IsFinite(velocity) ||
+                _activePods.Count >= CombatSalvageService.MaxLiveSalvageObjects ||
+                !IsSpawnPositionAvailable(position, null) ||
+                !CargoPod.TryCreate(
+                    commodity.Id,
+                    quantity,
+                    position,
+                    velocity,
+                    (float)CombatSalvageService.SalvageLifetimeSeconds,
+                    CombatSalvageService.PickupRadius,
+                    out CargoPod createdPod))
+            {
+                return false;
+            }
+
+            if (!cargoHold.RemoveMissionCargoQuantity(missionId, commodity, quantity, out int removed) || removed != quantity)
+                return false;
+
+            createdPod.SetMissionCargoAttribution(missionId, -1, "Player jettison");
+            _activePods.Add(createdPod);
+            pod = createdPod;
+            return true;
+        }
+
+        public int SpawnLootForDestroyedNpc(NpcShip destroyedShip, Action<string> log = null)
+        {
+            MissionCargoDrop missionDrop = _missionCargoResolver?.Invoke(destroyedShip);
             int spawned = 0;
             int availableSlots = CombatSalvageService.MaxLiveSalvageObjects - _activePods.Count;
+            if (missionDrop != null && availableSlots > 0 &&
+                missionDrop.MissionId > 0 && missionDrop.Quantity > 0 &&
+                !string.IsNullOrWhiteSpace(missionDrop.CommodityId) &&
+                TryFindSpawnPosition(destroyedShip, 0, out Vector3 missionPosition) &&
+                CargoPod.TryCreate(
+                    missionDrop.CommodityId,
+                    Math.Clamp(missionDrop.Quantity, 1, 40),
+                    missionPosition,
+                    destroyedShip?.Velocity * 0.15f ?? Vector3.Zero,
+                    (float)CombatSalvageService.SalvageLifetimeSeconds,
+                    CombatSalvageService.PickupRadius,
+                    out CargoPod missionPod))
+            {
+                missionPod.SetSalvageSource(destroyedShip, CombatSalvageTier.Standard);
+                missionPod.SetMissionCargoAttribution(missionDrop.MissionId, missionDrop.SourceIndex, missionDrop.SourceNpcName);
+                _activePods.Add(missionPod);
+                spawned++;
+                availableSlots--;
+                _missionCargoPodSpawnedCallback?.Invoke(missionPod);
+                log?.Invoke($"[SALVAGE] mission cargo pod spawned: {missionPod.GetPayloadName()} x{missionPod.Quantity}");
+            }
+            else if (missionDrop != null)
+            {
+                _missionCargoUnavailableCallback?.Invoke(missionDrop);
+            }
+
+            IReadOnlyList<SalvageDrop> drops = _salvageService.EvaluateDestruction(destroyedShip);
+            if (drops.Count == 0 || availableSlots <= 0)
+            {
+                return spawned;
+            }
+
             for (int i = 0; i < drops.Count && spawned < availableSlots; i++)
             {
                 SalvageDrop drop = drops[i];
@@ -194,6 +366,8 @@ namespace Roguelancer
                 if (pod.IsExpired)
                 {
                     log?.Invoke($"[LOOT] pod expired: {GetPodLabel(pod)}");
+                    if (pod.IsMissionCargo)
+                        _missionCargoPodExpiredCallback?.Invoke(pod, pod.Quantity);
                     _activePods.RemoveAt(i);
                     continue;
                 }
@@ -308,9 +482,15 @@ namespace Roguelancer
                     continue;
                 }
 
-                if (cargoHold.TryAddCommodityPartial(commodity, pod.Quantity, out int collectedQuantity))
+                int collectedQuantity;
+                bool added = pod.IsMissionCargo
+                    ? cargoHold.TryAddMissionCommodityPartial(pod.MissionId, commodity, pod.Quantity, out collectedQuantity)
+                    : cargoHold.TryAddCommodityPartial(commodity, pod.Quantity, out collectedQuantity);
+                if (added)
                 {
                     pod.TakeQuantity(collectedQuantity);
+                    if (pod.IsMissionCargo)
+                        _missionCargoPodCollectedCallback?.Invoke(pod, collectedQuantity);
                     collectedByCommodity[commodity.Name] = collectedByCommodity.TryGetValue(commodity.Name, out int current)
                         ? current + collectedQuantity
                         : collectedQuantity;

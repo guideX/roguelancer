@@ -256,6 +256,7 @@ namespace Roguelancer {
         private readonly bool _runTradeLaneDisruptionMissionSmoke;
         private readonly bool _runTradeLaneDefenseMissionSmoke;
         private readonly bool _runConvoyEscortMissionSmoke;
+        private readonly bool _runConvoyRaidMissionSmoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -364,6 +365,7 @@ namespace Roguelancer {
             _runTradeLaneDisruptionMissionSmoke = args?.Any(arg => string.Equals(arg, "--trade-lane-disruption-mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTradeLaneDefenseMissionSmoke = args?.Any(arg => string.Equals(arg, "--trade-lane-defense-mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runConvoyEscortMissionSmoke = args?.Any(arg => string.Equals(arg, "--convoy-escort-mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runConvoyRaidMissionSmoke = args?.Any(arg => string.Equals(arg, "--convoy-raid-mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1256,7 +1258,14 @@ namespace Roguelancer {
                     _trafficManager?.UnregisterMissionNpc(npc);
                 },
                 npc => _trafficManager?.RegisterMissionNpc(npc),
-                npc => _tradelaneManager?.EjectNpcFromTransit(npc));
+                 npc => _tradelaneManager?.EjectNpcFromTransit(npc),
+                 missionId => _lootManager?.ReleaseMissionCargoAttribution(missionId));
+            _lootManager.ConfigureMissionCargoCallbacks(
+                npc => _missionWorldManager?.GetMissionCargoDrop(npc),
+                pod => _missionWorldManager?.NotifyMissionCargoPodSpawned(pod),
+                (pod, quantity) => _missionWorldManager?.NotifyMissionCargoPodCollected(pod, quantity),
+                (pod, quantity) => _missionWorldManager?.NotifyMissionCargoPodExpired(pod, quantity),
+                drop => _missionWorldManager?.NotifyMissionCargoDropUnavailable(drop));
             _missionManager?.SetWorldManager(_missionWorldManager);
             if (_npcWeaponSystem != null)
                 _npcWeaponSystem.TradeLaneTargetResolver = npc => _missionWorldManager?.GetTradeLaneAttackTarget(npc);
@@ -1421,6 +1430,11 @@ namespace Roguelancer {
             else if (_runConvoyEscortMissionSmoke)
             {
                 var result = RunConvoyEscortMissionSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runConvoyRaidMissionSmoke)
+            {
+                var result = RunConvoyRaidMissionSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runFactionDistressResponseSmoke)
@@ -1617,6 +1631,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("trade-lane disruption mission smoke", RunTradeLaneDisruptionMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("trade-lane defense mission smoke", RunTradeLaneDefenseMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("convoy escort mission smoke", RunConvoyEscortMissionSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("convoy raid mission smoke", RunConvoyRaidMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2015,6 +2030,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[CONVOY ESCORT MISSION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunConvoyRaidMissionSmokeTest()
+        {
+            try
+            {
+                return new ConvoyRaidMissionSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CONVOY RAID MISSION SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2461,6 +2489,7 @@ namespace Roguelancer {
             saveData.TemporaryHostility = _saveGameManager?.CaptureTemporaryHostility(_reputationManager) ?? new List<SaveTemporaryHostilityData>();
             saveData.ActiveMissions = _saveGameManager?.CaptureMissions(_missionManager?.ActiveMissions) ?? new List<SaveMissionData>();
             saveData.CompletedMissions = _saveGameManager?.CaptureMissions(_missionManager?.CompletedMissions) ?? new List<SaveMissionData>();
+            saveData.PhysicalMissionCargoPods = _lootManager?.CaptureMissionCargoPods() ?? new List<SaveCargoPodData>();
             saveData.StationMarkets = _commodityDealer?.CaptureMarketState() ?? new List<SaveMarketStateData>();
             saveData.MarketElapsedMilliseconds = _commodityDealer?.MarketManager?.ElapsedMilliseconds ?? 0L;
             saveData.MarketIntelligence = _marketIntelligence?.CaptureState() ?? new List<SaveMarketIntelligenceData>();
@@ -2550,6 +2579,9 @@ namespace Roguelancer {
                 saveData.PlayerForward.ToVector3(_playerShip.Forward));
 
             _missionWorldManager?.RebindActiveMissions(_missionManager?.ActiveMissions ?? Array.Empty<Mission>());
+            _lootManager?.RestoreMissionCargoPods(
+                saveData.PhysicalMissionCargoPods,
+                missionId => _missionManager?.ActiveMissions?.Any(mission => mission?.Id == missionId) == true);
 
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
@@ -3323,6 +3355,9 @@ namespace Roguelancer {
                 Console.WriteLine($"[TRAFFIC] Pirate destroyed: {destroyedShip.Name}");
             }
 
+            // Mission ownership is notified before loot evaluation so a real
+            // convoy transport can release its reserved cargo into a pod.
+            _missionWorldManager?.NotifyNpcDestroyed(destroyedShip);
             _lootManager?.SpawnSalvageForDestroyedNpc(destroyedShip, Console.WriteLine);
 
             // Create a wreck where the NPC ship was destroyed
@@ -3341,7 +3376,6 @@ namespace Roguelancer {
                 _selectedNavTargetContextLabel = string.Empty;
             }
 
-            _missionWorldManager?.NotifyNpcDestroyed(destroyedShip);
             // Clean up NPC weapon system tracking
             _npcWeaponSystem?.RemoveNpc(destroyedShip);
             _trafficManager?.NotifyNpcDestroyed(destroyedShip);

@@ -37,6 +37,7 @@ namespace Roguelancer
         private readonly Dictionary<string, Mission> _tradeLaneDisruptionOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _tradeLaneDefenseOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _convoyEscortOffers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Mission> _convoyRaidOffers = new(StringComparer.OrdinalIgnoreCase);
         private ReputationManager _reputationManager;
         private MissionWaypointSystem _waypointSystem;
         private MissionWorldManager _worldManager;
@@ -97,6 +98,7 @@ namespace Roguelancer
                 MissionType.TradeLaneDisruption => 0.020f,
                 MissionType.TradeLaneDefense => 0.025f,
                 MissionType.ConvoyEscort => 0.030f,
+                MissionType.ConvoyRaid => 0.035f,
                 MissionType.Escort => 0.030f,
                 MissionType.FreightContract or MissionType.ExportContract => 0.025f,
                 MissionType.CourierDelivery => 0.020f,
@@ -270,6 +272,9 @@ namespace Roguelancer
             foreach (Mission mission in _activeMissions.Where(candidate => candidate?.Type == MissionType.ExportContract))
                 _cargoHold?.ReleaseMissionCargoReservation(mission.Id);
 
+            foreach (Mission mission in _activeMissions.Where(candidate => candidate?.Type == MissionType.ConvoyRaid))
+                ReleaseConvoyRaidCargo(mission);
+
             foreach (Mission mission in _activeMissions)
                 _waypointSystem?.UnregisterMission(mission);
 
@@ -281,6 +286,7 @@ namespace Roguelancer
             _tradeLaneDisruptionOffers.Clear();
             _tradeLaneDefenseOffers.Clear();
             _convoyEscortOffers.Clear();
+            _convoyRaidOffers.Clear();
             _worldManager?.ClearState();
         }
 
@@ -360,6 +366,7 @@ namespace Roguelancer
             missions.AddRange(GenerateTradeLaneDisruptionMissions(originStation));
             missions.AddRange(GenerateTradeLaneDefenseMissions(originStation));
             missions.AddRange(GenerateConvoyEscortMissions(originStation));
+            missions.AddRange(GenerateConvoyRaidMissions(originStation));
             return missions;
         }
 
@@ -651,6 +658,185 @@ namespace Roguelancer
             }
 
             return offers;
+        }
+
+        public List<Mission> GenerateConvoyRaidMissions(Station originStation)
+        {
+            List<Mission> offers = new();
+            if (originStation == null || _worldManager == null ||
+                FactionManager.NormalizeFactionId(originStation.FactionId) != FactionManager.LibertyRogues)
+            {
+                return offers;
+            }
+
+            IReadOnlyList<TradeLane> lanes = _worldManager.GetTradeLanes();
+            IReadOnlyList<Station> stations = _worldManager.GetKnownStations();
+            if (lanes == null || lanes.Count == 0 || stations == null || stations.Count < 2)
+                return offers;
+
+            int systemIndex = originStation.Config?.SystemIndex ?? 0;
+            var candidates = new List<(TradeLane Lane, TradeLaneDirection Direction, Station Destination, float Length)>();
+            foreach (TradeLane lane in lanes)
+            {
+                if (lane?.Config == null || lane.IsBroken || lane.Config.SystemIndex != systemIndex)
+                    continue;
+
+                foreach (TradeLaneDirection direction in new[] { TradeLaneDirection.Forward, TradeLaneDirection.Reverse })
+                {
+                    IReadOnlyList<TradelaneRing> route = lane.GetRouteRings(direction);
+                    TradelaneRing exit = lane.GetExitRing(direction);
+                    if (route == null || route.Count < 3 || exit == null || !lane.CanUseRoute(direction))
+                        continue;
+
+                    Station destination = stations
+                        .Where(candidate => candidate != null && !ReferenceEquals(candidate, originStation) &&
+                            (candidate.Config?.SystemIndex ?? systemIndex) == systemIndex &&
+                            FactionManager.NormalizeFactionId(candidate.FactionId) != FactionManager.LibertyRogues)
+                        .Select(candidate => new
+                        {
+                            Station = candidate,
+                            Distance = Vector3.Distance(exit.Position, candidate.Position)
+                        })
+                        .Where(candidate => candidate.Distance <= Math.Max(4500f, lane.Config.DockingRange * 5f))
+                        .OrderBy(candidate => candidate.Distance)
+                        .ThenBy(candidate => candidate.Station.Name, StringComparer.OrdinalIgnoreCase)
+                        .Select(candidate => candidate.Station)
+                        .FirstOrDefault();
+                    if (destination == null)
+                        continue;
+
+                    candidates.Add((lane, direction, destination,
+                        Vector3.Distance(route[0].Position, route[route.Count - 1].Position)));
+                }
+            }
+
+            candidates = candidates
+                .OrderBy(candidate => candidate.Length)
+                .ThenBy(candidate => candidate.Lane.LaneId, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(candidate => candidate.Direction)
+                .ToList();
+            if (candidates.Count == 0)
+                return offers;
+
+            string originIdentity = Mission.BuildStationIdentity(originStation);
+            MissionDifficulty[] difficulties = { MissionDifficulty.Easy, MissionDifficulty.Medium, MissionDifficulty.Hard };
+            for (int i = 0; i < difficulties.Length; i++)
+            {
+                MissionDifficulty difficulty = difficulties[i];
+                var candidate = candidates[i % candidates.Count];
+                TradeLane lane = candidate.Lane;
+                IReadOnlyList<TradelaneRing> route = lane.GetRouteRings(candidate.Direction);
+                if (route == null || route.Count < 3)
+                    continue;
+
+                int shipCount = GetConvoyRaidShipCount(difficulty);
+                int requiredQuantity = GetConvoyRaidRequiredQuantity(difficulty);
+                int[] allocation = GetConvoyRaidCargoAllocation(difficulty);
+                int interceptionRingIndex = Math.Clamp(route.Count / 2, 1, route.Count - 2);
+                Vector3 interceptionPosition = lane.GetRingTravelPosition(route[interceptionRingIndex], candidate.Direction);
+                Commodity commodity = SelectConvoyRaidCommodity(lane, candidate.Direction, i);
+                if (commodity == null || allocation.Length != shipCount || allocation.Sum() < requiredQuantity)
+                    continue;
+
+                string routeId = $"{lane.LaneId}:{candidate.Direction.ToString().ToLowerInvariant()}:{route.Count}";
+                string segmentId = $"{lane.LaneId}:raid:{candidate.Direction.ToString().ToLowerInvariant()}";
+                string key = $"{originIdentity}|{difficulty}|{routeId}|{Mission.BuildStationIdentity(candidate.Destination)}|{commodity.Id}";
+                if (_activeMissions.Any(active => active != null && active.IsConvoyRaidMission() &&
+                        string.Equals(active.RaidRouteId, routeId, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                if (!_convoyRaidOffers.TryGetValue(key, out Mission offer) || offer == null || offer.Status != MissionStatus.Available)
+                {
+                    offer = Mission.CreateConvoyRaid(
+                        routeId,
+                        lane.LaneId,
+                        segmentId,
+                        candidate.Direction,
+                        lane.Config.Name,
+                        originStation,
+                        candidate.Destination,
+                        interceptionPosition,
+                        interceptionRingIndex,
+                        shipCount,
+                        commodity,
+                        requiredQuantity,
+                        allocation,
+                        GetConvoyRaidReward(difficulty),
+                        difficulty,
+                        GetConvoyRaidFlavor(i, lane.Config.Name, candidate.Destination.Name, commodity.Name, requiredQuantity),
+                        offeredBy: $"{originStation.Name} Rogue Contact");
+                    if (offer == null)
+                        continue;
+
+                    offer.MinimumEmployerReputation = GetConvoyRaidMinimumReputation(difficulty);
+                    _convoyRaidOffers[key] = offer;
+                }
+
+                offers.Add(offer);
+            }
+
+            return offers;
+        }
+
+        private static Commodity SelectConvoyRaidCommodity(TradeLane lane, TradeLaneDirection direction, int variant)
+        {
+            List<Commodity> eligible = CommodityCatalog.All
+                .Where(commodity => commodity != null && !string.IsNullOrWhiteSpace(commodity.Id) &&
+                    !string.IsNullOrWhiteSpace(commodity.Name) && commodity.BasePrice > 0 &&
+                    commodity.VolumePerUnit > 0 && !commodity.IsContraband && !commodity.IsMissionCargo)
+                .OrderBy(commodity => commodity.Id, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (eligible.Count == 0)
+                return null;
+
+            int hash = StableStringHash($"raid|{lane?.LaneId}|{direction}|{variant}");
+            return eligible[hash % eligible.Count];
+        }
+
+        private static int GetConvoyRaidShipCount(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Hard or MissionDifficulty.Deadly => 4,
+            MissionDifficulty.Medium => 3,
+            _ => 2
+        };
+
+        private static int GetConvoyRaidRequiredQuantity(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Hard or MissionDifficulty.Deadly => 8,
+            MissionDifficulty.Medium => 5,
+            _ => 3
+        };
+
+        private static int[] GetConvoyRaidCargoAllocation(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Hard or MissionDifficulty.Deadly => new[] { 3, 3, 3, 2 },
+            MissionDifficulty.Medium => new[] { 3, 3, 2 },
+            _ => new[] { 3, 2 }
+        };
+
+        private static int GetConvoyRaidReward(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Hard or MissionDifficulty.Deadly => 15_000,
+            MissionDifficulty.Medium => 10_000,
+            _ => 6_000
+        };
+
+        private static float GetConvoyRaidMinimumReputation(MissionDifficulty difficulty) => difficulty switch
+        {
+            MissionDifficulty.Hard or MissionDifficulty.Deadly => ReputationManager.FriendlyThreshold,
+            MissionDifficulty.Medium => 0f,
+            _ => 0f
+        };
+
+        private static string GetConvoyRaidFlavor(int variant, string laneName, string destinationName, string commodityName, int requiredQuantity)
+        {
+            string[] flavors =
+            {
+                $"A corporate shipment of {commodityName} is moving through the {laneName} corridor toward {destinationName}. Intercept the convoy and recover at least {requiredQuantity} units.",
+                $"The Rogues want {requiredQuantity} {commodityName} units off the {laneName} route before the transports reach {destinationName}. Hit the convoy, crack the holds, and collect the cargo.",
+                $"Commercial traffic is carrying {commodityName} through {laneName}. Interdict the shipment, recover {requiredQuantity} units from the wreckage, and get back to Rogue space."
+            };
+            return flavors[Math.Abs(variant) % flavors.Length];
         }
 
         private static int GetConvoyEscortShipCount(MissionDifficulty difficulty) => difficulty switch
@@ -1429,7 +1615,7 @@ namespace Roguelancer
             if (!string.IsNullOrWhiteSpace(mission.DefinitionId))
             {
                 MissionDefinition definition = MissionCatalog.GetById(mission.DefinitionId);
-                if (mission.Type is not MissionType.TradeLaneDisruption and not MissionType.TradeLaneDefense and not MissionType.ConvoyEscort &&
+                if (mission.Type is not MissionType.TradeLaneDisruption and not MissionType.TradeLaneDefense and not MissionType.ConvoyEscort and not MissionType.ConvoyRaid &&
                     (definition == null || definition.Type != mission.Type ||
                     definition.RewardCredits != mission.Reward ||
                     definition.TargetCount != mission.RequiredProgress))
@@ -1497,6 +1683,35 @@ namespace Roguelancer
                     !TradeLaneStateSanitizer.IsFinite(mission.ConvoyDestinationPosition.Value))
                 {
                     return RejectAcceptance(mission, "convoy escort metadata or commercial employer is invalid");
+                }
+            }
+
+            if (mission.Type == MissionType.ConvoyRaid)
+            {
+                string employerFaction = FactionManager.NormalizeFactionId(mission.FactionId);
+                string originFaction = FactionManager.NormalizeFactionId(originStation?.FactionId);
+                if (originStation == null || employerFaction != FactionManager.LibertyRogues ||
+                    originFaction != FactionManager.LibertyRogues ||
+                    string.IsNullOrWhiteSpace(mission.RaidRouteId) ||
+                    string.IsNullOrWhiteSpace(mission.RaidRouteLaneId) ||
+                    string.IsNullOrWhiteSpace(mission.RaidRouteSegmentId) ||
+                    FactionManager.NormalizeFactionId(mission.RaidConvoyFactionId) != FactionManager.LibertyCorporations ||
+                    mission.RaidShipCount is < 2 or > 4 ||
+                    mission.RaidRequiredQuantity is < 1 or > 20 ||
+                    mission.RaidCargoAllocation.Count != mission.RaidShipCount ||
+                    mission.RaidCargoAllocation.Any(quantity => quantity <= 0) ||
+                    mission.RaidTotalAllocatedQuantity != mission.RaidCargoAllocation.Sum() ||
+                    mission.RaidTotalAllocatedQuantity < mission.RaidRequiredQuantity ||
+                    mission.RaidTotalAllocatedQuantity > 40 ||
+                    !mission.RaidInterceptionPosition.HasValue ||
+                    !mission.RaidDestinationPosition.HasValue ||
+                    !TradeLaneStateSanitizer.IsFinite(mission.RaidInterceptionPosition.Value) ||
+                    !TradeLaneStateSanitizer.IsFinite(mission.RaidDestinationPosition.Value) ||
+                    CommodityCatalog.GetByIdOrName(mission.RaidCommodityId) is not Commodity raidCommodity ||
+                    raidCommodity.IsMissionCargo || raidCommodity.IsContraband || raidCommodity.VolumePerUnit <= 0 ||
+                    string.IsNullOrWhiteSpace(mission.Destination) || string.IsNullOrWhiteSpace(mission.DestinationStationId))
+                {
+                    return RejectAcceptance(mission, "cargo-interdiction metadata or Rogue employer is invalid");
                 }
             }
 
@@ -1741,6 +1956,7 @@ namespace Roguelancer
             }
 
             ReleaseFreightReservation(mission);
+            ReleaseConvoyRaidCargo(mission);
             mission.Status = MissionStatus.Failed;
             _activeMissions.Remove(mission);
             _completedMissions.Add(mission);
@@ -1767,7 +1983,9 @@ namespace Roguelancer
             _completedMissions.Add(mission);
             _waypointSystem?.UnregisterMission(mission);
             _worldManager?.OnMissionFinished(mission);
-            string completionMessage = mission.Type == MissionType.CourierDelivery
+            string completionMessage = mission.Type == MissionType.ConvoyRaid
+                ? $"Cargo secured - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR"
+                : mission.Type == MissionType.CourierDelivery
                 ? $"Cargo delivered - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR"
                 : mission.Type == MissionType.FreightContract
                     ? $"Freight delivered - +{mission.Reward:N0} CR"
@@ -1880,6 +2098,12 @@ namespace Roguelancer
                 _cargoHold?.ReleaseMissionCargoReservation(mission.Id);
         }
 
+        private void ReleaseConvoyRaidCargo(Mission mission)
+        {
+            if (mission?.Type == MissionType.ConvoyRaid)
+                _cargoHold?.ConvertMissionCargoToOrdinary(mission.Id);
+        }
+
         public bool TryClaimReward(Mission mission, Station station, out string message)
         {
             message = string.Empty;
@@ -1904,6 +2128,30 @@ namespace Roguelancer
             {
                 message = "reward transaction is invalid";
                 return false;
+            }
+
+            if (mission.Type == MissionType.ConvoyRaid)
+            {
+                Commodity raidCommodity = CommodityCatalog.GetByIdOrName(mission.RaidCommodityId);
+                int recovered = _cargoHold?.GetMissionCargoQuantity(mission.Id) ?? 0;
+                if (raidCommodity == null || recovered < mission.RaidRequiredQuantity)
+                {
+                    message = $"recover {Math.Max(0, mission.RaidRequiredQuantity - recovered)} more units of {mission.RaidCommodityId}";
+                    return false;
+                }
+
+                if (!_cargoHold.RemoveMissionCargoQuantity(
+                        mission.Id,
+                        raidCommodity,
+                        mission.RaidRequiredQuantity,
+                        out int removed) || removed != mission.RaidRequiredQuantity)
+                {
+                    message = "mission cargo could not be verified for payment";
+                    return false;
+                }
+
+                mission.RaidCargoRecoveredQuantity = Math.Max(0, recovered - removed);
+                _cargoHold.ConvertMissionCargoToOrdinary(mission.Id);
             }
 
             mission.RewardPaid = true;
@@ -1953,9 +2201,12 @@ namespace Roguelancer
             }
 
             ReleaseFreightReservation(mission);
+            ReleaseConvoyRaidCargo(mission);
             mission.FailureReason = string.IsNullOrWhiteSpace(reason) ? "mission failed" : reason;
             if (mission.Type == MissionType.ConvoyEscort)
                 mission.ConvoyStage = ConvoyEscortStage.Failed;
+            if (mission.Type == MissionType.ConvoyRaid)
+                mission.RaidStage = ConvoyRaidStage.Failed;
             mission.Status = MissionStatus.Failed;
             _activeMissions.Remove(mission);
             _completedMissions.Add(mission);

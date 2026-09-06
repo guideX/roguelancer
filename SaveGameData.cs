@@ -60,6 +60,9 @@ namespace Roguelancer
         [JsonPropertyName("completed_missions")]
         public List<SaveMissionData> CompletedMissions { get; set; } = new();
 
+        [JsonPropertyName("physical_mission_cargo_pods")]
+        public List<SaveCargoPodData> PhysicalMissionCargoPods { get; set; } = new();
+
         [JsonPropertyName("station_markets")]
         public List<SaveMarketStateData> StationMarkets { get; set; } = new();
 
@@ -167,6 +170,34 @@ namespace Roguelancer
 
         [JsonPropertyName("mission_bound")]
         public bool MissionBound { get; set; }
+    }
+
+    /// <summary>Durable snapshot for a physical mission cargo pod.</summary>
+    public sealed class SaveCargoPodData
+    {
+        [JsonPropertyName("mission_id")]
+        public int MissionId { get; set; }
+
+        [JsonPropertyName("mission_cargo_source_index")]
+        public int MissionCargoSourceIndex { get; set; } = -1;
+
+        [JsonPropertyName("commodity_id")]
+        public string CommodityId { get; set; } = string.Empty;
+
+        [JsonPropertyName("quantity")]
+        public int Quantity { get; set; }
+
+        [JsonPropertyName("age_seconds")]
+        public float AgeSeconds { get; set; }
+
+        [JsonPropertyName("position")]
+        public SaveVector3Data Position { get; set; } = new();
+
+        [JsonPropertyName("velocity")]
+        public SaveVector3Data Velocity { get; set; } = new();
+
+        [JsonPropertyName("source_npc_name")]
+        public string SourceNpcName { get; set; } = string.Empty;
     }
 
     /// <summary>
@@ -471,6 +502,87 @@ namespace Roguelancer
 
         [JsonPropertyName("convoy_destination_position")]
         public SaveVector3Data ConvoyDestinationPosition { get; set; }
+
+        [JsonPropertyName("raid_route_id")]
+        public string RaidRouteId { get; set; } = string.Empty;
+
+        [JsonPropertyName("raid_route_lane_id")]
+        public string RaidRouteLaneId { get; set; } = string.Empty;
+
+        [JsonPropertyName("raid_route_segment_id")]
+        public string RaidRouteSegmentId { get; set; } = string.Empty;
+
+        [JsonPropertyName("raid_route_direction")]
+        public TradeLaneDirection RaidRouteDirection { get; set; } = TradeLaneDirection.Forward;
+
+        [JsonPropertyName("raid_convoy_faction_id")]
+        public string RaidConvoyFactionId { get; set; } = string.Empty;
+
+        [JsonPropertyName("raid_ship_archetype")]
+        public string RaidShipArchetype { get; set; } = string.Empty;
+
+        [JsonPropertyName("raid_route_ring_index")]
+        public int RaidRouteRingIndex { get; set; } = -1;
+
+        [JsonPropertyName("raid_interception_ring_index")]
+        public int RaidInterceptionRingIndex { get; set; } = -1;
+
+        [JsonPropertyName("raid_ship_count")]
+        public int RaidShipCount { get; set; }
+
+        [JsonPropertyName("raid_destroyed_count")]
+        public int RaidDestroyedCount { get; set; }
+
+        [JsonPropertyName("raid_escaped_count")]
+        public int RaidEscapedCount { get; set; }
+
+        [JsonPropertyName("raid_destroyed_mask")]
+        public int RaidDestroyedMask { get; set; }
+
+        [JsonPropertyName("raid_escaped_mask")]
+        public int RaidEscapedMask { get; set; }
+
+        [JsonPropertyName("raid_cargo_released_mask")]
+        public int RaidCargoReleasedMask { get; set; }
+
+        [JsonPropertyName("raid_cargo_lost_quantity")]
+        public int RaidCargoLostQuantity { get; set; }
+
+        [JsonPropertyName("raid_cargo_released_quantity")]
+        public int RaidCargoReleasedQuantity { get; set; }
+
+        [JsonPropertyName("raid_cargo_recovered_quantity")]
+        public int RaidCargoRecoveredQuantity { get; set; }
+
+        [JsonPropertyName("raid_commodity_id")]
+        public string RaidCommodityId { get; set; } = string.Empty;
+
+        [JsonPropertyName("raid_required_quantity")]
+        public int RaidRequiredQuantity { get; set; }
+
+        [JsonPropertyName("raid_total_allocated_quantity")]
+        public int RaidTotalAllocatedQuantity { get; set; }
+
+        [JsonPropertyName("raid_remaining_possible_quantity")]
+        public int RaidRemainingPossibleQuantity { get; set; }
+
+        [JsonPropertyName("raid_cargo_allocation")]
+        public List<int> RaidCargoAllocation { get; set; } = new();
+
+        [JsonPropertyName("raid_stage")]
+        public ConvoyRaidStage RaidStage { get; set; } = ConvoyRaidStage.EnRoute;
+
+        [JsonPropertyName("raid_route_started")]
+        public bool RaidRouteStarted { get; set; }
+
+        [JsonPropertyName("raid_interception_activated")]
+        public bool RaidInterceptionActivated { get; set; }
+
+        [JsonPropertyName("raid_interception_position")]
+        public SaveVector3Data RaidInterceptionPosition { get; set; }
+
+        [JsonPropertyName("raid_destination_position")]
+        public SaveVector3Data RaidDestinationPosition { get; set; }
     }
 
     /// <summary>

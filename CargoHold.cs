@@ -173,6 +173,25 @@ namespace Roguelancer
             return true;
         }
 
+        public bool TryAddMissionCommodityPartial(
+            int missionId,
+            Commodity commodity,
+            int requestedQuantity,
+            out int addedQuantity)
+        {
+            addedQuantity = 0;
+            if (missionId <= 0 || commodity == null || requestedQuantity <= 0 || commodity.VolumePerUnit <= 0)
+                return false;
+
+            int capacityQuantity = AvailableCapacity / commodity.VolumePerUnit;
+            int quantity = Math.Min(requestedQuantity, Math.Max(0, capacityQuantity));
+            if (quantity <= 0 || !AddMissionCargoQuantity(missionId, commodity, quantity))
+                return false;
+
+            addedQuantity = quantity;
+            return true;
+        }
+
         /// <summary>
         /// Registers a freight contract's required ordinary quantity. Existing
         /// units are reserved immediately; later AddCommodity calls reserve
@@ -318,6 +337,60 @@ namespace Roguelancer
         }
 
         /// <summary>
+        /// Adds a physical mission drop to the ordinary commodity stack while
+        /// increasing that mission's authoritative reservation. This is the
+        /// pickup seam for cargo-interdiction pods; it never bypasses capacity.
+        /// </summary>
+        public bool AddMissionCargoQuantity(int missionId, Commodity commodity, int quantity)
+        {
+            if (missionId <= 0 || commodity == null || quantity <= 0 ||
+                string.IsNullOrWhiteSpace(commodity.Id) || string.IsNullOrWhiteSpace(commodity.Name) ||
+                !CanFit(commodity, quantity))
+            {
+                return false;
+            }
+
+            if (_missionCargo.TryGetValue(missionId, out MissionCargoReservation reservation))
+            {
+                if (!string.Equals(reservation.CommodityId, commodity.Id, StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(reservation.CommodityName, commodity.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                if (!AddCommodity(commodity, quantity) ||
+                    (long)reservation.Quantity + quantity > int.MaxValue)
+                {
+                    if (_commodities.TryGetValue(commodity.Name, out int current) && current >= quantity)
+                    {
+                        _commodities[commodity.Name] = current - quantity;
+                        if (_commodities[commodity.Name] == 0)
+                            _commodities.Remove(commodity.Name);
+                        UsedCapacity -= commodity.VolumePerUnit * quantity;
+                    }
+                    return false;
+                }
+
+                reservation.Quantity += quantity;
+                reservation.VolumePerUnit = commodity.VolumePerUnit;
+                return true;
+            }
+
+            if (!AddCommodity(commodity, quantity))
+                return false;
+
+            _missionCargo[missionId] = new MissionCargoReservation
+            {
+                MissionId = missionId,
+                CommodityId = commodity.Id,
+                CommodityName = commodity.Name,
+                Quantity = quantity,
+                VolumePerUnit = commodity.VolumePerUnit
+            };
+            return true;
+        }
+
+        /// <summary>
         /// Removes exactly one mission's reserved package. This is intentionally
         /// separate from RemoveCommodity so market/trading code cannot bypass
         /// mission-cargo protection.
@@ -348,6 +421,45 @@ namespace Roguelancer
             _missionCargo.Remove(missionId);
             _missionReservationTargets.Remove(missionId);
             return true;
+        }
+
+        public bool RemoveMissionCargoQuantity(int missionId, Commodity commodity, int quantity, out int removedQuantity)
+        {
+            removedQuantity = 0;
+            if (missionId <= 0 || commodity == null || quantity <= 0 ||
+                !_missionCargo.TryGetValue(missionId, out MissionCargoReservation reservation) ||
+                (!string.Equals(reservation.CommodityId, commodity.Id, StringComparison.OrdinalIgnoreCase) &&
+                 !string.Equals(reservation.CommodityName, commodity.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+
+            int removable = Math.Min(quantity, reservation.Quantity);
+            if (!_commodities.TryGetValue(reservation.CommodityName, out int currentQuantity) || currentQuantity < removable)
+                return false;
+
+            _commodities[reservation.CommodityName] = currentQuantity - removable;
+            if (_commodities[reservation.CommodityName] == 0)
+                _commodities.Remove(reservation.CommodityName);
+            UsedCapacity -= reservation.VolumePerUnit * removable;
+            reservation.Quantity -= removable;
+            removedQuantity = removable;
+            if (reservation.Quantity <= 0)
+            {
+                _missionCargo.Remove(missionId);
+                _missionReservationTargets.Remove(missionId);
+            }
+            return true;
+        }
+
+        /// <summary>Jettisons only attributed mission units and never rewrites progress.</summary>
+        public bool JettisonMissionCargo(int missionId, Commodity commodity, int quantity, out int removedQuantity) =>
+            RemoveMissionCargoQuantity(missionId, commodity, quantity, out removedQuantity);
+
+        /// <summary>Releases attribution while preserving legitimately owned surplus.</summary>
+        public bool ConvertMissionCargoToOrdinary(int missionId)
+        {
+            return _missionCargo.Remove(missionId) | _missionReservationTargets.Remove(missionId);
         }
 
         /// <summary>

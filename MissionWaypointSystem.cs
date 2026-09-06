@@ -128,6 +128,13 @@ namespace Roguelancer
                     data.ResolvedTarget = convoyLeader.Position;
                     mission.TargetPosition = data.ResolvedTarget;
                 }
+                else if (mission.Type == MissionType.ConvoyRaid &&
+                    mission.RaidStage != ConvoyRaidStage.EnRoute &&
+                    data.TargetObject is NpcShip raidLeader && !raidLeader.IsDestroyed)
+                {
+                    data.ResolvedTarget = raidLeader.Position;
+                    mission.TargetPosition = data.ResolvedTarget;
+                }
 
                 if (data.ResolvedTarget == null) continue;
 
@@ -268,6 +275,30 @@ namespace Roguelancer
 
                     data.DestinationObject = FindSpaceObjectByName(spaceObjects, mission.Destination);
                     break;
+
+                case MissionType.ConvoyRaid:
+                    if (mission.RaidStage == ConvoyRaidStage.EnRoute && mission.RaidInterceptionPosition.HasValue)
+                    {
+                        data.ResolvedTarget = mission.RaidInterceptionPosition.Value;
+                    }
+                    else
+                    {
+                        var raidLeader = npcShips.FirstOrDefault(npc =>
+                            npc != null && !npc.IsDestroyed && npc.Name != null &&
+                            npc.Name.IndexOf($"Convoy Raid {mission.Id} Transport", StringComparison.OrdinalIgnoreCase) >= 0);
+                        if (raidLeader != null)
+                        {
+                            data.ResolvedTarget = raidLeader.Position;
+                            data.TargetObject = raidLeader;
+                        }
+                        else if (mission.TargetPosition.HasValue)
+                        {
+                            data.ResolvedTarget = mission.TargetPosition.Value;
+                        }
+                    }
+
+                    data.DestinationObject = FindSpaceObjectByName(spaceObjects, mission.Destination);
+                    break;
             }
         }
 
@@ -348,6 +379,9 @@ namespace Roguelancer
                 MissionType.ConvoyEscort => data.Mission.ConvoyStage == ConvoyEscortStage.Rendezvous
                     ? "Convoy Rendezvous"
                     : data.Mission.GetDestinationLabel(),
+                MissionType.ConvoyRaid => data.Mission.RaidStage == ConvoyRaidStage.EnRoute
+                    ? "Raid Interception"
+                    : data.Mission.GetTargetLabel(),
                 _ => data.Mission.Destination
             };
 

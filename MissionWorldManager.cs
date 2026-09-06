@@ -24,6 +24,9 @@ namespace Roguelancer
         public Station ConvoyDestination { get; set; }
         public List<NpcShip> ConvoyShips { get; } = new();
         public HashSet<NpcShip> ConvoyHostiles { get; } = new();
+        public TradeLane RaidTradeLane { get; set; }
+        public Station RaidDestination { get; set; }
+        public List<NpcShip> RaidShips { get; } = new();
         // Transient encounter binding is deliberately not serialized. A
         // restored active defense mission starts unbound and reconstructs its
         // Rogue group once; a live encounter that has been defeated must not
@@ -50,6 +53,7 @@ namespace Roguelancer
         private readonly Action<NpcShip> _retiredNpcCallback;
         private readonly Action<NpcShip> _missionNpcRegisteredCallback;
         private readonly Action<NpcShip> _ejectNpcFromTradeLaneCallback;
+        private readonly Action<int> _releaseMissionCargoAttributionCallback;
         private readonly Dictionary<int, MissionRuntimeState> _runtimeStates = new();
         private const int MaximumMissionNpcPopulation = 64;
 
@@ -67,7 +71,8 @@ namespace Roguelancer
             Action<Vector3, MissionDifficulty, string> securityResponseCallback = null,
             Action<NpcShip> retiredNpcCallback = null,
             Action<NpcShip> missionNpcRegisteredCallback = null,
-            Action<NpcShip> ejectNpcFromTradeLaneCallback = null)
+            Action<NpcShip> ejectNpcFromTradeLaneCallback = null,
+            Action<int> releaseMissionCargoAttributionCallback = null)
         {
             _missionManager = missionManager;
             _waypointSystem = waypointSystem;
@@ -83,6 +88,7 @@ namespace Roguelancer
             _retiredNpcCallback = retiredNpcCallback;
             _missionNpcRegisteredCallback = missionNpcRegisteredCallback;
             _ejectNpcFromTradeLaneCallback = ejectNpcFromTradeLaneCallback;
+            _releaseMissionCargoAttributionCallback = releaseMissionCargoAttributionCallback;
         }
 
         public bool TryAcceptMission(Mission mission, out string failureReason)
@@ -121,6 +127,8 @@ namespace Roguelancer
                     return TryBindTradeLaneDefenseMission(state, out failureReason);
                 case MissionType.ConvoyEscort:
                     return TryBindConvoyEscortMission(state, out failureReason);
+                case MissionType.ConvoyRaid:
+                    return TryBindConvoyRaidMission(state, out failureReason);
                 default:
                     failureReason = "unsupported mission type";
                     return false;
@@ -148,7 +156,10 @@ namespace Roguelancer
         public void ClearState()
         {
             foreach (MissionRuntimeState state in _runtimeStates.Values.ToList())
+            {
                 CleanupMissionTransientNpcs(state);
+                _releaseMissionCargoAttributionCallback?.Invoke(state.Mission?.Id ?? 0);
+            }
             _runtimeStates.Clear();
         }
 
@@ -312,6 +323,10 @@ namespace Roguelancer
             {
                 TryBindConvoyEscortMission(state, out _);
             }
+            else if (mission.Type == MissionType.ConvoyRaid)
+            {
+                TryBindConvoyRaidMission(state, out _);
+            }
         }
 
         public void OnMissionFinished(Mission mission)
@@ -323,6 +338,7 @@ namespace Roguelancer
 
             if (_runtimeStates.TryGetValue(mission.Id, out MissionRuntimeState state))
                 CleanupMissionTransientNpcs(state);
+            _releaseMissionCargoAttributionCallback?.Invoke(mission.Id);
             _runtimeStates.Remove(mission.Id);
         }
 
@@ -396,6 +412,18 @@ namespace Roguelancer
                         }
                         return;
                     }
+                }
+
+                if (mission.Type == MissionType.ConvoyRaid)
+                {
+                    int raidIndex = FindRaidShipIndex(state, destroyedShip);
+                    if (raidIndex >= 0 && (mission.RaidDestroyedMask & (1 << raidIndex)) == 0)
+                    {
+                        mission.RaidDestroyedMask |= 1 << raidIndex;
+                        mission.RaidDestroyedCount = Math.Min(mission.RaidShipCount, mission.RaidDestroyedCount + 1);
+                        _missionManager?.ShowNotification("Transport destroyed — recover its cargo", 3f);
+                    }
+                    return;
                 }
 
                 if (mission.Type == MissionType.Bounty && IsTargetMatch(mission, destroyedShip, state.BountyTarget))
@@ -714,6 +742,39 @@ namespace Roguelancer
                     break;
                 }
 
+                if (mission.Type == MissionType.ConvoyRaid)
+                {
+                    bool correctSystem = mission.TargetSystemIndex <= 0 ||
+                        currentSystemIndex <= 0 ||
+                        mission.TargetSystemIndex == currentSystemIndex;
+                    if (!correctSystem)
+                        break;
+
+                    if (!TryBindConvoyRaidMission(state, out string raidBindFailure))
+                    {
+                        pendingFailureMission = mission;
+                        pendingFailure = raidBindFailure;
+                        break;
+                    }
+
+                    UpdateConvoyRaidMission(
+                        state,
+                        TradeLaneStateSanitizer.Elapsed(deltaTime),
+                        log,
+                        out bool raidComplete,
+                        out string raidFailure);
+                    if (!string.IsNullOrWhiteSpace(raidFailure))
+                    {
+                        pendingFailureMission = mission;
+                        pendingFailure = raidFailure;
+                    }
+                    else if (raidComplete)
+                    {
+                        pendingCompletion = mission;
+                    }
+                    break;
+                }
+
                 if (mission.Type != MissionType.Escort)
                 {
                     continue;
@@ -987,6 +1048,416 @@ namespace Roguelancer
             }
 
             return true;
+        }
+
+        private bool TryBindConvoyRaidMission(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            if (mission == null)
+            {
+                failureReason = "mission was null";
+                return false;
+            }
+
+            if (mission.RaidShipCount is < 2 or > 4 || mission.RaidRequiredQuantity is < 1 or > 20 ||
+                mission.RaidCargoAllocation.Count != mission.RaidShipCount ||
+                mission.RaidCargoAllocation.Any(quantity => quantity <= 0) ||
+                mission.RaidTotalAllocatedQuantity != mission.RaidCargoAllocation.Sum() ||
+                mission.RaidTotalAllocatedQuantity < mission.RaidRequiredQuantity ||
+                mission.RaidTotalAllocatedQuantity > 40 ||
+                FactionManager.NormalizeFactionId(mission.FactionId) != FactionManager.LibertyRogues ||
+                FactionManager.NormalizeFactionId(mission.RaidConvoyFactionId) != FactionManager.LibertyCorporations ||
+                string.IsNullOrWhiteSpace(mission.RaidRouteId) ||
+                string.IsNullOrWhiteSpace(mission.RaidRouteLaneId) ||
+                string.IsNullOrWhiteSpace(mission.RaidRouteSegmentId) ||
+                string.IsNullOrWhiteSpace(mission.RaidCommodityId))
+            {
+                failureReason = "cargo-interdiction metadata is outside the bounded mission range";
+                return false;
+            }
+
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.RaidCommodityId);
+            TradeLane lane = GetTradeLanes().FirstOrDefault(candidate =>
+                string.Equals(candidate?.LaneId, mission.RaidRouteLaneId, StringComparison.OrdinalIgnoreCase));
+            IReadOnlyList<TradelaneRing> route = lane?.GetRouteRings(mission.RaidRouteDirection);
+            Station destination = GetKnownStations().FirstOrDefault(candidate =>
+                string.Equals(Mission.BuildStationIdentity(candidate), mission.DestinationStationId, StringComparison.OrdinalIgnoreCase));
+            if (commodity == null || commodity.IsMissionCargo || commodity.IsContraband || commodity.VolumePerUnit <= 0 ||
+                lane == null || lane.IsBroken || route == null || route.Count < 3 || destination == null ||
+                !lane.CanUseRoute(mission.RaidRouteDirection))
+            {
+                failureReason = "cargo-interdiction route, cargo, or destination is unavailable";
+                return false;
+            }
+
+            string expectedRouteId = $"{lane.LaneId}:{mission.RaidRouteDirection.ToString().ToLowerInvariant()}:{route.Count}";
+            string expectedSegmentId = $"{lane.LaneId}:raid:{mission.RaidRouteDirection.ToString().ToLowerInvariant()}";
+            if (!string.Equals(mission.RaidRouteId, expectedRouteId, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(mission.RaidRouteSegmentId, expectedSegmentId, StringComparison.OrdinalIgnoreCase))
+            {
+                failureReason = "cargo-interdiction route identity is invalid";
+                return false;
+            }
+
+            if (mission.TargetSystemIndex > 0 && lane.Config?.SystemIndex > 0 &&
+                mission.TargetSystemIndex != lane.Config.SystemIndex)
+            {
+                failureReason = "cargo-interdiction route belongs to another system";
+                return false;
+            }
+
+            int interceptionIndex = Math.Clamp(mission.RaidInterceptionRingIndex, 1, route.Count - 2);
+            TradelaneRing interceptionRing = route[interceptionIndex];
+            TradelaneRing exitRing = lane.GetExitRing(mission.RaidRouteDirection);
+            if (interceptionRing == null || exitRing == null ||
+                !TradeLaneStateSanitizer.IsFinite(interceptionRing.Position) ||
+                !TradeLaneStateSanitizer.IsFinite(destination.Position))
+            {
+                failureReason = "cargo-interdiction route positions are invalid";
+                return false;
+            }
+
+            mission.TargetSystemIndex = mission.TargetSystemIndex > 0
+                ? mission.TargetSystemIndex
+                : lane.Config?.SystemIndex ?? destination.Config?.SystemIndex ?? 0;
+            mission.DestinationStationId = Mission.BuildStationIdentity(destination);
+            mission.RaidInterceptionRingIndex = interceptionIndex;
+            mission.RaidInterceptionPosition ??= lane.GetRingTravelPosition(interceptionRing, mission.RaidRouteDirection);
+            mission.RaidDestinationPosition ??= destination.Position;
+            mission.TargetPosition = mission.RaidStage == ConvoyRaidStage.EnRoute
+                ? mission.RaidInterceptionPosition
+                : mission.RaidDestinationPosition;
+            state.RaidTradeLane = lane;
+            state.RaidDestination = destination;
+
+            if (state.RaidShips.Count == 0)
+            {
+                for (int i = 0; i < mission.RaidShipCount; i++)
+                {
+                    if ((mission.RaidDestroyedMask & (1 << i)) != 0 ||
+                        (mission.RaidEscapedMask & (1 << i)) != 0)
+                        continue;
+
+                    string name = GetRaidShipName(mission, i);
+                    NpcShip existing = _npcShips.FirstOrDefault(candidate =>
+                        candidate != null && !candidate.IsDestroyed &&
+                        string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase));
+                    if (existing != null)
+                    {
+                        state.RaidShips.Add(existing);
+                        _missionNpcRegisteredCallback?.Invoke(existing);
+                    }
+                    else if (!SpawnRaidShip(state, i, route))
+                    {
+                        CleanupMissionTransientNpcs(state);
+                        failureReason = "the full commercial convoy could not be spawned";
+                        return false;
+                    }
+                }
+            }
+
+            if (state.RaidShips.Count == 0)
+            {
+                failureReason = "no viable convoy transports could be spawned";
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool SpawnRaidShip(MissionRuntimeState state, int index, IReadOnlyList<TradelaneRing> route)
+        {
+            Mission mission = state?.Mission;
+            if (mission == null || _playerShip == null || state.RaidTradeLane == null || route == null ||
+                route.Count < 3 || _npcShips.Count >= MaximumMissionNpcPopulation)
+                return false;
+
+            Vector3 routeStart = state.RaidTradeLane.GetRingTravelPosition(route[0], mission.RaidRouteDirection);
+            Vector3 routeEnd = state.RaidTradeLane.GetRingTravelPosition(route[route.Count - 1], mission.RaidRouteDirection);
+            Vector3[] offsets =
+            {
+                new Vector3(-280f, 80f, 160f),
+                new Vector3(280f, -80f, -160f),
+                new Vector3(-520f, -120f, -240f),
+                new Vector3(520f, 120f, 240f)
+            };
+            Vector3 spawnPosition = routeStart + offsets[index % offsets.Length];
+            NpcShip transport = new NpcShip(
+                GetRaidShipName(mission, index),
+                spawnPosition,
+                routeStart,
+                400f,
+                0f,
+                mission.RaidConvoyFactionId);
+            transport.Model = _playerShip.Model;
+            transport.ModelPath = _playerShip.ModelPath;
+            transport.ConfigureTrafficBehavior(
+                TrafficZoneBehaviorType.TraderRoute,
+                $"mission-convoy-raid-{mission.Id}",
+                routeStart,
+                300f,
+                GetConvoyCruiseSpeed(mission.Difficulty),
+                12000f,
+                routeStart,
+                routeEnd);
+            transport.SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
+                mission.RaidShipArchetype,
+                mission.RaidConvoyFactionId,
+                transport.ModelPath,
+                TrafficZoneBehaviorType.TraderRoute,
+                MapMissionLoadoutTier(mission.Difficulty)));
+            transport.SetMissionHoldPosition(false);
+            transport.OnDestroyed += npc => _spawnedNpcDestroyedCallback?.Invoke(npc);
+            _npcShips.Add(transport);
+            _spaceObjects.Add(transport);
+            state.RaidShips.Add(transport);
+            _missionNpcRegisteredCallback?.Invoke(transport);
+            return true;
+        }
+
+        private void UpdateConvoyRaidMission(
+            MissionRuntimeState state,
+            float deltaTime,
+            Action<string> log,
+            out bool complete,
+            out string failureReason)
+        {
+            complete = false;
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            TradeLane lane = state?.RaidTradeLane;
+            Station destination = state?.RaidDestination;
+            if (mission == null || lane == null || destination == null || _playerShip == null ||
+                !mission.RaidInterceptionPosition.HasValue || !mission.RaidDestinationPosition.HasValue)
+            {
+                failureReason = "cargo-interdiction binding became invalid";
+                return;
+            }
+
+            if (_playerShip.CargoHold != null)
+                mission.RaidCargoRecoveredQuantity = Math.Clamp(
+                    _playerShip.CargoHold.GetMissionCargoQuantity(mission.Id),
+                    0,
+                    mission.RaidTotalAllocatedQuantity);
+            mission.CurrentProgress = Math.Min(mission.RaidRequiredQuantity, mission.RaidCargoRecoveredQuantity);
+
+            if (!mission.RaidInterceptionActivated &&
+                (Vector3.Distance(_playerShip.Position, mission.RaidInterceptionPosition.Value) <= 2500f ||
+                 state.RaidShips.Any(ship => ship != null && !ship.IsDestroyed &&
+                     Vector3.Distance(ship.Position, mission.RaidInterceptionPosition.Value) <= 1800f)))
+            {
+                mission.RaidInterceptionActivated = true;
+                mission.RaidStage = ConvoyRaidStage.InterceptionActive;
+                _missionManager?.ShowNotification("Convoy intercepted — destroy transports and recover cargo", 4f);
+                log?.Invoke($"[MISSION] Convoy raid interception started (mission #{mission.Id}).");
+            }
+
+            UpdateRaidRouteProgress(state);
+            UpdateRaidEscapes(state);
+            mission.RaidRemainingPossibleQuantity = Math.Max(
+                0,
+                mission.RaidTotalAllocatedQuantity -
+                mission.RaidCargoRecoveredQuantity -
+                mission.RaidCargoLostQuantity);
+
+            if (mission.RaidCargoRecoveredQuantity >= mission.RaidRequiredQuantity)
+            {
+                mission.RaidStage = ConvoyRaidStage.Successful;
+                mission.ObjectiveComplete = true;
+                complete = true;
+                return;
+            }
+
+            if (mission.RaidCargoRecoveredQuantity + mission.RaidRemainingPossibleQuantity < mission.RaidRequiredQuantity)
+            {
+                failureReason = "not enough convoy cargo remains recoverable";
+                return;
+            }
+
+            if (mission.RaidInterceptionActivated && mission.RaidStage == ConvoyRaidStage.EnRoute)
+                mission.RaidStage = ConvoyRaidStage.InterceptionActive;
+
+            if (mission.RaidCargoRecoveredQuantity > 0 &&
+                mission.RaidCargoRecoveredQuantity < mission.RaidRequiredQuantity)
+                mission.RaidStage = ConvoyRaidStage.CargoRecovery;
+        }
+
+        private void UpdateRaidRouteProgress(MissionRuntimeState state)
+        {
+            Mission mission = state?.Mission;
+            TradeLane lane = state?.RaidTradeLane;
+            Station destination = state?.RaidDestination;
+            if (mission == null || lane == null || destination == null)
+                return;
+
+            IReadOnlyList<TradelaneRing> route = lane.GetRouteRings(mission.RaidRouteDirection);
+            TradelaneRing exit = lane.GetExitRing(mission.RaidRouteDirection);
+            if (route == null || route.Count < 3 || exit == null)
+                return;
+
+            int furthest = mission.RaidRouteRingIndex;
+            NpcShip leader = null;
+            for (int i = 0; i < state.RaidShips.Count; i++)
+            {
+                NpcShip ship = state.RaidShips[i];
+                int shipIndex = FindRaidShipIndex(state, ship);
+                if (ship == null || shipIndex < 0 || ship.IsDestroyed ||
+                    (mission.RaidDestroyedMask & (1 << shipIndex)) != 0 ||
+                    (mission.RaidEscapedMask & (1 << shipIndex)) != 0)
+                    continue;
+
+                int routeIndex = ship.IsTradeLaneTransit && ship.TradeLaneRingIndex >= 0
+                    ? mission.RaidRouteDirection == TradeLaneDirection.Forward
+                        ? ship.TradeLaneRingIndex
+                        : route.Count - 1 - ship.TradeLaneRingIndex
+                    : -1;
+                if (routeIndex >= 0)
+                    furthest = Math.Max(furthest, Math.Clamp(routeIndex, 0, route.Count - 1));
+
+                bool atExit = !ship.IsTradeLaneTransit &&
+                    Vector3.Distance(ship.Position, lane.GetRingTravelPosition(exit, mission.RaidRouteDirection)) <=
+                    Math.Max(900f, lane.Config.RingSpacing * 1.5f);
+                if (atExit && !IsRouteEndDestination(ship, destination))
+                {
+                    ship.ConfigureTrafficBehavior(
+                        TrafficZoneBehaviorType.TraderRoute,
+                        $"mission-convoy-raid-{mission.Id}",
+                        ship.Position,
+                        300f,
+                        GetConvoyCruiseSpeed(mission.Difficulty),
+                        12000f,
+                        ship.Position,
+                        destination.Position);
+                    furthest = route.Count - 1;
+                }
+
+                if (leader == null)
+                    leader = ship;
+            }
+
+            mission.RaidRouteRingIndex = Math.Clamp(furthest, -1, route.Count - 1);
+            if (leader != null)
+                mission.TargetPosition = mission.RaidInterceptionActivated ? leader.Position : mission.RaidInterceptionPosition;
+        }
+
+        private void UpdateRaidEscapes(MissionRuntimeState state)
+        {
+            Mission mission = state?.Mission;
+            Station destination = state?.RaidDestination;
+            if (mission == null || destination == null)
+                return;
+
+            for (int i = 0; i < state.RaidShips.Count; i++)
+            {
+                NpcShip ship = state.RaidShips[i];
+                int index = FindRaidShipIndex(state, ship);
+                if (ship == null || index < 0 || ship.IsDestroyed ||
+                    (mission.RaidDestroyedMask & (1 << index)) != 0 ||
+                    (mission.RaidEscapedMask & (1 << index)) != 0 ||
+                    Vector3.Distance(ship.Position, destination.Position) > 3000f)
+                    continue;
+
+                mission.RaidEscapedMask |= 1 << index;
+                mission.RaidEscapedCount = Math.Min(mission.RaidShipCount, mission.RaidEscapedCount + 1);
+                mission.RaidCargoLostQuantity = Math.Min(
+                    mission.RaidTotalAllocatedQuantity,
+                    mission.RaidCargoLostQuantity + mission.RaidCargoAllocation[index]);
+                _ejectNpcFromTradeLaneCallback?.Invoke(ship);
+                _npcShips.Remove(ship);
+                _spaceObjects.Remove(ship);
+                _retiredNpcCallback?.Invoke(ship);
+            }
+        }
+
+        public MissionCargoDrop GetMissionCargoDrop(NpcShip destroyedShip)
+        {
+            if (destroyedShip == null)
+                return null;
+
+            foreach (MissionRuntimeState state in _runtimeStates.Values)
+            {
+                Mission mission = state?.Mission;
+                if (mission == null || mission.Status != MissionStatus.Active || !mission.IsConvoyRaidMission())
+                    continue;
+
+                int sourceIndex = FindRaidShipIndex(state, destroyedShip);
+                if (sourceIndex < 0 || (mission.RaidDestroyedMask & (1 << sourceIndex)) == 0 ||
+                    (mission.RaidCargoReleasedMask & (1 << sourceIndex)) != 0 ||
+                    (mission.RaidEscapedMask & (1 << sourceIndex)) != 0 ||
+                    sourceIndex >= mission.RaidCargoAllocation.Count)
+                    continue;
+
+                return new MissionCargoDrop
+                {
+                    MissionId = mission.Id,
+                    SourceIndex = sourceIndex,
+                    CommodityId = mission.RaidCommodityId,
+                    Quantity = mission.RaidCargoAllocation[sourceIndex],
+                    SourceNpcName = destroyedShip.Name ?? string.Empty,
+                    SourcePosition = destroyedShip.Position
+                };
+            }
+
+            return null;
+        }
+
+        public void NotifyMissionCargoPodSpawned(CargoPod pod)
+        {
+            if (pod == null || !pod.IsMissionCargo || !_runtimeStates.TryGetValue(pod.MissionId, out MissionRuntimeState state))
+                return;
+            Mission mission = state.Mission;
+            int index = pod.MissionCargoSourceIndex;
+            if (mission == null || !mission.IsConvoyRaidMission() || index < 0 || index >= mission.RaidShipCount ||
+                (mission.RaidCargoReleasedMask & (1 << index)) != 0)
+                return;
+
+            mission.RaidCargoReleasedMask |= 1 << index;
+            mission.RaidCargoReleasedQuantity = Math.Min(
+                mission.RaidTotalAllocatedQuantity,
+                mission.RaidCargoReleasedQuantity + pod.Quantity);
+        }
+
+        public void NotifyMissionCargoPodCollected(CargoPod pod, int quantity)
+        {
+            if (pod == null || quantity <= 0 || !pod.IsMissionCargo ||
+                !_runtimeStates.TryGetValue(pod.MissionId, out MissionRuntimeState state))
+                return;
+            if (state.Mission?.IsConvoyRaidMission() == true && _playerShip.CargoHold != null)
+            {
+                state.Mission.RaidCargoRecoveredQuantity = Math.Clamp(
+                    _playerShip.CargoHold.GetMissionCargoQuantity(pod.MissionId),
+                    0,
+                    state.Mission.RaidTotalAllocatedQuantity);
+            }
+        }
+
+        public void NotifyMissionCargoPodExpired(CargoPod pod, int quantity)
+        {
+            if (pod == null || quantity <= 0 || !pod.IsMissionCargo ||
+                !_runtimeStates.TryGetValue(pod.MissionId, out MissionRuntimeState state))
+                return;
+            Mission mission = state.Mission;
+            if (mission?.IsConvoyRaidMission() != true)
+                return;
+            mission.RaidCargoLostQuantity = Math.Min(
+                mission.RaidTotalAllocatedQuantity,
+                mission.RaidCargoLostQuantity + quantity);
+        }
+
+        public void NotifyMissionCargoDropUnavailable(MissionCargoDrop drop)
+        {
+            if (drop == null || drop.Quantity <= 0 || !_runtimeStates.TryGetValue(drop.MissionId, out MissionRuntimeState state))
+                return;
+            Mission mission = state.Mission;
+            if (mission?.IsConvoyRaidMission() != true || drop.SourceIndex < 0 || drop.SourceIndex >= mission.RaidShipCount ||
+                (mission.RaidCargoReleasedMask & (1 << drop.SourceIndex)) != 0)
+                return;
+
+            mission.RaidCargoReleasedMask |= 1 << drop.SourceIndex;
+            mission.RaidCargoLostQuantity = Math.Min(
+                mission.RaidTotalAllocatedQuantity,
+                mission.RaidCargoLostQuantity + drop.Quantity);
         }
 
         private bool SpawnConvoyShip(MissionRuntimeState state, int index)
@@ -1469,6 +1940,21 @@ namespace Roguelancer
         private static string GetConvoyAttackerName(Mission mission, int index) =>
             $"[MISSION] Convoy Escort Rogue {mission?.Id ?? 0} {index + 1}";
 
+        private static int FindRaidShipIndex(MissionRuntimeState state, NpcShip ship)
+        {
+            if (state?.Mission == null || ship == null)
+                return -1;
+            for (int i = 0; i < state.Mission.RaidShipCount; i++)
+            {
+                if (string.Equals(ship.Name, GetRaidShipName(state.Mission, i), StringComparison.OrdinalIgnoreCase))
+                    return i;
+            }
+            return state.RaidShips.IndexOf(ship);
+        }
+
+        private static string GetRaidShipName(Mission mission, int index) =>
+            $"[MISSION] Convoy Raid {mission?.Id ?? 0} Transport {index + 1}";
+
         private static float GetConvoyCruiseSpeed(MissionDifficulty difficulty) => difficulty switch
         {
             MissionDifficulty.Hard or MissionDifficulty.Deadly => 180f,
@@ -1480,6 +1966,13 @@ namespace Roguelancer
         {
             return mission != null && _runtimeStates.TryGetValue(mission.Id, out MissionRuntimeState state)
                 ? state.ConvoyShips.ToList()
+                : Array.Empty<NpcShip>();
+        }
+
+        public IReadOnlyList<NpcShip> GetConvoyRaidShips(Mission mission)
+        {
+            return mission != null && _runtimeStates.TryGetValue(mission.Id, out MissionRuntimeState state)
+                ? state.RaidShips.ToList()
                 : Array.Empty<NpcShip>();
         }
 
@@ -1848,12 +2341,16 @@ namespace Roguelancer
         private void CleanupMissionTransientNpcs(MissionRuntimeState state)
         {
             if (state?.Mission == null ||
-                (state.Mission.Type != MissionType.TradeLaneDefense && state.Mission.Type != MissionType.ConvoyEscort))
+                (state.Mission.Type != MissionType.TradeLaneDefense &&
+                 state.Mission.Type != MissionType.ConvoyEscort &&
+                 state.Mission.Type != MissionType.ConvoyRaid))
                 return;
 
             IEnumerable<NpcShip> ownedShips = state.Mission.Type == MissionType.ConvoyEscort
                 ? state.ConvoyShips.Concat(state.ConvoyHostiles).Distinct().ToList()
-                : state.MissionHostiles.ToList();
+                : state.Mission.Type == MissionType.ConvoyRaid
+                    ? state.RaidShips.Distinct().ToList()
+                    : state.MissionHostiles.ToList();
             foreach (NpcShip attacker in ownedShips)
             {
                 if (attacker == null)
@@ -1870,6 +2367,7 @@ namespace Roguelancer
             state.MissionHostiles.Clear();
             state.ConvoyShips.Clear();
             state.ConvoyHostiles.Clear();
+            state.RaidShips.Clear();
             state.TradeLaneDefenseEncounterBound = false;
             state.Mission.DefenseAttackersRemaining = 0;
             state.Mission.ConvoyAttackersRemaining = 0;

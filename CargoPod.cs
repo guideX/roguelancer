@@ -35,6 +35,9 @@ namespace Roguelancer
         public int SourceNpcIdentity { get; private set; }
         public string SourceNpcName { get; private set; } = string.Empty;
         public CombatSalvageTier SalvageTier { get; private set; } = CombatSalvageTier.None;
+        public int MissionId { get; private set; }
+        public int MissionCargoSourceIndex { get; private set; } = -1;
+        public bool IsMissionCargo => MissionId > 0;
         public bool CargoFullNotified { get; set; }
         public bool DetectionNotified { get; set; }
 
@@ -159,6 +162,28 @@ namespace Roguelancer
             SourceNpcIdentity = source == null ? 0 : StableSourceHash(source);
             SourceNpcName = source?.Name ?? string.Empty;
             SalvageTier = tier;
+        }
+
+        public void SetMissionCargoAttribution(int missionId, int sourceIndex = -1, string sourceName = null)
+        {
+            MissionId = Math.Max(0, missionId);
+            MissionCargoSourceIndex = sourceIndex;
+            if (!string.IsNullOrWhiteSpace(sourceName))
+                SourceNpcName = sourceName;
+        }
+
+        public void ClearMissionCargoAttribution()
+        {
+            MissionId = 0;
+            MissionCargoSourceIndex = -1;
+        }
+
+        public void RestoreAge(float ageSeconds)
+        {
+            AgeSeconds = MathHelper.Clamp(
+                float.IsNaN(ageSeconds) || float.IsInfinity(ageSeconds) ? 0f : ageSeconds,
+                0f,
+                Math.Max(0f, LifetimeSeconds));
         }
 
         public int TakeQuantity(int quantity)
