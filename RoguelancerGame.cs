@@ -1267,6 +1267,7 @@ namespace Roguelancer {
                 (pod, quantity) => _missionWorldManager?.NotifyMissionCargoPodExpired(pod, quantity),
                 drop => _missionWorldManager?.NotifyMissionCargoDropUnavailable(drop));
             _missionManager?.SetWorldManager(_missionWorldManager);
+            _policeScanSystem?.SetMissionManager(_missionManager);
             if (_npcWeaponSystem != null)
                 _npcWeaponSystem.TradeLaneTargetResolver = npc => _missionWorldManager?.GetTradeLaneAttackTarget(npc);
             if (_trafficManager != null)
@@ -2509,6 +2510,7 @@ namespace Roguelancer {
             }
 
             int targetSystemIndex = Math.Max(1, saveData.CurrentSystemIndex);
+            _policeScanSystem?.Reset();
             if (_stationDockUI?.IsDocked == true)
             {
                 _stationDockUI.Undock();
@@ -2740,6 +2742,16 @@ namespace Roguelancer {
             // Skip normal update if in jump transit
             if (_jumpHoleManager?.IsInTransit == true) {
                 _jumpHoleManager.Update(gameTime, _playerShip.Position, keyboardState);
+                _policeScanSystem?.Update(
+                    gameTime,
+                    _playerShip,
+                    _npcShips,
+                    _playerCredits,
+                    _reputationManager,
+                    playerDocked: false,
+                    playerInTradeLaneTransit: true,
+                    _notificationManager,
+                    Console.WriteLine);
                 _prevKeys = keyboardState;
                 _prevMouseState = mouseState;
                 base.Update(gameTime);
@@ -2770,6 +2782,16 @@ namespace Roguelancer {
 
             // If in tradelane transit, skip normal ship input but still update visuals
             if (_tradelaneManager?.IsInTransit == true) {
+                _policeScanSystem?.Update(
+                    gameTime,
+                    _playerShip,
+                    _npcShips,
+                    _playerCredits,
+                    _reputationManager,
+                    playerDocked: false,
+                    playerInTradeLaneTransit: true,
+                    _notificationManager,
+                    Console.WriteLine);
                 _camera.Follow(_playerShip.Position, _playerShip.Forward, _playerShip.Up, 0.3f);
                 _prevKeys = keyboardState;
                 _prevMouseState = mouseState;
@@ -2958,33 +2980,18 @@ namespace Roguelancer {
             // Update player ship
             _playerShip.Update(gameTime, keyboardState, _camera.IsRearViewActive);
 
-            if (_policeScanSystem?.State == PoliceScanState.ContrabandDetected)
-            {
-                bool acceptEnforcement = keyboardState.IsKeyDown(Keys.Enter) && _prevKeys.IsKeyUp(Keys.Enter);
-                bool refuseEnforcement = keyboardState.IsKeyDown(Keys.N) && _prevKeys.IsKeyUp(Keys.N);
-                if (acceptEnforcement)
-                {
-                    _policeScanSystem.TryAcceptEnforcement(
-                        _playerShip,
-                        _playerCredits,
-                        _reputationManager,
-                        _notificationManager,
-                        Console.WriteLine);
-                }
-                else if (refuseEnforcement)
-                {
-                    _policeScanSystem.TryRefuseEnforcement(
-                        _playerShip,
-                        _playerCredits,
-                        _reputationManager,
-                        _notificationManager,
-                        Console.WriteLine);
-                }
-            }
-
             if (keyboardState.IsKeyDown(Keys.J) && _prevKeys.IsKeyUp(Keys.J))
             {
-                _policeScanSystem?.TryJettisonContraband(_playerShip, _notificationManager, Console.WriteLine);
+                bool jettisoned = _policeScanSystem?.TryJettisonContraband(
+                    _playerShip,
+                    _lootManager,
+                    _notificationManager,
+                    Console.WriteLine) == true;
+                if (jettisoned && _missionManager?.ActiveMission?.Type == MissionType.ContrabandSmuggling)
+                {
+                    _missionManager.ActiveMission.SmugglingJettisonedQuantity = Math.Max(0,
+                        _missionManager.ActiveMission.SmugglingJettisonedQuantity + _policeScanSystem.LastJettisonedQuantity);
+                }
             }
 
             HandleCountermeasureLaunchInput();
@@ -3009,7 +3016,16 @@ namespace Roguelancer {
             }
 
             // Update lawful patrol scan loop
-            _policeScanSystem?.Update(gameTime, _playerShip, _npcShips, _playerCredits, _reputationManager, _notificationManager);
+            _policeScanSystem?.Update(
+                gameTime,
+                _playerShip,
+                _npcShips,
+                _playerCredits,
+                _reputationManager,
+                _stationDockUI?.IsDocked == true,
+                _playerShip?.IsTradeLaneTransit == true || _tradelaneManager?.IsInTransit == true,
+                _notificationManager,
+                Console.WriteLine);
 
             // Mine system: update mounted proximity mines against NPC ships
             if (_mineSystem != null) {
@@ -3662,6 +3678,7 @@ namespace Roguelancer {
         /// </summary>
         private void HandleDockingCompleted()
         {
+            _policeScanSystem?.Reset();
             if (_gotoAutopilot?.Destination is not Station station)
             {
                 Console.WriteLine("[DOCK] Completion ignored because the destination is not a supported station.");
@@ -5496,6 +5513,7 @@ namespace Roguelancer {
         /// Handle undocking from station
         /// </summary>
         private void HandleUndock() {
+            _policeScanSystem?.Reset();
             if (_stationSession?.IsRealDockedSession == true)
             {
                 LaunchFromStationSession();
@@ -6978,6 +6996,7 @@ namespace Roguelancer {
         private void HandleSystemChange(int newSystemIndex, string arrivalJumpHoleName) {
             int oldSystemIndex = _currentSystemIndex;
             Console.WriteLine($"[SYSTEM CHANGE] Switching from system {oldSystemIndex} to system {newSystemIndex}");
+            _policeScanSystem?.Reset();
             _tradeRouteValidation?.RecordSystemChange(oldSystemIndex, newSystemIndex, arrivalJumpHoleName);
 
             // A jump completion invalidates the old-system world object. Only

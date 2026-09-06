@@ -287,9 +287,13 @@ public sealed class PoliceEnforcementService
             .Select(entry =>
             {
                 Commodity? commodity = CommodityCatalog.GetByName(entry.Key) ?? CommodityCatalog.GetById(entry.Key);
+                // A police inspection sees the physical hold, including units
+                // reserved for an active contract. Market sale protection is a
+                // separate CargoHold concern; it must not hide contraband from
+                // an authoritative scan.
                 int quantity = commodity == null
                     ? 0
-                    : Math.Min(Math.Max(0, entry.Value), cargoHold.GetSellableCommodityQuantity(entry.Key));
+                    : Math.Max(0, entry.Value);
                 return commodity?.IsContraband == true && quantity > 0
                     ? new ContrabandFinding
                     {

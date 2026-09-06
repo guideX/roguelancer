@@ -209,6 +209,122 @@ namespace Roguelancer
             return true;
         }
 
+        /// <summary>
+        /// Converts every current contraband stack into bounded physical pods.
+        /// Mission-attributed units keep their mission identity so pickup can
+        /// restore the exact contract cargo; ordinary units remain ordinary.
+        /// </summary>
+        public int TryJettisonContraband(
+            CargoHold cargoHold,
+            Vector3 position,
+            Vector3 velocity,
+            out int podCount)
+        {
+            podCount = 0;
+            if (cargoHold == null || !TradeLaneStateSanitizer.IsFinite(position) ||
+                !TradeLaneStateSanitizer.IsFinite(velocity))
+            {
+                return 0;
+            }
+
+            int removedQuantity = 0;
+            int stackIndex = 0;
+            foreach (MissionCargoReservation reservation in cargoHold.GetMissionCargoReservations())
+            {
+                Commodity commodity = CommodityCatalog.GetByIdOrName(reservation.CommodityId);
+                if (commodity?.IsContraband != true || reservation.Quantity <= 0)
+                    continue;
+
+                int remaining = reservation.Quantity;
+                while (remaining > 0)
+                {
+                    int quantity = Math.Min(40, remaining);
+                    Vector3 podPosition = position + new Vector3((stackIndex + 1) * 90f, 0f, 0f);
+                    if (!TryJettisonMissionCargo(
+                            cargoHold,
+                            reservation.MissionId,
+                            commodity,
+                            quantity,
+                            podPosition,
+                            velocity,
+                            out _))
+                    {
+                        break;
+                    }
+
+                    removedQuantity += quantity;
+                    podCount++;
+                    remaining -= quantity;
+                    stackIndex++;
+                }
+            }
+
+            foreach (KeyValuePair<string, int> entry in cargoHold.GetAllCommodities())
+            {
+                Commodity commodity = CommodityCatalog.GetByIdOrName(entry.Key);
+                if (commodity?.IsContraband != true)
+                    continue;
+
+                int remaining = Math.Min(
+                    Math.Max(0, entry.Value),
+                    cargoHold.GetSellableCommodityQuantity(entry.Key));
+                while (remaining > 0)
+                {
+                    int quantity = Math.Min(40, remaining);
+                    Vector3 podPosition = position + new Vector3((stackIndex + 1) * 90f, 0f, 0f);
+                    if (!TryJettisonOrdinaryCargo(
+                            cargoHold,
+                            commodity,
+                            quantity,
+                            podPosition,
+                            velocity,
+                            out _))
+                    {
+                        break;
+                    }
+
+                    removedQuantity += quantity;
+                    podCount++;
+                    remaining -= quantity;
+                    stackIndex++;
+                }
+            }
+
+            return removedQuantity;
+        }
+
+        private bool TryJettisonOrdinaryCargo(
+            CargoHold cargoHold,
+            Commodity commodity,
+            int quantity,
+            Vector3 position,
+            Vector3 velocity,
+            out CargoPod pod)
+        {
+            pod = null;
+            if (cargoHold == null || commodity == null || quantity <= 0 || quantity > 40 ||
+                _activePods.Count >= CombatSalvageService.MaxLiveSalvageObjects ||
+                !IsSpawnPositionAvailable(position, null) ||
+                !CargoPod.TryCreate(
+                    commodity.Id,
+                    quantity,
+                    position,
+                    velocity,
+                    (float)CombatSalvageService.SalvageLifetimeSeconds,
+                    CombatSalvageService.PickupRadius,
+                    out CargoPod createdPod))
+            {
+                return false;
+            }
+
+            if (!cargoHold.RemoveCommodity(commodity, quantity))
+                return false;
+
+            _activePods.Add(createdPod);
+            pod = createdPod;
+            return true;
+        }
+
         public int SpawnLootForDestroyedNpc(NpcShip destroyedShip, Action<string> log = null)
         {
             MissionCargoDrop missionDrop = _missionCargoResolver?.Invoke(destroyedShip);

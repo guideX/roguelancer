@@ -1343,6 +1343,7 @@ namespace Roguelancer
                         MissionType.CourierDelivery => Color.LimeGreen,
                         MissionType.FreightContract => Color.LightSkyBlue,
                         MissionType.ExportContract => Color.LightGreen,
+                        MissionType.ContrabandSmuggling => Color.Orange,
                         MissionType.Bounty => Color.Red,
                         MissionType.Escort => Color.Yellow,
                         _ => Color.White
@@ -1424,6 +1425,7 @@ namespace Roguelancer
                     MissionType.CourierDelivery => Color.LimeGreen,
                     MissionType.FreightContract => Color.LightSkyBlue,
                     MissionType.ExportContract => Color.LightGreen,
+                    MissionType.ContrabandSmuggling => Color.Orange,
                     MissionType.Bounty => Color.Red,
                     MissionType.Escort => Color.Yellow,
                     _ => Color.White
@@ -1461,6 +1463,10 @@ namespace Roguelancer
                     else if (m.Type == MissionType.ExportContract)
                     {
                         rewardStr += $" | Loaded: {m.GetTargetLabel()}";
+                    }
+                    else if (m.Type == MissionType.ContrabandSmuggling)
+                    {
+                        rewardStr += $" | Loaded: {_missionManager.GetSmugglingCargoQuantity(m)}/{m.RequiredQuantity}";
                     }
                     if (m.TimeLimit > 0)
                     {

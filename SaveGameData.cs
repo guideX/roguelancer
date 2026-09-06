@@ -356,6 +356,15 @@ namespace Roguelancer
         [JsonPropertyName("issued_cargo_quantity")]
         public int IssuedCargoQuantity { get; set; }
 
+        [JsonPropertyName("smuggling_stage")]
+        public ContrabandSmugglingStage SmugglingStage { get; set; } = ContrabandSmugglingStage.EnRoute;
+
+        [JsonPropertyName("smuggling_police_detected")]
+        public bool SmugglingPoliceDetected { get; set; }
+
+        [JsonPropertyName("smuggling_jettisoned_quantity")]
+        public int SmugglingJettisonedQuantity { get; set; }
+
         [JsonPropertyName("target_lane_id")]
         public string TargetLaneId { get; set; } = string.Empty;
 

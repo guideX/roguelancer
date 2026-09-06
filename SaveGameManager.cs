@@ -581,10 +581,13 @@ namespace Roguelancer
                     PackageVolume = mission.PackageVolume,
                     MissionCargoLoaded = mission.MissionCargoLoaded,
                     DeliveredQuantity = mission.DeliveredQuantity,
-                    CommodityId = mission.CommodityId ?? string.Empty,
-                    RequiredQuantity = mission.RequiredQuantity,
-                    IssuedCargoQuantity = mission.IssuedCargoQuantity,
-                    TargetLaneId = mission.TargetLaneId ?? string.Empty,
+                     CommodityId = mission.CommodityId ?? string.Empty,
+                     RequiredQuantity = mission.RequiredQuantity,
+                     IssuedCargoQuantity = mission.IssuedCargoQuantity,
+                     SmugglingStage = mission.SmugglingStage,
+                     SmugglingPoliceDetected = mission.SmugglingPoliceDetected,
+                     SmugglingJettisonedQuantity = mission.SmugglingJettisonedQuantity,
+                     TargetLaneId = mission.TargetLaneId ?? string.Empty,
                     TargetSegmentId = mission.TargetSegmentId ?? string.Empty,
                     TargetRingIndex = mission.TargetRingIndex,
                     HoldDurationSeconds = mission.HoldDurationSeconds,
@@ -953,7 +956,10 @@ namespace Roguelancer
                  data.RaidInterceptionActivated,
                  data.RaidInterceptionPosition,
                  data.RaidDestinationPosition,
-                 data.RaidCargoAllocation);
+                  data.RaidCargoAllocation,
+                  data.SmugglingStage,
+                  data.SmugglingPoliceDetected,
+                  data.SmugglingJettisonedQuantity);
         }
 
         private static float NormalizeStanding(float value)

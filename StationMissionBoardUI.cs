@@ -303,6 +303,8 @@ public sealed class StationMissionBoardUI
                 ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - Reserved {_cargoHold?.GetMissionCargoQuantity(active.Id) ?? 0}/{active.RequiredQuantity} - {active.GetDestinationLabel()}"
             : active.Type == MissionType.ExportContract
                 ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - Loaded {_cargoHold?.GetMissionCargoQuantity(active.Id) ?? 0}/{active.RequiredQuantity} - {active.GetDestinationLabel()}"
+            : active.Type == MissionType.ContrabandSmuggling
+                ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - Loaded {_cargoHold?.GetMissionCargoQuantity(active.Id) ?? 0}/{active.RequiredQuantity} - {active.GetDestinationLabel()}"
             : active.Type == MissionType.TradeLaneDisruption
                 ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - {active.GetTradeLaneHudStatus()}"
                 : $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - {active.GetHudProgressLine()}"
@@ -407,6 +409,22 @@ public sealed class StationMissionBoardUI
             y += 24;
             spriteBatch.DrawString(_font, $"Free cargo space: {freeSpace} space", new Vector2(x, y),
                 freeSpace >= requiredVolume ? Color.Cyan : Color.OrangeRed);
+            y += 26;
+        }
+        else if (mission.Type == MissionType.ContrabandSmuggling)
+        {
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+            int requiredVolume = (commodity?.VolumePerUnit ?? 0) * mission.RequiredQuantity;
+            int loaded = _cargoHold?.GetMissionCargoQuantity(mission.Id) ?? 0;
+            spriteBatch.DrawString(_font, $"Origin: {mission.OriginStationName}", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Destination: {mission.GetDestinationLabel()}", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Contraband: {commodity?.Name ?? mission.CommodityId} x{mission.RequiredQuantity} ({requiredVolume} space)", new Vector2(x, y), Color.Orange);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Loaded: {loaded}/{mission.RequiredQuantity}   Free space: {_cargoHold?.AvailableCapacity ?? 0}", new Vector2(x, y), Color.Cyan);
+            y += 24;
+            spriteBatch.DrawString(_font, "Warning: police scans can trigger temporary hostility; jettisoned pods are recoverable.", new Vector2(x, y), Color.Orange);
             y += 26;
         }
         else if (mission.Type == MissionType.TradeLaneDisruption)
@@ -627,6 +645,7 @@ public sealed class StationMissionBoardUI
         MissionType.CourierDelivery => Color.LimeGreen,
         MissionType.FreightContract => Color.LightSkyBlue,
         MissionType.ExportContract => Color.LightGreen,
+        MissionType.ContrabandSmuggling => Color.Orange,
         MissionType.Bounty => Color.Red,
         MissionType.TradeLaneDisruption => Color.Orange,
         MissionType.Escort => Color.Yellow,

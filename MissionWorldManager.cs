@@ -129,6 +129,8 @@ namespace Roguelancer
                     return TryBindConvoyEscortMission(state, out failureReason);
                 case MissionType.ConvoyRaid:
                     return TryBindConvoyRaidMission(state, out failureReason);
+                case MissionType.ContrabandSmuggling:
+                    return TryBindSmugglingMission(state, out failureReason);
                 default:
                     failureReason = "unsupported mission type";
                     return false;
@@ -279,6 +281,10 @@ namespace Roguelancer
                     mission.TargetSpaceObject = state.DeliveryDestination;
                     mission.TargetPosition = state.DeliveryDestination.Position;
                 }
+            }
+            else if (mission.Type == MissionType.ContrabandSmuggling)
+            {
+                TryBindSmugglingMission(state, out _);
             }
             else if (mission.Type == MissionType.Escort)
             {
@@ -465,7 +471,7 @@ namespace Roguelancer
                 }
 
                 Station resolvedStation = state.DeliveryDestination ??
-                    (mission.Type is MissionType.CourierDelivery or MissionType.ExportContract
+                    (mission.Type is MissionType.CourierDelivery or MissionType.ExportContract or MissionType.ContrabandSmuggling
                         ? ResolveCourierDestination(mission)
                         : ResolveDeliveryDestination(mission));
                 if (resolvedStation == null)
@@ -473,7 +479,7 @@ namespace Roguelancer
                     continue;
                 }
 
-                string expectedIdentity = mission.Type is MissionType.CourierDelivery or MissionType.FreightContract or MissionType.ExportContract
+                string expectedIdentity = mission.Type is MissionType.CourierDelivery or MissionType.FreightContract or MissionType.ExportContract or MissionType.ContrabandSmuggling
                     ? mission.DestinationStationId
                     : string.Empty;
                 if (!IsStationMatch(station, resolvedStation, mission.Destination, expectedIdentity))
@@ -493,6 +499,15 @@ namespace Roguelancer
                 if (mission.Type == MissionType.ExportContract)
                 {
                     if (!TryCompleteExportDelivery(state, station))
+                        continue;
+
+                    completedAny = true;
+                    continue;
+                }
+
+                if (mission.Type == MissionType.ContrabandSmuggling)
+                {
+                    if (!TryCompleteSmugglingDelivery(state, station))
                         continue;
 
                     completedAny = true;
@@ -2685,6 +2700,32 @@ namespace Roguelancer
             return true;
         }
 
+        private bool TryBindSmugglingMission(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission?.CommodityId);
+            Station destination = ResolveCourierDestination(mission);
+            if (mission == null || destination == null || commodity == null ||
+                !commodity.IsContraband || commodity.IsMissionCargo || commodity.VolumePerUnit <= 0 ||
+                mission.RequiredQuantity <= 0 || mission.IssuedCargoQuantity != mission.RequiredQuantity ||
+                _playerShip?.CargoHold == null ||
+                !_playerShip.CargoHold.HasMissionCargo(mission.Id, commodity.Id, mission.RequiredQuantity))
+            {
+                failureReason = "smuggling cargo or destination metadata is invalid";
+                return false;
+            }
+
+            mission.DestinationStationId = Mission.BuildStationIdentity(destination);
+            mission.TargetSpaceObject = destination;
+            mission.TargetPosition = destination.Position;
+            mission.RequiredProgress = mission.RequiredQuantity;
+            state.DeliveryDestination = destination;
+            state.DeliveryCommodity = commodity;
+            state.DeliveryQuantity = mission.RequiredQuantity;
+            return true;
+        }
+
         private bool TryBindExportMission(MissionRuntimeState state, out string failureReason)
         {
             failureReason = string.Empty;
@@ -2987,6 +3028,32 @@ namespace Roguelancer
             }
 
             Console.WriteLine($"[MISSION] Export delivered: {commodity.Name} x{quantity} -> {station.Name} (mission #{mission.Id})");
+            return true;
+        }
+
+        private bool TryCompleteSmugglingDelivery(MissionRuntimeState state, Station station)
+        {
+            Mission mission = state?.Mission;
+            Commodity commodity = state?.DeliveryCommodity ?? CommodityCatalog.GetByIdOrName(mission?.CommodityId);
+            CargoHold cargo = _playerShip?.CargoHold;
+            int quantity = mission?.RequiredQuantity ?? 0;
+            if (mission == null || commodity == null || cargo == null || quantity <= 0 ||
+                mission.IssuedCargoQuantity != quantity ||
+                !cargo.HasMissionCargo(mission.Id, commodity.Id, quantity) ||
+                cargo.GetMissionCargoQuantity(mission.Id) != quantity ||
+                _missionManager == null)
+            {
+                return false;
+            }
+
+            if (!_missionManager.CompleteSmugglingMission(mission, station, out string completionFailure))
+            {
+                if (!string.IsNullOrWhiteSpace(completionFailure))
+                    Console.WriteLine($"[MISSION] Smuggling delivery held: {completionFailure}");
+                return false;
+            }
+
+            Console.WriteLine($"[MISSION] Smuggling delivered: {commodity.Name} x{quantity} -> {station.Name} (mission #{mission.Id})");
             return true;
         }
 

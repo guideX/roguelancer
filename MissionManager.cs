@@ -38,6 +38,7 @@ namespace Roguelancer
         private readonly Dictionary<string, Mission> _tradeLaneDefenseOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _convoyEscortOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _convoyRaidOffers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Mission> _smugglingOffers = new(StringComparer.OrdinalIgnoreCase);
         private ReputationManager _reputationManager;
         private MissionWaypointSystem _waypointSystem;
         private MissionWorldManager _worldManager;
@@ -99,6 +100,7 @@ namespace Roguelancer
                 MissionType.TradeLaneDefense => 0.025f,
                 MissionType.ConvoyEscort => 0.030f,
                 MissionType.ConvoyRaid => 0.035f,
+                MissionType.ContrabandSmuggling => 0.040f,
                 MissionType.Escort => 0.030f,
                 MissionType.FreightContract or MissionType.ExportContract => 0.025f,
                 MissionType.CourierDelivery => 0.020f,
@@ -259,6 +261,26 @@ namespace Roguelancer
                 return false;
             }
 
+            if (mission.Type == MissionType.ContrabandSmuggling)
+            {
+                Commodity smugglingCommodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+                string acceptedOriginIdentity = Mission.BuildStationIdentity(originStation);
+                if (originStation == null ||
+                    !string.Equals(FactionManager.NormalizeFactionId(originStation.FactionId), FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(FactionManager.NormalizeFactionId(mission.FactionId), FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrWhiteSpace(mission.OriginStationId) &&
+                     !string.Equals(mission.OriginStationId, acceptedOriginIdentity, StringComparison.OrdinalIgnoreCase)) ||
+                    smugglingCommodity == null || !smugglingCommodity.IsContraband || smugglingCommodity.IsMissionCargo ||
+                    mission.RequiredQuantity <= 0 || mission.RequiredQuantity > FreightMaximumUnits ||
+                    _cargoHold == null || !_cargoHold.CanFit(smugglingCommodity, mission.RequiredQuantity))
+                {
+                    reason = smugglingCommodity == null
+                        ? "smuggling commodity is invalid"
+                        : $"not enough cargo space for {smugglingCommodity.Name} x{mission.RequiredQuantity}";
+                    return false;
+                }
+            }
+
             return true;
         }
         public void ShowNotification(string message, float durationSeconds = 3f) =>
@@ -275,6 +297,9 @@ namespace Roguelancer
             foreach (Mission mission in _activeMissions.Where(candidate => candidate?.Type == MissionType.ConvoyRaid))
                 ReleaseConvoyRaidCargo(mission);
 
+            foreach (Mission mission in _activeMissions.Where(candidate => candidate?.Type == MissionType.ContrabandSmuggling))
+                ReleaseSmugglingCargo(mission);
+
             foreach (Mission mission in _activeMissions)
                 _waypointSystem?.UnregisterMission(mission);
 
@@ -287,6 +312,7 @@ namespace Roguelancer
             _tradeLaneDefenseOffers.Clear();
             _convoyEscortOffers.Clear();
             _convoyRaidOffers.Clear();
+            _smugglingOffers.Clear();
             _worldManager?.ClearState();
         }
 
@@ -361,6 +387,7 @@ namespace Roguelancer
                 (mission.Type != MissionType.CourierDelivery ||
                  string.Equals(mission.SourceStationName, originStation?.Name, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
+            missions.AddRange(GenerateContrabandSmugglingMissions(originStation));
             missions.AddRange(GenerateFreightContracts(originStation));
             missions.AddRange(GenerateExportContracts(originStation));
             missions.AddRange(GenerateTradeLaneDisruptionMissions(originStation));
@@ -368,6 +395,78 @@ namespace Roguelancer
             missions.AddRange(GenerateConvoyEscortMissions(originStation));
             missions.AddRange(GenerateConvoyRaidMissions(originStation));
             return missions;
+        }
+
+        public List<Mission> GenerateContrabandSmugglingMissions(Station originStation)
+        {
+            List<Mission> offers = new();
+            _smugglingOffers.Clear();
+            if (originStation == null || _worldManager == null ||
+                !string.Equals(
+                    FactionManager.NormalizeFactionId(originStation.FactionId),
+                    FactionManager.LibertyRogues,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return offers;
+            }
+
+            List<Station> destinations = _worldManager.GetKnownStations()
+                .Where(station => station != null &&
+                    !string.Equals(Mission.BuildStationIdentity(station), Mission.BuildStationIdentity(originStation), StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(FactionManager.NormalizeFactionId(station.FactionId), FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(station => Vector3.DistanceSquared(originStation.Position, station.Position))
+                .ThenBy(station => station.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(station => Mission.BuildStationIdentity(station), StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (destinations.Count == 0)
+                return offers;
+
+            List<Commodity> contraband = CommodityCatalog.All
+                .Where(commodity => commodity != null && commodity.IsContraband && !commodity.IsMissionCargo && commodity.VolumePerUnit > 0)
+                .OrderBy(commodity => commodity.Id, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (contraband.Count == 0)
+                return offers;
+
+            MissionDifficulty[] difficulties = { MissionDifficulty.Easy, MissionDifficulty.Medium, MissionDifficulty.Hard };
+            for (int i = 0; i < difficulties.Length; i++)
+            {
+                MissionDifficulty difficulty = difficulties[i];
+                int stableHash = StableStringHash($"smuggling|{Mission.BuildStationIdentity(originStation)}|{difficulty}");
+                Station destination = destinations[stableHash % destinations.Count];
+                Commodity commodity = contraband[stableHash % contraband.Count];
+                int requestedQuantity = difficulty switch
+                {
+                    MissionDifficulty.Hard => 8,
+                    MissionDifficulty.Medium => 5,
+                    _ => 3
+                };
+                int quantity = Math.Min(requestedQuantity, FreightMaximumCargoVolume / Math.Max(1, commodity.VolumePerUnit));
+                if (quantity <= 0)
+                    continue;
+
+                int reward = difficulty switch
+                {
+                    MissionDifficulty.Hard => 13_000,
+                    MissionDifficulty.Medium => 8_500,
+                    _ => 5_000
+                };
+                Mission offer = Mission.CreateContrabandSmuggling(
+                    originStation,
+                    destination,
+                    commodity,
+                    quantity,
+                    reward,
+                    difficulty);
+                if (offer == null)
+                    continue;
+
+                string key = $"{Mission.BuildStationIdentity(originStation)}:{destination.Name}:{commodity.Id}:{difficulty}";
+                _smugglingOffers[key] = offer;
+                offers.Add(offer);
+            }
+
+            return offers;
         }
 
         public List<Mission> GenerateTradeLaneDisruptionMissions(Station originStation)
@@ -1315,6 +1414,13 @@ namespace Roguelancer
                 : 0;
         }
 
+        public int GetSmugglingCargoQuantity(Mission mission)
+        {
+            return mission?.Type == MissionType.ContrabandSmuggling && _cargoHold != null
+                ? _cargoHold.GetMissionCargoQuantity(mission.Id)
+                : 0;
+        }
+
         private List<Mission> GenerateFreightContracts(Station destination)
         {
             List<Mission> offers = new();
@@ -1615,7 +1721,7 @@ namespace Roguelancer
             if (!string.IsNullOrWhiteSpace(mission.DefinitionId))
             {
                 MissionDefinition definition = MissionCatalog.GetById(mission.DefinitionId);
-                if (mission.Type is not MissionType.TradeLaneDisruption and not MissionType.TradeLaneDefense and not MissionType.ConvoyEscort and not MissionType.ConvoyRaid &&
+                if (mission.Type is not MissionType.TradeLaneDisruption and not MissionType.TradeLaneDefense and not MissionType.ConvoyEscort and not MissionType.ConvoyRaid and not MissionType.ContrabandSmuggling &&
                     (definition == null || definition.Type != mission.Type ||
                     definition.RewardCredits != mission.Reward ||
                     definition.TargetCount != mission.RequiredProgress))
@@ -1715,6 +1821,30 @@ namespace Roguelancer
                 }
             }
 
+            if (mission.Type == MissionType.ContrabandSmuggling)
+            {
+                Commodity smugglingCommodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+                string originIdentity = Mission.BuildStationIdentity(originStation);
+                if (originStation == null ||
+                    FactionManager.NormalizeFactionId(originStation.FactionId) != FactionManager.LibertyRogues ||
+                    FactionManager.NormalizeFactionId(mission.FactionId) != FactionManager.LibertyRogues ||
+                    (!string.IsNullOrWhiteSpace(mission.OriginStationId) &&
+                     !string.Equals(mission.OriginStationId, originIdentity, StringComparison.OrdinalIgnoreCase)) ||
+                    string.IsNullOrWhiteSpace(mission.Destination) || string.IsNullOrWhiteSpace(mission.DestinationStationId) ||
+                    string.Equals(originIdentity, mission.DestinationStationId, StringComparison.OrdinalIgnoreCase) ||
+                    smugglingCommodity == null || !smugglingCommodity.IsContraband || smugglingCommodity.IsMissionCargo ||
+                    smugglingCommodity.VolumePerUnit <= 0 || mission.RequiredQuantity <= 0 ||
+                    mission.RequiredQuantity > FreightMaximumUnits || _cargoHold == null ||
+                    !_cargoHold.CanFit(smugglingCommodity, mission.RequiredQuantity))
+                {
+                    return RejectAcceptance(mission, "smuggling metadata, Rogue origin, or cargo capacity is invalid");
+                }
+
+                Station resolvedDestination = ResolveKnownStation(mission.DestinationStationId, mission.Destination);
+                if (resolvedDestination == null)
+                    return RejectAcceptance(mission, "smuggling destination is unavailable");
+            }
+
             if (mission.Type == MissionType.CourierDelivery &&
                 (string.IsNullOrWhiteSpace(mission.PackageId) || mission.PackageQuantity <= 0 ||
                  string.IsNullOrWhiteSpace(mission.SourceStationName) || string.IsNullOrWhiteSpace(mission.Destination)))
@@ -1775,6 +1905,12 @@ namespace Roguelancer
                 return RejectAcceptance(mission, exportFailureReason);
             }
 
+            if (mission.Type == MissionType.ContrabandSmuggling &&
+                !TryIssueSmugglingCargo(mission, out string smugglingFailureReason))
+            {
+                return RejectAcceptance(mission, smugglingFailureReason);
+            }
+
             mission.AcceptedAtUtc = DateTime.UtcNow;
             mission.ReputationReward = GetMissionReputationReward(mission);
             mission.ReputationRewardApplied = false;
@@ -1785,6 +1921,10 @@ namespace Roguelancer
                 if (mission.Type == MissionType.ExportContract)
                 {
                     TryRestoreExportShipment(mission, out _);
+                }
+                else if (mission.Type == MissionType.ContrabandSmuggling)
+                {
+                    TryRemoveIssuedSmugglingCargo(mission, out _);
                 }
                 ReleaseFreightReservation(mission);
                 mission.Status = MissionStatus.Available;
@@ -1811,6 +1951,12 @@ namespace Roguelancer
             {
                 _notificationManager?.ShowMessage(
                     $"Export cargo loaded: {GetExportIssuedQuantity(mission)}/{mission.RequiredQuantity} units",
+                    3f);
+            }
+            else if (mission.Type == MissionType.ContrabandSmuggling)
+            {
+                _notificationManager?.ShowMessage(
+                    $"Smuggling cargo loaded: {GetSmugglingCargoQuantity(mission)}/{mission.RequiredQuantity} units",
                     3f);
             }
             Console.WriteLine($"[MISSION] Accepted: {mission.GetSummary()} | Origin: {mission.OriginStationName}");
@@ -1876,6 +2022,63 @@ namespace Roguelancer
 
             mission.IssuedCargoQuantity = quantity;
             mission.MissionCargoLoaded = true;
+            mission.DeliveredQuantity = 0;
+            return true;
+        }
+
+        private bool TryIssueSmugglingCargo(Mission mission, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission?.CommodityId);
+            if (mission == null || commodity == null || !commodity.IsContraband || commodity.IsMissionCargo ||
+                commodity.VolumePerUnit <= 0 || mission.RequiredQuantity <= 0 || _cargoHold == null)
+            {
+                failureReason = "smuggling cargo metadata is invalid";
+                return false;
+            }
+
+            if (!_cargoHold.CanFit(commodity, mission.RequiredQuantity))
+            {
+                failureReason = $"not enough cargo space for {commodity.Name} x{mission.RequiredQuantity}";
+                return false;
+            }
+
+            if (!_cargoHold.AddMissionCargo(mission.Id, commodity, mission.RequiredQuantity))
+            {
+                failureReason = "smuggling cargo could not be loaded";
+                return false;
+            }
+
+            mission.IssuedCargoQuantity = mission.RequiredQuantity;
+            mission.MissionCargoLoaded = true;
+            mission.DeliveredQuantity = 0;
+            mission.SmugglingStage = ContrabandSmugglingStage.EnRoute;
+            mission.SmugglingPoliceDetected = false;
+            mission.SmugglingJettisonedQuantity = 0;
+            return true;
+        }
+
+        private bool TryRemoveIssuedSmugglingCargo(Mission mission, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission?.CommodityId);
+            int quantity = mission != null && mission.IssuedCargoQuantity > 0
+                ? mission.IssuedCargoQuantity
+                : mission?.RequiredQuantity ?? 0;
+            if (mission?.Type != MissionType.ContrabandSmuggling || commodity == null || quantity <= 0 || _cargoHold == null)
+            {
+                failureReason = "smuggling cargo rollback metadata is invalid";
+                return false;
+            }
+
+            if (!_cargoHold.RemoveMissionCargo(mission.Id, commodity, quantity))
+            {
+                failureReason = "smuggling cargo rollback failed";
+                return false;
+            }
+
+            mission.MissionCargoLoaded = false;
+            mission.IssuedCargoQuantity = 0;
             mission.DeliveredQuantity = 0;
             return true;
         }
@@ -1957,6 +2160,7 @@ namespace Roguelancer
 
             ReleaseFreightReservation(mission);
             ReleaseConvoyRaidCargo(mission);
+            ReleaseSmugglingCargo(mission);
             mission.Status = MissionStatus.Failed;
             _activeMissions.Remove(mission);
             _completedMissions.Add(mission);
@@ -1983,7 +2187,9 @@ namespace Roguelancer
             _completedMissions.Add(mission);
             _waypointSystem?.UnregisterMission(mission);
             _worldManager?.OnMissionFinished(mission);
-            string completionMessage = mission.Type == MissionType.ConvoyRaid
+            string completionMessage = mission.Type == MissionType.ContrabandSmuggling
+                ? $"Smuggling cargo delivered - +{mission.Reward:N0} CR"
+                : mission.Type == MissionType.ConvoyRaid
                 ? $"Cargo secured - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR"
                 : mission.Type == MissionType.CourierDelivery
                 ? $"Cargo delivered - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR"
@@ -1993,7 +2199,7 @@ namespace Roguelancer
                     ? $"Export delivered - +{mission.Reward:N0} CR"
                 : $"Objective complete - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR";
             _notificationManager?.ShowMessage(completionMessage, 4f);
-            Console.WriteLine($"[MISSION] Objective complete: {mission.Title} | Reward {(mission.Type is MissionType.FreightContract or MissionType.ExportContract ? "paid" : "pending")}: {mission.Reward:N0} CR");
+            Console.WriteLine($"[MISSION] Objective complete: {mission.Title} | Reward {(mission.Type is MissionType.FreightContract or MissionType.ExportContract or MissionType.ContrabandSmuggling ? "paid" : "pending")}: {mission.Reward:N0} CR");
         }
 
         public bool CompleteFreightMission(Mission mission, out string message)
@@ -2082,6 +2288,64 @@ namespace Roguelancer
             return true;
         }
 
+        public bool CompleteSmugglingMission(Mission mission, Station station, out string message)
+        {
+            message = string.Empty;
+            if (mission == null || mission.Type != MissionType.ContrabandSmuggling ||
+                !ReferenceEquals(ActiveMission, mission) || !mission.IsActive)
+            {
+                message = "smuggling mission is not active";
+                return false;
+            }
+
+            if (station == null || !string.Equals(
+                    Mission.BuildStationIdentity(station),
+                    mission.DestinationStationId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                message = $"deliver the cargo at {mission.GetDestinationLabel()}";
+                return false;
+            }
+
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+            int quantity = mission.RequiredQuantity;
+            if (commodity == null || !commodity.IsContraband || commodity.IsMissionCargo || quantity <= 0 ||
+                mission.IssuedCargoQuantity != quantity || _cargoHold == null ||
+                !_cargoHold.HasMissionCargo(mission.Id, commodity.Id, quantity) ||
+                _cargoHold.GetMissionCargoQuantity(mission.Id) != quantity)
+            {
+                message = "smuggling cargo is missing or corrupt";
+                return false;
+            }
+
+            if (_playerCredits == null || mission.Reward <= 0 ||
+                (long)_playerCredits.Credits + mission.Reward > int.MaxValue)
+            {
+                message = "smuggling reward transaction is invalid";
+                return false;
+            }
+
+            if (!_cargoHold.RemoveMissionCargo(mission.Id, commodity, quantity))
+            {
+                message = "smuggling cargo could not be verified for payment";
+                return false;
+            }
+
+            mission.DeliveredQuantity = quantity;
+            mission.MissionCargoLoaded = false;
+            mission.ObjectiveComplete = true;
+            mission.SmugglingStage = ContrabandSmugglingStage.Successful;
+            CompleteMission(mission);
+            mission.RewardPaid = true;
+            _playerCredits.AddCredits(mission.Reward);
+            ApplyMissionReputationReward(mission);
+            mission.Status = MissionStatus.Rewarded;
+            _completedMissions.Remove(mission);
+            _notificationManager?.ShowMessage($"Smuggling delivered — +{mission.Reward:N0} CR", 4f);
+            message = $"Smuggling reward received: {mission.Reward:N0} CR";
+            return true;
+        }
+
         private bool RegisterFreightReservation(Mission mission)
         {
             if (mission?.Type != MissionType.FreightContract || _cargoHold == null)
@@ -2102,6 +2366,16 @@ namespace Roguelancer
         {
             if (mission?.Type == MissionType.ConvoyRaid)
                 _cargoHold?.ConvertMissionCargoToOrdinary(mission.Id);
+        }
+
+        private void ReleaseSmugglingCargo(Mission mission)
+        {
+            if (mission?.Type != MissionType.ContrabandSmuggling || _cargoHold == null)
+                return;
+
+            _cargoHold.ConvertMissionCargoToOrdinary(mission.Id);
+            mission.MissionCargoLoaded = false;
+            mission.SmugglingStage = ContrabandSmugglingStage.Failed;
         }
 
         public bool TryClaimReward(Mission mission, Station station, out string message)
@@ -2202,11 +2476,14 @@ namespace Roguelancer
 
             ReleaseFreightReservation(mission);
             ReleaseConvoyRaidCargo(mission);
+            ReleaseSmugglingCargo(mission);
             mission.FailureReason = string.IsNullOrWhiteSpace(reason) ? "mission failed" : reason;
             if (mission.Type == MissionType.ConvoyEscort)
                 mission.ConvoyStage = ConvoyEscortStage.Failed;
             if (mission.Type == MissionType.ConvoyRaid)
                 mission.RaidStage = ConvoyRaidStage.Failed;
+            if (mission.Type == MissionType.ContrabandSmuggling)
+                mission.SmugglingStage = ContrabandSmugglingStage.Failed;
             mission.Status = MissionStatus.Failed;
             _activeMissions.Remove(mission);
             _completedMissions.Add(mission);
