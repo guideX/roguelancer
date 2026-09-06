@@ -58,6 +58,8 @@ namespace Roguelancer
         public StationArea CurrentArea => _currentArea;
         public Station DockedStation => _dockedStation;
         public bool IsEquipmentDealerMode => _equipmentDealerMode;
+        public bool IsBlackMarketOpen => _commodityDealer?.IsBlackMarketOpen == true;
+        public FactionAccessResult BlackMarketAccess => _commodityDealer?.CurrentBlackMarketAccess;
 
         public event Action? OnUndock;
         public event Action<ShipDefinition>? OnShipPurchased;
@@ -75,6 +77,7 @@ namespace Roguelancer
             _equipmentDealer = equipmentDealer ?? new EquipmentDealer();
             _equipmentDealer.SetReputationManager(_reputationManager);
             _shipDealer?.SetReputationManager(_reputationManager);
+            _commodityDealer?.SetReputationManager(_reputationManager);
             _jobBoard = new JobBoard(missionManager);
             _isDocked = false;
             _currentArea = StationArea.Hangar;
@@ -184,6 +187,32 @@ namespace Roguelancer
             if (!_isDocked) return;
             
             _currentArea = area;
+        }
+
+        public bool TryOpenBlackMarket(out string message)
+        {
+            if (_dockedStation == null || _commodityDealer == null)
+            {
+                message = "Black Market requires a docked station contact.";
+                return false;
+            }
+
+            bool opened = _commodityDealer.TryOpenBlackMarket(_reputationManager, out message);
+            if (opened)
+            {
+                _equipmentDealerMode = false;
+                _selectedCommodityIndex = 0;
+                _purchaseQuantity = 1;
+                _buyingMode = true;
+                _currentArea = StationArea.Dealer;
+            }
+
+            return opened;
+        }
+
+        public void CloseBlackMarket()
+        {
+            _commodityDealer?.CloseBlackMarket();
         }
 
         /// <summary>
@@ -308,6 +337,31 @@ namespace Roguelancer
             {
                 _equipmentDealerMode = true;
                 Console.WriteLine("[EQUIPMENT] Switched to equipment dealer mode");
+                return true;
+            }
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.M) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.M))
+            {
+                if (_commodityDealer.IsBlackMarketOpen)
+                {
+                    _commodityDealer.CloseBlackMarket();
+                    _notificationManager?.ShowMessage("Returned to ordinary market", 2f);
+                }
+                else if (!TryOpenBlackMarket(out string marketMessage))
+                {
+                    _notificationManager?.ShowMessage(marketMessage, 3f);
+                }
+
+                return true;
+            }
+
+            if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.L) &&
+                prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.L) &&
+                _commodityDealer.IsBlackMarketOpen)
+            {
+                _commodityDealer.CloseBlackMarket();
+                _notificationManager?.ShowMessage("Returned to ordinary market", 2f);
                 return true;
             }
 
@@ -669,6 +723,18 @@ namespace Roguelancer
                         string missionHint = $"  Has a job: {npc.CurrentMission.Type} ({npc.CurrentMission.Difficulty})";
                         spriteBatch.DrawString(_font, missionHint, new Vector2(npcPanel.X + 15, yOffset + 25), Color.Yellow * 0.7f);
                     }
+                    else if (npc.OffersBlackMarket)
+                    {
+                        FactionAccessResult access = _commodityDealer?.CurrentBlackMarketAccess;
+                        string marketHint = access?.IsAllowed == true
+                            ? "  BLACK MARKET: press M to open"
+                            : "  BLACK MARKET: access denied / unavailable";
+                        spriteBatch.DrawString(
+                            _font,
+                            marketHint,
+                            new Vector2(npcPanel.X + 15, yOffset + 25),
+                            access?.IsAllowed == true ? Color.Orange : Color.OrangeRed);
+                    }
                     else
                     {
                         FactionBribeOffer bribe = FactionBribeService.GetOfferForContact(
@@ -688,7 +754,7 @@ namespace Roguelancer
                     yOffset += 65;
                 }
 
-                string instructions = "UP/DOWN: Select NPC | ENTER: Talk | TAB: Job Board";
+                string instructions = "UP/DOWN: Select NPC | ENTER: Talk | M: Black Market | TAB: Job Board";
                 Vector2 instrSize = _font.MeasureString(instructions);
                 spriteBatch.DrawString(_font, instructions, new Vector2(centerX - instrSize.X / 2, screenHeight - 160), Color.White);
             }
@@ -780,13 +846,16 @@ namespace Roguelancer
             int centerX = screenWidth / 2;
             int centerY = screenHeight / 2;
             var cargoHold = playerShip?.CargoHold;
+            bool isBlackMarket = _commodityDealer?.IsBlackMarketOpen == true;
             var listings = _commodityDealer.CurrentMarketListings;
             SyncCommoditySelection(listings);
 
             // Title
-            string title = _dockedStation != null
-                ? $"== {_dockedStation.Name.ToUpperInvariant()} MARKET =="
-                : "== COMMODITIES DEALER ==";
+            string title = isBlackMarket
+                ? "== BLACK MARKET // FENCE =="
+                : _dockedStation != null
+                    ? $"== {_dockedStation.Name.ToUpperInvariant()} MARKET =="
+                    : "== COMMODITIES DEALER ==";
             Vector2 titleSize = _font.MeasureString(title);
             spriteBatch.DrawString(_font, title, new Vector2(centerX - titleSize.X / 2, centerY - 300), Color.Yellow);
 
@@ -796,9 +865,11 @@ namespace Roguelancer
             Vector2 modeSize = _font.MeasureString(modeText);
             spriteBatch.DrawString(_font, modeText, new Vector2(centerX - modeSize.X / 2, centerY - 260), modeColor);
 
-            string marketHint = _commodityDealer.CurrentStation != null && !_commodityDealer.IsUsingLegacyFallback
-                ? $"Station faction: {_dockedStation?.FactionId ?? "unknown"} | Credits: {credits.GetFormattedCredits()}"
-                : "Legacy fallback market";
+            string marketHint = isBlackMarket
+                ? $"ILLICIT CONTACT: {_commodityDealer.CurrentBlackMarketAccess?.FactionDisplayName ?? "unknown"} | Credits: {credits.GetFormattedCredits()}"
+                : _commodityDealer.CurrentStation != null && !_commodityDealer.IsUsingLegacyFallback
+                    ? $"Station faction: {_dockedStation?.FactionId ?? "unknown"} | Credits: {credits.GetFormattedCredits()}"
+                    : "Legacy fallback market";
             spriteBatch.DrawString(_font, marketHint, new Vector2(centerX - _font.MeasureString(marketHint).X / 2, centerY - 230), Color.LightGray);
 
             DrawTradePlanTraderContext(spriteBatch, centerX, centerY);
@@ -807,7 +878,9 @@ namespace Roguelancer
             int yOffset = centerY - 200;
             if (listings.Count == 0)
             {
-                string emptyText = "No station market data available.";
+                string emptyText = isBlackMarket
+                    ? _commodityDealer.CurrentBlackMarketAccess?.BuildFailureMessage("Black Market") ?? "Black Market unavailable."
+                    : "No station market data available.";
                 Vector2 emptySize = _font.MeasureString(emptyText);
                 spriteBatch.DrawString(_font, emptyText, new Vector2(centerX - emptySize.X / 2, centerY - 100), Color.Gray);
                 return;
@@ -939,7 +1012,9 @@ namespace Roguelancer
             }
 
             // Instructions at bottom
-            string instructions = "UP/DOWN: Select | +/-: Quantity | B/S: Buy/Sell Mode | ENTER: Confirm | TAB: Equipment";
+            string instructions = isBlackMarket
+                ? "UP/DOWN: Select | +/-: Quantity | B/S: Buy/Sell Mode | ENTER: Confirm | L: Legal Market | TAB: Equipment"
+                : "UP/DOWN: Select | +/-: Quantity | B/S: Buy/Sell Mode | ENTER: Confirm | M: Black Market | TAB: Equipment";
             Vector2 instructSize = _font.MeasureString(instructions);
             spriteBatch.DrawString(_font, instructions, 
                 new Vector2(centerX - instructSize.X / 2, screenHeight - 150), Color.White);
@@ -1667,6 +1742,24 @@ namespace Roguelancer
                 {
                     _selectedNpcIndex++;
                     if (_selectedNpcIndex >= _barNpcs.Count) _selectedNpcIndex = 0;
+                    return true;
+                }
+
+                if (keyboardState.IsKeyDown(Microsoft.Xna.Framework.Input.Keys.M) &&
+                    prevKeyboardState.IsKeyUp(Microsoft.Xna.Framework.Input.Keys.M))
+                {
+                    if (_barNpcs.Count > 0 && _barNpcs[_selectedNpcIndex].OffersBlackMarket)
+                    {
+                        if (!TryOpenBlackMarket(out string marketMessage))
+                        {
+                            _notificationManager?.ShowMessage(marketMessage, 3f);
+                        }
+                    }
+                    else
+                    {
+                        _notificationManager?.ShowMessage("No black-market contact is available here.", 3f);
+                    }
+
                     return true;
                 }
 

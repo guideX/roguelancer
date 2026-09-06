@@ -33,3 +33,23 @@ Phase 14 dynamic-market rules:
 - Default practical stock capacity is four times baseline (at least baseline
   plus 100 units), capped at 1,000,000 units. Excess sales are rejected before
   cargo or credit state changes.
+
+Phase 55 black-market rules:
+
+- Buffalo Base (Liberty Rogues) and Rochester Base (Junkers salvage authority)
+  expose the black-market surface over their existing market runtime. No
+  second inventory, commodity catalog, or market clock is created.
+- Access uses live standing with the hosting faction and requires Neutral or
+  better (`>= 0.00`). The existing Rogue bar contact exposes the action; the
+  dealer surface also provides the same station-scoped mode.
+- Ordinary market listings filter out canonical contraband. Black-market
+  listings include only commodities whose `CommodityCatalog` metadata marks
+  them as contraband.
+- Black-market stock is finite, deterministic, and saved through the existing
+  station-market snapshot. It uses the same lazy recovery rules as legal stock.
+  Current configured contraband seed stock is 8 side arms / 4 alien organisms
+  at Buffalo and 10 side arms / 4 alien organisms at Rochester.
+- Illicit configured prices stay within the Phase 55 bounds: purchase quotes
+  are 1.15-1.40x canonical base price and sale quotes are 0.70-1.00x base
+  price. The shared dynamic spread and post-purchase sell ceiling prevent
+  same-station arbitrage.

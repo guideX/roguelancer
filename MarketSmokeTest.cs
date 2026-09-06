@@ -302,15 +302,33 @@ namespace Roguelancer
                 return Fail($"Fort Bush to Newark legal route margin was {legalMargin}, expected a modest positive spread");
             }
 
-            int contrabandMargin = GetBestRouteMargin(buffaloListings, rochesterListings, requireContraband: true);
-            if (contrabandMargin <= legalMargin)
+            var buffaloBlackListings = _commodityDealer.MarketManager.GetBlackMarketListingsForStation(buffalo);
+            var rochesterBlackListings = _commodityDealer.MarketManager.GetBlackMarketListingsForStation(rochester);
+            if (buffaloBlackListings.Count == 0 || rochesterBlackListings.Count == 0)
             {
-                return Fail($"Buffalo to Rochester contraband route margin {contrabandMargin} did not exceed legal route margin {legalMargin}");
+                return Fail("Buffalo and Rochester must expose configured black-market listings");
             }
 
-            if (contrabandMargin < 100)
+            if (buffaloListings.Any(listing => listing.Commodity?.IsContraband == true) ||
+                rochesterListings.Any(listing => listing.Commodity?.IsContraband == true))
             {
-                return Fail($"Buffalo to Rochester contraband route margin was too small: {contrabandMargin}");
+                return Fail("ordinary market listings exposed contraband");
+            }
+
+            if (buffaloBlackListings.Any(listing => listing.Commodity?.IsContraband != true) ||
+                rochesterBlackListings.Any(listing => listing.Commodity?.IsContraband != true))
+            {
+                return Fail("black-market listings exposed a non-contraband commodity");
+            }
+
+            if (!ValidateNoSameStationArbitrage(buffalo.Name, buffaloBlackListings, out string buffaloBlackArbFailure))
+            {
+                return Fail(buffaloBlackArbFailure);
+            }
+
+            if (!ValidateNoSameStationArbitrage(rochester.Name, rochesterBlackListings, out string rochesterBlackArbFailure))
+            {
+                return Fail(rochesterBlackArbFailure);
             }
 
             return Pass();

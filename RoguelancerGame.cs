@@ -264,6 +264,7 @@ namespace Roguelancer {
         private readonly bool _runFactionCombatCommunicationSmoke;
         private readonly bool _runFactionBountyRewardSmoke;
         private readonly bool _runContrabandSmoke;
+        private readonly bool _runBlackMarketSmoke;
         private readonly bool _runPoliceEnforcementSmoke;
         private readonly bool _runPoliceFugitiveSmoke;
         private readonly bool _runTrafficSmoke;
@@ -374,6 +375,7 @@ namespace Roguelancer {
             _runFactionCombatCommunicationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-communication-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionBountyRewardSmoke = args?.Any(arg => string.Equals(arg, "--faction-bounty-reward-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runBlackMarketSmoke = args?.Any(arg => string.Equals(arg, "--black-market-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPoliceEnforcementSmoke = args?.Any(arg => string.Equals(arg, "--police-enforcement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPoliceFugitiveSmoke = args?.Any(arg => string.Equals(arg, "--police-fugitive-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1011,6 +1013,7 @@ namespace Roguelancer {
 
             // Initialize commodity dealer
             _commodityDealer = new CommodityDealer();
+            _commodityDealer.SetReputationManager(_reputationManager);
             _marketIntelligence = new MarketIntelligence(_commodityDealer.MarketManager);
             _commodityDealer.SetMarketIntelligence(_marketIntelligence);
 
@@ -1616,6 +1619,12 @@ namespace Roguelancer {
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
 
+            if (_runBlackMarketSmoke)
+            {
+                var result = RunBlackMarketSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+
             if (_runTrafficSmoke)
             {
                 var result = RunTrafficSmokeTest();
@@ -1663,6 +1672,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("countermeasure smoke", RunCountermeasureSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("mine smoke", RunMineSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("contraband smoke", RunContrabandSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("black market smoke", RunBlackMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("traffic smoke", RunTrafficSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("loot smoke", RunLootSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("combat salvage smoke", RunCombatSalvageSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2141,6 +2151,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[CONTRABAND SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunBlackMarketSmokeTest()
+        {
+            try
+            {
+                return new BlackMarketSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[BLACK MARKET SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }

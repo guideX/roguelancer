@@ -16,6 +16,7 @@ namespace Roguelancer
         public string[] DeclineLines { get; }
         public string FactionId { get; }
         public IReadOnlyList<string> ReputationBribeTargetFactionIds { get; }
+        public bool OffersBlackMarket { get; }
         public Mission CurrentMission { get; set; }
 
         public BarNpc(
@@ -25,7 +26,8 @@ namespace Roguelancer
             string[] missionOfferLines,
             string[] declineLines,
             string factionId = null,
-            IEnumerable<string> reputationBribeTargetFactionIds = null)
+            IEnumerable<string> reputationBribeTargetFactionIds = null,
+            bool offersBlackMarket = false)
         {
             Name = name;
             Title = title;
@@ -38,6 +40,7 @@ namespace Roguelancer
                 .Select(FactionManager.NormalizeFactionId)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
+            OffersBlackMarket = offersBlackMarket;
         }
 
         /// <summary>
@@ -117,7 +120,8 @@ namespace Roguelancer
                     new[] { "I need a pilot who doesn't ask questions.", "This job is off the books.", "Big money, no questions. Interested?" },
                     new[] { "Smart move. Or dumb. We'll see.", "Walk away then.", "Forget you ever saw me." },
                     FactionManager.LibertyRogues,
-                    new[] { FactionManager.LibertyRogues, FactionManager.Junkers }
+                    new[] { FactionManager.LibertyRogues, FactionManager.Junkers },
+                    offersBlackMarket: true
                 )
             };
         }

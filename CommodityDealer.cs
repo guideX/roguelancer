@@ -12,6 +12,8 @@ namespace Roguelancer
         private readonly MarketManager _marketManager;
         private MarketIntelligence _marketIntelligence;
         private Station _currentStation;
+        private ReputationManager _reputationManager;
+        private MarketSurface _marketSurface = MarketSurface.Ordinary;
 
         public CommodityDealer()
         {
@@ -23,6 +25,11 @@ namespace Roguelancer
         /// </summary>
         public Station CurrentStation => _currentStation;
         public MarketManager MarketManager => _marketManager;
+        public MarketSurface CurrentMarketSurface => _marketSurface;
+        public bool IsBlackMarketOpen => _marketSurface == MarketSurface.BlackMarket;
+
+        public FactionAccessResult CurrentBlackMarketAccess =>
+            _marketManager.EvaluateBlackMarketAccess(_currentStation, _reputationManager);
 
         /// <summary>
         /// Fires only after the authoritative market, credits, and cargo state
@@ -37,6 +44,11 @@ namespace Roguelancer
             {
                 _marketIntelligence?.SetCurrentStation(_currentStation);
             }
+        }
+
+        public void SetReputationManager(ReputationManager reputationManager)
+        {
+            _reputationManager = reputationManager;
         }
 
         /// <summary>
@@ -63,6 +75,7 @@ namespace Roguelancer
 
         public void SetDockedStation(Station station)
         {
+            _marketSurface = MarketSurface.Ordinary;
             _currentStation = station;
             if (station != null)
             {
@@ -82,7 +95,51 @@ namespace Roguelancer
             }
 
             _currentStation = null;
+            _marketSurface = MarketSurface.Ordinary;
             _marketIntelligence?.ClearCurrentStation();
+        }
+
+        /// <summary>
+        /// Opens the illicit surface only when the existing station hosts a
+        /// black market and the live criminal-faction standing is sufficient.
+        /// </summary>
+        public bool TryOpenBlackMarket(ReputationManager reputationManager, out string message)
+        {
+            if (reputationManager != null)
+            {
+                _reputationManager = reputationManager;
+            }
+
+            FactionAccessResult access = CurrentBlackMarketAccess;
+            if (!access.IsAllowed)
+            {
+                message = access.BuildFailureMessage("Black Market");
+                return false;
+            }
+
+            _marketSurface = MarketSurface.BlackMarket;
+            message = $"Black Market open — {access.FactionDisplayName} contact.";
+            return true;
+        }
+
+        public bool TryOpenBlackMarket(out string message)
+        {
+            return TryOpenBlackMarket(_reputationManager, out message);
+        }
+
+        public bool OpenBlackMarket(ReputationManager reputationManager, out string message)
+        {
+            return TryOpenBlackMarket(reputationManager, out message);
+        }
+
+        public bool OpenBlackMarket(out string message)
+        {
+            return TryOpenBlackMarket(_reputationManager, out message);
+        }
+
+        public void CloseBlackMarket()
+        {
+            _marketSurface = MarketSurface.Ordinary;
         }
 
         public void RefreshMarketIntelligence()
@@ -97,12 +154,17 @@ namespace Roguelancer
 
         public IReadOnlyList<StationMarketListing> GetCurrentListings()
         {
-            if (_currentStation == null)
+            if (IsBlackMarketOpen && !_marketManager.EvaluateBlackMarketAccess(_currentStation, _reputationManager).IsAllowed)
             {
-                return _marketManager.GetListingsForStation(null);
+                return Array.Empty<StationMarketListing>();
             }
 
-            return _marketManager.GetListingsForStation(_currentStation);
+            if (_currentStation == null)
+            {
+                return _marketManager.GetListingsForStation(null, _marketSurface);
+            }
+
+            return _marketManager.GetListingsForStation(_currentStation, _marketSurface);
         }
 
         public StationMarketListing GetListingByIndex(int index)
@@ -172,9 +234,23 @@ namespace Roguelancer
 
         public bool TryBuyCommodity(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold, out string message)
         {
+            if (!IsBlackMarketOpen && commodity?.IsContraband == true)
+            {
+                message = "Ordinary commodity dealers will not handle contraband.";
+                LogMarketResult(false, message);
+                return false;
+            }
+
             if (_currentStation == null || !_marketManager.HasMarketConfigForStation(_currentStation))
             {
                 int fallbackUnitPrice = ResolveListing(commodity)?.BuyPrice ?? 0;
+                if (IsBlackMarketOpen)
+                {
+                    message = "Black Market requires a configured criminal contact.";
+                    LogMarketResult(false, message);
+                    return false;
+                }
+
                 bool fallbackSuccess = BuyWithFallback(commodity, quantity, credits, cargoHold, out message);
                 if (fallbackSuccess) PublishTransaction(commodity, quantity, fallbackUnitPrice, isPurchase: true);
                 LogMarketResult(fallbackSuccess, message);
@@ -182,7 +258,7 @@ namespace Roguelancer
             }
 
             int unitPrice = ResolveListing(commodity)?.BuyPrice ?? 0;
-            bool marketSuccess = _marketManager.TryBuy(_currentStation, commodity, quantity, credits, cargoHold, out message);
+            bool marketSuccess = _marketManager.TryBuy(_currentStation, commodity, quantity, credits, cargoHold, _marketSurface, _reputationManager, out message);
             if (marketSuccess)
             {
                 _marketIntelligence?.RefreshCurrentStation();
@@ -200,9 +276,23 @@ namespace Roguelancer
 
         public bool TrySellCommodity(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold, out string message)
         {
+            if (!IsBlackMarketOpen && commodity?.IsContraband == true)
+            {
+                message = "Ordinary commodity dealers will not handle contraband.";
+                LogMarketResult(false, message);
+                return false;
+            }
+
             if (_currentStation == null || !_marketManager.HasMarketConfigForStation(_currentStation))
             {
                 int fallbackUnitPrice = ResolveListing(commodity)?.SellPrice ?? 0;
+                if (IsBlackMarketOpen)
+                {
+                    message = "Black Market requires a configured criminal contact.";
+                    LogMarketResult(false, message);
+                    return false;
+                }
+
                 bool fallbackSuccess = SellWithFallback(commodity, quantity, credits, cargoHold, out message);
                 if (fallbackSuccess) PublishTransaction(commodity, quantity, fallbackUnitPrice, isPurchase: false);
                 LogMarketResult(fallbackSuccess, message);
@@ -210,7 +300,7 @@ namespace Roguelancer
             }
 
             int unitPrice = ResolveListing(commodity)?.SellPrice ?? 0;
-            bool marketSuccess = _marketManager.TrySell(_currentStation, commodity, quantity, credits, cargoHold, out message);
+            bool marketSuccess = _marketManager.TrySell(_currentStation, commodity, quantity, credits, cargoHold, _marketSurface, _reputationManager, out message);
             if (marketSuccess)
             {
                 _marketIntelligence?.RefreshCurrentStation();
@@ -252,6 +342,12 @@ namespace Roguelancer
             if (listing == null || !listing.IsAvailable || listing.BuyPrice <= 0)
             {
                 message = "Commodity unavailable at this station.";
+                return false;
+            }
+
+            if (listing.Commodity.IsContraband)
+            {
+                message = "Ordinary commodity dealers will not handle contraband.";
                 return false;
             }
 
@@ -323,6 +419,12 @@ namespace Roguelancer
             if (listing == null || !listing.IsAvailable || listing.SellPrice <= 0)
             {
                 message = "Commodity unavailable at this station.";
+                return false;
+            }
+
+            if (listing.Commodity.IsContraband)
+            {
+                message = "Ordinary commodity dealers will not handle contraband.";
                 return false;
             }
 

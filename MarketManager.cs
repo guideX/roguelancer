@@ -107,6 +107,39 @@ namespace Roguelancer
             return !string.IsNullOrWhiteSpace(stationKey) && _marketConfigs.ContainsKey(stationKey);
         }
 
+        /// <summary>
+        /// Returns whether this existing station has a configured illicit
+        /// market host. A black market is a policy view over the station's
+        /// ordinary runtime market, never a second inventory.
+        /// </summary>
+        public bool HasBlackMarketForStation(Station station)
+        {
+            if (!TryGetMarketConfig(station, out StationMarketConfig config))
+            {
+                return false;
+            }
+
+            return BlackMarketPolicy.IsEligibleHostFaction(GetEffectiveMarketFactionId(station, config)) &&
+                HasConfiguredContraband(config);
+        }
+
+        public string GetMarketFactionId(Station station)
+        {
+            return TryGetMarketConfig(station, out StationMarketConfig config)
+                ? GetEffectiveMarketFactionId(station, config)
+                : FactionManager.NormalizeFactionId(station?.FactionId);
+        }
+
+        public FactionAccessResult EvaluateBlackMarketAccess(Station station, ReputationManager reputationManager)
+        {
+            string factionId = GetMarketFactionId(station);
+            return BlackMarketPolicy.EvaluateAccess(
+                reputationManager,
+                factionId,
+                station?.Name,
+                HasBlackMarketForStation(station));
+        }
+
         public void RegisterCommodity(Commodity commodity)
         {
             if (commodity == null)
@@ -230,44 +263,83 @@ namespace Roguelancer
             Console.WriteLine($"[MARKET] Loaded {_marketConfigs.Count} station market configs");
         }
 
-        public List<StationMarketListing> GetListingsForStation(Station station)
+        public List<StationMarketListing> GetListingsForStation(
+            Station station,
+            MarketSurface surface = MarketSurface.Ordinary)
         {
             string stationKey = GetStationKey(station?.Name, station?.Config?.Description);
             if (string.IsNullOrWhiteSpace(stationKey))
             {
-                return BuildFallbackListings();
+                return surface == MarketSurface.BlackMarket
+                    ? new List<StationMarketListing>()
+                    : FilterListings(BuildFallbackListings(), surface);
             }
 
             if (!_marketConfigs.TryGetValue(stationKey, out var config))
             {
-                return BuildFallbackListings();
+                return surface == MarketSurface.BlackMarket
+                    ? new List<StationMarketListing>()
+                    : FilterListings(BuildFallbackListings(), surface);
             }
 
             if (_runtimeMarkets.TryGetValue(stationKey, out var runtimeListings))
             {
                 AdvanceListings(runtimeListings);
-                return CloneListings(runtimeListings);
+                return FilterListings(CloneListings(runtimeListings), surface);
             }
 
             runtimeListings = BuildRuntimeListings(config);
             _runtimeMarkets[stationKey] = runtimeListings;
-            return CloneListings(runtimeListings);
+            return FilterListings(CloneListings(runtimeListings), surface);
         }
 
-        public StationMarketListing GetListingForCommodity(Station station, Commodity commodity)
+        public List<StationMarketListing> GetBlackMarketListingsForStation(Station station)
+        {
+            return GetListingsForStation(station, MarketSurface.BlackMarket);
+        }
+
+        public StationMarketListing GetListingForCommodity(
+            Station station,
+            Commodity commodity,
+            MarketSurface surface = MarketSurface.Ordinary)
         {
             if (station == null || commodity == null)
             {
                 return null;
             }
 
-            var listings = GetListingsForStation(station);
+            var listings = GetListingsForStation(station, surface);
             return listings.FirstOrDefault(l =>
                 string.Equals(l.Commodity.Id, commodity.Id, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(l.Commodity.Name, commodity.Name, StringComparison.OrdinalIgnoreCase));
         }
 
         public bool TryBuy(Station station, Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold, out string message)
+        {
+            return TryBuy(station, commodity, quantity, credits, cargoHold, MarketSurface.Ordinary, out message);
+        }
+
+        public bool TryBuy(
+            Station station,
+            Commodity commodity,
+            int quantity,
+            PlayerCredits credits,
+            CargoHold cargoHold,
+            MarketSurface surface,
+            out string message)
+        {
+            return TryBuy(station, commodity, quantity, credits, cargoHold, surface, null, out message);
+        }
+
+        public bool TryBuy(
+            Station station,
+            Commodity commodity,
+            int quantity,
+            PlayerCredits credits,
+            CargoHold cargoHold,
+            MarketSurface surface,
+            ReputationManager reputationManager,
+            out string message)
         {
             message = string.Empty;
             if (station == null || commodity == null)
@@ -291,7 +363,18 @@ namespace Roguelancer
             }
 
             Commodity marketCommodity = listing.Commodity;
-            if (!IsValidCommodity(marketCommodity) || !listing.IsAvailable || listing.BuyPrice <= 0 || listing.Stock < 0)
+            if (!IsValidCommodity(marketCommodity))
+            {
+                message = "Commodity unavailable at this station.";
+                return false;
+            }
+
+            if (!CanTradeOnSurface(station, marketCommodity, surface, reputationManager, out message))
+            {
+                return false;
+            }
+
+            if (!listing.IsAvailable || listing.BuyPrice <= 0 || listing.Stock < 0)
             {
                 message = "Commodity unavailable at this station.";
                 return false;
@@ -356,6 +439,31 @@ namespace Roguelancer
 
         public bool TrySell(Station station, Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold, out string message)
         {
+            return TrySell(station, commodity, quantity, credits, cargoHold, MarketSurface.Ordinary, out message);
+        }
+
+        public bool TrySell(
+            Station station,
+            Commodity commodity,
+            int quantity,
+            PlayerCredits credits,
+            CargoHold cargoHold,
+            MarketSurface surface,
+            out string message)
+        {
+            return TrySell(station, commodity, quantity, credits, cargoHold, surface, null, out message);
+        }
+
+        public bool TrySell(
+            Station station,
+            Commodity commodity,
+            int quantity,
+            PlayerCredits credits,
+            CargoHold cargoHold,
+            MarketSurface surface,
+            ReputationManager reputationManager,
+            out string message)
+        {
             message = string.Empty;
             if (station == null || commodity == null)
             {
@@ -390,7 +498,18 @@ namespace Roguelancer
             }
 
             Commodity marketCommodity = listing.Commodity;
-            if (!IsValidCommodity(marketCommodity) || marketCommodity.IsMissionCargo)
+            if (!IsValidCommodity(marketCommodity))
+            {
+                message = "Commodity unavailable at this station.";
+                return false;
+            }
+
+            if (!CanTradeOnSurface(station, marketCommodity, surface, reputationManager, out message))
+            {
+                return false;
+            }
+
+            if (marketCommodity.IsMissionCargo)
             {
                 message = "Mission cargo cannot be sold.";
                 return false;
@@ -556,9 +675,12 @@ namespace Roguelancer
             return true;
         }
 
-        public Commodity GetCommodityByIndex(int index, Station station = null)
+        public Commodity GetCommodityByIndex(
+            int index,
+            Station station = null,
+            MarketSurface surface = MarketSurface.Ordinary)
         {
-            var listings = GetListingsForStation(station);
+            var listings = GetListingsForStation(station, surface);
             if (index < 0 || index >= listings.Count)
             {
                 return null;
@@ -567,9 +689,11 @@ namespace Roguelancer
             return listings[index].Commodity;
         }
 
-        public int GetMarketCount(Station station = null)
+        public int GetMarketCount(
+            Station station = null,
+            MarketSurface surface = MarketSurface.Ordinary)
         {
-            return GetListingsForStation(station).Count;
+            return GetListingsForStation(station, surface).Count;
         }
 
         public Dictionary<Commodity, int> GetCommodityRegistry()
@@ -776,6 +900,90 @@ namespace Roguelancer
             return listings.FirstOrDefault(l =>
                 string.Equals(l.Commodity.Id, commodity.Id, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(l.Commodity.Name, commodity.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private List<StationMarketListing> FilterListings(
+            IEnumerable<StationMarketListing> listings,
+            MarketSurface surface)
+        {
+            IEnumerable<StationMarketListing> filtered = listings ?? Enumerable.Empty<StationMarketListing>();
+            filtered = surface == MarketSurface.BlackMarket
+                ? filtered.Where(listing => listing?.Commodity?.IsContraband == true)
+                : filtered.Where(listing => listing?.Commodity?.IsContraband != true);
+            return filtered.ToList();
+        }
+
+        private bool CanTradeOnSurface(
+            Station station,
+            Commodity commodity,
+            MarketSurface surface,
+            ReputationManager reputationManager,
+            out string message)
+        {
+            message = string.Empty;
+            if (commodity == null)
+            {
+                message = "No commodity selected.";
+                return false;
+            }
+
+            if (surface == MarketSurface.BlackMarket)
+            {
+                FactionAccessResult access = EvaluateBlackMarketAccess(station, reputationManager);
+                if (!access.IsAllowed)
+                {
+                    message = access.BuildFailureMessage("Black Market");
+                    return false;
+                }
+
+                if (!commodity.IsContraband)
+                {
+                    message = "Black Market only handles contraband.";
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (commodity.IsContraband)
+            {
+                message = "Ordinary commodity dealers will not handle contraband.";
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool TryGetMarketConfig(Station station, out StationMarketConfig config)
+        {
+            string stationKey = GetStationKey(station?.Name, station?.Config?.Description);
+            if (!string.IsNullOrWhiteSpace(stationKey) && _marketConfigs.TryGetValue(stationKey, out config))
+            {
+                return true;
+            }
+
+            config = null;
+            return false;
+        }
+
+        private string GetEffectiveMarketFactionId(Station station, StationMarketConfig config)
+        {
+            string stationFactionId = FactionManager.NormalizeFactionId(station?.FactionId);
+            string configuredFactionId = FactionManager.NormalizeFactionId(config?.FactionId);
+
+            // Several older station fixtures omitted faction_id and rely on
+            // the market configuration's existing faction authority.
+            return string.Equals(stationFactionId, FactionManager.NeutralCivilians, StringComparison.OrdinalIgnoreCase) &&
+                   !string.IsNullOrWhiteSpace(config?.FactionId)
+                ? configuredFactionId
+                : stationFactionId;
+        }
+
+        private bool HasConfiguredContraband(StationMarketConfig config)
+        {
+            return (config?.Goods ?? new List<StationMarketGoodConfig>())
+                .Select(good => ResolveCommodity(good?.CommodityId))
+                .Any(commodity => commodity?.IsContraband == true);
         }
 
         private bool TryResolveSupplyListing(

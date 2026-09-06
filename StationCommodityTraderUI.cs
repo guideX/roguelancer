@@ -50,6 +50,7 @@ public sealed class StationCommodityTraderUI
     public int SelectedIndex => _selectedIndex;
     public int Quantity => _quantity;
     public bool IsBuying => _buying;
+    public bool IsBlackMarketOpen => _commodityDealer.IsBlackMarketOpen;
 
     public void Open(string stationName, Station station, PlayerCredits credits, Ship playerShip)
     {
@@ -110,6 +111,29 @@ public sealed class StationCommodityTraderUI
         if (Pressed(current, previous, Keys.Escape))
         {
             Close();
+            return true;
+        }
+
+        if (Pressed(current, previous, Keys.M) ||
+            (Pressed(current, previous, Keys.L) && _commodityDealer.IsBlackMarketOpen))
+        {
+            if (_commodityDealer.IsBlackMarketOpen)
+            {
+                _commodityDealer.CloseBlackMarket();
+                SetStatus("Returned to ordinary market.", true);
+            }
+            else if (_commodityDealer.TryOpenBlackMarket(out string accessMessage))
+            {
+                _selectedIndex = 0;
+                _quantity = 1;
+                _buying = true;
+                SetStatus(accessMessage, true);
+            }
+            else
+            {
+                SetStatus(accessMessage, false);
+            }
+
             return true;
         }
 
@@ -183,7 +207,9 @@ public sealed class StationCommodityTraderUI
         spriteBatch.Draw(_pixel, panel, new Color(8, 14, 24) * 0.98f);
         DrawBorder(spriteBatch, panel, Color.Gold, 3);
 
-        string title = $"COMMODITY TRADER - {_stationName}";
+        string title = _commodityDealer.IsBlackMarketOpen
+            ? $"BLACK MARKET // FENCE - {_stationName}"
+            : $"COMMODITY TRADER - {_stationName}";
         spriteBatch.DrawString(_font, title, new Vector2(panel.X + 24, panel.Y + 16), Color.Gold);
         string creditsText = $"Credits: {_credits?.GetFormattedCredits() ?? "0"} CR";
         Vector2 creditsSize = _font.MeasureString(creditsText);
@@ -203,7 +229,7 @@ public sealed class StationCommodityTraderUI
 
         IReadOnlyList<StationMarketListing> listings = _commodityDealer.CurrentMarketListings;
         SyncSelection(listings);
-        spriteBatch.DrawString(_font, "MARKET", new Vector2(listPanel.X + 14, listPanel.Y + 12), Color.LightSkyBlue);
+        spriteBatch.DrawString(_font, _commodityDealer.IsBlackMarketOpen ? "BLACK MARKET" : "MARKET", new Vector2(listPanel.X + 14, listPanel.Y + 12), _commodityDealer.IsBlackMarketOpen ? Color.Orange : Color.LightSkyBlue);
         string mode = _buying ? "[B] BUY" : "[S] SELL";
         Vector2 modeSize = _font.MeasureString(mode);
         spriteBatch.DrawString(_font, mode, new Vector2(listPanel.Right - modeSize.X - 14, listPanel.Y + 12), _buying ? Color.Lime : Color.Orange);
@@ -227,6 +253,7 @@ public sealed class StationCommodityTraderUI
 
             string label = $"{(selected ? "> " : "  ")}{Shorten(commodity.Name, plannedCommodity ? 13 : 24)}";
             if (plannedCommodity) label += " [TRADE ROUTE]";
+            if (commodity.IsContraband) label += " [CONTRABAND]";
             Color labelColor = listing.IsAvailable ? Color.White : Color.Gray;
             spriteBatch.DrawString(_font, label, new Vector2(row.X + 10, row.Y + 7), labelColor);
             string price = listing.IsAvailable
@@ -240,7 +267,9 @@ public sealed class StationCommodityTraderUI
 
         DrawSelectedDetails(spriteBatch, detailPanel, listings);
 
-        string footer = "UP/DOWN or W/D: Select   B/S: Buy/Sell   +/-: Quantity   ENTER/E: Confirm   ESC: Back";
+        string footer = _commodityDealer.IsBlackMarketOpen
+            ? "UP/DOWN or W/D: Select   B/S: Buy/Sell   +/-: Quantity   ENTER/E: Confirm   L: Legal   ESC: Back"
+            : "UP/DOWN or W/D: Select   B/S: Buy/Sell   +/-: Quantity   ENTER/E: Confirm   M: Black Market   ESC: Back";
         spriteBatch.DrawString(_font, Shorten(footer, 130), new Vector2(panel.X + 24, panel.Bottom - 42), Color.LightGray);
         if (!string.IsNullOrWhiteSpace(_statusMessage))
         {
