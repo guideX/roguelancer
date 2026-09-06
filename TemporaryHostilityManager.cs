@@ -26,6 +26,10 @@ namespace Roguelancer
     public sealed class TemporaryHostilityManager
     {
         public const string PlayerAggressionReason = "player attack";
+        // This reason identifies the single transient Police pursuit layer so
+        // save/load can omit it without weakening permanent reputation or
+        // changing unrelated temporary hostility policy.
+        public const string FugitivePursuitReason = "police fugitive pursuit";
         public const float DefaultDurationSeconds = 60f;
         public const float MinimumDurationSeconds = 30f;
         public const float MaximumDurationSeconds = 120f;
@@ -70,6 +74,14 @@ namespace Roguelancer
                 : 0f;
         }
 
+        public bool HasReason(string? factionId, string? reason)
+        {
+            string normalized = FactionManager.NormalizeFactionId(factionId);
+            return _active.TryGetValue(normalized, out ActiveEntry? entry) &&
+                entry.RemainingSeconds > 0f &&
+                string.Equals(entry.Reason, reason, StringComparison.OrdinalIgnoreCase);
+        }
+
         public bool IsPlayerCausedByAggression(string? factionId)
         {
             string normalized = FactionManager.NormalizeFactionId(factionId);
@@ -91,6 +103,7 @@ namespace Roguelancer
                     : durationSeconds,
                 MinimumDurationSeconds,
                 MaximumDurationSeconds);
+            bool fugitivePursuit = string.Equals(reason, FugitivePursuitReason, StringComparison.OrdinalIgnoreCase);
 
             if (!_active.TryGetValue(normalized, out ActiveEntry? entry))
             {
@@ -125,7 +138,14 @@ namespace Roguelancer
             }
 
             entry.RemainingSeconds = boundedDuration;
-            if (causedByPlayerAggression || string.Equals(reason, PlayerAggressionReason, StringComparison.OrdinalIgnoreCase))
+            if (fugitivePursuit)
+            {
+                // Keep the aggression provenance bit intact when a refusal or
+                // attack is upgraded into the shared fugitive incident, but
+                // make the active entry identifiable as pursuit-owned.
+                entry.Reason = FugitivePursuitReason;
+            }
+            else if (causedByPlayerAggression || string.Equals(reason, PlayerAggressionReason, StringComparison.OrdinalIgnoreCase))
             {
                 entry.IsPlayerCaused = true;
                 entry.Reason = PlayerAggressionReason;
@@ -202,6 +222,27 @@ namespace Roguelancer
         public void Clear()
         {
             _active.Clear();
+        }
+
+        /// <summary>
+        /// Clears one faction's transient entry and emits the same lifecycle
+        /// notification as natural expiry. Permanent standing is untouched.
+        /// </summary>
+        public bool Clear(string? factionId)
+        {
+            string normalized = FactionManager.NormalizeFactionId(factionId);
+            if (!_active.TryGetValue(normalized, out ActiveEntry? entry))
+                return false;
+
+            _active.Remove(normalized);
+            OnChanged?.Invoke(new TemporaryHostilityChange
+            {
+                FactionId = entry.FactionId,
+                Reason = entry.Reason,
+                IsActive = false,
+                RemainingSeconds = 0f
+            });
+            return true;
         }
     }
 }

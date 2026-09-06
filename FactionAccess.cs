@@ -126,16 +126,29 @@ public static class FactionAccessService
         string? factionId,
         string? stationName = null)
     {
+        return EvaluateDocking(reputationManager, factionId, stationName, fugitivePursuitActive: false);
+    }
+
+    public static FactionAccessResult EvaluateDocking(
+        ReputationManager? reputationManager,
+        string? factionId,
+        string? stationName,
+        bool fugitivePursuitActive)
+    {
         string normalizedFactionId = FactionManager.NormalizeFactionId(factionId);
         float currentStanding = reputationManager?.GetStanding(normalizedFactionId) ?? 0f;
         bool temporarilyHostile = reputationManager?.IsTemporarilyHostile(normalizedFactionId) == true;
         bool permanentlyHostile = reputationManager?.IsHostile(normalizedFactionId) == true;
-        bool allowed = reputationManager == null || (!temporarilyHostile && !permanentlyHostile);
+        bool policeFugitive = fugitivePursuitActive &&
+            string.Equals(normalizedFactionId, FactionManager.LibertyPolice, StringComparison.OrdinalIgnoreCase);
+        bool allowed = reputationManager == null || (!temporarilyHostile && !permanentlyHostile && !policeFugitive);
 
         string stationSuffix = string.IsNullOrWhiteSpace(stationName)
             ? string.Empty
             : $" at {stationName.Trim()}";
-        string failure = temporarilyHostile
+        string failure = policeFugitive
+            ? $"Docking denied — Liberty Police are actively pursuing this vessel{stationSuffix}."
+            : temporarilyHostile
             ? $"Docking denied — {FactionManager.GetFactionDisplayName(normalizedFactionId)} are temporarily hostile{stationSuffix}."
             : permanentlyHostile
                 ? $"Docking denied — hostile with {FactionManager.GetFactionDisplayName(normalizedFactionId)}{stationSuffix}."
@@ -146,7 +159,7 @@ public static class FactionAccessService
             normalizedFactionId,
             currentStanding,
             null,
-            temporarilyHostile,
+            temporarilyHostile || policeFugitive,
             failure,
             reputationManager);
     }

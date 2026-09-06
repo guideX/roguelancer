@@ -50,6 +50,7 @@ namespace Roguelancer
         private ReputationManager _reputationManager;
         private readonly TradePlanManager _tradePlanManager;
         private readonly Func<int, string> _systemNameResolver;
+        private Func<string, bool> _fugitivePursuitResolver;
         private IReadOnlyList<MarketOpportunity> _marketOpportunities = Array.Empty<MarketOpportunity>();
         public string LastDockingDeniedReason { get; private set; } = string.Empty;
 
@@ -90,6 +91,11 @@ namespace Roguelancer
             _missionWorldManager = missionWorldManager;
         }
 
+        public void SetFugitivePursuitResolver(Func<string, bool> fugitivePursuitResolver)
+        {
+            _fugitivePursuitResolver = fugitivePursuitResolver;
+        }
+
         /// <summary>
         /// Dock at a space station
         /// </summary>
@@ -106,7 +112,8 @@ namespace Roguelancer
             FactionAccessResult dockingAccess = FactionAccessService.EvaluateDocking(
                 _reputationManager,
                 station.FactionId,
-                station.Name);
+                station.Name,
+                _fugitivePursuitResolver?.Invoke(station.FactionId) == true);
             if (!dockingAccess.IsAllowed)
             {
                 LastDockingDeniedReason = dockingAccess.FailureMessage;

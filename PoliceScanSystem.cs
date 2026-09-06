@@ -35,6 +35,7 @@ namespace Roguelancer
 
         private readonly PoliceEnforcementService _enforcementService;
         private MissionManager _missionManager;
+        private PoliceFugitiveManager _fugitiveManager;
         private NpcShip _activeScanner;
         private PoliceEnforcementOffer _enforcementOffer;
         private float _scanTimer;
@@ -45,6 +46,7 @@ namespace Roguelancer
         public PoliceScanState State { get; private set; } = PoliceScanState.Idle;
         public PoliceEnforcementOffer CurrentOffer => _enforcementOffer;
         public PoliceEnforcementService EnforcementService => _enforcementService;
+        public PoliceFugitiveManager FugitiveManager => _fugitiveManager;
         public NpcShip ActiveScanner => _activeScanner;
         public float CooldownRemaining => Math.Max(0f, _cooldownTimer);
         public float EnforcementDemandRemainingSeconds => Math.Max(0f, _enforcementTimer);
@@ -71,6 +73,8 @@ namespace Roguelancer
         }
 
         public void SetMissionManager(MissionManager missionManager) => _missionManager = missionManager;
+
+        public void SetFugitiveManager(PoliceFugitiveManager fugitiveManager) => _fugitiveManager = fugitiveManager;
 
         public bool IsLawfulScannerFaction(string factionId) => _enforcementService.IsPolicingFaction(factionId);
 
@@ -429,6 +433,10 @@ namespace Roguelancer
             notificationManager?.ShowMessage(result.Message, 3f);
             if (resolution == PoliceEnforcementResolution.Refuse)
             {
+                _fugitiveManager?.BeginPursuit(
+                    playerShip,
+                    resolutionReason,
+                    log);
                 notificationManager?.ShowMessage(
                     resolutionReason.Contains("flight", StringComparison.OrdinalIgnoreCase) ||
                     resolutionReason.Contains("radius", StringComparison.OrdinalIgnoreCase)

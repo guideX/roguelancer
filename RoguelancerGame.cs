@@ -125,6 +125,7 @@ namespace Roguelancer {
         private ReputationManager _reputationManager;
         private FactionCombatConsequenceService _factionCombatConsequences;
         private FactionBountyRewardService _factionBountyRewards;
+        private PoliceFugitiveManager _policeFugitiveManager;
         /// <summary>
         /// Lighting Direction
         /// </summary>
@@ -264,6 +265,7 @@ namespace Roguelancer {
         private readonly bool _runFactionBountyRewardSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runPoliceEnforcementSmoke;
+        private readonly bool _runPoliceFugitiveSmoke;
         private readonly bool _runTrafficSmoke;
         private readonly bool _runLootSmoke;
         private readonly bool _runCombatSalvageSmoke;
@@ -373,6 +375,7 @@ namespace Roguelancer {
             _runFactionBountyRewardSmoke = args?.Any(arg => string.Equals(arg, "--faction-bounty-reward-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPoliceEnforcementSmoke = args?.Any(arg => string.Equals(arg, "--police-enforcement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPoliceFugitiveSmoke = args?.Any(arg => string.Equals(arg, "--police-fugitive-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runLootSmoke = args?.Any(arg => string.Equals(arg, "--loot-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runCombatSalvageSmoke = args?.Any(arg => string.Equals(arg, "--combat-salvage-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1221,6 +1224,12 @@ namespace Roguelancer {
 
             // Initialize notification manager
             _notificationManager = new NotificationManager(_font, GraphicsDevice.Viewport);
+            _policeFugitiveManager = new PoliceFugitiveManager(
+                _reputationManager,
+                message => _notificationManager?.ShowMessage(message, 3f));
+            _policeScanSystem?.SetFugitiveManager(_policeFugitiveManager);
+            if (_trafficManager != null)
+                _trafficManager.FugitiveManager = _policeFugitiveManager;
             _reputationManager.OnReputationChanged += HandleReputationChanged;
             _reputationManager.OnTemporaryHostilityChanged += HandleTemporaryHostilityChanged;
             _factionBountyRewards = new FactionBountyRewardService(
@@ -1239,6 +1248,9 @@ namespace Roguelancer {
             _playerShip.SetExplosionSystem(_explosionParticles);
             _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
             _stationDockUI?.SetNotificationManager(_notificationManager);
+            _stationDockUI?.SetFugitivePursuitResolver(factionId =>
+                string.Equals(FactionManager.NormalizeFactionId(factionId), FactionManager.LibertyPolice, StringComparison.OrdinalIgnoreCase) &&
+                _policeFugitiveManager?.IsActive == true);
             _missionWorldManager = new MissionWorldManager(
                 _missionManager,
                 _missionWaypointSystem,
@@ -1468,6 +1480,11 @@ namespace Roguelancer {
                 var result = RunPoliceEnforcementSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPoliceFugitiveSmoke)
+            {
+                var result = RunPoliceFugitiveSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runLootSmoke)
             {
                 var result = RunLootSmokeTest();
@@ -1639,6 +1656,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("faction combat communication smoke", RunFactionCombatCommunicationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction bounty reward smoke", RunFactionBountyRewardSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("police enforcement smoke", RunPoliceEnforcementSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("police fugitive smoke", RunPoliceFugitiveSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("market smoke", RunMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("commodity market smoke", RunCommodityMarketSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("missile smoke", RunMissileSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2140,6 +2158,19 @@ namespace Roguelancer {
             }
         }
 
+        private (int Passed, int Failed) RunPoliceFugitiveSmokeTest()
+        {
+            try
+            {
+                return new PoliceFugitiveSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[POLICE FUGITIVE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
         private (int Passed, int Failed) RunTrafficSmokeTest()
         {
             try
@@ -2511,6 +2542,7 @@ namespace Roguelancer {
 
             int targetSystemIndex = Math.Max(1, saveData.CurrentSystemIndex);
             _policeScanSystem?.Reset();
+            _policeFugitiveManager?.Reset(Console.WriteLine, "save/load");
             if (_stationDockUI?.IsDocked == true)
             {
                 _stationDockUI.Undock();
@@ -2752,6 +2784,11 @@ namespace Roguelancer {
                     playerInTradeLaneTransit: true,
                     _notificationManager,
                     Console.WriteLine);
+                _policeFugitiveManager?.Update(
+                    deltaTime,
+                    _playerShip,
+                    _npcShips,
+                    Console.WriteLine);
                 _prevKeys = keyboardState;
                 _prevMouseState = mouseState;
                 base.Update(gameTime);
@@ -2791,6 +2828,11 @@ namespace Roguelancer {
                     playerDocked: false,
                     playerInTradeLaneTransit: true,
                     _notificationManager,
+                    Console.WriteLine);
+                _policeFugitiveManager?.Update(
+                    deltaTime,
+                    _playerShip,
+                    _npcShips,
                     Console.WriteLine);
                 _camera.Follow(_playerShip.Position, _playerShip.Forward, _playerShip.Up, 0.3f);
                 _prevKeys = keyboardState;
@@ -3173,6 +3215,7 @@ namespace Roguelancer {
                 {
                     _factionCombatConsequences.RecordPlayerDamage(npc);
                     _trafficManager?.NotifyPlayerDamage(npc, _playerShip);
+                    _policeFugitiveManager?.NotifyPlayerDamage(npc, _playerShip, Console.WriteLine);
                 }
             }
 
@@ -3362,6 +3405,7 @@ namespace Roguelancer {
         }
 
         private void HandleNpcDestroyed(NpcShip destroyedShip) {
+            _policeFugitiveManager?.NotifyPlayerDamage(destroyedShip, _playerShip, Console.WriteLine);
             _factionCombatConsequences?.RecordPlayerDamage(destroyedShip);
             _factionCombatConsequences?.ApplyPlayerShipDestroyed(destroyedShip);
             _factionBountyRewards?.ProcessDestruction(destroyedShip, _simulationTimestampSeconds);
@@ -5033,6 +5077,7 @@ namespace Roguelancer {
             if (_font != null) {
                 int ly = DrawMountedWeaponIndicator(leftPanelX, leftPanelY);
                 DrawPoliceScanStatus(leftPanelX, ref ly);
+                DrawPoliceFugitiveStatus(leftPanelX, ref ly);
 
                 if (_weaponSystem != null && _weaponSystem.IsCharging()) {
                     float chargeProgress = _weaponSystem.GetChargeProgress();
@@ -5138,6 +5183,23 @@ namespace Roguelancer {
             };
 
             _spriteBatch.DrawString(_font, _policeScanSystem.StatusText, new Vector2(leftPanelX + 10, ly += 18), statusColor);
+        }
+
+        private void DrawPoliceFugitiveStatus(int leftPanelX, ref int ly)
+        {
+            if (_font == null || _policeFugitiveManager == null || string.IsNullOrWhiteSpace(_policeFugitiveManager.StatusText))
+                return;
+
+            Color statusColor = _policeFugitiveManager.Heat == PoliceHeatLevel.HotPursuit
+                ? Color.OrangeRed
+                : _policeFugitiveManager.IsEvading
+                    ? Color.Gold
+                    : Color.Orange;
+            _spriteBatch.DrawString(
+                _font,
+                _policeFugitiveManager.StatusText,
+                new Vector2(leftPanelX + 10, ly += 18),
+                statusColor);
         }
 
         /// <summary>
@@ -7020,6 +7082,7 @@ namespace Roguelancer {
             int oldSystemIndex = _currentSystemIndex;
             Console.WriteLine($"[SYSTEM CHANGE] Switching from system {oldSystemIndex} to system {newSystemIndex}");
             _policeScanSystem?.Reset();
+            _policeFugitiveManager?.Reset(Console.WriteLine, "system transition");
             _tradeRouteValidation?.RecordSystemChange(oldSystemIndex, newSystemIndex, arrivalJumpHoleName);
 
             // A jump completion invalidates the old-system world object. Only

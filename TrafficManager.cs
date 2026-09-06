@@ -48,6 +48,7 @@ namespace Roguelancer
         private ContentManager _content;
 
         public Func<NpcShip, NpcShip> MissionTargetResolver { get; set; }
+        public PoliceFugitiveManager FugitiveManager { get; set; }
 
         public TrafficManager(ConfigurationManager config, List<NpcShip> npcShips, List<SpaceObject> spaceObjects, Action<NpcShip> onNpcDestroyed = null, ContentManager content = null)
         {
@@ -355,6 +356,9 @@ namespace Roguelancer
         {
             if (_npcShips.Count == 0)
             {
+                // Keep the fugitive timer running after every pursuer has been
+                // destroyed or otherwise removed from the traffic collection.
+                FugitiveManager?.Update(deltaTime, playerShip, _npcShips, log);
                 return;
             }
 
@@ -387,6 +391,11 @@ namespace Roguelancer
             UpdatePirateEngagements(pirateShips, traderShips, playerShip, reputationManager, log, deltaTime);
             UpdateTraderEscapes(traderShips, pirateShips, log, deltaTime);
             UpdatePatrolIntercepts(patrolShips, pirateShips, log, deltaTime);
+            // Fugitive acquisition runs after legacy patrol objectives have
+            // claimed their higher-priority states and before the shared
+            // faction-combat pass. Police therefore participate through the
+            // ordinary target/weapon/disengagement pipeline.
+            FugitiveManager?.Update(deltaTime, playerShip, _npcShips, log);
             UpdateFactionCombatEngagements(playerShip, reputationManager, log);
         }
 

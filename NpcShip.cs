@@ -32,7 +32,8 @@ namespace Roguelancer
     {
         None,
         FactionDisposition,
-        PlayerInitiatedAggression
+        PlayerInitiatedAggression,
+        FugitivePursuit
     }
 
     public enum FactionCombatTargetOrigin
@@ -565,6 +566,14 @@ namespace Roguelancer
             if (reputationManager == null)
                 return true;
 
+            // A fugitive pursuit is a bounded world incident rather than a
+            // permanent standing change. Its owner refreshes temporary
+            // hostility while the incident is active, so the existing
+            // disengagement service can retain/reacquire this target without
+            // inventing a second combat authority.
+            if (PlayerTargetReason == NpcPlayerTargetReason.FugitivePursuit)
+                return reputationManager.IsTemporarilyHostile(FactionId);
+
             return FactionDispositionEvaluator.IsHostile(FactionId, reputationManager);
         }
         
@@ -847,12 +856,14 @@ namespace Roguelancer
             bool factionHostile = FactionDispositionEvaluator.IsHostile(FactionId, reputationManager);
             bool playerAttackRetaliation = WasDamagedByPlayer &&
                 reputationManager?.IsTemporarilyHostile(FactionId) == true;
+            bool fugitivePursuit = PlayerTargetReason == NpcPlayerTargetReason.FugitivePursuit &&
+                reputationManager?.IsTemporarilyHostile(FactionId) == true;
 
             // A null reputation manager is retained as a compatibility path
             // for the older ambient traffic harness. Production gameplay has
             // an authoritative manager and therefore uses live disposition.
             bool legacyPlayerTarget = reputationManager == null && isPlayerTarget;
-            bool canTargetPlayer = factionHostile || playerAttackRetaliation || legacyPlayerTarget;
+            bool canTargetPlayer = factionHostile || playerAttackRetaliation || fugitivePursuit || legacyPlayerTarget;
 
             if (isPlayerTarget)
             {

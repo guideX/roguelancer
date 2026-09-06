@@ -335,6 +335,7 @@ namespace Roguelancer
             foreach (SaveTemporaryHostilityData entry in data.TemporaryHostility ?? new List<SaveTemporaryHostilityData>())
             {
                 if (entry == null || string.IsNullOrWhiteSpace(entry.FactionId) ||
+                    string.Equals(entry.Reason, TemporaryHostilityManager.FugitivePursuitReason, StringComparison.OrdinalIgnoreCase) ||
                     float.IsNaN(entry.RemainingSeconds) || float.IsInfinity(entry.RemainingSeconds) ||
                     entry.RemainingSeconds <= 0f)
                     continue;
@@ -678,6 +679,7 @@ namespace Roguelancer
             foreach (TemporaryHostilitySnapshot snapshot in reputationManager.TemporaryHostility.GetActiveSnapshot())
             {
                 if (snapshot.RemainingSeconds <= 0f ||
+                    string.Equals(snapshot.Reason, TemporaryHostilityManager.FugitivePursuitReason, StringComparison.OrdinalIgnoreCase) ||
                     float.IsNaN(snapshot.RemainingSeconds) || float.IsInfinity(snapshot.RemainingSeconds))
                     continue;
 
