@@ -144,6 +144,53 @@ namespace Roguelancer
         public void SetReputationManager(ReputationManager reputationManager) => _reputationManager = reputationManager;
         public void SetWaypointSystem(MissionWaypointSystem waypointSystem) => _waypointSystem = waypointSystem;
         public void SetWorldManager(MissionWorldManager worldManager) => _worldManager = worldManager;
+
+        /// <summary>
+        /// Receives the cargo authority's attribution report after a Police
+        /// seizure. MissionManager owns the mission consequence; the Police
+        /// service never reaches into mission status directly.
+        /// </summary>
+        public void NotifyPoliceConfiscation(IReadOnlyList<MissionCargoConfiscation> confiscations)
+        {
+            if (confiscations == null || confiscations.Count == 0)
+                return;
+
+            foreach (int missionId in confiscations
+                         .Where(entry => entry != null && entry.MissionId > 0 && entry.Quantity > 0)
+                         .Select(entry => entry.MissionId)
+                         .Distinct()
+                         .ToList())
+            {
+                Mission mission = _activeMissions.FirstOrDefault(candidate => candidate?.Id == missionId);
+                if (mission?.Type != MissionType.ContrabandSmuggling)
+                {
+                    // No active mission may retain a stale reservation after a
+                    // world-level seizure, even if a caller supplied one.
+                    _cargoHold?.ConvertMissionCargoToOrdinary(missionId);
+                    continue;
+                }
+
+                mission.MissionCargoLoaded = (_cargoHold?.GetMissionCargoQuantity(mission.Id) ?? 0) > 0;
+                mission.IssuedCargoQuantity = _cargoHold?.GetMissionCargoQuantity(mission.Id) ?? 0;
+                FailMission(mission, "Liberty Police confiscated the smuggling cargo");
+            }
+        }
+
+        /// <summary>
+        /// Compliance can follow a post-detection jettison, in which case the
+        /// confiscation report is empty but the contract is still impossible.
+        /// Re-check the authoritative reservation once after the paid
+        /// enforcement transaction so the mission cannot later revive.
+        /// </summary>
+        public void NotifyPoliceEnforcementCompliance()
+        {
+            Mission mission = ActiveMission;
+            if (mission?.Type != MissionType.ContrabandSmuggling || _cargoHold == null)
+                return;
+
+            if (_cargoHold.GetMissionCargoQuantity(mission.Id) < mission.RequiredQuantity)
+                FailMission(mission, "Smuggling cargo was lost before Police compliance");
+        }
         public void SetMarketIntelligence(MarketIntelligence marketIntelligence) => _marketIntelligence = marketIntelligence;
         public void SetRouteAuthority(MarketRouteAuthority routeAuthority) => _routeAuthority = routeAuthority ?? new MarketRouteAuthority();
         public bool MeetsReputationRequirement(string factionId, float minimumStanding) =>

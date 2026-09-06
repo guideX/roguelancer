@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using Roguelancer.Configuration;
 using System;
 using System.Collections.Generic;
@@ -7,7 +8,8 @@ using System.Linq;
 namespace Roguelancer
 {
     /// <summary>
-    /// Focused Phase 52 validation for police cargo scans, physical jettison,
+    /// Focused Phase 52/53 validation for police cargo scans, bounded
+    /// enforcement, physical jettison,
     /// and Rogue contraband-smuggling mission lifecycle.
     /// </summary>
     internal sealed class ContrabandSmokeTest
@@ -18,6 +20,16 @@ namespace Roguelancer
             int failed = 0;
             RunCase(ValidateCleanCargoScan, "clean scan has no consequence", ref passed, ref failed);
             RunCase(ValidateContrabandDetectionConsequences, "contraband detection consequence", ref passed, ref failed);
+            RunCase(ValidateCivilCompliance, "civil compliance pays and confiscates", ref passed, ref failed);
+            RunCase(ValidateDemandInput, "demand input resolves exactly once", ref passed, ref failed);
+            RunCase(ValidateSingleDemandOwner, "one active demand owns the incident", ref passed, ref failed);
+            RunCase(ValidateRefusal, "refusal retains cargo and turns hostile", ref passed, ref failed);
+            RunCase(ValidateDemandTimeout, "demand timeout behaves as refusal", ref passed, ref failed);
+            RunCase(ValidateFleeingDemand, "fleeing the enforcement radius behaves as refusal", ref passed, ref failed);
+            RunCase(ValidateTradeLaneEscape, "trade-lane transit behaves as flight", ref passed, ref failed);
+            RunCase(ValidatePreExistingHostilitySkipsDemand, "pre-existing hostility skips peaceful demand", ref passed, ref failed);
+            RunCase(ValidateScannerAttackRefuses, "scanner destruction behaves as refusal", ref passed, ref failed);
+            RunCase(ValidateDemandReset, "demand reset clears transient state", ref passed, ref failed);
             RunCase(ValidateMissionCargoIsScanned, "mission cargo is scanned", ref passed, ref failed);
             RunCase(ValidatePhysicalJettisonAndRecovery, "physical jettison and pod recovery", ref passed, ref failed);
             RunCase(ValidateScanInterruption, "scan interruption and evasion", ref passed, ref failed);
@@ -25,10 +37,12 @@ namespace Roguelancer
             RunCase(ValidateSmugglingOfferGeneration, "smuggling offers are deterministic", ref passed, ref failed);
             RunCase(ValidateSmugglingCapacityGuard, "smuggling capacity guard", ref passed, ref failed);
             RunCase(ValidateSmugglingDeliveryExactlyOnce, "smuggling delivery and reward exactly once", ref passed, ref failed);
+            RunCase(ValidateSmugglingComplianceFailsContract, "smuggling compliance fails confiscated contract", ref passed, ref failed);
+            RunCase(ValidateSmugglingRefusalCanDeliver, "smuggling refusal preserves delivery path", ref passed, ref failed);
             RunCase(ValidateSaveFields, "smuggling save fields", ref passed, ref failed);
             RunCase(ValidateNonLawfulIgnored, "non-lawful scanner ignored", ref passed, ref failed);
 
-            Console.WriteLine($"[PHASE 52 SMOKE] RESULT: {passed} passed, {failed} failed");
+            Console.WriteLine($"[PHASE 52/53 SMOKE] RESULT: {passed} passed, {failed} failed");
             return (passed, failed);
         }
 
@@ -40,18 +54,18 @@ namespace Roguelancer
                 if (success)
                 {
                     passed++;
-                    Console.WriteLine($"[PHASE 52 SMOKE] PASS {label}");
+                    Console.WriteLine($"[PHASE 52/53 SMOKE] PASS {label}");
                 }
                 else
                 {
                     failed++;
-                    Console.WriteLine($"[PHASE 52 SMOKE] FAIL {label}: {failureReason}");
+                    Console.WriteLine($"[PHASE 52/53 SMOKE] FAIL {label}: {failureReason}");
                 }
             }
             catch (Exception ex)
             {
                 failed++;
-                Console.WriteLine($"[PHASE 52 SMOKE] FAIL {label}: {ex.Message}");
+                Console.WriteLine($"[PHASE 52/53 SMOKE] FAIL {label}: {ex.Message}");
             }
         }
 
@@ -91,10 +105,13 @@ namespace Roguelancer
                 return Fail("scan did not report the exact contraband quantity");
             if (credits.Credits != 10_000 || player.CargoHold.GetCommodityQuantity(contraband.Name) != 2)
                 return Fail("detection confiscated or charged cargo");
-            if (Math.Abs(reputation.GetStanding(FactionManager.LibertyPolice) - (standing + PoliceScanSystem.DetectionReputationPenalty)) > 0.0001f)
-                return Fail("detection standing penalty was not bounded and exact");
-            if (!reputation.IsTemporarilyHostile(FactionManager.LibertyPolice) || !scanner.HasPlayerTarget)
-                return Fail("detection did not activate the nearby police response");
+            if (Math.Abs(reputation.GetStanding(FactionManager.LibertyPolice) - standing) > 0.0001f)
+                return Fail("detection changed standing before the player chose a response");
+            if (reputation.IsTemporarilyHostile(FactionManager.LibertyPolice) || scanner.HasPlayerTarget)
+                return Fail("detection immediately activated hostility instead of a demand");
+            if (!scan.IsEnforcementDemandActive || scan.EnforcementDemandRemainingSeconds <= 0f ||
+                !scan.StatusText.Contains("Comply", StringComparison.OrdinalIgnoreCase))
+                return Fail("detection did not open a bounded enforcement demand");
             if (scan.DetectionCount != 1)
                 return Fail("detection was applied more than once");
             return Pass();
@@ -119,6 +136,203 @@ namespace Roguelancer
             return Pass();
         }
 
+        private (bool Success, string FailureReason) ValidateCivilCompliance()
+        {
+            PoliceScanSystem scan = new();
+            ReputationManager reputation = CreateReputationManager();
+            Ship player = CreatePlayer();
+            PlayerCredits credits = new(5_000);
+            Commodity contraband = CommodityCatalog.GetById("side-arms");
+            Commodity legal = CommodityCatalog.GetById("food-rations");
+            if (contraband == null || legal == null || !player.CargoHold.AddCommodity(contraband, 1) ||
+                !player.CargoHold.AddCommodity(legal, 2))
+                return Fail("could not seed mixed civil cargo");
+
+            float standing = reputation.GetStanding(FactionManager.LibertyPolice);
+            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, new Vector3(1_500f, 0f, 0f));
+            StepScan(scan, reputation, player, credits, new List<NpcShip> { scanner }, 0.5f, 8);
+            int fine = scan.CurrentOffer?.FineAmount ?? 0;
+            if (!scan.IsEnforcementDemandActive || !scan.TryAcceptEnforcement(player, credits, reputation))
+                return Fail("civil compliance did not resolve the demand");
+
+            return scan.State == PoliceScanState.Cleared && credits.Credits == 5_000 - fine &&
+                player.CargoHold.GetCommodityQuantity(contraband.Name) == 0 &&
+                player.CargoHold.GetCommodityQuantity(legal.Name) == 2 &&
+                !reputation.IsTemporarilyHostile(FactionManager.LibertyPolice) &&
+                Math.Abs(reputation.GetStanding(FactionManager.LibertyPolice) - (standing + PoliceScanSystem.DetectionReputationPenalty)) < 0.0001f
+                ? Pass()
+                : Fail("civil compliance changed the wrong authoritative state");
+        }
+
+        private (bool Success, string FailureReason) ValidateRefusal()
+        {
+            PoliceScanSystem scan = new();
+            ReputationManager reputation = CreateReputationManager();
+            Ship player = CreatePlayer();
+            PlayerCredits credits = new(5_000);
+            Commodity contraband = CommodityCatalog.GetById("side-arms");
+            player.CargoHold.AddCommodity(contraband, 1);
+            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, new Vector3(1_500f, 0f, 0f));
+            StepScan(scan, reputation, player, credits, new List<NpcShip> { scanner }, 0.5f, 8);
+            if (!scan.TryRefuseEnforcement(player, credits, reputation))
+                return Fail("refusal did not resolve the demand");
+
+            return scan.State == PoliceScanState.Enforcement && credits.Credits == 5_000 &&
+                player.CargoHold.GetCommodityQuantity(contraband.Name) == 1 &&
+                reputation.IsTemporarilyHostile(FactionManager.LibertyPolice)
+                ? Pass()
+                : Fail("refusal changed money or cargo incorrectly");
+        }
+
+        private (bool Success, string FailureReason) ValidateDemandInput()
+        {
+            PoliceScanSystem scan = new();
+            ReputationManager reputation = CreateReputationManager();
+            Ship player = CreatePlayer();
+            PlayerCredits credits = new(5_000);
+            player.CargoHold.AddCommodity(CommodityCatalog.GetById("side-arms"), 1);
+            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, new Vector3(1_500f, 0f, 0f));
+            StepScan(scan, reputation, player, credits, new List<NpcShip> { scanner }, 0.5f, 8);
+            int before = credits.Credits;
+            bool handled = scan.HandleInput(
+                new KeyboardState(PoliceScanSystem.EnforcementComplyKey),
+                new KeyboardState(),
+                player,
+                credits,
+                reputation);
+            bool repeated = scan.HandleInput(
+                new KeyboardState(PoliceScanSystem.EnforcementComplyKey),
+                new KeyboardState(PoliceScanSystem.EnforcementComplyKey),
+                player,
+                credits,
+                reputation);
+            return handled && !repeated && scan.State == PoliceScanState.Cleared && credits.Credits < before &&
+                player.CargoHold.GetCommodityQuantity("Side Arms") == 0
+                ? Pass()
+                : Fail("assigned comply input did not resolve the active demand");
+        }
+
+        private (bool Success, string FailureReason) ValidateSingleDemandOwner()
+        {
+            PoliceScanSystem scan = new();
+            ReputationManager reputation = CreateReputationManager();
+            Ship player = CreatePlayer();
+            PlayerCredits credits = new(10_000);
+            player.CargoHold.AddCommodity(CommodityCatalog.GetById("side-arms"), 1);
+            NpcShip alpha = CreateScanner(FactionManager.LibertyPolice, new Vector3(1_400f, 0f, 0f), "Police Alpha");
+            NpcShip beta = CreateScanner(FactionManager.LibertyPolice, new Vector3(1_600f, 0f, 0f), "Police Beta");
+            List<NpcShip> scanners = new() { alpha, beta };
+            StepScan(scan, reputation, player, credits, scanners, 0.5f, 8);
+            PoliceEnforcementOffer offer = scan.CurrentOffer;
+            scan.Update(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(0.1f)), player, scanners, credits, reputation);
+            return scan.IsEnforcementDemandActive && scan.DetectionCount == 1 &&
+                ReferenceEquals(offer, scan.CurrentOffer) && scan.ActiveScanner != null
+                ? Pass()
+                : Fail("a second Police scanner replaced or duplicated the active demand");
+        }
+
+        private (bool Success, string FailureReason) ValidateDemandTimeout()
+        {
+            PoliceScanSystem scan = new();
+            ReputationManager reputation = CreateReputationManager();
+            Ship player = CreatePlayer();
+            PlayerCredits credits = new(5_000);
+            player.CargoHold.AddCommodity(CommodityCatalog.GetById("side-arms"), 1);
+            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, new Vector3(1_500f, 0f, 0f));
+            StepScan(scan, reputation, player, credits, new List<NpcShip> { scanner }, 0.5f, 8);
+            scan.Update(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(PoliceScanSystem.EnforcementDemandSeconds + 0.1f)), player,
+                new List<NpcShip> { scanner }, credits, reputation);
+            return scan.State == PoliceScanState.Enforcement && reputation.IsTemporarilyHostile(FactionManager.LibertyPolice)
+                ? Pass()
+                : Fail("demand timeout did not enter ordinary hostile enforcement");
+        }
+
+        private (bool Success, string FailureReason) ValidateFleeingDemand()
+        {
+            PoliceScanSystem scan = new();
+            ReputationManager reputation = CreateReputationManager();
+            Ship player = CreatePlayer();
+            PlayerCredits credits = new(5_000);
+            player.CargoHold.AddCommodity(CommodityCatalog.GetById("side-arms"), 1);
+            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, new Vector3(1_500f, 0f, 0f));
+            StepScan(scan, reputation, player, credits, new List<NpcShip> { scanner }, 0.5f, 8);
+            player.Position = scanner.Position + new Vector3(PoliceScanSystem.EnforcementEscapeRange + 100f, 0f, 0f);
+            scan.Update(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(0.1f)), player,
+                new List<NpcShip> { scanner }, credits, reputation);
+            return scan.State == PoliceScanState.Enforcement && credits.Credits == 5_000 &&
+                reputation.IsTemporarilyHostile(FactionManager.LibertyPolice)
+                ? Pass()
+                : Fail("leaving the enforcement radius did not behave as flight");
+        }
+
+        private (bool Success, string FailureReason) ValidateTradeLaneEscape()
+        {
+            PoliceScanSystem scan = new();
+            ReputationManager reputation = CreateReputationManager();
+            Ship player = CreatePlayer();
+            PlayerCredits credits = new(5_000);
+            player.CargoHold.AddCommodity(CommodityCatalog.GetById("side-arms"), 1);
+            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, new Vector3(1_500f, 0f, 0f));
+            StepScan(scan, reputation, player, credits, new List<NpcShip> { scanner }, 0.5f, 8);
+            scan.Update(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(0.1f)), player,
+                new List<NpcShip> { scanner }, credits, reputation, playerDocked: false, playerInTradeLaneTransit: true);
+            return scan.State == PoliceScanState.Enforcement && reputation.IsTemporarilyHostile(FactionManager.LibertyPolice)
+                ? Pass()
+                : Fail("trade-lane entry did not resolve the demand as flight");
+        }
+
+        private (bool Success, string FailureReason) ValidatePreExistingHostilitySkipsDemand()
+        {
+            PoliceScanSystem scan = new();
+            ReputationManager reputation = CreateReputationManager();
+            reputation.TemporaryHostility.RecordHostileAction(FactionManager.LibertyPolice);
+            Ship player = CreatePlayer();
+            PlayerCredits credits = new(5_000);
+            player.CargoHold.AddCommodity(CommodityCatalog.GetById("side-arms"), 1);
+            StepScan(scan, reputation, player, credits,
+                new List<NpcShip> { CreateScanner(FactionManager.LibertyPolice, new Vector3(1_500f, 0f, 0f)) }, 0.5f, 8);
+            return scan.State == PoliceScanState.Idle && scan.CurrentOffer == null
+                ? Pass()
+                : Fail("pre-existing Police hostility offered peaceful surrender");
+        }
+
+        private (bool Success, string FailureReason) ValidateScannerAttackRefuses()
+        {
+            PoliceScanSystem scan = new();
+            ReputationManager reputation = CreateReputationManager();
+            Ship player = CreatePlayer();
+            PlayerCredits credits = new(5_000);
+            player.CargoHold.AddCommodity(CommodityCatalog.GetById("side-arms"), 1);
+            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, new Vector3(1_500f, 0f, 0f));
+            StepScan(scan, reputation, player, credits, new List<NpcShip> { scanner }, 0.5f, 8);
+            scanner.MarkDamagedByPlayer();
+            scanner.Hull.TakeDamage(scanner.Hull.MaxHull + 1f);
+            scan.Update(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(0.1f)), player,
+                new List<NpcShip> { scanner }, credits, reputation);
+            return scan.State == PoliceScanState.Enforcement && credits.Credits == 5_000 &&
+                player.CargoHold.GetCommodityQuantity("Side Arms") == 1 &&
+                reputation.IsTemporarilyHostile(FactionManager.LibertyPolice)
+                ? Pass()
+                : Fail("scanner destruction did not resolve as hostile refusal");
+        }
+
+        private (bool Success, string FailureReason) ValidateDemandReset()
+        {
+            PoliceScanSystem scan = new();
+            ReputationManager reputation = CreateReputationManager();
+            Ship player = CreatePlayer();
+            PlayerCredits credits = new(5_000);
+            player.CargoHold.AddCommodity(CommodityCatalog.GetById("side-arms"), 1);
+            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, new Vector3(1_500f, 0f, 0f));
+            StepScan(scan, reputation, player, credits, new List<NpcShip> { scanner }, 0.5f, 8);
+            scan.Reset();
+            return scan.State == PoliceScanState.Idle && !scan.IsEnforcementDemandActive &&
+                scan.CurrentOffer == null && scan.EnforcementDemandRemainingSeconds == 0f &&
+                credits.Credits == 5_000 && player.CargoHold.GetCommodityQuantity("Side Arms") == 1
+                ? Pass()
+                : Fail("reset left transient demand state or mutated cargo");
+        }
+
         private (bool Success, string FailureReason) ValidatePhysicalJettisonAndRecovery()
         {
             PoliceScanSystem scan = new();
@@ -141,11 +355,12 @@ namespace Roguelancer
             CargoPod pod = loot.ActivePods[0];
             if (!pod.IsMissionCargo || pod.MissionId != 7302 || player.CargoHold.GetMissionCargoQuantity(7302) != 0)
                 return Fail("jettison lost mission attribution or cargo accounting");
-            if (scan.State != PoliceScanState.Cleared || credits.Credits != 10_000)
-                return Fail("jettison did not clear without charging credits");
+            if (!scan.IsEnforcementDemandActive || credits.Credits != 10_000)
+                return Fail("post-detection jettison incorrectly cleared or charged the demand");
 
             StepLoot(loot, player, 0.1f);
-            if (loot.ActivePods.Count != 0 || player.CargoHold.GetMissionCargoQuantity(7302) != 1)
+            if (loot.ActivePods.Count != 0 || player.CargoHold.GetMissionCargoQuantity(7302) != 1 ||
+                !scan.IsEnforcementDemandActive)
                 return Fail("physical mission pod was not recoverable with attribution");
             return Pass();
         }
@@ -255,6 +470,57 @@ namespace Roguelancer
                 return Fail("smuggling reward/reputation/cargo transaction was not exactly once");
             return Pass();
         }
+
+        private (bool Success, string FailureReason) ValidateSmugglingComplianceFailsContract()
+        {
+            MissionContext context = CreateMissionContext();
+            Commodity contraband = CommodityCatalog.GetById("side-arms");
+            Mission offer = Mission.CreateContrabandSmuggling(context.Origin, context.Destination, contraband, 1, 5_000, MissionDifficulty.Easy);
+            if (!context.Manager.AcceptMission(offer, context.Origin))
+                return Fail("could not accept smuggling mission for compliance test");
+
+            PoliceScanSystem scan = new();
+            scan.SetMissionManager(context.Manager);
+            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, new Vector3(1_500f, 0f, 0f));
+            StepScan(scan, context.Reputation, context.Player, context.Credits, new List<NpcShip> { scanner }, 0.5f, 8);
+            if (!scan.TryAcceptEnforcement(context.Player, context.Credits, context.Reputation))
+                return Fail("smuggling compliance did not complete");
+
+            return offer.Status == MissionStatus.Failed && context.Manager.ActiveMission == null &&
+                context.Player.CargoHold.GetMissionCargoQuantity(offer.Id) == 0 &&
+                context.Player.CargoHold.GetCommodityQuantity(contraband.Name) == 0 &&
+                !offer.RewardPaid && context.Credits.Credits == 125
+                ? Pass()
+                : Fail("confiscated mission cargo left a live or payable contract");
+        }
+
+        private (bool Success, string FailureReason) ValidateSmugglingRefusalCanDeliver()
+        {
+            MissionContext context = CreateMissionContext();
+            Commodity contraband = CommodityCatalog.GetById("side-arms");
+            Mission offer = Mission.CreateContrabandSmuggling(context.Origin, context.Destination, contraband, 1, 5_000, MissionDifficulty.Easy);
+            if (!context.Manager.AcceptMission(offer, context.Origin))
+                return Fail("could not accept smuggling mission for refusal test");
+
+            PoliceScanSystem scan = new();
+            scan.SetMissionManager(context.Manager);
+            NpcShip scanner = CreateScanner(FactionManager.LibertyPolice, new Vector3(1_500f, 0f, 0f));
+            StepScan(scan, context.Reputation, context.Player, context.Credits, new List<NpcShip> { scanner }, 0.5f, 8);
+            if (!scan.TryRefuseEnforcement(context.Player, context.Credits, context.Reputation))
+                return Fail("smuggling refusal did not resolve the demand");
+
+            int beforeReward = context.Credits.Credits;
+            bool delivered = context.World.NotifyStationDocked(context.Destination);
+            return delivered && offer.Status == MissionStatus.Rewarded && offer.RewardPaid &&
+                context.Credits.Credits == beforeReward + offer.Reward &&
+                context.Player.CargoHold.GetCommodityQuantity(contraband.Name) == 0 &&
+                reputationStillHostile(context.Reputation)
+                ? Pass()
+                : Fail("refused smuggling mission could not deliver while Police remained hostile");
+        }
+
+        private static bool reputationStillHostile(ReputationManager reputation) =>
+            reputation.IsTemporarilyHostile(FactionManager.LibertyPolice);
 
         private (bool Success, string FailureReason) ValidateSaveFields()
         {

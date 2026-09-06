@@ -24,6 +24,12 @@
   - `Dock range in X`
 - `Press F3 to dock` when you are in range
 
+## Police enforcement
+
+- `Enter`: comply with an active Liberty Police surrender demand, pay the displayed fine, and surrender detected contraband.
+- `N`: refuse the demand; the police become hostile.
+- The surrender window lasts 8 seconds. Leaving the 4,200 m enforcement radius, entering trade-lane transit, timing out, or destroying the scanner is treated as refusal.
+
 ## Developer station test
 
 - `F10`: enter the isolated industrial station on-foot test bay from normal spaceflight.

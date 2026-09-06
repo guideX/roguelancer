@@ -2978,6 +2978,14 @@ namespace Roguelancer {
             }
 
             // Update player ship
+            _policeScanSystem?.HandleInput(
+                keyboardState,
+                _prevKeys,
+                _playerShip,
+                _playerCredits,
+                _reputationManager,
+                _notificationManager,
+                Console.WriteLine);
             _playerShip.Update(gameTime, keyboardState, _camera.IsRearViewActive);
 
             if (keyboardState.IsKeyDown(Keys.J) && _prevKeys.IsKeyUp(Keys.J))
@@ -3678,12 +3686,24 @@ namespace Roguelancer {
         /// </summary>
         private void HandleDockingCompleted()
         {
-            _policeScanSystem?.Reset();
             if (_gotoAutopilot?.Destination is not Station station)
             {
                 Console.WriteLine("[DOCK] Completion ignored because the destination is not a supported station.");
                 _playerShip?.RestoreFlightState(_playerShip.Position, _playerShip.Forward);
                 return;
+            }
+
+            // An unresolved Police demand cannot be bypassed by reaching a
+            // lawful station. Resolve it as flight before the normal docking
+            // access authority evaluates the station.
+            if (_policeScanSystem?.IsEnforcementDemandActive == true)
+            {
+                _policeScanSystem.TryFleeEnforcement(
+                    _playerShip,
+                    _playerCredits,
+                    _reputationManager,
+                    _notificationManager,
+                    Console.WriteLine);
             }
 
             StationSession session = StationSession.CreateRealDocked(station, _playerShip, _currentSystemIndex);
@@ -3697,8 +3717,11 @@ namespace Roguelancer {
                         : dockDeniedReason,
                     3f);
                 _playerShip?.RestoreFlightState(session.LaunchPosition, session.LaunchForward);
+                _policeScanSystem?.Reset();
                 return;
             }
+
+            _policeScanSystem?.Reset();
 
             _tradeRouteValidation?.RecordDocking(station);
 

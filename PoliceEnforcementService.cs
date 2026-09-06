@@ -50,17 +50,38 @@ public sealed class PoliceEnforcementOffer
     public IReadOnlyList<PoliceEnforcementResolution> AvailableResolutions { get; init; } = Array.Empty<PoliceEnforcementResolution>();
     public string Summary { get; init; } = string.Empty;
 
+    internal bool IsResolved { get; set; }
+
     internal string CargoFingerprint => string.Join(
         "|",
         Contraband.Select(finding => $"{finding.CargoKey}:{finding.Quantity}"));
 
-    internal bool Matches(PoliceEnforcementOffer other)
+    internal bool MatchesSnapshot(PoliceEnforcementOffer other)
     {
-        return other != null &&
-            IsInspectionApplicable == other.IsInspectionApplicable &&
-            string.Equals(PolicingFactionId, other.PolicingFactionId, StringComparison.OrdinalIgnoreCase) &&
-            FineAmount == other.FineAmount &&
-            string.Equals(CargoFingerprint, other.CargoFingerprint, StringComparison.Ordinal);
+        if (other == null ||
+            IsInspectionApplicable != other.IsInspectionApplicable ||
+            !string.Equals(PolicingFactionId, other.PolicingFactionId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Jettisoning after detection is too late to invalidate the citation.
+        // The live hold may therefore contain fewer (or zero) units, but it
+        // may not contain a new illegal stack that was absent from the quote.
+        Dictionary<string, int> detected = Contraband.ToDictionary(
+            finding => finding.CargoKey,
+            finding => finding.Quantity,
+            StringComparer.OrdinalIgnoreCase);
+        foreach (ContrabandFinding finding in other.Contraband)
+        {
+            if (!detected.TryGetValue(finding.CargoKey, out int detectedQuantity) ||
+                finding.Quantity > detectedQuantity)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
 
@@ -72,6 +93,7 @@ public sealed class PoliceEnforcementResult
     public int CreditsCharged { get; init; }
     public int ConfiscatedQuantity { get; init; }
     public IReadOnlyList<ContrabandFinding> ConfiscatedContraband { get; init; } = Array.Empty<ContrabandFinding>();
+    public IReadOnlyList<MissionCargoConfiscation> MissionConfiscations { get; init; } = Array.Empty<MissionCargoConfiscation>();
     public ReputationChangeResult? ReputationChange { get; init; }
     public bool TemporaryHostilityStarted { get; init; }
     public string Message { get; init; } = string.Empty;
@@ -85,11 +107,18 @@ public sealed class PoliceEnforcementResult
 public sealed class PoliceEnforcementService
 {
     public const string InitialPolicingFactionId = FactionManager.LibertyPolice;
-    public const int BaseFineCredits = 250;
+    // Phase 53 economy policy: 500 CR base plus 25% of canonical base value,
+    // rounded up and clamped to [500, 10,000].
+    public const int BaseFineCredits = 500;
+    public const int MinimumFineCredits = 500;
     public const decimal ContrabandValueFineRate = 0.25m;
-    public const int MaximumFineCredits = 25_000;
-    public const float PaidComplianceReputationPenalty = -0.02f;
-    public const float UnableToPayReputationPenalty = -0.30f;
+    public const int MaximumFineCredits = 10_000;
+    public const float PaidComplianceReputationPenalty = -0.03f;
+    // Insufficient funds no longer confiscate or penalize; the player must
+    // refuse, flee, or time out. Refusal retains the established bounded
+    // enforcement standing consequence so Phase 28 combat provenance remains
+    // compatible.
+    public const float UnableToPayReputationPenalty = 0f;
     public const float RefusalReputationPenalty = -0.20f;
     public const float TemporaryHostilityDurationSeconds = TemporaryHostilityManager.DefaultDurationSeconds;
 
@@ -126,7 +155,9 @@ public sealed class PoliceEnforcementService
             FineAmount = fine,
             CanAffordFine = canAfford,
             AvailableResolutions = hasContraband
-                ? new[] { PoliceEnforcementResolution.Comply, PoliceEnforcementResolution.Refuse }
+                ? canAfford
+                    ? new[] { PoliceEnforcementResolution.Comply, PoliceEnforcementResolution.Refuse }
+                    : new[] { PoliceEnforcementResolution.Refuse }
                 : Array.Empty<PoliceEnforcementResolution>(),
             Summary = !applicable
                 ? "Inspection not applicable."
@@ -145,7 +176,9 @@ public sealed class PoliceEnforcementService
             return 0;
         }
 
-        return rawFine >= MaximumFineCredits
+        return rawFine < MinimumFineCredits
+            ? MinimumFineCredits
+            : rawFine >= MaximumFineCredits
             ? MaximumFineCredits
             : (int)rawFine;
     }
@@ -162,14 +195,15 @@ public sealed class PoliceEnforcementService
         result = null;
         failureReason = string.Empty;
 
-        if (offered == null || cargoHold == null || credits == null || reputationManager == null)
+        if (offered == null || cargoHold == null || credits == null || reputationManager == null || offered.IsResolved)
         {
             failureReason = "enforcement offer is no longer valid";
             return false;
         }
 
         PoliceEnforcementOffer current = Evaluate(offered.PolicingFactionId, cargoHold, credits);
-        if (!current.IsInspectionApplicable || !current.HasContraband || !offered.Matches(current))
+        if (!current.IsInspectionApplicable || !offered.IsInspectionApplicable || !offered.HasContraband ||
+            !offered.MatchesSnapshot(current))
         {
             failureReason = "enforcement offer is no longer valid";
             return false;
@@ -177,21 +211,28 @@ public sealed class PoliceEnforcementService
 
         if (resolution == PoliceEnforcementResolution.Refuse)
         {
-            ReputationChangeResult? reputationChange = ApplyHostilityAndPenalty(
+            ReputationChangeResult? refusalChange = ApplyHostilityAndPenalty(
                 current.PolicingFactionId,
                 RefusalReputationPenalty,
                 ReputationChangeReason.PoliceEnforcementRefused,
                 reputationManager);
+            offered.IsResolved = true;
             result = new PoliceEnforcementResult
             {
                 Outcome = PoliceEnforcementOutcome.Refused,
                 PolicingFactionId = current.PolicingFactionId,
-                FineAmount = current.FineAmount,
-                ReputationChange = reputationChange,
+                FineAmount = offered.FineAmount,
+                ReputationChange = refusalChange,
                 TemporaryHostilityStarted = reputationManager.IsTemporarilyHostile(current.PolicingFactionId),
                 Message = $"{current.PolicingFactionDisplayName} are temporarily hostile"
             };
             return true;
+        }
+
+        if (!credits.CanAfford(offered.FineAmount))
+        {
+            failureReason = $"Insufficient credits to comply: need {offered.FineAmount:N0} CR";
+            return false;
         }
 
         Dictionary<string, int> confiscation = current.Contraband.ToDictionary(
@@ -199,47 +240,33 @@ public sealed class PoliceEnforcementService
             finding => finding.Quantity,
             StringComparer.OrdinalIgnoreCase);
 
-        if (!cargoHold.TryRemoveCommodityBatch(confiscation))
+        IReadOnlyList<MissionCargoConfiscation> missionConfiscations = Array.Empty<MissionCargoConfiscation>();
+        if (confiscation.Count > 0 && !cargoHold.TryConfiscateContraband(confiscation, out missionConfiscations))
         {
             failureReason = "contraband could not be confiscated";
             return false;
         }
 
-        if (current.CanAffordFine)
+        if (!credits.RemoveCredits(offered.FineAmount))
         {
-            if (!credits.RemoveCredits(current.FineAmount))
-            {
-                RollBackConfiscation(cargoHold, current.Contraband);
-                failureReason = "insufficient credits";
-                return false;
-            }
-
-            ReputationChangeResult? reputationChange = reputationManager.AdjustReputationDirect(
-                current.PolicingFactionId,
-                PaidComplianceReputationPenalty,
-                ReputationChangeReason.PoliceEnforcementPaid);
-            result = BuildConfiscationResult(
-                PoliceEnforcementOutcome.PaidAndConfiscated,
-                current,
-                current.FineAmount,
-                reputationChange,
-                temporaryHostilityStarted: false,
-                $"Surrendered contraband and paid fine: {current.FineAmount:N0} credits");
-            return true;
+            failureReason = "insufficient credits";
+            return false;
         }
 
-        ReputationChangeResult? unpaidReputationChange = ApplyHostilityAndPenalty(
+        ReputationChangeResult? reputationChange = reputationManager.AdjustReputationDirect(
             current.PolicingFactionId,
-            UnableToPayReputationPenalty,
-            ReputationChangeReason.PoliceEnforcementUnableToPay,
-            reputationManager);
+            PaidComplianceReputationPenalty,
+            ReputationChangeReason.PoliceEnforcementPaid);
+        offered.IsResolved = true;
         result = BuildConfiscationResult(
-            PoliceEnforcementOutcome.ConfiscatedUnpaid,
-            current,
-            0,
-            unpaidReputationChange,
-            temporaryHostilityStarted: reputationManager.IsTemporarilyHostile(current.PolicingFactionId),
-            "Cannot afford fine — contraband confiscated; Liberty Police are temporarily hostile");
+            PoliceEnforcementOutcome.PaidAndConfiscated,
+            offered,
+            offered.FineAmount,
+            reputationChange,
+            temporaryHostilityStarted: false,
+            $"Surrendered contraband and paid fine: {offered.FineAmount:N0} credits",
+            missionConfiscations,
+            current.Contraband);
         return true;
     }
 
@@ -249,15 +276,18 @@ public sealed class PoliceEnforcementService
         int creditsCharged,
         ReputationChangeResult? reputationChange,
         bool temporaryHostilityStarted,
-        string message) =>
+        string message,
+        IReadOnlyList<MissionCargoConfiscation>? missionConfiscations = null,
+        IReadOnlyList<ContrabandFinding>? confiscatedContraband = null) =>
         new()
         {
             Outcome = outcome,
             PolicingFactionId = offer.PolicingFactionId,
             FineAmount = offer.FineAmount,
             CreditsCharged = creditsCharged,
-            ConfiscatedQuantity = offer.TotalContrabandQuantity,
-            ConfiscatedContraband = offer.Contraband,
+            ConfiscatedQuantity = confiscatedContraband?.Sum(finding => finding.Quantity) ?? 0,
+            ConfiscatedContraband = confiscatedContraband ?? Array.Empty<ContrabandFinding>(),
+            MissionConfiscations = missionConfiscations ?? Array.Empty<MissionCargoConfiscation>(),
             ReputationChange = reputationChange,
             TemporaryHostilityStarted = temporaryHostilityStarted,
             Message = message
@@ -273,7 +303,9 @@ public sealed class PoliceEnforcementService
             factionId,
             "police enforcement refusal",
             TemporaryHostilityDurationSeconds);
-        return reputationManager.AdjustReputationDirect(factionId, reputationPenalty, reason);
+        return Math.Abs(reputationPenalty) < ReputationManager.Precision
+            ? null
+            : reputationManager.AdjustReputationDirect(factionId, reputationPenalty, reason);
     }
 
     private static List<ContrabandFinding> FindContraband(CargoHold? cargoHold)
@@ -311,18 +343,6 @@ public sealed class PoliceEnforcementService
             .OrderBy(finding => finding.CommodityId, StringComparer.OrdinalIgnoreCase)
             .ThenBy(finding => finding.CargoKey, StringComparer.OrdinalIgnoreCase)
             .ToList();
-    }
-
-    private static void RollBackConfiscation(CargoHold cargoHold, IReadOnlyList<ContrabandFinding> findings)
-    {
-        foreach (ContrabandFinding finding in findings)
-        {
-            Commodity? commodity = CommodityCatalog.GetById(finding.CommodityId) ?? CommodityCatalog.GetByName(finding.CommodityName);
-            if (commodity != null)
-            {
-                cargoHold.AddCommodity(commodity, finding.Quantity);
-            }
-        }
     }
 
     private static long SaturatingProduct(int unitValue, int quantity)

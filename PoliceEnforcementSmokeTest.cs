@@ -9,7 +9,7 @@ using System.IO;
 namespace Roguelancer;
 
 /// <summary>
-/// Deterministic Phase 28 coverage. All hostility expiry is advanced through
+/// Deterministic Phase 53 coverage. All hostility expiry is advanced through
 /// the injected simulation delta; no wall-clock waits or scan randomness are
 /// used.
 /// </summary>
@@ -25,12 +25,17 @@ internal sealed class PoliceEnforcementSmokeTest
         Check("Liberty Police recognizes existing contraband", PoliceRecognizesContraband);
         Check("legal cargo is ignored", LegalCargoIsIgnored);
         Check("fine calculation is deterministic", FineCalculationIsDeterministic);
+        Check("fine minimum is bounded", FineMinimumIsBounded);
+        Check("fine maximum is bounded", FineMaximumIsBounded);
         Check("affordable compliance deducts exact credits", AffordableComplianceChargesExactFine);
         Check("compliance confiscates exact illegal cargo", ComplianceConfiscatesExactCargo);
+        Check("mixed mission and ordinary cargo confiscates atomically", MixedCargoConfiscationUpdatesReservations);
+        Check("post-detection jettison does not erase the fine", PostDetectionJettisonStillChargesFine);
+        Check("repeated compliance is one-shot", RepeatedComplianceCannotDoubleCharge);
         Check("compliance does not create temporary hostility", ComplianceDoesNotCreateHostility);
         Check("stale offer cannot leave a partial transaction", StaleOfferIsAtomic);
         Check("insufficient credits never go negative", InsufficientCreditsStayNonNegative);
-        Check("insufficient-credit policy confiscates and escalates", InsufficientCreditPolicyIsDeterministic);
+        Check("insufficient-credit policy leaves demand unresolved", InsufficientCreditPolicyIsDeterministic);
         Check("refusal preserves contraband", RefusalPreservesCargo);
         Check("refusal creates Liberty Police hostility", RefusalCreatesHostility);
         Check("refusal applies the exact police penalty", RefusalPenaltyIsExact);
@@ -112,9 +117,13 @@ internal sealed class PoliceEnforcementSmokeTest
         context.Cargo.AddCommodity(CommodityCatalog.GetById("alien-organisms")!, 1);
         PoliceEnforcementOffer first = _service.Evaluate(FactionManager.LibertyPolice, context.Cargo, context.Credits);
         PoliceEnforcementOffer second = _service.Evaluate(FactionManager.LibertyPolice, context.Cargo, context.Credits);
-        return first.TotalContrabandValue == 6_000 && first.FineAmount == 1_750 &&
+        return first.TotalContrabandValue == 6_000 && first.FineAmount == 2_000 &&
             first.FineAmount == second.FineAmount && first.CargoFingerprint == second.CargoFingerprint;
     }
+
+    private bool FineMinimumIsBounded() => _service.CalculateFine(0) == PoliceEnforcementService.MinimumFineCredits;
+
+    private bool FineMaximumIsBounded() => _service.CalculateFine(long.MaxValue) == PoliceEnforcementService.MaximumFineCredits;
 
     private bool AffordableComplianceChargesExactFine()
     {
@@ -125,7 +134,7 @@ internal sealed class PoliceEnforcementSmokeTest
             return false;
 
         return result?.Outcome == PoliceEnforcementOutcome.PaidAndConfiscated &&
-            result.CreditsCharged == 1_000 && context.Credits.Credits == 9_000;
+            result.CreditsCharged == 1_250 && context.Credits.Credits == 8_750;
     }
 
     private bool ComplianceConfiscatesExactCargo()
@@ -156,6 +165,58 @@ internal sealed class PoliceEnforcementSmokeTest
             !context.Reputation.IsTemporarilyHostile(FactionManager.LibertyPolice);
     }
 
+    private bool MixedCargoConfiscationUpdatesReservations()
+    {
+        Context context = CreateContext(standing: 0.30f, credits: 50_000);
+        Commodity sideArms = CommodityCatalog.GetById("side-arms")!;
+        Commodity aliens = CommodityCatalog.GetById("alien-organisms")!;
+        Commodity food = CommodityCatalog.GetById("food-rations")!;
+        context.Cargo.AddMissionCargo(9001, sideArms, 1);
+        context.Cargo.AddCommodity(sideArms, 2);
+        context.Cargo.AddCommodity(aliens, 1);
+        context.Cargo.AddCommodity(food, 3);
+        PoliceEnforcementOffer offer = _service.Evaluate(FactionManager.LibertyPolice, context.Cargo, context.Credits);
+        if (!_service.TryResolve(offer, PoliceEnforcementResolution.Comply, context.Cargo, context.Credits, context.Reputation, out PoliceEnforcementResult? result, out _))
+            return false;
+
+        return result?.MissionConfiscations.Count == 1 &&
+            result.MissionConfiscations[0].MissionId == 9001 &&
+            context.Cargo.GetMissionCargoQuantity(9001) == 0 &&
+            context.Cargo.GetCommodityQuantity(sideArms.Name) == 0 &&
+            context.Cargo.GetCommodityQuantity(aliens.Name) == 0 &&
+            context.Cargo.GetCommodityQuantity(food.Name) == 3 &&
+            context.Cargo.UsedCapacity == food.VolumePerUnit * 3;
+    }
+
+    private bool PostDetectionJettisonStillChargesFine()
+    {
+        Context context = CreateContext(standing: 0.30f, credits: 50_000);
+        Commodity sideArms = CommodityCatalog.GetById("side-arms")!;
+        context.Cargo.AddCommodity(sideArms, 1);
+        PoliceEnforcementOffer offer = _service.Evaluate(FactionManager.LibertyPolice, context.Cargo, context.Credits);
+        if (!context.Cargo.RemoveCommodity(sideArms, 1))
+            return false;
+
+        return _service.TryResolve(offer, PoliceEnforcementResolution.Comply, context.Cargo, context.Credits, context.Reputation, out PoliceEnforcementResult? result, out _) &&
+            result?.CreditsCharged == offer.FineAmount &&
+            context.Credits.Credits == 50_000 - offer.FineAmount &&
+            result.ConfiscatedQuantity == 0;
+    }
+
+    private bool RepeatedComplianceCannotDoubleCharge()
+    {
+        Context context = CreateContext(standing: 0.30f, credits: 50_000);
+        Commodity sideArms = CommodityCatalog.GetById("side-arms")!;
+        context.Cargo.AddCommodity(sideArms, 1);
+        PoliceEnforcementOffer offer = _service.Evaluate(FactionManager.LibertyPolice, context.Cargo, context.Credits);
+        if (!_service.TryResolve(offer, PoliceEnforcementResolution.Comply, context.Cargo, context.Credits, context.Reputation, out _, out _))
+            return false;
+
+        int afterFirst = context.Credits.Credits;
+        bool second = _service.TryResolve(offer, PoliceEnforcementResolution.Comply, context.Cargo, context.Credits, context.Reputation, out _, out _);
+        return !second && context.Credits.Credits == afterFirst;
+    }
+
     private bool StaleOfferIsAtomic()
     {
         Context context = CreateContext(standing: 0.30f, credits: 10_000);
@@ -174,8 +235,10 @@ internal sealed class PoliceEnforcementSmokeTest
         Commodity sideArms = CommodityCatalog.GetById("side-arms")!;
         context.Cargo.AddCommodity(sideArms, 1);
         PoliceEnforcementOffer offer = _service.Evaluate(FactionManager.LibertyPolice, context.Cargo, context.Credits);
-        bool resolved = _service.TryResolve(offer, PoliceEnforcementResolution.Comply, context.Cargo, context.Credits, context.Reputation, out _, out _);
-        return resolved && context.Credits.Credits == 1 && context.Credits.Credits >= 0;
+        bool resolved = _service.TryResolve(offer, PoliceEnforcementResolution.Comply, context.Cargo, context.Credits, context.Reputation, out _, out string reason);
+        return !resolved && reason.Contains("Insufficient credits", StringComparison.OrdinalIgnoreCase) &&
+            context.Credits.Credits == 1 && context.Credits.Credits >= 0 &&
+            context.Cargo.GetCommodityQuantity(sideArms.Name) == 1;
     }
 
     private bool InsufficientCreditPolicyIsDeterministic()
@@ -184,13 +247,11 @@ internal sealed class PoliceEnforcementSmokeTest
         Commodity sideArms = CommodityCatalog.GetById("side-arms")!;
         context.Cargo.AddCommodity(sideArms, 1);
         PoliceEnforcementOffer offer = _service.Evaluate(FactionManager.LibertyPolice, context.Cargo, context.Credits);
-        if (!_service.TryResolve(offer, PoliceEnforcementResolution.Comply, context.Cargo, context.Credits, context.Reputation, out PoliceEnforcementResult? result, out _))
-            return false;
-
-        return result?.Outcome == PoliceEnforcementOutcome.ConfiscatedUnpaid &&
-            context.Cargo.GetCommodityQuantity(sideArms.Name) == 0 &&
-            context.Reputation.IsTemporarilyHostile(FactionManager.LibertyPolice) &&
-            Nearly(context.Reputation.GetStanding(FactionManager.LibertyPolice), 0.00f);
+        bool resolved = _service.TryResolve(offer, PoliceEnforcementResolution.Comply, context.Cargo, context.Credits, context.Reputation, out _, out string reason);
+        return !resolved && reason.Contains("Insufficient credits", StringComparison.OrdinalIgnoreCase) &&
+            context.Cargo.GetCommodityQuantity(sideArms.Name) == 1 &&
+            !context.Reputation.IsTemporarilyHostile(FactionManager.LibertyPolice) &&
+            Nearly(context.Reputation.GetStanding(FactionManager.LibertyPolice), 0.30f);
     }
 
     private bool RefusalPreservesCargo()
@@ -269,19 +330,15 @@ internal sealed class PoliceEnforcementSmokeTest
             ResolveRefusal(context);
         }
 
-        return Nearly(context.Reputation.GetStanding(FactionManager.LibertyPolice), -0.30f);
+        return Nearly(context.Reputation.GetStanding(FactionManager.LibertyPolice), -0.30f) &&
+            context.Reputation.IsTemporarilyHostile(FactionManager.LibertyPolice);
     }
 
     private bool PermanentHostilityStaysDenied()
     {
         Context context = CreateContext(standing: 0.30f);
         Commodity sideArms = CommodityCatalog.GetById("side-arms")!;
-        for (int i = 0; i < 5; i++)
-        {
-            context.Cargo.AddCommodity(sideArms, 1);
-            ResolveRefusal(context);
-        }
-
+        context.Reputation.SetReputation(FactionManager.LibertyPolice, -0.70f, "phase 53 permanent hostility setup");
         context.Reputation.UpdateTemporaryHostility(PoliceEnforcementService.TemporaryHostilityDurationSeconds);
         return context.Reputation.IsHostile(FactionManager.LibertyPolice) &&
             !DockingAccess(PoliceStation(), context.Reputation).IsAllowed;
@@ -358,9 +415,9 @@ internal sealed class PoliceEnforcementSmokeTest
             saveManager.ApplyCargo(restored.Cargo, loaded, out _);
             saveManager.ApplyReputation(restored.Reputation, loaded);
             saveManager.ApplyTemporaryHostility(restored.Reputation, loaded);
-            bool valid = restored.Credits.Credits == 9_375 &&
+            bool valid = restored.Credits.Credits == 9_125 &&
                 restored.Cargo.GetCommodityQuantity(sideArms.Name) == 0 &&
-                Nearly(restored.Reputation.GetStanding(FactionManager.LibertyPolice), 0.28f) &&
+                Nearly(restored.Reputation.GetStanding(FactionManager.LibertyPolice), 0.27f) &&
                 !restored.Reputation.IsTemporarilyHostile(FactionManager.LibertyPolice);
             if (!valid)
                 return false;

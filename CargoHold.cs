@@ -26,6 +26,18 @@ namespace Roguelancer
     }
 
     /// <summary>
+    /// The portion of one mission reservation removed by an authoritative
+    /// confiscation. The cargo hold reports this fact; MissionManager decides
+    /// whether the owning mission must fail.
+    /// </summary>
+    public sealed class MissionCargoConfiscation
+    {
+        public int MissionId { get; init; }
+        public string CommodityId { get; init; } = string.Empty;
+        public int Quantity { get; init; }
+    }
+
+    /// <summary>
     /// Manages a ship's cargo hold and commodity inventory
     /// </summary>
     public class CargoHold
@@ -539,6 +551,109 @@ namespace Roguelancer
                 return false;
             }
 
+            return true;
+        }
+
+        /// <summary>
+        /// Removes illegal cargo as a seizure rather than a market/trading
+        /// removal. Unlike RemoveCommodity, this path may remove reserved
+        /// mission units and updates those reservations in the same mutation.
+        /// Legal cargo is never accepted by this API.
+        /// </summary>
+        public bool TryConfiscateContraband(
+            IReadOnlyDictionary<string, int> requested,
+            out IReadOnlyList<MissionCargoConfiscation> missionConfiscations)
+        {
+            missionConfiscations = Array.Empty<MissionCargoConfiscation>();
+            if (requested == null || requested.Count == 0)
+                return false;
+
+            Dictionary<string, int> normalized = new(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, int> entry in requested)
+            {
+                if (string.IsNullOrWhiteSpace(entry.Key) || entry.Value <= 0)
+                    return false;
+
+                Commodity commodity = CommodityCatalog.GetByName(entry.Key) ?? CommodityCatalog.GetById(entry.Key);
+                if (commodity?.IsContraband != true || GetCommodityQuantity(commodity.Name) < entry.Value)
+                    return false;
+
+                try
+                {
+                    normalized[commodity.Name] = normalized.TryGetValue(commodity.Name, out int existing)
+                        ? checked(existing + entry.Value)
+                        : entry.Value;
+                }
+                catch (OverflowException)
+                {
+                    return false;
+                }
+            }
+
+            // Every validation is complete before any stack or reservation is
+            // mutated, keeping a multi-commodity seizure all-or-nothing.
+            List<(Commodity Commodity, int Quantity)> removals = new();
+            foreach (KeyValuePair<string, int> entry in normalized)
+            {
+                Commodity commodity = CommodityCatalog.GetByName(entry.Key) ?? CommodityCatalog.GetById(entry.Key);
+                if (commodity == null || !commodity.IsContraband ||
+                    !_commodities.TryGetValue(commodity.Name, out int current) || current < entry.Value)
+                {
+                    return false;
+                }
+
+                removals.Add((commodity, entry.Value));
+            }
+
+            List<MissionCargoConfiscation> confiscations = new();
+            foreach ((Commodity Commodity, int Quantity) removal in removals)
+            {
+                if (!_commodities.TryGetValue(removal.Commodity.Name, out int currentQuantity) ||
+                    currentQuantity < removal.Quantity)
+                {
+                    return false;
+                }
+
+                int remainingToRemove = removal.Quantity;
+                foreach (MissionCargoReservation reservation in _missionCargo.Values
+                             .Where(candidate => candidate != null &&
+                                 (string.Equals(candidate.CommodityId, removal.Commodity.Id, StringComparison.OrdinalIgnoreCase) ||
+                                  string.Equals(candidate.CommodityName, removal.Commodity.Name, StringComparison.OrdinalIgnoreCase)))
+                             .OrderBy(candidate => candidate.MissionId)
+                             .ToList())
+                {
+                    if (remainingToRemove <= 0)
+                        break;
+
+                    int reservedRemoval = Math.Min(remainingToRemove, Math.Max(0, reservation.Quantity));
+                    if (reservedRemoval <= 0)
+                        continue;
+
+                    reservation.Quantity -= reservedRemoval;
+                    remainingToRemove -= reservedRemoval;
+                    confiscations.Add(new MissionCargoConfiscation
+                    {
+                        MissionId = reservation.MissionId,
+                        CommodityId = removal.Commodity.Id ?? string.Empty,
+                        Quantity = reservedRemoval
+                    });
+
+                    if (reservation.Quantity <= 0)
+                    {
+                        _missionCargo.Remove(reservation.MissionId);
+                        _missionReservationTargets.Remove(reservation.MissionId);
+                    }
+                }
+
+                _commodities[removal.Commodity.Name] = currentQuantity - removal.Quantity;
+                if (_commodities[removal.Commodity.Name] <= 0)
+                    _commodities.Remove(removal.Commodity.Name);
+
+                UsedCapacity -= removal.Commodity.VolumePerUnit * removal.Quantity;
+                UsedCapacity = Math.Max(0, UsedCapacity);
+            }
+
+            missionConfiscations = confiscations;
             return true;
         }
 

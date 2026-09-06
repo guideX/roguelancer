@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 
@@ -15,8 +16,8 @@ namespace Roguelancer
 
     /// <summary>
     /// Real-time cargo inspection lifecycle for ordinary Liberty Police
-    /// patrols. The scan is read-only until completion; detection applies one
-    /// bounded standing/hostility consequence and never confiscates cargo.
+    /// patrols. The scan is read-only until completion; detection creates one
+    /// bounded enforcement demand owned by this world-level system.
     /// </summary>
     public sealed class PoliceScanSystem
     {
@@ -27,6 +28,10 @@ namespace Roguelancer
         public const float ResultHoldSeconds = 2f;
         public const float RetryCooldownSeconds = 25f;
         public const float DetectionReputationPenalty = -0.03f;
+        public const float EnforcementDemandSeconds = 8f;
+        public const float EnforcementEscapeRange = 4200f;
+        public const Keys EnforcementComplyKey = Keys.Enter;
+        public const Keys EnforcementRefuseKey = Keys.N;
 
         private readonly PoliceEnforcementService _enforcementService;
         private MissionManager _missionManager;
@@ -35,12 +40,15 @@ namespace Roguelancer
         private float _scanTimer;
         private float _resultTimer;
         private float _cooldownTimer;
+        private float _enforcementTimer;
 
         public PoliceScanState State { get; private set; } = PoliceScanState.Idle;
         public PoliceEnforcementOffer CurrentOffer => _enforcementOffer;
         public PoliceEnforcementService EnforcementService => _enforcementService;
         public NpcShip ActiveScanner => _activeScanner;
         public float CooldownRemaining => Math.Max(0f, _cooldownTimer);
+        public float EnforcementDemandRemainingSeconds => Math.Max(0f, _enforcementTimer);
+        public bool IsEnforcementDemandActive => State == PoliceScanState.ContrabandDetected && _enforcementOffer != null;
         public int DetectionCount { get; private set; }
         public int LastJettisonedQuantity { get; private set; }
         public float ScanProgress => State == PoliceScanState.Scanning
@@ -51,7 +59,7 @@ namespace Roguelancer
         {
             PoliceScanState.Scanning =>
                 $"LIBERTY POLICE CARGO SCAN | Inspection {ScanProgress * 100f:0}% ({_scanTimer:0.0}/{ScanDurationSeconds:0.0}s)",
-            PoliceScanState.ContrabandDetected => "CONTRABAND DETECTED | POLICE ALERT ACTIVE",
+            PoliceScanState.ContrabandDetected => BuildDemandStatusText(),
             PoliceScanState.Cleared => "CARGO INSPECTION COMPLETE | HOLD CLEAR",
             PoliceScanState.Enforcement => "POLICE HOSTILE",
             _ => string.Empty
@@ -100,12 +108,82 @@ namespace Roguelancer
             {
                 if (State == PoliceScanState.Scanning)
                     CancelScan("inspection interrupted by flight-state transition", notificationManager, log, applyCooldown: false);
-                else if (State is PoliceScanState.Cleared or PoliceScanState.ContrabandDetected or PoliceScanState.Enforcement)
+                else if (State == PoliceScanState.ContrabandDetected && (playerDocked || playerInTradeLaneTransit))
+                    TryResolveEnforcement(
+                        PoliceEnforcementResolution.Refuse,
+                        playerShip,
+                        playerCredits,
+                        reputationManager,
+                        notificationManager,
+                        log,
+                        playerInTradeLaneTransit ? "trade-lane escape" : "docking attempt during demand");
+                else if (State is PoliceScanState.Cleared or PoliceScanState.Enforcement)
                     ClearResultState();
                 return;
             }
 
-            if (State is PoliceScanState.Cleared or PoliceScanState.Enforcement or PoliceScanState.ContrabandDetected)
+            if (State == PoliceScanState.ContrabandDetected)
+            {
+                if (_activeScanner == null)
+                {
+                    // A world reset/cleanup can invalidate an officer without
+                    // being an attack. Reset() handles the normal lifecycle;
+                    // this defensive path simply removes transient state.
+                    ClearResultState();
+                    return;
+                }
+
+                if (_activeScanner.IsDestroyed)
+                {
+                    if (_activeScanner.WasDamagedByPlayer)
+                    {
+                        TryResolveEnforcement(
+                            PoliceEnforcementResolution.Refuse,
+                            playerShip,
+                            playerCredits,
+                            reputationManager,
+                            notificationManager,
+                            log,
+                            "scanner destroyed by hostile action");
+                    }
+                    else
+                    {
+                        ClearResultState();
+                        log?.Invoke("[POLICE SCAN] Enforcement demand cleared because the scanner was removed by world cleanup.");
+                    }
+                    return;
+                }
+
+                if (Vector3.DistanceSquared(playerShip.Position, _activeScanner.Position) >
+                    EnforcementEscapeRange * EnforcementEscapeRange)
+                {
+                    TryResolveEnforcement(
+                        PoliceEnforcementResolution.Refuse,
+                        playerShip,
+                        playerCredits,
+                        reputationManager,
+                        notificationManager,
+                        log,
+                        "enforcement radius exceeded");
+                    return;
+                }
+
+                _enforcementTimer = Math.Max(0f, _enforcementTimer - deltaTime);
+                if (_enforcementTimer <= 0f)
+                {
+                    TryResolveEnforcement(
+                        PoliceEnforcementResolution.Refuse,
+                        playerShip,
+                        playerCredits,
+                        reputationManager,
+                        notificationManager,
+                        log,
+                        "enforcement demand timed out");
+                }
+                return;
+            }
+
+            if (State is PoliceScanState.Cleared or PoliceScanState.Enforcement)
             {
                 _resultTimer = Math.Max(0f, _resultTimer - deltaTime);
                 if (_resultTimer <= 0f)
@@ -146,7 +224,39 @@ namespace Roguelancer
             _scanTimer = 0f;
             _resultTimer = 0f;
             _cooldownTimer = 0f;
+            _enforcementTimer = 0f;
             LastJettisonedQuantity = 0;
+        }
+
+        public bool HandleInput(
+            KeyboardState keyboardState,
+            KeyboardState previousKeyboardState,
+            Ship playerShip,
+            PlayerCredits playerCredits,
+            ReputationManager reputationManager,
+            NotificationManager notificationManager = null,
+            Action<string> log = null)
+        {
+            if (!IsEnforcementDemandActive)
+                return false;
+
+            bool complyPressed = keyboardState.IsKeyDown(EnforcementComplyKey) &&
+                previousKeyboardState.IsKeyUp(EnforcementComplyKey);
+            bool refusePressed = keyboardState.IsKeyDown(EnforcementRefuseKey) &&
+                previousKeyboardState.IsKeyUp(EnforcementRefuseKey);
+            if (complyPressed)
+            {
+                TryAcceptEnforcement(playerShip, playerCredits, reputationManager, notificationManager, log);
+                return true;
+            }
+
+            if (refusePressed)
+            {
+                TryRefuseEnforcement(playerShip, playerCredits, reputationManager, notificationManager, log);
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -191,11 +301,8 @@ namespace Roguelancer
             notificationManager?.ShowMessage($"Contraband jettisoned: {removed} units", 2f);
             if (State == PoliceScanState.ContrabandDetected && !HasContraband(playerShip.CargoHold))
             {
-                _enforcementOffer = null;
-                _resultTimer = ResultHoldSeconds;
-                State = PoliceScanState.Cleared;
-                notificationManager?.ShowMessage("Cargo clear — recoverable pods deployed", 2f);
-                log?.Invoke("[POLICE SCAN] Detection cleared by physical jettison; pods remain recoverable.");
+                notificationManager?.ShowMessage("Cargo dumped — Police demand remains active", 2f);
+                log?.Invoke("[POLICE SCAN] Post-detection jettison did not clear the enforcement demand.");
             }
             return true;
         }
@@ -246,22 +353,13 @@ namespace Roguelancer
             }
 
             State = PoliceScanState.ContrabandDetected;
-            _resultTimer = ResultHoldSeconds;
+            _resultTimer = 0f;
+            _enforcementTimer = EnforcementDemandSeconds;
             DetectionCount++;
-            reputationManager.TemporaryHostility.RecordHostileAction(
-                FactionManager.LibertyPolice,
-                "contraband detected during cargo scan",
-                PoliceEnforcementService.TemporaryHostilityDurationSeconds,
-                causedByPlayerAggression: false);
-            reputationManager.AdjustReputationDirect(
-                FactionManager.LibertyPolice,
-                DetectionReputationPenalty,
-                ReputationChangeReason.PoliceScan);
             if (_missionManager?.ActiveMission?.Type == MissionType.ContrabandSmuggling)
                 _missionManager.ActiveMission.SmugglingPoliceDetected = true;
-            _activeScanner?.SetPlayerTarget(playerShip.Position, NpcPlayerTargetReason.FactionDisposition);
-            notificationManager?.ShowMessage("Contraband detected — Liberty Police alerted", 3f);
-            log?.Invoke($"[POLICE SCAN] Contraband detected: {_enforcementOffer.TotalContrabandQuantity} units; temporary hostility applied.");
+            notificationManager?.ShowMessage("Contraband confirmed. Surrender your cargo and pay the assessed fine.", 4f);
+            log?.Invoke($"[POLICE SCAN] Contraband detected: {_enforcementOffer.TotalContrabandQuantity} units; enforcement demand opened for {_enforcementOffer.FineAmount:N0} CR.");
         }
 
         private void CancelScan(
@@ -274,6 +372,7 @@ namespace Roguelancer
             _activeScanner = null;
             _enforcementOffer = null;
             State = PoliceScanState.Idle;
+            _enforcementTimer = 0f;
             if (applyCooldown)
                 _cooldownTimer = Math.Max(_cooldownTimer, 5f);
             notificationManager?.ShowMessage("Police inspection interrupted", 2f);
@@ -287,6 +386,7 @@ namespace Roguelancer
             _enforcementOffer = null;
             _scanTimer = 0f;
             _resultTimer = 0f;
+            _enforcementTimer = 0f;
         }
 
         private bool TryResolveEnforcement(
@@ -295,7 +395,8 @@ namespace Roguelancer
             PlayerCredits playerCredits,
             ReputationManager reputationManager,
             NotificationManager notificationManager,
-            Action<string> log)
+            Action<string> log,
+            string resolutionReason = "player response")
         {
             if (State != PoliceScanState.ContrabandDetected || _enforcementOffer == null)
                 return false;
@@ -319,10 +420,53 @@ namespace Roguelancer
                 ? PoliceScanState.Enforcement
                 : PoliceScanState.Cleared;
             _resultTimer = ResultHoldSeconds;
+            _enforcementTimer = 0f;
             _enforcementOffer = null;
+            if (result.MissionConfiscations.Count > 0)
+                _missionManager?.NotifyPoliceConfiscation(result.MissionConfiscations);
+            if (result.Outcome == PoliceEnforcementOutcome.PaidAndConfiscated)
+                _missionManager?.NotifyPoliceEnforcementCompliance();
             notificationManager?.ShowMessage(result.Message, 3f);
-            log?.Invoke($"[POLICE SCAN] Legacy enforcement resolution: {result.Message}.");
+            if (resolution == PoliceEnforcementResolution.Refuse)
+            {
+                notificationManager?.ShowMessage(
+                    resolutionReason.Contains("flight", StringComparison.OrdinalIgnoreCase) ||
+                    resolutionReason.Contains("radius", StringComparison.OrdinalIgnoreCase)
+                        ? "Suspect is fleeing. Pursue."
+                        : "Suspect refuses inspection order. Weapons free.",
+                    3f);
+            }
+            else
+            {
+                notificationManager?.ShowMessage("Fine received. Cargo confiscated. You're free to go.", 3f);
+            }
+            log?.Invoke($"[POLICE SCAN] Enforcement resolution ({resolutionReason}): {result.Message}.");
             return true;
+        }
+
+        public bool TryFleeEnforcement(
+            Ship playerShip,
+            PlayerCredits playerCredits,
+            ReputationManager reputationManager,
+            NotificationManager notificationManager = null,
+            Action<string> log = null) => TryResolveEnforcement(
+                PoliceEnforcementResolution.Refuse,
+                playerShip,
+                playerCredits,
+                reputationManager,
+                notificationManager,
+                log,
+                "player fled enforcement");
+
+        private string BuildDemandStatusText()
+        {
+            if (_enforcementOffer == null)
+                return "LIBERTY POLICE — CONTRABAND VIOLATION";
+
+            string affordability = _enforcementOffer.CanAffordFine
+                ? string.Empty
+                : " | Insufficient credits to comply";
+            return $"LIBERTY POLICE — CONTRABAND VIOLATION | Surrender illegal cargo and pay {_enforcementOffer.FineAmount:N0} CR | [{EnforcementComplyKey}] Comply [{EnforcementRefuseKey}] Refuse {EnforcementDemandRemainingSeconds:0.0}s{affordability}";
         }
 
         private bool IsScannerValid(Ship playerShip, ReputationManager reputationManager)
