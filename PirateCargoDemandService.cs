@@ -147,6 +147,32 @@ public sealed class PirateCargoDemandService
         return manifest != null;
     }
 
+    /// <summary>
+    /// Read-only scanner seam for the same manifest used by cargo demand.
+    /// Unlike the interaction eligibility gate, this remains queryable after
+    /// a resolved demand causes a trader to flee, so a later rescan reports
+    /// the manifest quantity that actually remains.
+    /// </summary>
+    public bool TryGetAuthoritativeManifestSnapshot(
+        NpcShip trader,
+        out NpcCargoManifestSnapshot snapshot)
+    {
+        snapshot = null;
+        if (trader == null || trader.IsDestroyed || !_npcShips.Contains(trader) ||
+            trader.TrafficBehavior != TrafficZoneBehaviorType.TraderRoute ||
+            _isMissionOwned(trader) || !IsEligibleFaction(trader.FactionId))
+        {
+            return false;
+        }
+
+        TraderCargoManifest manifest = GetOrCreateManifest(trader);
+        snapshot = new NpcCargoManifestSnapshot(
+            hasRegisteredCargo: true,
+            manifest?.Stacks.Select(stack =>
+                new NpcCargoManifestStackSnapshot(stack.Commodity, stack.Quantity)));
+        return true;
+    }
+
     public bool TryIssueDemand(Ship playerShip, NpcShip target, out string failureReason)
     {
         failureReason = string.Empty;
@@ -532,8 +558,7 @@ public sealed class PirateCargoDemandService
         return "target is not eligible for a cargo demand";
     }
 
-    private static string GetTargetIdentity(NpcShip target) =>
-        string.IsNullOrWhiteSpace(target?.StableIdentity) ? target?.Name ?? string.Empty : target.StableIdentity;
+    private static string GetTargetIdentity(NpcShip target) => NpcIdentity.GetStableIdentity(target);
 
     private static float NormalizeDelta(float delta) =>
         float.IsNaN(delta) || float.IsInfinity(delta) ? 0f : Math.Clamp(delta, 0f, 60f);

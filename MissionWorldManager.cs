@@ -1442,6 +1442,60 @@ namespace Roguelancer
             return null;
         }
 
+        /// <summary>
+        /// Read-only player-scan view for mission-owned NPC cargo. Raid
+        /// transports expose their already-authoritative per-transport
+        /// allocation; escort, defense, bounty, and other mission ships do
+        /// not receive fabricated cargo.
+        /// </summary>
+        public bool TryGetPlayerScanCargo(
+            NpcShip target,
+            out NpcCargoManifestSnapshot snapshot)
+        {
+            snapshot = null;
+            if (target == null)
+                return false;
+
+            foreach (MissionRuntimeState state in _runtimeStates.Values)
+            {
+                Mission mission = state?.Mission;
+                if (mission == null ||
+                    mission.Status is not (MissionStatus.Active or MissionStatus.InProgress))
+                {
+                    continue;
+                }
+
+                if (mission.IsConvoyRaidMission() && state.RaidShips.Contains(target))
+                {
+                    int sourceIndex = FindRaidShipIndex(state, target);
+                    int quantity = sourceIndex >= 0 && sourceIndex < mission.RaidCargoAllocation.Count &&
+                        !target.IsDestroyed &&
+                        (mission.RaidDestroyedMask & (1 << sourceIndex)) == 0 &&
+                        (mission.RaidEscapedMask & (1 << sourceIndex)) == 0 &&
+                        (mission.RaidCargoReleasedMask & (1 << sourceIndex)) == 0
+                        ? Math.Max(0, mission.RaidCargoAllocation[sourceIndex])
+                        : 0;
+                    Commodity commodity = CommodityCatalog.GetByIdOrName(mission.RaidCommodityId);
+                    snapshot = new NpcCargoManifestSnapshot(
+                        hasRegisteredCargo: commodity != null && quantity > 0,
+                        commodity == null || quantity <= 0
+                            ? Array.Empty<NpcCargoManifestStackSnapshot>()
+                            : new[] { new NpcCargoManifestStackSnapshot(commodity, quantity) });
+                    return true;
+                }
+
+                if (state.ConvoyShips.Contains(target) || state.ConvoyHostiles.Contains(target) ||
+                    state.MissionHostiles.Contains(target) || state.BountyTarget == target ||
+                    state.EscortTarget == target)
+                {
+                    snapshot = NpcCargoManifestSnapshot.NoRegisteredCargo();
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public void NotifyMissionCargoPodSpawned(CargoPod pod)
         {
             if (pod == null || !pod.IsMissionCargo || !_runtimeStates.TryGetValue(pod.MissionId, out MissionRuntimeState state))

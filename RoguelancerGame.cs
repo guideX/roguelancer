@@ -105,6 +105,8 @@ namespace Roguelancer {
         /// </summary>
         private MineSystem _mineSystem;
         private PoliceScanSystem _policeScanSystem;
+        private PlayerTargetScanService _playerTargetScan;
+        private string _lastPlayerTargetScanFeedback = string.Empty;
         /// <summary>
         /// Sun
         /// </summary>
@@ -260,6 +262,7 @@ namespace Roguelancer {
         private readonly bool _runConvoyEscortMissionSmoke;
         private readonly bool _runConvoyRaidMissionSmoke;
         private readonly bool _runPiracyDemandSmoke;
+        private readonly bool _runPlayerTargetScanSmoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -373,6 +376,7 @@ namespace Roguelancer {
             _runConvoyEscortMissionSmoke = args?.Any(arg => string.Equals(arg, "--convoy-escort-mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runConvoyRaidMissionSmoke = args?.Any(arg => string.Equals(arg, "--convoy-raid-mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPiracyDemandSmoke = args?.Any(arg => string.Equals(arg, "--piracy-demand-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPlayerTargetScanSmoke = args?.Any(arg => string.Equals(arg, "--player-target-scan-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1295,6 +1299,19 @@ namespace Roguelancer {
                 },
                 _trafficManager?.CombatCommunication,
                 Console.WriteLine);
+            _playerTargetScan = new PlayerTargetScanService(
+                _npcShips,
+                _factionManager,
+                target =>
+                {
+                    if (_missionWorldManager?.TryGetPlayerScanCargo(target, out NpcCargoManifestSnapshot missionCargo) == true)
+                        return missionCargo;
+
+                    if (_piracyDemand?.TryGetAuthoritativeManifestSnapshot(target, out NpcCargoManifestSnapshot traderCargo) == true)
+                        return traderCargo;
+
+                    return NpcCargoManifestSnapshot.NoRegisteredCargo();
+                });
             _lootManager.ConfigureMissionCargoCallbacks(
                 npc => _missionWorldManager?.GetMissionCargoDrop(npc),
                 pod => _missionWorldManager?.NotifyMissionCargoPodSpawned(pod),
@@ -1476,6 +1493,11 @@ namespace Roguelancer {
             else if (_runPiracyDemandSmoke)
             {
                 var result = RunPiracyDemandSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runPlayerTargetScanSmoke)
+            {
+                var result = RunPlayerTargetScanSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runFactionDistressResponseSmoke)
@@ -1691,6 +1713,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("convoy escort mission smoke", RunConvoyEscortMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("convoy raid mission smoke", RunConvoyRaidMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("piracy demand smoke", RunPiracyDemandSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("player target scan smoke", RunPlayerTargetScanSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2118,6 +2141,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PIRACY DEMAND SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPlayerTargetScanSmokeTest()
+        {
+            try
+            {
+                return new PlayerTargetScanSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PLAYER TARGET SCAN SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2616,6 +2652,7 @@ namespace Roguelancer {
             }
 
             int targetSystemIndex = Math.Max(1, saveData.CurrentSystemIndex);
+            _playerTargetScan?.Reset();
             _piracyDemand?.Reset();
             _policeScanSystem?.Reset();
             _policeFugitiveManager?.Reset(Console.WriteLine, "save/load");
@@ -2841,6 +2878,7 @@ namespace Roguelancer {
 
             // If docked, handle station UI input
             if (_stationDockUI?.IsDocked == true) {
+                _playerTargetScan?.Reset();
                 HandleDockedInput(keyboardState);
                 _prevKeys = keyboardState;
                 return; // Don't update ship while docked
@@ -2852,6 +2890,7 @@ namespace Roguelancer {
 
             // Skip normal update if in jump transit
             if (_jumpHoleManager?.IsInTransit == true) {
+                _playerTargetScan?.Reset();
                 _jumpHoleManager.Update(gameTime, _playerShip.Position, keyboardState);
                 _policeScanSystem?.Update(
                     gameTime,
@@ -2898,6 +2937,7 @@ namespace Roguelancer {
 
             // If in tradelane transit, skip normal ship input but still update visuals
             if (_tradelaneManager?.IsInTransit == true) {
+                UpdatePlayerTargetScan(deltaTime, forcedTradeLaneTransit: true);
                 _policeScanSystem?.Update(
                     gameTime,
                     _playerShip,
@@ -3309,10 +3349,12 @@ namespace Roguelancer {
             // CargoHold pickup.
             if (_playerShip?.Hull?.IsDestroyed == true)
             {
-                _lootManager?.Reset();
+              _playerTargetScan?.Reset();
+              _lootManager?.Reset();
             }
             _lootManager?.Update(gameTime, _playerShip, keyboardState.IsKeyDown(Keys.P), _notificationManager, Console.WriteLine);
             PruneInvalidNavSelection();
+            UpdatePlayerTargetScan(deltaTime);
             UpdateFirstDockOnboarding((float)gameTime.ElapsedGameTime.TotalSeconds);
 
             // Update mission waypoint system (resolve targets, build paths, check proximity)
@@ -3485,6 +3527,7 @@ namespace Roguelancer {
         }
 
         private void HandleNpcDestroyed(NpcShip destroyedShip) {
+            _playerTargetScan?.NotifyTargetDestroyed(destroyedShip);
             _piracyDemand?.NotifyNpcDestroyed(destroyedShip);
             _policeFugitiveManager?.NotifyPlayerDamage(destroyedShip, _playerShip, Console.WriteLine);
             _factionCombatConsequences?.RecordPlayerDamage(destroyedShip);
@@ -3604,6 +3647,7 @@ namespace Roguelancer {
             bool gPressed = keyboardState.IsKeyDown(Keys.G) && _prevKeys.IsKeyUp(Keys.G);
             bool rPressed = keyboardState.IsKeyDown(Keys.R) && _prevKeys.IsKeyUp(Keys.R);
             bool yPressed = keyboardState.IsKeyDown(Keys.Y) && _prevKeys.IsKeyUp(Keys.Y);
+            bool iPressed = keyboardState.IsKeyDown(Keys.I) && _prevKeys.IsKeyUp(Keys.I);
 
             if (rPressed && HasTradePlanResumeAvailable())
             {
@@ -3653,9 +3697,57 @@ namespace Roguelancer {
                 }
             }
 
+            if (iPressed && _playerTargetScan != null)
+            {
+                NpcShip target = GetSelectedSpaceObjectTarget() as NpcShip;
+                bool playerInTradeLaneTransit = _playerShip?.IsTradeLaneTransit == true ||
+                    _tradelaneManager?.IsInTransit == true;
+                if (_playerTargetScan.TryStartScan(
+                    _playerShip,
+                    target,
+                    playerInTradeLaneTransit,
+                    out string failureReason))
+                {
+                    _lastPlayerTargetScanFeedback = string.Empty;
+                    _notificationManager?.ShowMessage("SCANNING TARGET", 2f);
+                }
+                else if (!string.IsNullOrWhiteSpace(failureReason))
+                {
+                    _lastPlayerTargetScanFeedback = failureReason;
+                    _notificationManager?.ShowMessage(failureReason, 2.5f);
+                }
+            }
+
             // G key: GOTO selected target
             if (gPressed) {
                 TryGotoSelectedTarget();
+            }
+        }
+
+        private void UpdatePlayerTargetScan(float deltaSeconds, bool forcedTradeLaneTransit = false)
+        {
+            if (_playerTargetScan == null)
+                return;
+
+            NpcShip currentTarget = GetSelectedSpaceObjectTarget() as NpcShip;
+            _playerTargetScan.NotifyTargetChanged(currentTarget);
+            _playerTargetScan.Update(
+                deltaSeconds,
+                _playerShip,
+                currentTarget,
+                forcedTradeLaneTransit ||
+                    _playerShip?.IsTradeLaneTransit == true ||
+                    _tradelaneManager?.IsInTransit == true);
+
+            string feedback = _playerTargetScan.FeedbackText;
+            if (string.IsNullOrWhiteSpace(feedback))
+            {
+                _lastPlayerTargetScanFeedback = string.Empty;
+            }
+            else if (!string.Equals(feedback, _lastPlayerTargetScanFeedback, StringComparison.Ordinal))
+            {
+                _lastPlayerTargetScanFeedback = feedback;
+                _notificationManager?.ShowMessage(feedback, 2f);
             }
         }
 
@@ -4160,6 +4252,7 @@ namespace Roguelancer {
                     _selectedNavTarget = null;
                     _selectedSpaceObjectIndex = -1;
                     _selectedNavTargetContextLabel = string.Empty;
+                    _playerTargetScan?.NotifyTargetChanged(null);
                 }
                 return;
             }
@@ -4169,6 +4262,7 @@ namespace Roguelancer {
                 _selectedNavTarget = null;
                 _selectedSpaceObjectIndex = -1;
                 _selectedNavTargetContextLabel = string.Empty;
+                _playerTargetScan?.NotifyTargetChanged(null);
             }
         }
 
@@ -4182,6 +4276,7 @@ namespace Roguelancer {
             _selectedNavTarget = target;
             _selectedSpaceObjectIndex = _spaceObjects.IndexOf(target);
             _selectedNavTargetContextLabel = contextLabel ?? sourceLabel;
+            _playerTargetScan?.NotifyTargetChanged(target as NpcShip);
 
             float distance = Vector3.Distance(_playerShip.Position, target.Position);
             if (showNotification)
@@ -4203,6 +4298,7 @@ namespace Roguelancer {
             _selectedNavTarget = target;
             _selectedSpaceObjectIndex = -1;
             _selectedNavTargetContextLabel = contextLabel ?? sourceLabel;
+            _playerTargetScan?.NotifyTargetChanged(null);
 
             float distance = Vector3.Distance(_playerShip.Position, target.Position);
             _notificationManager?.ShowMessage($"Target: {label}");
@@ -4734,6 +4830,9 @@ namespace Roguelancer {
                 textLines.Add($"Status: {hud.StatusLabel}");
             }
 
+            List<string> scanLines = BuildPlayerTargetScanHudLines(selectedTarget as NpcShip);
+            textLines.AddRange(scanLines);
+
             Station stationTarget = selectedTarget as Station;
             bool isDockAssistTarget = stationTarget != null &&
                 _playerShip.IsDockAssistActive &&
@@ -4839,7 +4938,20 @@ namespace Roguelancer {
                 cursor.Y += _font.MeasureString(hud.IntegrityLabel).Y + 2f;
             }
 
-            _spriteBatch.DrawString(_font, $"Distance: {hud.DistanceLabel}", cursor, Color.Cyan);
+            string distanceLine = $"Distance: {hud.DistanceLabel}";
+            _spriteBatch.DrawString(_font, distanceLine, cursor, Color.Cyan);
+            cursor.Y += _font.MeasureString(distanceLine).Y + 2f;
+
+            foreach (string scanLine in scanLines)
+            {
+                Color scanColor = scanLine.StartsWith("SCANNING", StringComparison.Ordinal)
+                    ? Color.Yellow
+                    : scanLine.StartsWith("CARGO SCAN", StringComparison.Ordinal)
+                        ? Color.LimeGreen
+                        : Color.LightSkyBlue;
+                _spriteBatch.DrawString(_font, scanLine, cursor, scanColor);
+                cursor.Y += _font.MeasureString(scanLine).Y + 2f;
+            }
 
             // Draw targeting reticle on the actual target or off-screen indicator
             Vector3 targetPosition = selectedTarget is SpaceObject targetSpaceObject
@@ -4863,6 +4975,45 @@ namespace Roguelancer {
                 // Target is off-screen - draw directional arrow at screen edge
                 DrawOffScreenTargetIndicator(targetPosition, distance);
             }
+        }
+
+        private List<string> BuildPlayerTargetScanHudLines(NpcShip target)
+        {
+            List<string> lines = new();
+            if (_playerTargetScan == null || target == null)
+                return lines;
+
+            if (_playerTargetScan.HasActiveScan && ReferenceEquals(_playerTargetScan.ActiveTarget, target))
+            {
+                lines.Add("SCANNING TARGET");
+                lines.Add($"Cargo scan: {_playerTargetScan.ProgressSeconds:F1} / {PlayerTargetScanService.ScanDurationSeconds:F1}s");
+                return lines;
+            }
+
+            PlayerTargetScanResult result = _playerTargetScan.GetResultFor(target);
+            if (result == null)
+                return lines;
+
+            lines.Add("CARGO SCAN COMPLETE — LAST KNOWN");
+            if (!result.HasRegisteredCargo)
+            {
+                lines.Add("No registered cargo");
+            }
+            else if (result.IsCargoHoldEmpty)
+            {
+                lines.Add("Cargo hold empty");
+            }
+            else
+            {
+                foreach (PlayerTargetScanCargoEntry entry in result.Cargo)
+                {
+                    string contrabandLabel = entry.IsContraband ? " [CONTRABAND]" : string.Empty;
+                    lines.Add($"{entry.DisplayName} x{entry.Quantity}{contrabandLabel}");
+                }
+                lines.Add($"Estimated cargo value: {result.EstimatedCargoValue:N0} CR (base price)");
+            }
+
+            return lines;
         }
 
         /// <summary>
@@ -5693,6 +5844,7 @@ namespace Roguelancer {
         /// Handle undocking from station
         /// </summary>
         private void HandleUndock() {
+            _playerTargetScan?.Reset();
             _policeScanSystem?.Reset();
             if (_stationSession?.IsRealDockedSession == true)
             {
@@ -7189,6 +7341,7 @@ namespace Roguelancer {
             int oldSystemIndex = _currentSystemIndex;
             Console.WriteLine($"[SYSTEM CHANGE] Switching from system {oldSystemIndex} to system {newSystemIndex}");
             _policeScanSystem?.Reset();
+            _playerTargetScan?.Reset();
             _policeFugitiveManager?.Reset(Console.WriteLine, "system transition");
             _piracyDemand?.Reset();
             _tradeRouteValidation?.RecordSystemChange(oldSystemIndex, newSystemIndex, arrivalJumpHoleName);

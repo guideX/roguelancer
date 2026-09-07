@@ -8,6 +8,8 @@
 - `Ctrl+F2`: target the nearest dockable station
 - `G`: start normal GOTO on the selected target
 - `Y`: demand cargo from a targeted eligible civilian/commercial trader (within 3,500 m)
+- `I`: scan the selected NPC for cargo and target intelligence (within 4,000 m; hold for 3 seconds)
+- Cargo scans cancel if the target changes, leaves range, is destroyed/despawns, or either ship enters trade-lane transit.
 - On a fresh undocked start with no active mission, the HUD briefly shows:
   - `Press Ctrl+F2 to target nearest station`
   - `Press F3 for dock assist`
