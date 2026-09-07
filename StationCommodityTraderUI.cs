@@ -58,6 +58,7 @@ public sealed class StationCommodityTraderUI
         _station = station;
         _credits = credits;
         _playerShip = playerShip;
+        _commodityDealer.SetPlayerCargoHold(playerShip?.CargoHold);
         _commodityDealer.SetDockedStation(station);
         _commodityDealer.RefreshMarketIntelligence();
         _selectedIndex = 0;
@@ -254,6 +255,9 @@ public sealed class StationCommodityTraderUI
             string label = $"{(selected ? "> " : "  ")}{Shorten(commodity.Name, plannedCommodity ? 13 : 24)}";
             if (plannedCommodity) label += " [TRADE ROUTE]";
             if (commodity.IsContraband) label += " [CONTRABAND]";
+            if (_commodityDealer.IsBlackMarketOpen && !commodity.IsContraband &&
+                (_playerShip?.CargoHold?.GetSellableStolenCommodityQuantity(commodity.Name) ?? 0) > 0)
+                label += " [STOLEN]";
             Color labelColor = listing.IsAvailable ? Color.White : Color.Gray;
             spriteBatch.DrawString(_font, label, new Vector2(row.X + 10, row.Y + 7), labelColor);
             string price = listing.IsAvailable
@@ -261,7 +265,7 @@ public sealed class StationCommodityTraderUI
                 : "UNAVAILABLE";
             Vector2 priceSize = _font.MeasureString(price);
             spriteBatch.DrawString(_font, price, new Vector2(row.Right - priceSize.X - 10, row.Y + 7), listing.IsAvailable ? Color.Yellow : Color.Gray);
-            int sellable = _playerShip?.CargoHold?.GetSellableCommodityQuantity(commodity.Name) ?? 0;
+            int sellable = GetDisplayedSellableQuantity(commodity);
             spriteBatch.DrawString(_font, $"Owned {sellable} sellable  |  {commodity.VolumePerUnit}/unit", new Vector2(row.X + 10, row.Y + 23), Color.LightGray);
         }
 
@@ -293,7 +297,7 @@ public sealed class StationCommodityTraderUI
         CargoHold cargo = _playerShip?.CargoHold;
         int owned = cargo?.GetCommodityQuantity(commodity.Name) ?? 0;
         int protectedQuantity = cargo?.GetMissionReservedQuantity(commodity.Name) ?? 0;
-        int sellable = cargo?.GetSellableCommodityQuantity(commodity.Name) ?? 0;
+        int sellable = GetDisplayedSellableQuantity(commodity);
         int maximum = GetMaximumQuantity(listing);
 
         int x = detailPanel.X + 16;
@@ -308,7 +312,9 @@ public sealed class StationCommodityTraderUI
         y += 24;
         spriteBatch.DrawString(_font, $"Cargo: {commodity.VolumePerUnit} space / unit", new Vector2(x, y), Color.LightSkyBlue);
         y += 24;
-        spriteBatch.DrawString(_font, $"Owned: {owned}   Sellable: {sellable}", new Vector2(x, y), Color.White);
+        int stolen = cargo?.GetStolenCommodityQuantity(commodity.Name) ?? 0;
+        spriteBatch.DrawString(_font, $"Owned: {owned}   Sellable: {sellable}" +
+            (stolen > 0 ? $"   Stolen: {stolen}" : string.Empty), new Vector2(x, y), Color.White);
         y += 24;
         if (protectedQuantity > 0)
         {
@@ -337,7 +343,10 @@ public sealed class StationCommodityTraderUI
 
         string action = _buying
             ? listing.IsAvailable && listing.BuyPrice > 0 && listing.Stock > listing.MinimumStock ? "[ENTER] BUY" : "BUY UNAVAILABLE"
-            : protectedQuantity > 0 && sellable == 0 ? "MISSION CARGO CANNOT BE SOLD" : sellable > 0 && listing.SellPrice > 0 ? "[ENTER] SELL" : "NOTHING SELLABLE";
+            : protectedQuantity > 0 && sellable == 0 ? "MISSION CARGO CANNOT BE SOLD" :
+                !_commodityDealer.IsBlackMarketOpen && stolen > 0 && sellable == 0
+                    ? "STOLEN PROPERTY REJECTED BY LAWFUL DEALER"
+                    : sellable > 0 && listing.SellPrice > 0 ? "[ENTER] SELL" : "NOTHING SELLABLE";
         spriteBatch.DrawString(_font, Shorten(action, 58), new Vector2(x, Math.Min(y, detailPanel.Bottom - 42)), _buying ? Color.Lime : Color.Orange);
     }
 
@@ -402,7 +411,7 @@ public sealed class StationCommodityTraderUI
 
         if (!_buying)
         {
-            return Math.Min(999, _playerShip?.CargoHold?.GetSellableCommodityQuantity(listing.Commodity.Name) ?? 0);
+            return Math.Min(999, GetDisplayedSellableQuantity(listing.Commodity));
         }
 
         int max = Math.Min(999, Math.Max(0, listing.Stock - listing.MinimumStock));
@@ -480,6 +489,18 @@ public sealed class StationCommodityTraderUI
     private static string FormatMovement(int percent)
     {
         return percent == 0 ? "NORMAL" : percent > 0 ? $"+{percent}%" : $"{percent}%";
+    }
+
+    private int GetDisplayedSellableQuantity(Commodity commodity)
+    {
+        if (commodity == null || _playerShip?.CargoHold == null)
+            return 0;
+
+        return _commodityDealer.IsBlackMarketOpen
+            ? commodity.IsContraband
+                ? _playerShip.CargoHold.GetSellableCommodityQuantity(commodity.Name)
+                : _playerShip.CargoHold.GetSellableStolenCommodityQuantity(commodity.Name)
+            : _playerShip.CargoHold.GetSellableCleanCommodityQuantity(commodity.Name);
     }
 
     private static string Shorten(string value, int maxLength)

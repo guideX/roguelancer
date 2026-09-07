@@ -63,6 +63,9 @@ namespace Roguelancer
         [JsonPropertyName("physical_mission_cargo_pods")]
         public List<SaveCargoPodData> PhysicalMissionCargoPods { get; set; } = new();
 
+        [JsonPropertyName("physical_cargo_pods")]
+        public List<SaveCargoPodData> PhysicalCargoPods { get; set; } = new();
+
         [JsonPropertyName("station_markets")]
         public List<SaveMarketStateData> StationMarkets { get; set; } = new();
 
@@ -170,6 +173,9 @@ namespace Roguelancer
 
         [JsonPropertyName("mission_bound")]
         public bool MissionBound { get; set; }
+
+        [JsonPropertyName("stolen")]
+        public bool IsStolen { get; set; }
     }
 
     /// <summary>Durable snapshot for a physical mission cargo pod.</summary>
@@ -186,6 +192,9 @@ namespace Roguelancer
 
         [JsonPropertyName("quantity")]
         public int Quantity { get; set; }
+
+        [JsonPropertyName("stolen")]
+        public bool IsStolen { get; set; }
 
         [JsonPropertyName("age_seconds")]
         public float AgeSeconds { get; set; }

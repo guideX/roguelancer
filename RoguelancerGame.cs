@@ -267,6 +267,7 @@ namespace Roguelancer {
         private readonly bool _runFactionBountyRewardSmoke;
         private readonly bool _runContrabandSmoke;
         private readonly bool _runBlackMarketSmoke;
+        private readonly bool _runPhase57Smoke;
         private readonly bool _runPoliceEnforcementSmoke;
         private readonly bool _runPoliceFugitiveSmoke;
         private readonly bool _runTrafficSmoke;
@@ -379,6 +380,7 @@ namespace Roguelancer {
             _runFactionBountyRewardSmoke = args?.Any(arg => string.Equals(arg, "--faction-bounty-reward-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runContrabandSmoke = args?.Any(arg => string.Equals(arg, "--contraband-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runBlackMarketSmoke = args?.Any(arg => string.Equals(arg, "--black-market-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase57Smoke = args?.Any(arg => string.Equals(arg, "--phase57-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPoliceEnforcementSmoke = args?.Any(arg => string.Equals(arg, "--police-enforcement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPoliceFugitiveSmoke = args?.Any(arg => string.Equals(arg, "--police-fugitive-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runTrafficSmoke = args?.Any(arg => string.Equals(arg, "--traffic-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1648,6 +1650,12 @@ namespace Roguelancer {
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
 
+            if (_runPhase57Smoke)
+            {
+                var result = RunPhase57SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+
             if (_runTrafficSmoke)
             {
                 var result = RunTrafficSmokeTest();
@@ -1697,6 +1705,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("mine smoke", RunMineSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("contraband smoke", RunContrabandSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("black market smoke", RunBlackMarketSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 57 stolen cargo smoke", RunPhase57SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("traffic smoke", RunTrafficSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("loot smoke", RunLootSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("combat salvage smoke", RunCombatSalvageSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2205,6 +2214,11 @@ namespace Roguelancer {
             }
         }
 
+        private (int Passed, int Failed) RunPhase57SmokeTest()
+        {
+            return new Phase57StolenCargoSmokeTest().Run();
+        }
+
         private (int Passed, int Failed) RunPoliceEnforcementSmokeTest()
         {
             try
@@ -2582,6 +2596,7 @@ namespace Roguelancer {
             saveData.ActiveMissions = _saveGameManager?.CaptureMissions(_missionManager?.ActiveMissions) ?? new List<SaveMissionData>();
             saveData.CompletedMissions = _saveGameManager?.CaptureMissions(_missionManager?.CompletedMissions) ?? new List<SaveMissionData>();
             saveData.PhysicalMissionCargoPods = _lootManager?.CaptureMissionCargoPods() ?? new List<SaveCargoPodData>();
+            saveData.PhysicalCargoPods = _lootManager?.CaptureCargoPods() ?? new List<SaveCargoPodData>();
             saveData.StationMarkets = _commodityDealer?.CaptureMarketState() ?? new List<SaveMarketStateData>();
             saveData.MarketElapsedMilliseconds = _commodityDealer?.MarketManager?.ElapsedMilliseconds ?? 0L;
             saveData.MarketIntelligence = _marketIntelligence?.CaptureState() ?? new List<SaveMarketIntelligenceData>();
@@ -2674,8 +2689,11 @@ namespace Roguelancer {
                 saveData.PlayerForward.ToVector3(_playerShip.Forward));
 
             _missionWorldManager?.RebindActiveMissions(_missionManager?.ActiveMissions ?? Array.Empty<Mission>());
-            _lootManager?.RestoreMissionCargoPods(
-                saveData.PhysicalMissionCargoPods,
+            IEnumerable<SaveCargoPodData> savedPods = saveData.PhysicalCargoPods != null && saveData.PhysicalCargoPods.Count > 0
+                ? saveData.PhysicalCargoPods
+                : saveData.PhysicalMissionCargoPods;
+            _lootManager?.RestoreCargoPods(
+                savedPods,
                 missionId => _missionManager?.ActiveMissions?.Any(mission => mission?.Id == missionId) == true);
 
             _playerShip.SetNotificationManager(_notificationManager);

@@ -5,6 +5,28 @@ using System.Linq;
 namespace Roguelancer
 {
     /// <summary>
+    /// Provenance is orthogonal to commodity legality. A legal commodity can
+    /// be stolen and a contraband commodity can be cleanly purchased.
+    /// </summary>
+    public enum CargoProvenance
+    {
+        Clean,
+        Stolen
+    }
+
+    /// <summary>
+    /// One bounded request made by Police confiscation. Stolen-only requests
+    /// are used for legal stolen property; contraband requests confiscate the
+    /// commodity quantity once regardless of provenance.
+    /// </summary>
+    public sealed class CargoConfiscationRequest
+    {
+        public string CommodityId { get; init; } = string.Empty;
+        public int Quantity { get; init; }
+        public bool StolenOnly { get; init; }
+    }
+
+    /// <summary>
     /// Authoritative metadata for cargo reserved by an active mission.
     /// </summary>
     public sealed class MissionCargoReservation
@@ -14,6 +36,12 @@ namespace Roguelancer
         public string CommodityName { get; set; } = string.Empty;
         public int Quantity { get; set; }
         public int VolumePerUnit { get; set; }
+        public CargoProvenance Provenance { get; set; }
+        public bool IsStolen
+        {
+            get => Provenance == CargoProvenance.Stolen;
+            set => Provenance = value ? CargoProvenance.Stolen : CargoProvenance.Clean;
+        }
 
         public MissionCargoReservation Clone() => new()
         {
@@ -21,7 +49,8 @@ namespace Roguelancer
             CommodityId = CommodityId,
             CommodityName = CommodityName,
             Quantity = Quantity,
-            VolumePerUnit = VolumePerUnit
+            VolumePerUnit = VolumePerUnit,
+            Provenance = Provenance
         };
     }
 
@@ -43,6 +72,9 @@ namespace Roguelancer
     public class CargoHold
     {
         private Dictionary<string, int> _commodities = new Dictionary<string, int>();
+        // Bounded provenance aggregate: one stolen quantity per commodity,
+        // never one object per unit. _commodities remains the canonical total.
+        private readonly Dictionary<string, int> _stolenCommodities = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<int, MissionCargoReservation> _missionCargo = new();
         // Freight contracts reserve only the ordinary units already present in
         // the hold and keep a target here so future authoritative additions
@@ -74,6 +106,48 @@ namespace Roguelancer
         {
             return new Dictionary<string, int>(_commodities);
         }
+
+        public int GetStolenCommodityQuantity(string commodityName)
+        {
+            return string.IsNullOrWhiteSpace(commodityName) ||
+                !_stolenCommodities.TryGetValue(commodityName, out int quantity)
+                ? 0
+                : Math.Max(0, quantity);
+        }
+
+        public int GetCleanCommodityQuantity(string commodityName)
+        {
+            return Math.Max(0, GetCommodityQuantity(commodityName) - GetStolenCommodityQuantity(commodityName));
+        }
+
+        public int GetMissionReservedStolenQuantity(string commodityName)
+        {
+            if (string.IsNullOrWhiteSpace(commodityName))
+                return 0;
+
+            return (int)Math.Clamp(_missionCargo.Values
+                .Where(reservation => reservation.IsStolen &&
+                    (string.Equals(reservation.CommodityName, commodityName, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(reservation.CommodityId, commodityName, StringComparison.OrdinalIgnoreCase)))
+                .Sum(reservation => (long)Math.Max(0, reservation.Quantity)), 0L, int.MaxValue);
+        }
+
+        public int GetMissionReservedCleanQuantity(string commodityName)
+        {
+            return Math.Max(0, GetMissionReservedQuantity(commodityName) - GetMissionReservedStolenQuantity(commodityName));
+        }
+
+        public int GetSellableStolenCommodityQuantity(string commodityName)
+        {
+            return Math.Max(0, GetStolenCommodityQuantity(commodityName) - GetMissionReservedStolenQuantity(commodityName));
+        }
+
+        public int GetSellableCleanCommodityQuantity(string commodityName)
+        {
+            return Math.Max(0, GetCleanCommodityQuantity(commodityName) - GetMissionReservedCleanQuantity(commodityName));
+        }
+
+        public bool HasStolenCargo() => _stolenCommodities.Values.Any(quantity => quantity > 0);
 
         public IReadOnlyList<MissionCargoReservation> GetMissionCargoReservations()
         {
@@ -139,10 +213,21 @@ namespace Roguelancer
         /// </summary>
         public bool AddCommodity(Commodity commodity, int quantity)
         {
+            return AddCommodity(commodity, quantity, CargoProvenance.Clean);
+        }
+
+        public bool AddStolenCommodity(Commodity commodity, int quantity)
+        {
+            return AddCommodity(commodity, quantity, CargoProvenance.Stolen);
+        }
+
+        public bool AddCommodity(Commodity commodity, int quantity, CargoProvenance provenance)
+        {
             if (commodity == null || string.IsNullOrWhiteSpace(commodity.Name) || quantity <= 0 || !CanFit(commodity, quantity))
                 return false;
 
-            if (_commodities.TryGetValue(commodity.Name, out int currentQuantity))
+            bool hadExisting = _commodities.TryGetValue(commodity.Name, out int currentQuantity);
+            if (hadExisting)
             {
                 if ((long)currentQuantity + quantity > int.MaxValue)
                 {
@@ -157,6 +242,21 @@ namespace Roguelancer
             }
 
             UsedCapacity += commodity.VolumePerUnit * quantity;
+            if (provenance == CargoProvenance.Stolen)
+            {
+                int currentStolen = GetStolenCommodityQuantity(commodity.Name);
+                if ((long)currentStolen + quantity > int.MaxValue)
+                {
+                    if (hadExisting)
+                        _commodities[commodity.Name] = currentQuantity;
+                    else
+                        _commodities.Remove(commodity.Name);
+                    UsedCapacity -= commodity.VolumePerUnit * quantity;
+                    return false;
+                }
+
+                _stolenCommodities[commodity.Name] = currentStolen + quantity;
+            }
             SatisfyMissionReservationTargets(commodity);
             return true;
         }
@@ -168,6 +268,20 @@ namespace Roguelancer
         /// </summary>
         public bool TryAddCommodityPartial(Commodity commodity, int requestedQuantity, out int addedQuantity)
         {
+            return TryAddCommodityPartial(commodity, requestedQuantity, CargoProvenance.Clean, out addedQuantity);
+        }
+
+        public bool TryAddStolenCommodityPartial(Commodity commodity, int requestedQuantity, out int addedQuantity)
+        {
+            return TryAddCommodityPartial(commodity, requestedQuantity, CargoProvenance.Stolen, out addedQuantity);
+        }
+
+        public bool TryAddCommodityPartial(
+            Commodity commodity,
+            int requestedQuantity,
+            CargoProvenance provenance,
+            out int addedQuantity)
+        {
             addedQuantity = 0;
             if (commodity == null || requestedQuantity <= 0 || commodity.VolumePerUnit <= 0)
             {
@@ -176,7 +290,7 @@ namespace Roguelancer
 
             int capacityQuantity = AvailableCapacity / commodity.VolumePerUnit;
             int quantity = Math.Min(requestedQuantity, Math.Max(0, capacityQuantity));
-            if (quantity <= 0 || !AddCommodity(commodity, quantity))
+            if (quantity <= 0 || !AddCommodity(commodity, quantity, provenance))
             {
                 return false;
             }
@@ -191,13 +305,28 @@ namespace Roguelancer
             int requestedQuantity,
             out int addedQuantity)
         {
+            return TryAddMissionCommodityPartial(
+                missionId,
+                commodity,
+                requestedQuantity,
+                CargoProvenance.Clean,
+                out addedQuantity);
+        }
+
+        public bool TryAddMissionCommodityPartial(
+            int missionId,
+            Commodity commodity,
+            int requestedQuantity,
+            CargoProvenance provenance,
+            out int addedQuantity)
+        {
             addedQuantity = 0;
             if (missionId <= 0 || commodity == null || requestedQuantity <= 0 || commodity.VolumePerUnit <= 0)
                 return false;
 
             int capacityQuantity = AvailableCapacity / commodity.VolumePerUnit;
             int quantity = Math.Min(requestedQuantity, Math.Max(0, capacityQuantity));
-            if (quantity <= 0 || !AddMissionCargoQuantity(missionId, commodity, quantity))
+            if (quantity <= 0 || !AddMissionCargoQuantity(missionId, commodity, quantity, provenance))
                 return false;
 
             addedQuantity = quantity;
@@ -293,7 +422,7 @@ namespace Roguelancer
                     continue;
                 }
 
-                int available = Math.Max(0, GetCommodityQuantity(commodity.Name) - GetMissionReservedQuantity(commodity.Name));
+                int available = Math.Max(0, GetCleanCommodityQuantity(commodity.Name) - GetMissionReservedCleanQuantity(commodity.Name));
                 int additional = Math.Min(remaining, available);
                 if (additional <= 0)
                 {
@@ -325,6 +454,11 @@ namespace Roguelancer
         /// </summary>
         public bool AddMissionCargo(int missionId, Commodity commodity, int quantity)
         {
+            return AddMissionCargo(missionId, commodity, quantity, CargoProvenance.Clean);
+        }
+
+        public bool AddMissionCargo(int missionId, Commodity commodity, int quantity, CargoProvenance provenance)
+        {
             if (missionId <= 0 || commodity == null || quantity <= 0 || _missionCargo.ContainsKey(missionId) ||
                 _missionReservationTargets.ContainsKey(missionId) ||
                 !CanFit(commodity, quantity))
@@ -332,7 +466,7 @@ namespace Roguelancer
                 return false;
             }
 
-            if (!AddCommodity(commodity, quantity))
+            if (!AddCommodity(commodity, quantity, provenance))
             {
                 return false;
             }
@@ -343,7 +477,8 @@ namespace Roguelancer
                 CommodityId = commodity.Id ?? string.Empty,
                 CommodityName = commodity.Name ?? string.Empty,
                 Quantity = quantity,
-                VolumePerUnit = commodity.VolumePerUnit
+                VolumePerUnit = commodity.VolumePerUnit,
+                Provenance = provenance
             };
             return true;
         }
@@ -354,6 +489,15 @@ namespace Roguelancer
         /// pickup seam for cargo-interdiction pods; it never bypasses capacity.
         /// </summary>
         public bool AddMissionCargoQuantity(int missionId, Commodity commodity, int quantity)
+        {
+            return AddMissionCargoQuantity(missionId, commodity, quantity, CargoProvenance.Clean);
+        }
+
+        public bool AddMissionCargoQuantity(
+            int missionId,
+            Commodity commodity,
+            int quantity,
+            CargoProvenance provenance)
         {
             if (missionId <= 0 || commodity == null || quantity <= 0 ||
                 string.IsNullOrWhiteSpace(commodity.Id) || string.IsNullOrWhiteSpace(commodity.Name) ||
@@ -370,7 +514,10 @@ namespace Roguelancer
                     return false;
                 }
 
-                if (!AddCommodity(commodity, quantity) ||
+                if (reservation.Provenance != provenance)
+                    return false;
+
+                if (!AddCommodity(commodity, quantity, provenance) ||
                     (long)reservation.Quantity + quantity > int.MaxValue)
                 {
                     if (_commodities.TryGetValue(commodity.Name, out int current) && current >= quantity)
@@ -378,6 +525,7 @@ namespace Roguelancer
                         _commodities[commodity.Name] = current - quantity;
                         if (_commodities[commodity.Name] == 0)
                             _commodities.Remove(commodity.Name);
+                        RemoveStolenQuantity(commodity.Name, provenance == CargoProvenance.Stolen ? quantity : 0);
                         UsedCapacity -= commodity.VolumePerUnit * quantity;
                     }
                     return false;
@@ -388,7 +536,7 @@ namespace Roguelancer
                 return true;
             }
 
-            if (!AddCommodity(commodity, quantity))
+            if (!AddCommodity(commodity, quantity, provenance))
                 return false;
 
             _missionCargo[missionId] = new MissionCargoReservation
@@ -397,7 +545,8 @@ namespace Roguelancer
                 CommodityId = commodity.Id,
                 CommodityName = commodity.Name,
                 Quantity = quantity,
-                VolumePerUnit = commodity.VolumePerUnit
+                VolumePerUnit = commodity.VolumePerUnit,
+                Provenance = provenance
             };
             return true;
         }
@@ -428,6 +577,8 @@ namespace Roguelancer
             {
                 _commodities.Remove(reservation.CommodityName);
             }
+            RemoveStolenQuantity(reservation.CommodityName,
+                reservation.IsStolen ? quantity : 0);
 
             UsedCapacity -= reservation.VolumePerUnit * quantity;
             _missionCargo.Remove(missionId);
@@ -453,6 +604,8 @@ namespace Roguelancer
             _commodities[reservation.CommodityName] = currentQuantity - removable;
             if (_commodities[reservation.CommodityName] == 0)
                 _commodities.Remove(reservation.CommodityName);
+            RemoveStolenQuantity(reservation.CommodityName,
+                reservation.IsStolen ? removable : 0);
             UsedCapacity -= reservation.VolumePerUnit * removable;
             reservation.Quantity -= removable;
             removedQuantity = removable;
@@ -483,7 +636,7 @@ namespace Roguelancer
                 return false;
 
             int currentQuantity = _commodities[commodity.Name];
-            int sellableQuantity = currentQuantity - GetMissionReservedQuantity(commodity.Name);
+            int sellableQuantity = GetSellableCleanCommodityQuantity(commodity.Name);
             if (sellableQuantity < quantity)
                 return false;
 
@@ -494,6 +647,57 @@ namespace Roguelancer
             }
 
             UsedCapacity -= commodity.VolumePerUnit * quantity;
+            return true;
+        }
+
+        /// <summary>
+        /// Removes ordinary, non-reserved cargo for a market transaction. The
+        /// black market prefers stolen units so a legal stolen stack can be
+        /// fenced without consuming clean copies of the same commodity.
+        /// </summary>
+        public bool RemoveSellableCommodity(Commodity commodity, int quantity, bool preferStolen)
+        {
+            if (commodity == null || quantity <= 0)
+                return false;
+
+            int stolen = GetSellableStolenCommodityQuantity(commodity.Name);
+            int clean = GetSellableCleanCommodityQuantity(commodity.Name);
+            if (stolen + clean < quantity)
+                return false;
+
+            int stolenToRemove = preferStolen ? Math.Min(stolen, quantity) : 0;
+            int cleanToRemove = quantity - stolenToRemove;
+            if (cleanToRemove > clean)
+            {
+                stolenToRemove += cleanToRemove - clean;
+                cleanToRemove = clean;
+            }
+
+            if (cleanToRemove > 0 && !RemoveCommodity(commodity, cleanToRemove))
+                return false;
+            if (stolenToRemove > 0 && !RemoveStolenCommodity(commodity, stolenToRemove))
+            {
+                if (cleanToRemove > 0)
+                    AddCommodity(commodity, cleanToRemove);
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool RemoveStolenCommodity(Commodity commodity, int quantity)
+        {
+            if (commodity == null || quantity <= 0 || GetSellableStolenCommodityQuantity(commodity.Name) < quantity)
+                return false;
+
+            if (!_commodities.TryGetValue(commodity.Name, out int currentQuantity) || currentQuantity < quantity)
+                return false;
+
+            _commodities[commodity.Name] = currentQuantity - quantity;
+            if (_commodities[commodity.Name] <= 0)
+                _commodities.Remove(commodity.Name);
+            RemoveStolenQuantity(commodity.Name, quantity);
+            UsedCapacity = Math.Max(0, UsedCapacity - commodity.VolumePerUnit * quantity);
             return true;
         }
 
@@ -526,7 +730,7 @@ namespace Roguelancer
             foreach (KeyValuePair<string, int> entry in normalized)
             {
                 Commodity commodity = CommodityCatalog.GetByName(entry.Key) ?? CommodityCatalog.GetById(entry.Key);
-                if (commodity == null || GetSellableCommodityQuantity(entry.Key) < entry.Value)
+                if (commodity == null || GetSellableCleanCommodityQuantity(entry.Key) < entry.Value)
                 {
                     return false;
                 }
@@ -555,68 +759,41 @@ namespace Roguelancer
         }
 
         /// <summary>
-        /// Removes illegal cargo as a seizure rather than a market/trading
-        /// removal. Unlike RemoveCommodity, this path may remove reserved
-        /// mission units and updates those reservations in the same mutation.
-        /// Legal cargo is never accepted by this API.
+        /// Removes violating cargo as a seizure rather than a market/trading
+        /// removal. Requests are validated before mutation and mission
+        /// reservations are reduced in the same authoritative operation.
         /// </summary>
-        public bool TryConfiscateContraband(
-            IReadOnlyDictionary<string, int> requested,
+        public bool TryConfiscateCargo(
+            IReadOnlyList<CargoConfiscationRequest> requested,
             out IReadOnlyList<MissionCargoConfiscation> missionConfiscations)
         {
             missionConfiscations = Array.Empty<MissionCargoConfiscation>();
             if (requested == null || requested.Count == 0)
                 return false;
 
-            Dictionary<string, int> normalized = new(StringComparer.OrdinalIgnoreCase);
-            foreach (KeyValuePair<string, int> entry in requested)
+            List<(Commodity Commodity, int Quantity, bool StolenOnly)> removals = new();
+            foreach (CargoConfiscationRequest entry in requested)
             {
-                if (string.IsNullOrWhiteSpace(entry.Key) || entry.Value <= 0)
+                if (entry == null || string.IsNullOrWhiteSpace(entry.CommodityId) || entry.Quantity <= 0)
                     return false;
 
-                Commodity commodity = CommodityCatalog.GetByName(entry.Key) ?? CommodityCatalog.GetById(entry.Key);
-                if (commodity?.IsContraband != true || GetCommodityQuantity(commodity.Name) < entry.Value)
+                Commodity commodity = CommodityCatalog.GetByIdOrName(entry.CommodityId);
+                int available = entry.StolenOnly
+                    ? GetStolenCommodityQuantity(commodity?.Name)
+                    : GetCommodityQuantity(commodity?.Name);
+                if (commodity == null || available < entry.Quantity)
                     return false;
 
-                try
-                {
-                    normalized[commodity.Name] = normalized.TryGetValue(commodity.Name, out int existing)
-                        ? checked(existing + entry.Value)
-                        : entry.Value;
-                }
-                catch (OverflowException)
-                {
-                    return false;
-                }
-            }
-
-            // Every validation is complete before any stack or reservation is
-            // mutated, keeping a multi-commodity seizure all-or-nothing.
-            List<(Commodity Commodity, int Quantity)> removals = new();
-            foreach (KeyValuePair<string, int> entry in normalized)
-            {
-                Commodity commodity = CommodityCatalog.GetByName(entry.Key) ?? CommodityCatalog.GetById(entry.Key);
-                if (commodity == null || !commodity.IsContraband ||
-                    !_commodities.TryGetValue(commodity.Name, out int current) || current < entry.Value)
-                {
-                    return false;
-                }
-
-                removals.Add((commodity, entry.Value));
+                removals.Add((commodity, entry.Quantity, entry.StolenOnly));
             }
 
             List<MissionCargoConfiscation> confiscations = new();
-            foreach ((Commodity Commodity, int Quantity) removal in removals)
+            foreach ((Commodity Commodity, int Quantity, bool StolenOnly) removal in removals)
             {
-                if (!_commodities.TryGetValue(removal.Commodity.Name, out int currentQuantity) ||
-                    currentQuantity < removal.Quantity)
-                {
-                    return false;
-                }
-
                 int remainingToRemove = removal.Quantity;
                 foreach (MissionCargoReservation reservation in _missionCargo.Values
                              .Where(candidate => candidate != null &&
+                                 (!removal.StolenOnly || candidate.IsStolen) &&
                                  (string.Equals(candidate.CommodityId, removal.Commodity.Id, StringComparison.OrdinalIgnoreCase) ||
                                   string.Equals(candidate.CommodityName, removal.Commodity.Name, StringComparison.OrdinalIgnoreCase)))
                              .OrderBy(candidate => candidate.MissionId)
@@ -631,6 +808,8 @@ namespace Roguelancer
 
                     reservation.Quantity -= reservedRemoval;
                     remainingToRemove -= reservedRemoval;
+                    RemoveStolenQuantity(removal.Commodity.Name,
+                        reservation.IsStolen ? reservedRemoval : 0);
                     confiscations.Add(new MissionCargoConfiscation
                     {
                         MissionId = reservation.MissionId,
@@ -645,6 +824,25 @@ namespace Roguelancer
                     }
                 }
 
+                if (remainingToRemove > 0)
+                {
+                    if (removal.StolenOnly)
+                    {
+                        RemoveStolenQuantity(removal.Commodity.Name, remainingToRemove);
+                    }
+                    else
+                    {
+                        // Contraband is a commodity-level violation. Prefer
+                        // stolen units when both provenance categories exist,
+                        // then remove clean units; the quantity is counted once.
+                        int stolenRemoved = Math.Min(GetStolenCommodityQuantity(removal.Commodity.Name), remainingToRemove);
+                        RemoveStolenQuantity(removal.Commodity.Name, stolenRemoved);
+                    }
+                }
+
+                if (!_commodities.TryGetValue(removal.Commodity.Name, out int currentQuantity) ||
+                    currentQuantity < removal.Quantity)
+                    return false;
                 _commodities[removal.Commodity.Name] = currentQuantity - removal.Quantity;
                 if (_commodities[removal.Commodity.Name] <= 0)
                     _commodities.Remove(removal.Commodity.Name);
@@ -655,6 +853,25 @@ namespace Roguelancer
 
             missionConfiscations = confiscations;
             return true;
+        }
+
+        public bool TryConfiscateContraband(
+            IReadOnlyDictionary<string, int> requested,
+            out IReadOnlyList<MissionCargoConfiscation> missionConfiscations)
+        {
+            missionConfiscations = Array.Empty<MissionCargoConfiscation>();
+            if (requested == null || requested.Count == 0)
+                return false;
+
+            List<CargoConfiscationRequest> requests = requested.Select(entry => new CargoConfiscationRequest
+            {
+                CommodityId = entry.Key,
+                Quantity = entry.Value,
+                StolenOnly = false
+            }).ToList();
+            if (requests.Any(request => CommodityCatalog.GetByIdOrName(request.CommodityId)?.IsContraband != true))
+                return false;
+            return TryConfiscateCargo(requests, out missionConfiscations);
         }
 
         /// <summary>
@@ -672,7 +889,7 @@ namespace Roguelancer
                     continue;
                 }
 
-                if (RemoveCommodity(commodity, entry.Value))
+                if (RemoveSellableCommodity(commodity, entry.Value, preferStolen: true))
                 {
                     removed[commodity.Id ?? commodity.Name] = entry.Value;
                 }
@@ -687,6 +904,7 @@ namespace Roguelancer
         public void Clear()
         {
             _commodities.Clear();
+            _stolenCommodities.Clear();
             _missionCargo.Clear();
             _missionReservationTargets.Clear();
             UsedCapacity = 0;
@@ -718,15 +936,21 @@ namespace Roguelancer
                 return false;
 
             // Transfer ordinary cargo first, excluding quantities already
-            // reserved by missions. Then copy the reservations through the
-            // mission-aware API so they remain protected after transfer.
+            // reserved by missions. Provenance stays attached to each bounded
+            // aggregate, then reservations are copied through the mission API.
             foreach (var kvp in _commodities)
             {
                 var commodity = commodityRegistry.FirstOrDefault(c => c.Key.Name == kvp.Key).Key;
                 if (commodity != null)
                 {
-                    int ordinaryQuantity = Math.Max(0, kvp.Value - GetMissionReservedQuantity(kvp.Key));
-                    if (ordinaryQuantity > 0 && !newCargoHold.AddCommodity(commodity, ordinaryQuantity))
+                    int ordinaryClean = GetSellableCleanCommodityQuantity(kvp.Key);
+                    int ordinaryStolen = GetSellableStolenCommodityQuantity(kvp.Key);
+                    if (ordinaryClean > 0 && !newCargoHold.AddCommodity(commodity, ordinaryClean))
+                    {
+                        return false;
+                    }
+
+                    if (ordinaryStolen > 0 && !newCargoHold.AddStolenCommodity(commodity, ordinaryStolen))
                     {
                         return false;
                     }
@@ -738,7 +962,11 @@ namespace Roguelancer
                 Commodity commodity = commodityRegistry.Keys.FirstOrDefault(candidate =>
                     string.Equals(candidate.Id, reservation.CommodityId, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(candidate.Name, reservation.CommodityName, StringComparison.OrdinalIgnoreCase));
-                if (commodity == null || !newCargoHold.AddMissionCargo(reservation.MissionId, commodity, reservation.Quantity))
+                if (commodity == null || !newCargoHold.AddMissionCargo(
+                        reservation.MissionId,
+                        commodity,
+                        reservation.Quantity,
+                        reservation.Provenance))
                 {
                     return false;
                 }
@@ -781,6 +1009,19 @@ namespace Roguelancer
         public void SetMaxCapacity(int newMaxCapacity)
         {
             MaxCapacity = Math.Max(0, newMaxCapacity);
+        }
+
+        private void RemoveStolenQuantity(string commodityName, int quantity)
+        {
+            if (quantity <= 0 || string.IsNullOrWhiteSpace(commodityName) ||
+                !_stolenCommodities.TryGetValue(commodityName, out int current))
+                return;
+
+            int remaining = current - quantity;
+            if (remaining > 0)
+                _stolenCommodities[commodityName] = remaining;
+            else
+                _stolenCommodities.Remove(commodityName);
         }
     }
 }

@@ -303,7 +303,7 @@ namespace Roguelancer
             LastJettisonedQuantity = removed;
             log?.Invoke($"[POLICE SCAN] Jettisoned {removed} contraband units into {podCount} physical pod(s).");
             notificationManager?.ShowMessage($"Contraband jettisoned: {removed} units", 2f);
-            if (State == PoliceScanState.ContrabandDetected && !HasContraband(playerShip.CargoHold))
+            if (State == PoliceScanState.ContrabandDetected && !HasPoliceViolation(playerShip.CargoHold))
             {
                 notificationManager?.ShowMessage("Cargo dumped — Police demand remains active", 2f);
                 log?.Invoke("[POLICE SCAN] Post-detection jettison did not clear the enforcement demand.");
@@ -316,7 +316,7 @@ namespace Roguelancer
             // Legacy callers do not have a loot authority. Keep the old seam
             // non-destructive to mission cargo and report that physical pods
             // are required for gameplay jettison.
-            if (playerShip?.CargoHold == null || !HasContraband(playerShip.CargoHold))
+            if (playerShip?.CargoHold == null || !HasPoliceViolation(playerShip.CargoHold))
                 return false;
             notificationManager?.ShowMessage("Jettison requires the physical cargo-pod system", 2f);
             log?.Invoke("[POLICE SCAN] Jettison rejected: no LootManager authority was supplied.");
@@ -347,7 +347,7 @@ namespace Roguelancer
             _scanTimer = 0f;
             _cooldownTimer = RetryCooldownSeconds;
 
-            if (!_enforcementOffer.HasContraband)
+            if (!_enforcementOffer.HasViolation)
             {
                 State = PoliceScanState.Cleared;
                 _resultTimer = ResultHoldSeconds;
@@ -362,8 +362,8 @@ namespace Roguelancer
             DetectionCount++;
             if (_missionManager?.ActiveMission?.Type == MissionType.ContrabandSmuggling)
                 _missionManager.ActiveMission.SmugglingPoliceDetected = true;
-            notificationManager?.ShowMessage("Contraband confirmed. Surrender your cargo and pay the assessed fine.", 4f);
-            log?.Invoke($"[POLICE SCAN] Contraband detected: {_enforcementOffer.TotalContrabandQuantity} units; enforcement demand opened for {_enforcementOffer.FineAmount:N0} CR.");
+            notificationManager?.ShowMessage("Illegal property confirmed. Surrender the cargo and pay the assessed fine.", 4f);
+            log?.Invoke($"[POLICE SCAN] Violation detected: {_enforcementOffer.TotalViolationQuantity} units; enforcement demand opened for {_enforcementOffer.FineAmount:N0} CR.");
         }
 
         private void CancelScan(
@@ -469,12 +469,12 @@ namespace Roguelancer
         private string BuildDemandStatusText()
         {
             if (_enforcementOffer == null)
-                return "LIBERTY POLICE — CONTRABAND VIOLATION";
+                return "LIBERTY POLICE — CARGO VIOLATION";
 
             string affordability = _enforcementOffer.CanAffordFine
                 ? string.Empty
                 : " | Insufficient credits to comply";
-            return $"LIBERTY POLICE — CONTRABAND VIOLATION | Surrender illegal cargo and pay {_enforcementOffer.FineAmount:N0} CR | [{EnforcementComplyKey}] Comply [{EnforcementRefuseKey}] Refuse {EnforcementDemandRemainingSeconds:0.0}s{affordability}";
+            return $"LIBERTY POLICE — CARGO VIOLATION | Surrender illegal cargo and pay {_enforcementOffer.FineAmount:N0} CR | [{EnforcementComplyKey}] Comply [{EnforcementRefuseKey}] Refuse {EnforcementDemandRemainingSeconds:0.0}s{affordability}";
         }
 
         private bool IsScannerValid(Ship playerShip, ReputationManager reputationManager)
@@ -542,7 +542,7 @@ namespace Roguelancer
             }
         }
 
-        private static bool HasContraband(CargoHold cargoHold)
+        private static bool HasPoliceViolation(CargoHold cargoHold)
         {
             if (cargoHold == null)
                 return false;
@@ -550,7 +550,8 @@ namespace Roguelancer
             foreach (KeyValuePair<string, int> entry in cargoHold.GetAllCommodities())
             {
                 Commodity commodity = CommodityCatalog.GetByIdOrName(entry.Key);
-                if (commodity?.IsContraband == true && entry.Value > 0)
+                if (entry.Value > 0 && (commodity?.IsContraband == true ||
+                    cargoHold.GetStolenCommodityQuantity(entry.Key) > 0))
                     return true;
             }
 

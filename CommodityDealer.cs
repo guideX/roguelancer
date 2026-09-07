@@ -12,6 +12,7 @@ namespace Roguelancer
         private readonly MarketManager _marketManager;
         private MarketIntelligence _marketIntelligence;
         private Station _currentStation;
+        private CargoHold _currentCargoHold;
         private ReputationManager _reputationManager;
         private MarketSurface _marketSurface = MarketSurface.Ordinary;
 
@@ -49,6 +50,11 @@ namespace Roguelancer
         public void SetReputationManager(ReputationManager reputationManager)
         {
             _reputationManager = reputationManager;
+        }
+
+        public void SetPlayerCargoHold(CargoHold cargoHold)
+        {
+            _currentCargoHold = cargoHold;
         }
 
         /// <summary>
@@ -95,6 +101,7 @@ namespace Roguelancer
             }
 
             _currentStation = null;
+            _currentCargoHold = null;
             _marketSurface = MarketSurface.Ordinary;
             _marketIntelligence?.ClearCurrentStation();
         }
@@ -159,12 +166,31 @@ namespace Roguelancer
                 return Array.Empty<StationMarketListing>();
             }
 
-            if (_currentStation == null)
+            List<StationMarketListing> listings = _currentStation == null
+                ? _marketManager.GetListingsForStation(null, _marketSurface)
+                : _marketManager.GetListingsForStation(_currentStation, _marketSurface);
+
+            if (!IsBlackMarketOpen || _currentCargoHold == null || _currentStation == null)
+                return listings;
+
+            HashSet<string> listedIds = listings
+                .Where(listing => listing?.Commodity != null)
+                .Select(listing => listing.Commodity.Id)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, int> entry in _currentCargoHold.GetAllCommodities())
             {
-                return _marketManager.GetListingsForStation(null, _marketSurface);
+                Commodity commodity = CommodityCatalog.GetByIdOrName(entry.Key);
+                if (commodity == null || commodity.IsContraband ||
+                    _currentCargoHold.GetSellableStolenCommodityQuantity(commodity.Name) <= 0 ||
+                    !listedIds.Add(commodity.Id))
+                    continue;
+
+                StationMarketListing fence = _marketManager.GetFenceListing(_currentStation, commodity);
+                if (fence != null)
+                    listings.Add(fence);
             }
 
-            return _marketManager.GetListingsForStation(_currentStation, _marketSurface);
+            return listings;
         }
 
         public StationMarketListing GetListingByIndex(int index)
@@ -234,6 +260,7 @@ namespace Roguelancer
 
         public bool TryBuyCommodity(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold, out string message)
         {
+            _currentCargoHold = cargoHold;
             if (!IsBlackMarketOpen && commodity?.IsContraband == true)
             {
                 message = "Ordinary commodity dealers will not handle contraband.";
@@ -276,6 +303,14 @@ namespace Roguelancer
 
         public bool TrySellCommodity(Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold, out string message)
         {
+            _currentCargoHold = cargoHold;
+
+            if (IsBlackMarketOpen && commodity != null && !commodity.IsContraband &&
+                cargoHold?.GetSellableStolenCommodityQuantity(commodity.Name) >= quantity)
+            {
+                return TryFenceStolenCommodity(commodity, quantity, credits, cargoHold, out message);
+            }
+
             if (!IsBlackMarketOpen && commodity?.IsContraband == true)
             {
                 message = "Ordinary commodity dealers will not handle contraband.";
@@ -441,11 +476,13 @@ namespace Roguelancer
             }
 
             int ownedQuantity = cargoHold.GetCommodityQuantity(listing.Commodity.Name);
-            int sellableQuantity = cargoHold.GetSellableCommodityQuantity(listing.Commodity.Name);
+            int sellableQuantity = cargoHold.GetSellableCleanCommodityQuantity(listing.Commodity.Name);
             if (sellableQuantity < quantity)
             {
                 message = ownedQuantity > sellableQuantity
-                    ? "Mission cargo cannot be sold."
+                    ? cargoHold.GetStolenCommodityQuantity(listing.Commodity.Name) > 0
+                        ? "Stolen property cannot be sold to a lawful dealer."
+                        : "Mission cargo cannot be sold."
                     : "You do not own enough quantity to sell.";
                 return false;
             }
@@ -474,6 +511,58 @@ namespace Roguelancer
 
             credits.AddCredits(totalValue);
             message = $"Sold {quantity} {listing.Commodity.Name} for {totalValue:N0} CR.";
+            return true;
+        }
+
+        private bool TryFenceStolenCommodity(
+            Commodity commodity,
+            int quantity,
+            PlayerCredits credits,
+            CargoHold cargoHold,
+            out string message)
+        {
+            message = string.Empty;
+            if (commodity == null || credits == null || cargoHold == null || quantity <= 0)
+            {
+                message = "Invalid fence transaction.";
+                return false;
+            }
+
+            FactionAccessResult access = CurrentBlackMarketAccess;
+            if (!access.IsAllowed)
+            {
+                message = access.BuildFailureMessage("Black Market");
+                return false;
+            }
+
+            StationMarketListing listing = _marketManager.GetFenceListing(_currentStation, commodity);
+            int sellable = cargoHold.GetSellableStolenCommodityQuantity(commodity.Name);
+            if (listing == null || sellable < quantity)
+            {
+                message = sellable <= 0
+                    ? "No fenceable stolen quantity remains."
+                    : "You do not own enough fenceable stolen quantity.";
+                return false;
+            }
+
+            if ((long)listing.SellPrice * quantity > int.MaxValue ||
+                (long)credits.Credits + (long)listing.SellPrice * quantity > int.MaxValue)
+            {
+                message = "Sale total is invalid.";
+                return false;
+            }
+
+            int totalValue = listing.SellPrice * quantity;
+            if (!cargoHold.RemoveStolenCommodity(commodity, quantity))
+            {
+                message = "Stolen cargo removal failed.";
+                return false;
+            }
+
+            credits.AddCredits(totalValue);
+            message = $"Fenced {quantity} {commodity.Name} for {totalValue:N0} CR.";
+            PublishTransaction(commodity, quantity, listing.SellPrice, isPurchase: false);
+            LogMarketResult(true, message);
             return true;
         }
 

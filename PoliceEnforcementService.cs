@@ -30,6 +30,13 @@ public sealed class ContrabandFinding
     public int Quantity { get; init; }
     public int UnitValue { get; init; }
     public long TotalValue { get; init; }
+    public bool IsContraband { get; init; }
+    public bool IsStolen { get; init; }
+    public string ViolationType => IsContraband && IsStolen
+        ? "contraband and stolen"
+        : IsContraband
+            ? "contraband"
+            : "stolen goods";
 }
 
 /// <summary>
@@ -40,11 +47,15 @@ public sealed class PoliceEnforcementOffer
 {
     public bool IsInspectionApplicable { get; init; }
     public bool HasContraband { get; init; }
+    public bool HasStolenGoods { get; init; }
+    public bool HasViolation => HasContraband || HasStolenGoods;
     public string PolicingFactionId { get; init; } = FactionManager.NeutralCivilians;
     public string PolicingFactionDisplayName { get; init; } = string.Empty;
     public IReadOnlyList<ContrabandFinding> Contraband { get; init; } = Array.Empty<ContrabandFinding>();
     public int TotalContrabandQuantity { get; init; }
     public long TotalContrabandValue { get; init; }
+    public int TotalViolationQuantity { get; init; }
+    public long TotalViolationValue { get; init; }
     public int FineAmount { get; init; }
     public bool CanAffordFine { get; init; }
     public IReadOnlyList<PoliceEnforcementResolution> AvailableResolutions { get; init; } = Array.Empty<PoliceEnforcementResolution>();
@@ -107,7 +118,8 @@ public sealed class PoliceEnforcementResult
 public sealed class PoliceEnforcementService
 {
     public const string InitialPolicingFactionId = FactionManager.LibertyPolice;
-    // Phase 53 economy policy: 500 CR base plus 25% of canonical base value,
+    // Phase 53/57 economy policy: 500 CR base plus 25% of the canonical value
+    // of each detected violating quantity (contraband + stolen, counted once),
     // rounded up and clamped to [500, 10,000].
     public const int BaseFineCredits = 500;
     public const int MinimumFineCredits = 500;
@@ -136,34 +148,39 @@ public sealed class PoliceEnforcementService
         string normalizedFactionId = FactionManager.NormalizeFactionId(policingFactionId);
         bool applicable = IsPolicingFaction(normalizedFactionId);
         List<ContrabandFinding> findings = applicable
-            ? FindContraband(cargoHold)
+            ? FindViolations(cargoHold)
             : new List<ContrabandFinding>();
         long totalValue = findings.Aggregate(0L, (sum, finding) => SaturatingAdd(sum, finding.TotalValue));
-        bool hasContraband = findings.Count > 0;
-        int fine = hasContraband ? CalculateFine(totalValue) : 0;
-        bool canAfford = hasContraband && credits?.CanAfford(fine) == true;
+        bool hasViolation = findings.Count > 0;
+        bool hasContraband = findings.Any(finding => finding.IsContraband);
+        bool hasStolen = findings.Any(finding => finding.IsStolen);
+        int fine = hasViolation ? CalculateFine(totalValue) : 0;
+        bool canAfford = hasViolation && credits?.CanAfford(fine) == true;
 
         return new PoliceEnforcementOffer
         {
             IsInspectionApplicable = applicable,
             HasContraband = hasContraband,
+            HasStolenGoods = hasStolen,
             PolicingFactionId = normalizedFactionId,
             PolicingFactionDisplayName = FactionManager.GetFactionDisplayName(normalizedFactionId),
             Contraband = findings,
             TotalContrabandQuantity = findings.Sum(finding => finding.Quantity),
             TotalContrabandValue = totalValue,
+            TotalViolationQuantity = findings.Sum(finding => finding.Quantity),
+            TotalViolationValue = totalValue,
             FineAmount = fine,
             CanAffordFine = canAfford,
-            AvailableResolutions = hasContraband
+            AvailableResolutions = hasViolation
                 ? canAfford
                     ? new[] { PoliceEnforcementResolution.Comply, PoliceEnforcementResolution.Refuse }
                     : new[] { PoliceEnforcementResolution.Refuse }
                 : Array.Empty<PoliceEnforcementResolution>(),
             Summary = !applicable
                 ? "Inspection not applicable."
-                : !hasContraband
+                : !hasViolation
                     ? $"{FactionManager.GetFactionDisplayName(normalizedFactionId)} inspection: cargo clean"
-                    : $"{FactionManager.GetFactionDisplayName(normalizedFactionId)} inspection: contraband detected"
+                    : $"{FactionManager.GetFactionDisplayName(normalizedFactionId)} inspection: {string.Join(", ", findings.Select(finding => finding.ViolationType).Distinct(StringComparer.OrdinalIgnoreCase))} detected"
         };
     }
 
@@ -202,7 +219,8 @@ public sealed class PoliceEnforcementService
         }
 
         PoliceEnforcementOffer current = Evaluate(offered.PolicingFactionId, cargoHold, credits);
-        if (!current.IsInspectionApplicable || !offered.IsInspectionApplicable || !offered.HasContraband ||
+        if (!current.IsInspectionApplicable || !offered.IsInspectionApplicable ||
+            (!offered.HasContraband && !offered.HasStolenGoods) ||
             !offered.MatchesSnapshot(current))
         {
             failureReason = "enforcement offer is no longer valid";
@@ -235,13 +253,17 @@ public sealed class PoliceEnforcementService
             return false;
         }
 
-        Dictionary<string, int> confiscation = current.Contraband.ToDictionary(
-            finding => finding.CargoKey,
-            finding => finding.Quantity,
-            StringComparer.OrdinalIgnoreCase);
+        List<CargoConfiscationRequest> confiscation = current.Contraband
+            .Select(finding => new CargoConfiscationRequest
+            {
+                CommodityId = finding.CommodityId,
+                Quantity = finding.Quantity,
+                StolenOnly = finding.IsStolen && !finding.IsContraband
+            })
+            .ToList();
 
         IReadOnlyList<MissionCargoConfiscation> missionConfiscations = Array.Empty<MissionCargoConfiscation>();
-        if (confiscation.Count > 0 && !cargoHold.TryConfiscateContraband(confiscation, out missionConfiscations))
+        if (confiscation.Count > 0 && !cargoHold.TryConfiscateCargo(confiscation, out missionConfiscations))
         {
             failureReason = "contraband could not be confiscated";
             return false;
@@ -264,7 +286,7 @@ public sealed class PoliceEnforcementService
             offered.FineAmount,
             reputationChange,
             temporaryHostilityStarted: false,
-            $"Surrendered contraband and paid fine: {offered.FineAmount:N0} credits",
+            $"Surrendered illegal cargo and paid fine: {offered.FineAmount:N0} credits",
             missionConfiscations,
             current.Contraband);
         return true;
@@ -308,7 +330,7 @@ public sealed class PoliceEnforcementService
             : reputationManager.AdjustReputationDirect(factionId, reputationPenalty, reason);
     }
 
-    private static List<ContrabandFinding> FindContraband(CargoHold? cargoHold)
+    private static List<ContrabandFinding> FindViolations(CargoHold? cargoHold)
     {
         if (cargoHold == null)
         {
@@ -323,18 +345,25 @@ public sealed class PoliceEnforcementService
                 // reserved for an active contract. Market sale protection is a
                 // separate CargoHold concern; it must not hide contraband from
                 // an authoritative scan.
-                int quantity = commodity == null
-                    ? 0
-                    : Math.Max(0, entry.Value);
-                return commodity?.IsContraband == true && quantity > 0
+                if (commodity == null)
+                    return null;
+
+                int quantity = Math.Max(0, entry.Value);
+                int stolenQuantity = cargoHold.GetStolenCommodityQuantity(commodity.Name);
+                bool isContraband = commodity?.IsContraband == true;
+                bool isStolen = stolenQuantity > 0;
+                int violatingQuantity = isContraband ? quantity : stolenQuantity;
+                return (isContraband || isStolen) && violatingQuantity > 0
                     ? new ContrabandFinding
                     {
                         CargoKey = entry.Key,
                         CommodityId = commodity.Id ?? string.Empty,
                         CommodityName = commodity.Name ?? string.Empty,
-                        Quantity = quantity,
+                        Quantity = violatingQuantity,
                         UnitValue = Math.Max(0, commodity.BasePrice),
-                        TotalValue = SaturatingProduct(Math.Max(0, commodity.BasePrice), quantity)
+                        TotalValue = SaturatingProduct(Math.Max(0, commodity.BasePrice), violatingQuantity),
+                        IsContraband = isContraband,
+                        IsStolen = isStolen
                     }
                     : null;
             })

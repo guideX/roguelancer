@@ -298,6 +298,22 @@ namespace Roguelancer
             return GetListingsForStation(station, MarketSurface.BlackMarket);
         }
 
+        /// <summary>
+        /// Returns a sink-only fence quote for a legal commodity that is
+        /// currently stolen. It is derived from the local clean-market sell
+        /// quote and is never added to canonical black-market stock.
+        /// </summary>
+        public StationMarketListing GetFenceListing(Station station, Commodity commodity)
+        {
+            StationMarketListing cleanListing = GetListingForCommodity(station, commodity, MarketSurface.Ordinary);
+            if (cleanListing?.Commodity == null || cleanListing.Commodity.IsContraband ||
+                !cleanListing.IsAvailable || cleanListing.SellPrice <= 0)
+                return null;
+
+            int fencePrice = Math.Max(1, (int)Math.Floor(cleanListing.SellPrice * 0.60m));
+            return new StationMarketListing(cleanListing.Commodity, 0, fencePrice, 1, 0, true);
+        }
+
         public StationMarketListing GetListingForCommodity(
             Station station,
             Commodity commodity,
@@ -522,11 +538,17 @@ namespace Roguelancer
             }
 
             int ownedQuantity = cargoHold.GetCommodityQuantity(marketCommodity.Name);
-            int sellableQuantity = cargoHold.GetSellableCommodityQuantity(marketCommodity.Name);
+            int sellableQuantity = surface == MarketSurface.BlackMarket
+                ? cargoHold.GetSellableCommodityQuantity(marketCommodity.Name)
+                : cargoHold.GetSellableCleanCommodityQuantity(marketCommodity.Name);
             if (sellableQuantity < quantity)
             {
-                message = ownedQuantity > sellableQuantity
-                    ? "Mission cargo cannot be sold."
+                int stolenQuantity = cargoHold.GetStolenCommodityQuantity(marketCommodity.Name);
+                int cleanSellable = cargoHold.GetSellableCleanCommodityQuantity(marketCommodity.Name);
+                message = ownedQuantity > sellableQuantity && stolenQuantity > 0 && surface != MarketSurface.BlackMarket
+                    ? $"{stolenQuantity:N0} units flagged as stolen property cannot be sold to a lawful dealer."
+                    : ownedQuantity > sellableQuantity
+                        ? "Mission cargo cannot be sold."
                     : "You do not own enough quantity to sell.";
                 return false;
             }
@@ -549,11 +571,16 @@ namespace Roguelancer
                 return false;
             }
 
-            if (!cargoHold.RemoveCommodity(marketCommodity, quantity))
+            if (!cargoHold.RemoveSellableCommodity(
+                    marketCommodity,
+                    quantity,
+                    preferStolen: surface == MarketSurface.BlackMarket))
             {
-                message = cargoHold.GetMissionReservedQuantity(marketCommodity.Name) > 0
-                    ? "Mission cargo cannot be sold."
-                    : "Cargo removal failed.";
+                message = surface != MarketSurface.BlackMarket && cargoHold.GetStolenCommodityQuantity(marketCommodity.Name) > 0
+                    ? "Stolen property cannot be sold to a lawful dealer."
+                    : cargoHold.GetMissionReservedQuantity(marketCommodity.Name) > 0
+                        ? "Mission cargo cannot be sold."
+                        : "Cargo removal failed.";
                 return false;
             }
 

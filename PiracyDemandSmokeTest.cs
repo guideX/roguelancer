@@ -358,7 +358,7 @@ internal sealed class PiracyDemandSmokeTest
         c.Trader.ApplyDamage(55f, NpcDestructionSource.Unknown);
         c.Demand.TryIssueDemand(c.Player, c.Trader, out _);
         c.Advance();
-        return Check(c.Loot.ActivePods.Count > 0, "compliance did not create physical pods");
+        return Check(c.Loot.ActivePods.Count > 0 && c.Loot.ActivePods.All(pod => pod.IsStolen), "compliance did not create stolen physical pods");
     }
 
     private static (bool, string) ComplianceDoesNotInsertPlayerCargo()
@@ -378,7 +378,7 @@ internal sealed class PiracyDemandSmokeTest
         c.Demand.TryIssueDemand(c.Player, c.Trader, out _);
         c.Advance();
         CargoPod pod = c.Loot.ActivePods.FirstOrDefault();
-        return Check(pod != null && pod.Quantity > 0 && pod.GetCommodity() == CommodityCatalog.GetById(pod.CommodityId) && pod.SourceNpcName == c.Trader.Name, "pod payload was not canonical and attributed");
+        return Check(pod != null && pod.IsStolen && pod.Quantity > 0 && pod.GetCommodity() == CommodityCatalog.GetById(pod.CommodityId) && pod.SourceNpcName == c.Trader.Name, "pod payload was not canonical, stolen, and attributed");
     }
 
     private static (bool, string) LootBoundRemainsRespected()
@@ -421,7 +421,7 @@ internal sealed class PiracyDemandSmokeTest
         pod.Velocity = Vector3.Zero;
         c.Player.Position = pod.Position;
         c.Loot.Update(new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(0.1)), c.Player, false);
-        return Check(!c.Loot.ActivePods.Contains(pod) && c.Player.CargoHold.GetCommodityQuantity(commodityName) == quantity && c.Player.CargoHold.GetMissionReservedQuantity(commodityName) == 0, "pickup did not become ordinary cargo");
+        return Check(!c.Loot.ActivePods.Contains(pod) && c.Player.CargoHold.GetCommodityQuantity(commodityName) == quantity && c.Player.CargoHold.GetStolenCommodityQuantity(commodityName) == quantity && c.Player.CargoHold.GetMissionReservedQuantity(commodityName) == 0, "pickup did not preserve stolen ordinary cargo");
     }
 
     private static (bool, string) RefusalRetainsManifest()

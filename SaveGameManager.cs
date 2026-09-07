@@ -293,9 +293,12 @@ namespace Roguelancer
                     continue;
                 }
 
+                CargoProvenance provenance = item.IsStolen
+                    ? CargoProvenance.Stolen
+                    : CargoProvenance.Clean;
                 bool added = item.MissionBound || item.MissionId > 0
-                    ? cargoHold.AddMissionCargo(item.MissionId, commodity, item.Quantity)
-                    : cargoHold.AddCommodity(commodity, item.Quantity);
+                    ? cargoHold.AddMissionCargo(item.MissionId, commodity, item.Quantity, provenance)
+                    : cargoHold.AddCommodity(commodity, item.Quantity, provenance);
                 if (!added)
                 {
                     warnings.Add(item.MissionBound || item.MissionId > 0
@@ -474,18 +477,28 @@ namespace Roguelancer
 
             foreach (var kvp in cargoHold.GetAllCommodities())
             {
-                int ordinaryQuantity = kvp.Value - cargoHold.GetMissionReservedQuantity(kvp.Key);
-                if (ordinaryQuantity <= 0)
+                Commodity commodity = CommodityCatalog.GetByName(kvp.Key) ?? CommodityCatalog.GetById(kvp.Key);
+                int cleanQuantity = cargoHold.GetSellableCleanCommodityQuantity(kvp.Key);
+                if (cleanQuantity > 0)
                 {
-                    continue;
+                    result.Add(new SaveCargoItemData
+                    {
+                        CommodityId = commodity?.Id ?? kvp.Key,
+                        Quantity = cleanQuantity,
+                        IsStolen = false
+                    });
                 }
 
-                Commodity commodity = CommodityCatalog.GetByName(kvp.Key) ?? CommodityCatalog.GetById(kvp.Key);
-                result.Add(new SaveCargoItemData
+                int stolenQuantity = cargoHold.GetSellableStolenCommodityQuantity(kvp.Key);
+                if (stolenQuantity > 0)
                 {
-                    CommodityId = commodity?.Id ?? kvp.Key,
-                    Quantity = ordinaryQuantity
-                });
+                    result.Add(new SaveCargoItemData
+                    {
+                        CommodityId = commodity?.Id ?? kvp.Key,
+                        Quantity = stolenQuantity,
+                        IsStolen = true
+                    });
+                }
             }
 
             foreach (MissionCargoReservation reservation in cargoHold.GetMissionCargoReservations())
@@ -500,7 +513,8 @@ namespace Roguelancer
                     CommodityId = reservation.CommodityId ?? reservation.CommodityName,
                     Quantity = reservation.Quantity,
                     MissionId = reservation.MissionId,
-                    MissionBound = true
+                    MissionBound = true,
+                    IsStolen = reservation.IsStolen
                 });
             }
 

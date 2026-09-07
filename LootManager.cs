@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Roguelancer
 {
@@ -100,6 +101,7 @@ namespace Roguelancer
                     MissionCargoSourceIndex = pod.MissionCargoSourceIndex,
                     CommodityId = pod.CommodityId,
                     Quantity = Math.Clamp(pod.Quantity, 1, 40),
+                    IsStolen = pod.IsStolen,
                     AgeSeconds = MathHelper.Clamp(pod.AgeSeconds, 0f, pod.LifetimeSeconds),
                     Position = SaveVector3Data.From(pod.Position),
                     Velocity = SaveVector3Data.From(pod.Velocity),
@@ -149,6 +151,7 @@ namespace Roguelancer
                     continue;
 
                 pod.SetMissionCargoAttribution(data.MissionId, data.MissionCargoSourceIndex, data.SourceNpcName);
+                pod.SetStolenProvenance(data.IsStolen);
                 pod.RestoreAge(age);
                 _activePods.Add(pod);
                 restored++;
@@ -167,6 +170,72 @@ namespace Roguelancer
                 if (pod?.MissionId == missionId)
                     pod.ClearMissionCargoAttribution();
             }
+        }
+
+        /// <summary>
+        /// Captures every durable commodity pod. Existing mission-only save
+        /// callers remain supported; this broader seam lets stolen extortion
+        /// pods preserve provenance across a normal save/load.
+        /// </summary>
+        public List<SaveCargoPodData> CaptureCargoPods()
+        {
+            return _activePods
+                .Where(pod => pod != null && !pod.IsDepleted && !pod.IsExpired &&
+                    !string.IsNullOrWhiteSpace(pod.CommodityId) &&
+                    TradeLaneStateSanitizer.IsFinite(pod.Position) &&
+                    TradeLaneStateSanitizer.IsFinite(pod.Velocity))
+                .Select(pod => new SaveCargoPodData
+                {
+                    MissionId = pod.MissionId,
+                    MissionCargoSourceIndex = pod.MissionCargoSourceIndex,
+                    CommodityId = pod.CommodityId,
+                    Quantity = Math.Clamp(pod.Quantity, 1, 40),
+                    IsStolen = pod.IsStolen,
+                    AgeSeconds = MathHelper.Clamp(pod.AgeSeconds, 0f, pod.LifetimeSeconds),
+                    Position = SaveVector3Data.From(pod.Position),
+                    Velocity = SaveVector3Data.From(pod.Velocity),
+                    SourceNpcName = pod.SourceNpcName ?? string.Empty
+                })
+                .ToList();
+        }
+
+        public int RestoreCargoPods(
+            IEnumerable<SaveCargoPodData> savedPods,
+            Func<int, bool> missionActivePredicate = null)
+        {
+            if (savedPods == null)
+                return 0;
+
+            int restored = 0;
+            foreach (SaveCargoPodData data in savedPods)
+            {
+                if (data == null || data.Quantity <= 0 || string.IsNullOrWhiteSpace(data.CommodityId) ||
+                    (data.MissionId > 0 && missionActivePredicate != null && !missionActivePredicate(data.MissionId)))
+                    continue;
+
+                Commodity commodity = CommodityCatalog.GetById(data.CommodityId);
+                Vector3 position = data.Position?.ToVector3() ?? Vector3.Zero;
+                Vector3 velocity = data.Velocity?.ToVector3() ?? Vector3.Zero;
+                float age = float.IsNaN(data.AgeSeconds) || float.IsInfinity(data.AgeSeconds)
+                    ? 0f
+                    : Math.Max(0f, data.AgeSeconds);
+                if (commodity == null || age >= CombatSalvageService.SalvageLifetimeSeconds ||
+                    _activePods.Count >= CombatSalvageService.MaxLiveSalvageObjects ||
+                    !TradeLaneStateSanitizer.IsFinite(position) || !TradeLaneStateSanitizer.IsFinite(velocity) ||
+                    !IsSpawnPositionAvailable(position, null) ||
+                    !CargoPod.TryCreate(commodity.Id, Math.Clamp(data.Quantity, 1, 40), position, velocity,
+                        (float)CombatSalvageService.SalvageLifetimeSeconds, CombatSalvageService.PickupRadius,
+                        out CargoPod pod))
+                    continue;
+
+                pod.SetStolenProvenance(data.IsStolen);
+                pod.SetMissionCargoAttribution(data.MissionId, data.MissionCargoSourceIndex, data.SourceNpcName);
+                pod.RestoreAge(age);
+                _activePods.Add(pod);
+                restored++;
+            }
+
+            return restored;
         }
 
         /// <summary>
@@ -200,9 +269,12 @@ namespace Roguelancer
                 return false;
             }
 
+            MissionCargoReservation reservation = cargoHold.GetMissionCargoReservations()
+                .FirstOrDefault(candidate => candidate.MissionId == missionId);
             if (!cargoHold.RemoveMissionCargoQuantity(missionId, commodity, quantity, out int removed) || removed != quantity)
                 return false;
 
+            createdPod.SetProvenance(reservation?.Provenance ?? CargoProvenance.Clean);
             createdPod.SetMissionCargoAttribution(missionId, -1, "Player jettison");
             _activePods.Add(createdPod);
             pod = createdPod;
@@ -210,9 +282,9 @@ namespace Roguelancer
         }
 
         /// <summary>
-        /// Converts every current contraband stack into bounded physical pods.
-        /// Mission-attributed units keep their mission identity so pickup can
-        /// restore the exact contract cargo; ordinary units remain ordinary.
+        /// Converts every current Police-violating stack into bounded physical
+        /// pods. The legacy method name is retained for Phase 52 callers;
+        /// legal stolen cargo is now included and keeps its provenance.
         /// </summary>
         public int TryJettisonContraband(
             CargoHold cargoHold,
@@ -232,7 +304,8 @@ namespace Roguelancer
             foreach (MissionCargoReservation reservation in cargoHold.GetMissionCargoReservations())
             {
                 Commodity commodity = CommodityCatalog.GetByIdOrName(reservation.CommodityId);
-                if (commodity?.IsContraband != true || reservation.Quantity <= 0)
+                if (commodity == null || reservation.Quantity <= 0 ||
+                    (commodity.IsContraband != true && !reservation.IsStolen))
                     continue;
 
                 int remaining = reservation.Quantity;
@@ -262,15 +335,15 @@ namespace Roguelancer
             foreach (KeyValuePair<string, int> entry in cargoHold.GetAllCommodities())
             {
                 Commodity commodity = CommodityCatalog.GetByIdOrName(entry.Key);
-                if (commodity?.IsContraband != true)
+                if (commodity == null)
                     continue;
 
-                int remaining = Math.Min(
+                int stolenRemaining = Math.Min(
                     Math.Max(0, entry.Value),
-                    cargoHold.GetSellableCommodityQuantity(entry.Key));
-                while (remaining > 0)
+                    cargoHold.GetSellableStolenCommodityQuantity(entry.Key));
+                while (stolenRemaining > 0)
                 {
-                    int quantity = Math.Min(40, remaining);
+                    int quantity = Math.Min(40, stolenRemaining);
                     Vector3 podPosition = position + new Vector3((stackIndex + 1) * 90f, 0f, 0f);
                     if (!TryJettisonOrdinaryCargo(
                             cargoHold,
@@ -278,6 +351,7 @@ namespace Roguelancer
                             quantity,
                             podPosition,
                             velocity,
+                            CargoProvenance.Stolen,
                             out _))
                     {
                         break;
@@ -285,8 +359,32 @@ namespace Roguelancer
 
                     removedQuantity += quantity;
                     podCount++;
-                    remaining -= quantity;
+                    stolenRemaining -= quantity;
                     stackIndex++;
+                }
+
+                if (commodity.IsContraband)
+                {
+                    int cleanRemaining = cargoHold.GetSellableCleanCommodityQuantity(entry.Key);
+                    while (cleanRemaining > 0)
+                    {
+                        int quantity = Math.Min(40, cleanRemaining);
+                        Vector3 podPosition = position + new Vector3((stackIndex + 1) * 90f, 0f, 0f);
+                        if (!TryJettisonOrdinaryCargo(
+                                cargoHold,
+                                commodity,
+                                quantity,
+                                podPosition,
+                                velocity,
+                                CargoProvenance.Clean,
+                                out _))
+                            break;
+
+                        removedQuantity += quantity;
+                        podCount++;
+                        cleanRemaining -= quantity;
+                        stackIndex++;
+                    }
                 }
             }
 
@@ -299,6 +397,7 @@ namespace Roguelancer
             int quantity,
             Vector3 position,
             Vector3 velocity,
+            CargoProvenance provenance,
             out CargoPod pod)
         {
             pod = null;
@@ -317,9 +416,13 @@ namespace Roguelancer
                 return false;
             }
 
-            if (!cargoHold.RemoveCommodity(commodity, quantity))
+            bool removed = provenance == CargoProvenance.Stolen
+                ? cargoHold.RemoveStolenCommodity(commodity, quantity)
+                : cargoHold.RemoveCommodity(commodity, quantity);
+            if (!removed)
                 return false;
 
+            createdPod.SetProvenance(provenance);
             _activePods.Add(createdPod);
             pod = createdPod;
             return true;
@@ -344,6 +447,7 @@ namespace Roguelancer
                     out CargoPod missionPod))
             {
                 missionPod.SetSalvageSource(destroyedShip, CombatSalvageTier.Standard);
+                missionPod.SetStolenProvenance(IsPlayerPiracySource(destroyedShip));
                 missionPod.SetMissionCargoAttribution(missionDrop.MissionId, missionDrop.SourceIndex, missionDrop.SourceNpcName);
                 _activePods.Add(missionPod);
                 spawned++;
@@ -411,6 +515,8 @@ namespace Roguelancer
                 }
 
                 pod.SetSalvageSource(destroyedShip, drop.Tier);
+                if (drop.IsCommodity && IsPlayerPiracySource(destroyedShip))
+                    pod.SetStolenProvenance(true);
                 _activePods.Add(pod);
                 spawned++;
                 log?.Invoke($"[SALVAGE] pod spawned: {pod.GetPayloadName()} x{drop.Quantity}");
@@ -469,6 +575,7 @@ namespace Roguelancer
                 }
 
                 pod.SetSalvageSource(trader, CombatSalvageTier.Standard);
+                pod.SetStolenProvenance(true);
                 _activePods.Add(pod);
                 podCount = 1;
                 log?.Invoke($"[PIRACY] cargo pod spawned: {pod.GetPayloadName()} x{pod.Quantity}");
@@ -656,8 +763,17 @@ namespace Roguelancer
 
                 int collectedQuantity;
                 bool added = pod.IsMissionCargo
-                    ? cargoHold.TryAddMissionCommodityPartial(pod.MissionId, commodity, pod.Quantity, out collectedQuantity)
-                    : cargoHold.TryAddCommodityPartial(commodity, pod.Quantity, out collectedQuantity);
+                    ? cargoHold.TryAddMissionCommodityPartial(
+                        pod.MissionId,
+                        commodity,
+                        pod.Quantity,
+                        pod.Provenance,
+                        out collectedQuantity)
+                    : cargoHold.TryAddCommodityPartial(
+                        commodity,
+                        pod.Quantity,
+                        pod.Provenance,
+                        out collectedQuantity);
                 if (added)
                 {
                     pod.TakeQuantity(collectedQuantity);
@@ -1016,6 +1132,13 @@ namespace Roguelancer
         {
             string name = pod?.GetPayloadName() ?? "unknown";
             return $"{name} x{pod?.Quantity ?? 0}";
+        }
+
+        private static bool IsPlayerPiracySource(NpcShip ship)
+        {
+            return ship != null && ship.WasDamagedByPlayer &&
+                string.Equals(ship.FactionId, FactionManager.LibertyCorporations, StringComparison.OrdinalIgnoreCase) &&
+                ship.TrafficBehavior == TrafficZoneBehaviorType.TraderRoute;
         }
     }
 }

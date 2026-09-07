@@ -38,6 +38,8 @@ namespace Roguelancer
         public int MissionId { get; private set; }
         public int MissionCargoSourceIndex { get; private set; } = -1;
         public bool IsMissionCargo => MissionId > 0;
+        public CargoProvenance Provenance { get; private set; } = CargoProvenance.Clean;
+        public bool IsStolen => Provenance == CargoProvenance.Stolen;
         public bool CargoFullNotified { get; set; }
         public bool DetectionNotified { get; set; }
 
@@ -67,7 +69,15 @@ namespace Roguelancer
             PickupRadius = pickupRadius;
         }
 
-        public static bool TryCreate(string commodityId, int quantity, Vector3 position, Vector3 velocity, float lifetimeSeconds, float pickupRadius, out CargoPod pod)
+        public static bool TryCreate(
+            string commodityId,
+            int quantity,
+            Vector3 position,
+            Vector3 velocity,
+            float lifetimeSeconds,
+            float pickupRadius,
+            out CargoPod pod,
+            CargoProvenance provenance = CargoProvenance.Clean)
         {
             pod = null;
 
@@ -87,6 +97,7 @@ namespace Roguelancer
                 velocity,
                 lifetimeSeconds,
                 pickupRadius);
+            pod.SetProvenance(provenance);
             return true;
         }
 
@@ -170,6 +181,16 @@ namespace Roguelancer
             MissionCargoSourceIndex = sourceIndex;
             if (!string.IsNullOrWhiteSpace(sourceName))
                 SourceNpcName = sourceName;
+        }
+
+        public void SetProvenance(CargoProvenance provenance)
+        {
+            Provenance = provenance;
+        }
+
+        public void SetStolenProvenance(bool stolen = true)
+        {
+            Provenance = stolen ? CargoProvenance.Stolen : CargoProvenance.Clean;
         }
 
         public void ClearMissionCargoAttribution()

@@ -328,6 +328,7 @@ namespace Roguelancer
         {
             if (_currentArea != StationArea.Dealer) return false;
 
+            _commodityDealer.SetPlayerCargoHold(playerShip?.CargoHold);
             bool transactionMade = false;
             var listings = _commodityDealer.CurrentMarketListings;
             SyncCommoditySelection(listings);
@@ -893,9 +894,15 @@ namespace Roguelancer
                 bool isSelected = (i == _selectedCommodityIndex);
                 bool isPlannedCommodity = IsPlannedTradeCommodity(commodity);
                 int playerQty = cargoHold?.GetCommodityQuantity(commodity.Name) ?? 0;
+                int stolenQty = cargoHold?.GetStolenCommodityQuantity(commodity.Name) ?? 0;
+                int sellableQty = isBlackMarket && !commodity.IsContraband
+                    ? cargoHold?.GetSellableStolenCommodityQuantity(commodity.Name) ?? 0
+                    : isBlackMarket
+                        ? cargoHold?.GetSellableCommodityQuantity(commodity.Name) ?? 0
+                        : cargoHold?.GetSellableCleanCommodityQuantity(commodity.Name) ?? 0;
                 bool buyBlocked = !listing.IsAvailable || listing.BuyPrice <= 0 || listing.Stock <= 0;
                 bool sellUnavailable = !listing.IsAvailable || listing.SellPrice <= 0;
-                bool noOwnedForSale = playerQty <= 0;
+                bool noOwnedForSale = sellableQty <= 0;
                 bool sellBlocked = sellUnavailable || noOwnedForSale;
                 bool canBuy = !buyBlocked;
                 bool canSell = !sellBlocked;
@@ -927,6 +934,10 @@ namespace Roguelancer
                 {
                     nameText += " [CONTRABAND]";
                 }
+                else if (isBlackMarket && stolenQty > 0)
+                {
+                    nameText += " [STOLEN]";
+                }
                 spriteBatch.DrawString(_font, nameText, new Vector2(commodityPanel.X + 15, yOffset), commodity.DisplayColor);
 
                 if (commodity.IsContraband)
@@ -947,7 +958,7 @@ namespace Roguelancer
                         ? (listing.Stock <= 0 ? "OUT OF STOCK" : "IN STOCK")
                         : "UNAVAILABLE")
                     : (listing.IsAvailable && listing.SellPrice > 0
-                        ? (playerQty > 0 ? "READY TO SELL" : "OWNED: 0")
+                        ? (sellableQty > 0 ? "READY TO SELL" : stolenQty > 0 && !isBlackMarket ? "STOLEN: REJECTED" : "OWNED: 0")
                         : "UNAVAILABLE");
                 Color statusColor = statusText == "IN STOCK" || statusText == "READY TO SELL"
                     ? Color.Lime
