@@ -9,6 +9,9 @@ namespace Roguelancer
     public class StationMarketListing
     {
         public const int DefaultRecoverySeconds = 3600;
+        public const int ConsumptionScale = 1_000;
+        public const int MinimumConsumptionRateMilliUnitsPerMinute = 250;
+        public const int MaximumConsumptionRateMilliUnitsPerMinute = 2_000;
 
         public Commodity Commodity { get; }
         public StationMarketGoodConfig Config { get; }
@@ -28,6 +31,29 @@ namespace Roguelancer
         public int BaseBuyPrice { get; internal set; }
         public int BaseSellPrice { get; internal set; }
         public int RecoverySeconds { get; internal set; }
+
+        /// <summary>
+        /// Fixed-point autonomous demand rate. The value is in milli-units
+        /// per economic minute so repeated lazy updates are deterministic.
+        /// </summary>
+        public int ConsumptionRateMilliUnitsPerMinute { get; internal set; }
+
+        public double ConsumptionRatePerMinute =>
+            ConsumptionRateMilliUnitsPerMinute / (double)ConsumptionScale;
+
+        /// <summary>
+        /// Numerator remainder for fixed-point consumption:
+        /// rate_milli_units_per_minute * elapsed_ms. It is always below the
+        /// milliseconds-per-minute denominator after an update.
+        /// </summary>
+        public long ConsumptionRemainder { get; internal set; }
+
+        /// <summary>
+        /// Whether ordinary transaction-driven recovery is still active. A
+        /// consumed listing becomes demand-driven until a later delivery or
+        /// player transaction explicitly supplies stock again.
+        /// </summary>
+        internal bool RecoveryEnabled { get; set; }
 
         /// <summary>
         /// Fixed-point remainder used by deterministic lazy recovery.
@@ -75,11 +101,13 @@ namespace Roguelancer
                 ? Math.Clamp(Config.MaximumStock.Value, BaselineStock, 1_000_000)
                 : CalculateDefaultMaximumStock(BaselineStock);
             RecoverySeconds = Config.RecoverySeconds > 0 ? Config.RecoverySeconds : DefaultRecoverySeconds;
+            ConsumptionRateMilliUnitsPerMinute = ResolveConsumptionRateMilliUnits(Config);
             BuyPrice = BaseBuyPrice;
             SellPrice = BaseSellPrice;
             Stock = Math.Clamp(BaselineStock, MinimumStock, MaximumStock);
             DemandLevel = Math.Max(0, Config.DemandLevel);
             IsAvailable = Config.IsAvailable;
+            RecoveryEnabled = true;
         }
 
         public StationMarketListing(Commodity commodity, int buyPrice, int sellPrice, int stock, int demandLevel, bool isAvailable)
@@ -110,9 +138,38 @@ namespace Roguelancer
             BaseBuyPrice = source?.BaseBuyPrice ?? 0;
             BaseSellPrice = source?.BaseSellPrice ?? 0;
             RecoverySeconds = source?.RecoverySeconds ?? DefaultRecoverySeconds;
+            ConsumptionRateMilliUnitsPerMinute = source?.ConsumptionRateMilliUnitsPerMinute ?? 0;
+            ConsumptionRemainder = source?.ConsumptionRemainder ?? 0;
             RecoveryRemainderMilliseconds = source?.RecoveryRemainderMilliseconds ?? 0;
             ImmediateSellPriceCeiling = source?.ImmediateSellPriceCeiling ?? 0;
             LastAdvancedMilliseconds = source?.LastAdvancedMilliseconds ?? 0;
+            RecoveryEnabled = source?.RecoveryEnabled ?? true;
+        }
+
+        private static int ResolveConsumptionRateMilliUnits(StationMarketGoodConfig config)
+        {
+            if (config?.ConsumptionRatePerMinute.HasValue == true)
+            {
+                double explicitRate = config.ConsumptionRatePerMinute.Value;
+                if (double.IsNaN(explicitRate) || double.IsInfinity(explicitRate) || explicitRate <= 0d)
+                    return 0;
+
+                return Math.Clamp(
+                    (int)Math.Round(explicitRate * ConsumptionScale, MidpointRounding.AwayFromZero),
+                    MinimumConsumptionRateMilliUnitsPerMinute,
+                    MaximumConsumptionRateMilliUnitsPerMinute);
+            }
+
+            if (config == null || !config.IsAvailable || config.Stock <= 0)
+                return 0;
+
+            // Stable, data-driven default: stock scale and configured demand
+            // level influence the rate, while every market remains bounded.
+            double defaultRate = 0.25d + config.Stock / 1_200d + config.DemandLevel / 100d;
+            return Math.Clamp(
+                (int)Math.Round(defaultRate * ConsumptionScale, MidpointRounding.AwayFromZero),
+                MinimumConsumptionRateMilliUnitsPerMinute,
+                MaximumConsumptionRateMilliUnitsPerMinute);
         }
 
         private static int CalculateDefaultMaximumStock(int baselineStock)

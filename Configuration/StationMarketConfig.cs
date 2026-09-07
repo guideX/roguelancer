@@ -62,5 +62,13 @@ namespace Roguelancer.Configuration
         /// </summary>
         [JsonPropertyName("recovery_seconds")]
         public int RecoverySeconds { get; set; }
+
+        /// <summary>
+        /// Optional autonomous lawful demand in commodity units per economic
+        /// minute. A missing value uses the deterministic bounded default;
+        /// zero explicitly disables consumption for this listing.
+        /// </summary>
+        [JsonPropertyName("consumption_rate_per_minute")]
+        public double? ConsumptionRatePerMinute { get; set; }
     }
 }

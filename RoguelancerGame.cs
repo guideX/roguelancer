@@ -266,6 +266,7 @@ namespace Roguelancer {
         private readonly bool _runPlayerTargetScanSmoke;
         private readonly bool _runEconomicShipmentSmoke;
         private readonly bool _runPhase60Smoke;
+        private readonly bool _runPhase61Smoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -382,6 +383,7 @@ namespace Roguelancer {
             _runPlayerTargetScanSmoke = args?.Any(arg => string.Equals(arg, "--player-target-scan-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runEconomicShipmentSmoke = args?.Any(arg => string.Equals(arg, "--phase59-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1521,6 +1523,11 @@ namespace Roguelancer {
                 var result = RunPhase60SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase61Smoke)
+            {
+                var result = RunPhase61SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runFactionDistressResponseSmoke)
             {
                 var result = RunFactionDistressResponseSmokeTest();
@@ -1764,6 +1771,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("mission smoke", RunMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("freight smoke", RunFreightSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 60 shortage supply smoke", RunPhase60SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 61 market consumption smoke", RunPhase61SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("export smoke", RunExportSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("nav smoke", RunNavSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("dock smoke", RunDockSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2399,6 +2407,11 @@ namespace Roguelancer {
         private (int Passed, int Failed) RunPhase60SmokeTest()
         {
             return new Phase60ShortageSupplySmokeTest().Run();
+        }
+
+        private (int Passed, int Failed) RunPhase61SmokeTest()
+        {
+            return new Phase61MarketConsumptionSmokeTest().Run();
         }
 
         private (int Passed, int Failed) RunExportSmokeTest()

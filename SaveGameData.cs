@@ -724,6 +724,16 @@ namespace Roguelancer
         /// </summary>
         [JsonPropertyName("shortage_age_ms")]
         public long ShortageAgeMilliseconds { get; set; }
+
+        [JsonPropertyName("consumption_remainder")]
+        public long ConsumptionRemainder { get; set; }
+
+        /// <summary>
+        /// Older saves did not contain this field. The initializer preserves
+        /// their legacy transaction-recovery behavior on load.
+        /// </summary>
+        [JsonPropertyName("recovery_enabled")]
+        public bool RecoveryEnabled { get; set; } = true;
     }
 
     /// <summary>

@@ -463,7 +463,12 @@ public sealed class EconomicShipmentManager
             {
                 StationMarketListing destinationListing = _marketManager.GetListingForCommodity(destination, listing.Commodity);
                 int destinationPrice = destinationListing?.BuyPrice ?? 0;
-                return (Listing: listing, Score: destinationPrice - listing.BuyPrice);
+                int profitabilityScore = destinationPrice - listing.BuyPrice;
+                MarketShortageState shortage = _marketManager.GetShortageState(destination, listing.Commodity);
+                int shortageBonus = shortage?.IsShortage == true
+                    ? Math.Clamp(50 + (100 - shortage.StockPercent) * 2, 50, 250)
+                    : 0;
+                return (Listing: listing, Score: profitabilityScore + shortageBonus);
             })
             .OrderByDescending(candidate => candidate.Score > 0)
             .ThenByDescending(candidate => candidate.Score)

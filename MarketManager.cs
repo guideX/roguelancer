@@ -45,6 +45,9 @@ namespace Roguelancer
         private const int SellPriceCeilingPercent = 150;
         private const int MinimumSpreadPercent = 5;
         private const int BasisPoints = 10_000;
+        private const long MaximumListingCatchUpMilliseconds = 5L * 60L * 1000L;
+        private const long ConsumptionDenominator = 60L * 1000L * StationMarketListing.ConsumptionScale;
+        private const long MaximumConsumptionRemainder = ConsumptionDenominator - 1L;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -303,6 +306,7 @@ namespace Roguelancer
 
             runtimeListings = BuildRuntimeListings(config);
             _runtimeMarkets[stationKey] = runtimeListings;
+            AdvanceListings(runtimeListings);
             return FilterListings(CloneListings(runtimeListings), surface);
         }
 
@@ -359,7 +363,7 @@ namespace Roguelancer
                 return null;
 
             int target = listing.BaselineStock;
-            int stock = Math.Clamp(listing.Stock, listing.MinimumStock, listing.MaximumStock);
+            int stock = Math.Clamp(listing.Stock, 0, listing.MaximumStock);
             long deficitLong = Math.Max(0L, (long)target - stock);
             string shortageKey = BuildShortageKey(stationKey, listing.Commodity);
 
@@ -534,6 +538,7 @@ namespace Roguelancer
 
             int paidPrice = listing.BuyPrice;
             listing.Stock = Math.Max(listing.MinimumStock, listing.Stock - quantity);
+            listing.RecoveryEnabled = true;
             listing.ImmediateSellPriceCeiling = listing.ImmediateSellPriceCeiling > 0
                 ? Math.Min(listing.ImmediateSellPriceCeiling, paidPrice)
                 : paidPrice;
@@ -679,6 +684,7 @@ namespace Roguelancer
 
             credits.AddCredits(totalValue);
             listing.Stock = Math.Min(listing.MaximumStock, listing.Stock + quantity);
+            listing.RecoveryEnabled = true;
             listing.ImmediateSellPriceCeiling = 0;
             listing.RecoveryRemainderMilliseconds = 0;
             RefreshPrices(listing);
@@ -772,6 +778,7 @@ namespace Roguelancer
             }
 
             listing.Stock += quantity;
+            listing.RecoveryEnabled = true;
             listing.ImmediateSellPriceCeiling = 0;
             listing.RecoveryRemainderMilliseconds = 0;
             RefreshPrices(listing);
@@ -885,6 +892,7 @@ namespace Roguelancer
             StationMarketListing listing = GetMutableListing(
                 GetStationKey(station.Name, station.Config?.Description), commodity);
             listing.Stock += quantity;
+            listing.RecoveryEnabled = true;
             listing.ImmediateSellPriceCeiling = 0;
             listing.RecoveryRemainderMilliseconds = 0;
             RefreshPrices(listing);
@@ -925,6 +933,7 @@ namespace Roguelancer
             }
 
             listing.Stock -= quantity;
+            listing.RecoveryEnabled = true;
             listing.ImmediateSellPriceCeiling = 0;
             listing.RecoveryRemainderMilliseconds = 0;
             RefreshPrices(listing);
@@ -980,12 +989,14 @@ namespace Roguelancer
                         .Select(listing => new SaveMarketListingData
                         {
                             CommodityId = listing.Commodity.Id,
-                            Stock = Math.Clamp(listing.Stock, listing.MinimumStock, listing.MaximumStock),
+                            Stock = Math.Clamp(listing.Stock, 0, listing.MaximumStock),
                             DemandLevel = listing.DemandLevel,
                             IsAvailable = listing.IsAvailable,
                             RecoveryRemainderMilliseconds = Math.Max(0, listing.RecoveryRemainderMilliseconds),
                             ImmediateSellPriceCeiling = Math.Max(0, listing.ImmediateSellPriceCeiling),
-                            ShortageAgeMilliseconds = GetShortageAgeMilliseconds(kvp.Key, listing)
+                            ShortageAgeMilliseconds = GetShortageAgeMilliseconds(kvp.Key, listing),
+                            ConsumptionRemainder = Math.Clamp(listing.ConsumptionRemainder, 0L, MaximumConsumptionRemainder),
+                            RecoveryEnabled = listing.RecoveryEnabled
                         })
                         .ToList()
                 });
@@ -1047,13 +1058,15 @@ namespace Roguelancer
 
                         var restoredListing = new StationMarketListing(configuredListing)
                         {
-                            Stock = Math.Clamp(listing.Stock, configuredListing.MinimumStock, configuredListing.MaximumStock),
+                            Stock = Math.Clamp(listing.Stock, 0, configuredListing.MaximumStock),
                             RecoveryRemainderMilliseconds = Math.Max(0, listing.RecoveryRemainderMilliseconds),
+                            ConsumptionRemainder = Math.Clamp(listing.ConsumptionRemainder, 0L, MaximumConsumptionRemainder),
                             ImmediateSellPriceCeiling = Math.Clamp(
                                 listing.ImmediateSellPriceCeiling,
                                 0,
                                 configuredListing.BaseBuyPrice),
-                            LastAdvancedMilliseconds = _elapsedMilliseconds
+                            LastAdvancedMilliseconds = _elapsedMilliseconds,
+                            RecoveryEnabled = listing.RecoveryEnabled
                         };
                         RestoreShortageAge(stationKey, restoredListing, listing.ShortageAgeMilliseconds);
                         RefreshPrices(restoredListing);
@@ -1097,7 +1110,12 @@ namespace Roguelancer
 
                 StationMarketListing listing = new(commodity, good)
                 {
-                    LastAdvancedMilliseconds = _elapsedMilliseconds
+                    // A newly created runtime market belongs to the current
+                    // new-game simulation, so its first access must account
+                    // for elapsed simulation time. Restored listings set this
+                    // explicitly to the saved time and never catch up wall
+                    // clock absence.
+                    LastAdvancedMilliseconds = 0L
                 };
                 RefreshPrices(listing);
                 listings.Add(listing);
@@ -1311,9 +1329,61 @@ namespace Roguelancer
                 return;
             }
 
-            RecoverStock(listing, elapsedMilliseconds);
+            long boundedElapsedMilliseconds = Math.Min(elapsedMilliseconds, MaximumListingCatchUpMilliseconds);
+            bool recoveryInProgress = listing.RecoveryEnabled && listing.Stock != listing.BaselineStock;
+            if (recoveryInProgress)
+            {
+                // Existing transaction-driven recovery remains intact, but
+                // autonomous demand is allowed to run continuously once a
+                // listing has entered its demand-driven phase. This prevents
+                // recovery from silently erasing the consumption sink.
+                RecoverStock(listing, elapsedMilliseconds);
+            }
+            else
+            {
+                ConsumeStock(listing, boundedElapsedMilliseconds);
+            }
             listing.LastAdvancedMilliseconds = _elapsedMilliseconds;
             RefreshPrices(listing);
+        }
+
+        private static void ConsumeStock(StationMarketListing listing, long elapsedMilliseconds)
+        {
+            if (listing == null || elapsedMilliseconds <= 0 ||
+                listing.ConsumptionRateMilliUnitsPerMinute <= 0 ||
+                !listing.IsAvailable || listing.Commodity == null ||
+                listing.Commodity.IsContraband || listing.Commodity.IsMissionCargo ||
+                listing.BaselineStock <= 0)
+            {
+                if (listing != null && listing.ConsumptionRateMilliUnitsPerMinute <= 0)
+                    listing.ConsumptionRemainder = 0;
+                return;
+            }
+
+            long work = checked((long)listing.ConsumptionRateMilliUnitsPerMinute * elapsedMilliseconds +
+                Math.Clamp(listing.ConsumptionRemainder, 0L, MaximumConsumptionRemainder));
+            long requestedUnits = work / ConsumptionDenominator;
+            listing.ConsumptionRemainder = work % ConsumptionDenominator;
+
+            int available = Math.Max(0, listing.Stock);
+            if (available <= 0)
+            {
+                // There is no persistent backorder. Phase 60 shortage state
+                // already represents the unmet need from real stock.
+                listing.ConsumptionRemainder = 0;
+                listing.RecoveryEnabled = false;
+                return;
+            }
+
+            long consumed = Math.Min(requestedUnits, (long)available);
+            if (consumed > 0)
+            {
+                listing.Stock = (int)Math.Max(0L, (long)listing.Stock - consumed);
+                listing.RecoveryEnabled = false;
+            }
+
+            if (requestedUnits >= available)
+                listing.ConsumptionRemainder = 0;
         }
 
         private static void RecoverStock(StationMarketListing listing, long elapsedMilliseconds)
@@ -1361,7 +1431,7 @@ namespace Roguelancer
                 return;
             }
 
-            listing.Stock = Math.Clamp(listing.Stock, listing.MinimumStock, listing.MaximumStock);
+            listing.Stock = Math.Clamp(listing.Stock, 0, listing.MaximumStock);
             if (!listing.IsAvailable || listing.BaselineStock <= 0 || listing.BaseBuyPrice <= 0 || listing.BaseSellPrice <= 0)
             {
                 listing.BuyPrice = listing.BaseBuyPrice;
@@ -1432,7 +1502,12 @@ namespace Roguelancer
             if (good.BuyPrice < 0 || good.SellPrice < 0 || good.Stock < 0 || good.Stock > 1_000_000 || good.DemandLevel < 0 ||
                 (good.MinimumStock.HasValue && good.MinimumStock.Value < 0) ||
                 (good.MaximumStock.HasValue && (good.MaximumStock.Value <= 0 || good.MaximumStock.Value > 1_000_000)) ||
-                good.RecoverySeconds < 0)
+                good.RecoverySeconds < 0 ||
+                (good.ConsumptionRatePerMinute.HasValue &&
+                    (double.IsNaN(good.ConsumptionRatePerMinute.Value) ||
+                     double.IsInfinity(good.ConsumptionRatePerMinute.Value) ||
+                     good.ConsumptionRatePerMinute.Value < 0d ||
+                     good.ConsumptionRatePerMinute.Value > StationMarketListing.MaximumConsumptionRateMilliUnitsPerMinute / (double)StationMarketListing.ConsumptionScale)))
             {
                 failureReason = $"negative market data for '{commodityId}'";
                 return false;
