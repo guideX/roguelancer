@@ -300,7 +300,7 @@ public sealed class StationMissionBoardUI
         Mission completed = _missionManager.UnclaimedCompletedMission;
         string activeLine = active != null
             ? active.Type == MissionType.FreightContract
-                ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - Reserved {_cargoHold?.GetMissionCargoQuantity(active.Id) ?? 0}/{active.RequiredQuantity} - {active.GetDestinationLabel()}"
+                ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - Eligible {_missionManager.GetEmergencySupplyEligibleQuantity(active)}/{active.RequiredQuantity} - {active.GetDestinationLabel()}"
             : active.Type == MissionType.ExportContract
                 ? $"ACTIVE: {active.Title} - {active.GetStatusLabel()} - Loaded {_cargoHold?.GetMissionCargoQuantity(active.Id) ?? 0}/{active.RequiredQuantity} - {active.GetDestinationLabel()}"
             : active.Type == MissionType.ContrabandSmuggling
@@ -384,17 +384,22 @@ public sealed class StationMissionBoardUI
         else if (mission.Type == MissionType.FreightContract)
         {
             Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
-            int reserved = _cargoHold?.GetMissionCargoQuantity(mission.Id) ?? 0;
             int owned = commodity == null ? 0 : _cargoHold?.GetCommodityQuantity(commodity.Name) ?? 0;
-            int remaining = Math.Max(0, mission.RequiredQuantity - reserved);
+            int eligible = commodity == null ? 0 : _cargoHold?.GetSellableCleanCommodityQuantity(commodity.Name) ?? 0;
+            int remaining = Math.Max(0, mission.RequiredQuantity - eligible);
             spriteBatch.DrawString(_font, $"Destination: {mission.GetDestinationLabel()}", new Vector2(x, y), Color.LightGreen);
             y += 24;
             spriteBatch.DrawString(_font, $"Commodity: {commodity?.Name ?? mission.CommodityId}", new Vector2(x, y), Color.LightGreen);
             y += 24;
-            spriteBatch.DrawString(_font, $"Required: {mission.RequiredQuantity:N0}   Reserved: {reserved:N0}   Remaining: {remaining:N0}", new Vector2(x, y), Color.LightGreen);
+            spriteBatch.DrawString(_font, $"Required: {mission.RequiredQuantity:N0}   Eligible clean: {eligible:N0}   Remaining: {remaining:N0}", new Vector2(x, y), Color.LightGreen);
             y += 24;
             spriteBatch.DrawString(_font, $"Owned total: {owned:N0}   Volume: {(commodity?.VolumePerUnit ?? 0)} / unit", new Vector2(x, y), Color.Cyan);
             y += 26;
+            if (!string.IsNullOrWhiteSpace(mission.SourceStationName))
+            {
+                spriteBatch.DrawString(_font, $"Suggested source: {mission.SourceStationName} (guidance only)", new Vector2(x, y), Color.LightSkyBlue);
+                y += 26;
+            }
         }
         else if (mission.Type == MissionType.ExportContract)
         {

@@ -254,6 +254,8 @@ public sealed class StationCommodityTraderUI
 
             string label = $"{(selected ? "> " : "  ")}{Shorten(commodity.Name, plannedCommodity ? 13 : 24)}";
             if (plannedCommodity) label += " [TRADE ROUTE]";
+            MarketShortageState shortage = _commodityDealer.MarketManager.GetShortageState(_station, commodity);
+            if (shortage?.IsShortage == true) label += shortage.Level == MarketShortageLevel.Critical ? " [CRITICAL]" : " [SHORTAGE]";
             if (commodity.IsContraband) label += " [CONTRABAND]";
             if (_commodityDealer.IsBlackMarketOpen && !commodity.IsContraband &&
                 (_playerShip?.CargoHold?.GetSellableStolenCommodityQuantity(commodity.Name) ?? 0) > 0)
@@ -322,8 +324,12 @@ public sealed class StationCommodityTraderUI
             y += 24;
         }
 
+        MarketShortageState shortageState = _commodityDealer.MarketManager.GetShortageState(_station, commodity);
+        string marketCondition = shortageState?.IsShortage == true
+            ? shortageState.ConditionLabel
+            : listing.MarketCondition;
         string stock = listing.IsAvailable
-            ? $"Station stock: {listing.Stock:N0}/{listing.MaximumStock:N0}   {listing.MarketCondition}"
+            ? $"Station stock: {listing.Stock:N0}/{listing.MaximumStock:N0}   {marketCondition}"
             : "UNAVAILABLE HERE";
         spriteBatch.DrawString(_font, stock, new Vector2(x, y), listing.IsAvailable ? Color.Cyan : Color.Gray);
         y += 24;

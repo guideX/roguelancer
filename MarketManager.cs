@@ -17,8 +17,17 @@ namespace Roguelancer
         private readonly Dictionary<string, StationMarketConfig> _marketConfigs = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<StationMarketListing>> _runtimeMarkets = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Commodity> _commodityIndex = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, long> _shortageSinceMilliseconds = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<int, SupplyCapacityReservation> _supplyCapacityReservations = new();
         private readonly List<Commodity> _fallbackCatalog = new();
         private long _elapsedMilliseconds;
+
+        private sealed class SupplyCapacityReservation
+        {
+            public string StationKey { get; init; } = string.Empty;
+            public string CommodityId { get; init; } = string.Empty;
+            public int Quantity { get; set; }
+        }
 
         // Dynamic pricing uses integer basis points and a conservative bounded
         // response around the configured station anchors:
@@ -70,6 +79,8 @@ namespace Roguelancer
         public void ResetRuntimeState()
         {
             _runtimeMarkets.Clear();
+            _shortageSinceMilliseconds.Clear();
+            _supplyCapacityReservations.Clear();
             _elapsedMilliseconds = 0L;
         }
 
@@ -198,6 +209,8 @@ namespace Roguelancer
         {
             _marketConfigs.Clear();
             _runtimeMarkets.Clear();
+            _shortageSinceMilliseconds.Clear();
+            _supplyCapacityReservations.Clear();
 
             Console.WriteLine($"[MARKET] Loading station market configs from {MarketDirectory}");
             if (!Directory.Exists(MarketDirectory))
@@ -328,6 +341,83 @@ namespace Roguelancer
             return listings.FirstOrDefault(l =>
                 string.Equals(l.Commodity.Id, commodity.Id, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(l.Commodity.Name, commodity.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Returns the shortage derived from the authoritative runtime
+        /// listing. The small age cache is only hysteresis/maturity metadata;
+        /// stock remains the sole economic authority.
+        /// </summary>
+        public MarketShortageState GetShortageState(Station station, Commodity commodity)
+        {
+            if (station == null || commodity == null || !HasMarketConfigForStation(station))
+                return null;
+
+            string stationKey = GetStationKey(station.Name, station.Config?.Description);
+            StationMarketListing listing = GetMutableListing(stationKey, commodity);
+            if (!IsEligibleShortageListing(listing))
+                return null;
+
+            int target = listing.BaselineStock;
+            int stock = Math.Clamp(listing.Stock, listing.MinimumStock, listing.MaximumStock);
+            long deficitLong = Math.Max(0L, (long)target - stock);
+            string shortageKey = BuildShortageKey(stationKey, listing.Commodity);
+
+            if (MarketShortagePolicy.IsRecovered(stock, target))
+            {
+                _shortageSinceMilliseconds.Remove(shortageKey);
+            }
+            else if (deficitLong >= MarketShortagePolicy.MinimumDeficitUnits &&
+                     MarketShortagePolicy.IsBelowEnterThreshold(stock, target) &&
+                     !_shortageSinceMilliseconds.ContainsKey(shortageKey))
+            {
+                _shortageSinceMilliseconds[shortageKey] = _elapsedMilliseconds;
+            }
+
+            bool shortageLatched = _shortageSinceMilliseconds.TryGetValue(shortageKey, out long since);
+            long age = shortageLatched
+                ? Math.Max(0L, _elapsedMilliseconds - Math.Min(_elapsedMilliseconds, since))
+                : 0L;
+            int stockPercent = target > 0
+                ? (int)Math.Clamp((long)stock * 100L / target, 0L, 100_000L)
+                : 0;
+
+            return new MarketShortageState
+            {
+                StationId = GetStationId(station),
+                StationName = station.Name ?? string.Empty,
+                Commodity = listing.Commodity,
+                CurrentStock = stock,
+                TargetStock = target,
+                Capacity = listing.MaximumStock,
+                Deficit = (int)Math.Min(deficitLong, int.MaxValue),
+                StockPercent = stockPercent,
+                EnterThresholdPercent = MarketShortagePolicy.EnterThresholdPercent,
+                RecoveryThresholdPercent = MarketShortagePolicy.RecoveryThresholdPercent,
+                Level = MarketShortagePolicy.GetLevel(stock, target, shortageLatched),
+                IsMature = shortageLatched && age >= MarketShortagePolicy.MaturitySeconds * 1000L,
+                AgeMilliseconds = age
+            };
+        }
+
+        public bool IsShortage(Station station, Commodity commodity) =>
+            GetShortageState(station, commodity)?.IsShortage == true;
+
+        public IReadOnlyList<MarketShortageState> GetShortageStatesForStation(
+            Station station,
+            bool matureOnly = false)
+        {
+            if (station == null || !HasMarketConfigForStation(station))
+                return Array.Empty<MarketShortageState>();
+
+            return GetListingsForStation(station, MarketSurface.Ordinary)
+                .Select(listing => GetShortageState(station, listing?.Commodity))
+                .Where(state => state != null && state.IsShortage && (!matureOnly || state.IsMature))
+                .OrderByDescending(state => state.Level)
+                .ThenByDescending(state => state.Deficit)
+                .ThenBy(state => state.Commodity.Id, StringComparer.OrdinalIgnoreCase)
+                .Take(MarketShortagePolicy.MaximumOffersPerStation)
+                .ToList();
         }
 
         public bool TryBuy(Station station, Commodity commodity, int quantity, PlayerCredits credits, CargoHold cargoHold, out string message)
@@ -565,9 +655,12 @@ namespace Roguelancer
                 return false;
             }
 
-            if ((long)listing.Stock + quantity > listing.MaximumStock)
+            int availableCapacity = surface == MarketSurface.BlackMarket
+                ? Math.Max(0, listing.MaximumStock - listing.Stock)
+                : GetAvailableSupplyCapacity(station, marketCommodity);
+            if (availableCapacity < quantity)
             {
-                message = $"Station inventory can hold only {Math.Max(0, listing.MaximumStock - listing.Stock)} more units.";
+                message = $"Station inventory can hold only {availableCapacity:N0} more units.";
                 return false;
             }
 
@@ -605,9 +698,10 @@ namespace Roguelancer
                 return false;
             }
 
-            if ((long)listing.Stock + quantity > listing.MaximumStock)
+            int availableCapacity = GetAvailableSupplyCapacity(station, listing.Commodity);
+            if (availableCapacity < quantity)
             {
-                message = $"Station inventory can hold only {Math.Max(0, listing.MaximumStock - listing.Stock)} more units.";
+                message = $"Station inventory can hold only {availableCapacity:N0} more units.";
                 return false;
             }
 
@@ -623,7 +717,11 @@ namespace Roguelancer
             if (!TryResolveSupplyListing(station, commodity, 1, out StationMarketListing listing, out _))
                 return 0;
 
-            return Math.Max(0, listing.MaximumStock - listing.Stock);
+            int reserved = GetReservedCapacity(
+                GetStationKey(station.Name, station.Config?.Description),
+                listing.Commodity.Id,
+                excludingMissionId: 0);
+            return Math.Max(0, listing.MaximumStock - listing.Stock - reserved);
         }
 
         /// <summary>
@@ -666,9 +764,10 @@ namespace Roguelancer
                 return false;
             }
 
-            if ((long)listing.Stock + quantity > listing.MaximumStock)
+            int availableCapacity = GetAvailableSupplyCapacity(station, listing.Commodity);
+            if (availableCapacity < quantity)
             {
-                message = $"Station inventory can hold only {Math.Max(0, listing.MaximumStock - listing.Stock)} more units.";
+                message = $"Station inventory can hold only {availableCapacity:N0} more units.";
                 return false;
             }
 
@@ -676,6 +775,125 @@ namespace Roguelancer
             listing.ImmediateSellPriceCeiling = 0;
             listing.RecoveryRemainderMilliseconds = 0;
             RefreshPrices(listing);
+            message = $"Delivered {quantity} {listing.Commodity.Name}; station stock is now {listing.Stock:N0}.";
+            return true;
+        }
+
+        /// <summary>
+        /// Reserves normal market capacity for an accepted emergency supply
+        /// contract. The reservation is bounded by the listing capacity and
+        /// prevents ambient traders or ordinary sales from making the accepted
+        /// agreement impossible. It is not a commodity reservation.
+        /// </summary>
+        public bool TryReserveSupplyContractCapacity(
+            int missionId,
+            Station station,
+            Commodity commodity,
+            int quantity,
+            out string message)
+        {
+            message = string.Empty;
+            if (missionId <= 0 || station == null || commodity == null || quantity <= 0 ||
+                !TryResolveSupplyListing(station, commodity, quantity, out StationMarketListing listing, out message))
+            {
+                return false;
+            }
+
+            string stationKey = GetStationKey(station.Name, station.Config?.Description);
+            string commodityId = listing.Commodity.Id;
+            if (_supplyCapacityReservations.TryGetValue(missionId, out SupplyCapacityReservation existing))
+            {
+                if (!string.Equals(existing.StationKey, stationKey, StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(existing.CommodityId, commodityId, StringComparison.OrdinalIgnoreCase) ||
+                    existing.Quantity != quantity)
+                {
+                    message = "An incompatible supply contract capacity reservation already exists.";
+                    return false;
+                }
+
+                return true;
+            }
+
+            int reservedByOthers = GetReservedCapacity(stationKey, commodityId, missionId);
+            if ((long)listing.Stock + reservedByOthers + quantity > listing.MaximumStock)
+            {
+                message = $"Station inventory can use only {Math.Max(0, listing.MaximumStock - listing.Stock - reservedByOthers):N0} more units.";
+                return false;
+            }
+
+            _supplyCapacityReservations[missionId] = new SupplyCapacityReservation
+            {
+                StationKey = stationKey,
+                CommodityId = commodityId,
+                Quantity = quantity
+            };
+            return true;
+        }
+
+        public void ReleaseSupplyContractCapacity(int missionId)
+        {
+            if (missionId > 0)
+                _supplyCapacityReservations.Remove(missionId);
+        }
+
+        public bool CanAddSupplyForContract(
+            int missionId,
+            Station station,
+            Commodity commodity,
+            int quantity,
+            out string message)
+        {
+            message = string.Empty;
+            if (missionId <= 0 || !_supplyCapacityReservations.TryGetValue(missionId, out SupplyCapacityReservation reservation))
+            {
+                message = "Supply contract capacity is not reserved.";
+                return false;
+            }
+
+            if (!TryResolveSupplyListing(station, commodity, quantity, out StationMarketListing listing, out message))
+                return false;
+
+            string stationKey = GetStationKey(station.Name, station.Config?.Description);
+            if (!string.Equals(reservation.StationKey, stationKey, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(reservation.CommodityId, listing.Commodity.Id, StringComparison.OrdinalIgnoreCase) ||
+                quantity > reservation.Quantity)
+            {
+                message = "Supply contract destination or quantity is invalid.";
+                return false;
+            }
+
+            int reservedByOthers = GetReservedCapacity(stationKey, listing.Commodity.Id, missionId);
+            if ((long)listing.Stock + reservedByOthers + quantity > listing.MaximumStock)
+            {
+                message = $"Station inventory can use only {Math.Max(0, listing.MaximumStock - listing.Stock - reservedByOthers):N0} more units.";
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool TryAddSupplyForContract(
+            int missionId,
+            Station station,
+            Commodity commodity,
+            int quantity,
+            out string message)
+        {
+            if (!CanAddSupplyForContract(missionId, station, commodity, quantity, out message))
+                return false;
+
+            StationMarketListing listing = GetMutableListing(
+                GetStationKey(station.Name, station.Config?.Description), commodity);
+            listing.Stock += quantity;
+            listing.ImmediateSellPriceCeiling = 0;
+            listing.RecoveryRemainderMilliseconds = 0;
+            RefreshPrices(listing);
+
+            SupplyCapacityReservation reservation = _supplyCapacityReservations[missionId];
+            reservation.Quantity -= quantity;
+            if (reservation.Quantity <= 0)
+                _supplyCapacityReservations.Remove(missionId);
+
             message = $"Delivered {quantity} {listing.Commodity.Name}; station stock is now {listing.Stock:N0}.";
             return true;
         }
@@ -766,7 +984,8 @@ namespace Roguelancer
                             DemandLevel = listing.DemandLevel,
                             IsAvailable = listing.IsAvailable,
                             RecoveryRemainderMilliseconds = Math.Max(0, listing.RecoveryRemainderMilliseconds),
-                            ImmediateSellPriceCeiling = Math.Max(0, listing.ImmediateSellPriceCeiling)
+                            ImmediateSellPriceCeiling = Math.Max(0, listing.ImmediateSellPriceCeiling),
+                            ShortageAgeMilliseconds = GetShortageAgeMilliseconds(kvp.Key, listing)
                         })
                         .ToList()
                 });
@@ -836,6 +1055,7 @@ namespace Roguelancer
                                 configuredListing.BaseBuyPrice),
                             LastAdvancedMilliseconds = _elapsedMilliseconds
                         };
+                        RestoreShortageAge(stationKey, restoredListing, listing.ShortageAgeMilliseconds);
                         RefreshPrices(restoredListing);
                         listings.Add(restoredListing);
                         continue;
@@ -1257,6 +1477,54 @@ namespace Roguelancer
                 !string.IsNullOrWhiteSpace(commodity.Id) &&
                 !string.IsNullOrWhiteSpace(commodity.Name) &&
                 commodity.VolumePerUnit > 0;
+        }
+
+        private static bool IsEligibleShortageListing(StationMarketListing listing)
+        {
+            return listing != null && IsValidCommodity(listing.Commodity) &&
+                !listing.Commodity.IsContraband && !listing.Commodity.IsMissionCargo &&
+                listing.IsAvailable && listing.BaseBuyPrice > 0 && listing.BaseSellPrice > 0 &&
+                listing.BaselineStock > 0 && listing.Stock >= 0 && listing.MaximumStock >= listing.BaselineStock;
+        }
+
+        private static string BuildShortageKey(string stationKey, Commodity commodity) =>
+            $"{stationKey}:{NormalizeKey(commodity?.Id)}";
+
+        private long GetShortageAgeMilliseconds(string stationKey, StationMarketListing listing)
+        {
+            if (!IsEligibleShortageListing(listing))
+                return 0L;
+
+            string key = BuildShortageKey(stationKey, listing.Commodity);
+            if (!_shortageSinceMilliseconds.TryGetValue(key, out long since))
+                return 0L;
+
+            return Math.Clamp(_elapsedMilliseconds - Math.Min(_elapsedMilliseconds, since), 0L, (long)MarketShortagePolicy.MaturitySeconds * 1000L * 20L);
+        }
+
+        private void RestoreShortageAge(string stationKey, StationMarketListing listing, long ageMilliseconds)
+        {
+            if (!IsEligibleShortageListing(listing) ||
+                !MarketShortagePolicy.IsBelowEnterThreshold(listing.Stock, listing.BaselineStock) ||
+                listing.BaselineStock - listing.Stock < MarketShortagePolicy.MinimumDeficitUnits)
+                return;
+
+            long boundedAge = Math.Clamp(ageMilliseconds, 0L, (long)MarketShortagePolicy.MaturitySeconds * 1000L * 20L);
+            _shortageSinceMilliseconds[BuildShortageKey(stationKey, listing.Commodity)] =
+                Math.Max(0L, _elapsedMilliseconds - boundedAge);
+        }
+
+        private int GetReservedCapacity(string stationKey, string commodityId, int excludingMissionId)
+        {
+            if (string.IsNullOrWhiteSpace(stationKey) || string.IsNullOrWhiteSpace(commodityId))
+                return 0;
+
+            long reserved = _supplyCapacityReservations
+                .Where(entry => entry.Key != excludingMissionId &&
+                    string.Equals(entry.Value?.StationKey, stationKey, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(entry.Value?.CommodityId, commodityId, StringComparison.OrdinalIgnoreCase))
+                .Sum(entry => (long)Math.Max(0, entry.Value?.Quantity ?? 0));
+            return (int)Math.Clamp(reserved, 0L, int.MaxValue);
         }
 
         private static bool TryCalculateTotal(int unitPrice, int quantity, out int total)

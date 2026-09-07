@@ -2999,19 +2999,19 @@ namespace Roguelancer
             CargoHold cargo = _playerShip?.CargoHold;
             int quantity = mission?.RequiredQuantity ?? 0;
             if (mission == null || commodity == null || cargo == null || quantity <= 0 ||
-                !cargo.HasMissionCargo(mission.Id, commodity.Id, quantity) ||
-                cargo.GetMissionCargoQuantity(mission.Id) != quantity)
+                commodity.IsContraband || commodity.IsMissionCargo ||
+                cargo.GetSellableCleanCommodityQuantity(commodity.Name) < quantity)
             {
                 return false;
             }
 
             string marketFailure = string.Empty;
             if (_marketManager == null ||
-                !_marketManager.CanAddSupply(station, commodity, quantity, out marketFailure) ||
+                !_marketManager.CanAddSupplyForContract(mission.Id, station, commodity, quantity, out marketFailure) ||
                 _missionManager == null)
             {
                 if (!string.IsNullOrWhiteSpace(marketFailure))
-                    Console.WriteLine($"[MISSION] Freight delivery held: {marketFailure}");
+                    Console.WriteLine($"[MISSION] Emergency supply delivery held: {marketFailure}");
                 return false;
             }
 
@@ -3021,17 +3021,16 @@ namespace Roguelancer
                 return false;
             }
 
-            if (!cargo.RemoveMissionCargo(mission.Id, commodity, quantity))
+            // Clean ordinary cargo is fungible for emergency supply. The
+            // cargo authority removes clean, unreserved units only, leaving
+            // stolen or unrelated mission-bound copies aboard.
+            if (!cargo.RemoveCommodity(commodity, quantity))
                 return false;
 
-            if (!_marketManager.TryAddSupply(station, commodity, quantity, out string addFailure))
+            if (!_marketManager.TryAddSupplyForContract(mission.Id, station, commodity, quantity, out string addFailure))
             {
-                // The preflight above should make this unreachable in the
-                // single-threaded game loop. Restore the exact protected stack
-                // if the market authority rejects the commit defensively.
-                cargo.AddMissionCargo(mission.Id, commodity, quantity);
-                cargo.RegisterFreightReservation(mission.Id, commodity, quantity);
-                Console.WriteLine($"[MISSION] Freight delivery rolled back: {addFailure}");
+                cargo.AddCommodity(commodity, quantity);
+                Console.WriteLine($"[MISSION] Emergency supply delivery rolled back: {addFailure}");
                 return false;
             }
 
@@ -3041,13 +3040,17 @@ namespace Roguelancer
             mission.ObjectiveComplete = true;
             if (!_missionManager.CompleteFreightMission(mission, out string rewardFailure))
             {
-                cargo.AddMissionCargo(mission.Id, commodity, quantity);
-                cargo.RegisterFreightReservation(mission.Id, commodity, quantity);
-                Console.WriteLine($"[MISSION] Freight reward failed after delivery: {rewardFailure}");
+                // Reward preflight makes this defensive path unreachable in
+                // the single-threaded loop. Restore both authorities if a
+                // future payment implementation rejects the commit.
+                cargo.AddCommodity(commodity, quantity);
+                _marketManager.TryRemoveSupply(station, commodity, quantity, 0, out _);
+                _marketManager.TryReserveSupplyContractCapacity(mission.Id, station, commodity, quantity, out _);
+                Console.WriteLine($"[MISSION] Emergency supply reward failed after delivery: {rewardFailure}");
                 return false;
             }
 
-            Console.WriteLine($"[MISSION] Freight delivered: {commodity.Name} x{quantity} -> {station.Name} (mission #{mission.Id})");
+            Console.WriteLine($"[MISSION] Emergency supply delivered: {commodity.Name} x{quantity} -> {station.Name} (mission #{mission.Id})");
             return true;
         }
 

@@ -716,6 +716,14 @@ namespace Roguelancer
 
         [JsonPropertyName("immediate_sell_price_ceiling")]
         public int ImmediateSellPriceCeiling { get; set; }
+
+        /// <summary>
+        /// Bounded relative age for a derived shortage. Stock remains the
+        /// authority; this only keeps a mature shortage from restarting its
+        /// board cooldown after a save/load.
+        /// </summary>
+        [JsonPropertyName("shortage_age_ms")]
+        public long ShortageAgeMilliseconds { get; set; }
     }
 
     /// <summary>

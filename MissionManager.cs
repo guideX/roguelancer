@@ -60,11 +60,14 @@ namespace Roguelancer
             "Rogue Pilot", "Pirate Commander", "Outcast Smuggler", "Corsair Raider"
         };
 
-        public const int FreightShortageThresholdPercent = 40;
-        public const int FreightMinimumShortageUnits = 10;
-        public const int FreightShortageSharePercent = 25;
+        // Phase 60 emergency supply policy. The old Freight names remain
+        // source-compatible for Phase 15 callers and tests.
+        public const int FreightShortageThresholdPercent = MarketShortagePolicy.EnterThresholdPercent;
+        public const int FreightRecoveryThresholdPercent = MarketShortagePolicy.RecoveryThresholdPercent;
+        public const int FreightMinimumShortageUnits = MarketShortagePolicy.MinimumDeficitUnits;
+        public const int FreightShortageSharePercent = 35;
         public const int FreightMaximumCargoVolume = 40;
-        public const int FreightMaximumUnits = 40;
+        public const int FreightMaximumUnits = 10;
         public const int FreightMaximumReward = 100_000;
 
         public const int ExportSurplusThresholdPercent = 150;
@@ -102,7 +105,7 @@ namespace Roguelancer
                 MissionType.ConvoyRaid => 0.035f,
                 MissionType.ContrabandSmuggling => 0.040f,
                 MissionType.Escort => 0.030f,
-                MissionType.FreightContract or MissionType.ExportContract => 0.025f,
+                MissionType.EmergencySupply or MissionType.ExportContract => 0.025f,
                 MissionType.CourierDelivery => 0.020f,
                 MissionType.Delivery => 0.018f,
                 _ => 0.015f
@@ -336,7 +339,10 @@ namespace Roguelancer
         public void ClearState()
         {
             foreach (Mission mission in _activeMissions.Where(candidate => candidate?.Type == MissionType.FreightContract))
+            {
                 ReleaseFreightReservation(mission);
+                _marketManager?.ReleaseSupplyContractCapacity(mission.Id);
+            }
 
             foreach (Mission mission in _activeMissions.Where(candidate => candidate?.Type == MissionType.ExportContract))
                 _cargoHold?.ReleaseMissionCargoReservation(mission.Id);
@@ -404,7 +410,21 @@ namespace Roguelancer
                     restoredActive.ConvoyAbandonmentProgressSeconds = 0f;
                 }
                 _activeMissions.Add(restoredActive);
-                RegisterFreightReservation(restoredActive);
+                if (restoredActive.Type == MissionType.FreightContract)
+                {
+                    // Phase 15 freight saves may contain reserved cargo. The
+                    // Phase 60 contract is fungible, so release that old
+                    // attribution while preserving its provenance aggregate.
+                    _cargoHold?.ConvertMissionCargoToOrdinary(restoredActive.Id);
+                    Station destination = ResolveKnownStation(restoredActive.DestinationStationId, restoredActive.Destination);
+                    Commodity commodity = CommodityCatalog.GetByIdOrName(restoredActive.CommodityId);
+                    _marketManager?.TryReserveSupplyContractCapacity(
+                        restoredActive.Id,
+                        destination,
+                        commodity,
+                        restoredActive.RequiredQuantity,
+                        out _);
+                }
                 _waypointSystem?.RegisterMission(restoredActive);
             }
 
@@ -1191,8 +1211,8 @@ namespace Roguelancer
 
                     long shortage = (long)listing.BaselineStock - listing.Stock;
                     long surplus = (long)listing.Stock - listing.BaselineStock;
-                    if (shortage >= FreightMinimumShortageUnits &&
-                        listing.Stock < (long)listing.BaselineStock * FreightShortageThresholdPercent / 100L)
+                    MarketShortageState shortageState = _marketManager.GetShortageState(station, commodity);
+                    if (shortage >= FreightMinimumShortageUnits && shortageState?.IsShortage == true)
                     {
                         long severity = Math.Clamp(shortage * 10_000L / listing.BaselineStock, 0L, 10_000L);
                         int score = (int)Math.Clamp(severity * 100L + listing.DemandLevel * 10L, 0L, int.MaxValue);
@@ -1454,6 +1474,15 @@ namespace Roguelancer
                 : 0;
         }
 
+        public int GetEmergencySupplyEligibleQuantity(Mission mission)
+        {
+            if (mission?.Type != MissionType.FreightContract || _cargoHold == null)
+                return 0;
+
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+            return commodity == null ? 0 : _cargoHold.GetSellableCleanCommodityQuantity(commodity.Name);
+        }
+
         public int GetExportIssuedQuantity(Mission mission)
         {
             return mission?.Type == MissionType.ExportContract && _cargoHold != null
@@ -1471,14 +1500,22 @@ namespace Roguelancer
         private List<Mission> GenerateFreightContracts(Station destination)
         {
             List<Mission> offers = new();
-            if (destination == null || _marketManager == null)
+            if (destination == null || _marketManager == null || _worldManager == null ||
+                !_marketManager.HasMarketConfigForStation(destination))
                 return offers;
 
-            IReadOnlyList<StationMarketListing> listings = _marketManager.GetListingsForStation(destination);
+            IReadOnlyList<MarketShortageState> shortages = _marketManager
+                .GetShortageStatesForStation(destination, matureOnly: true);
             HashSet<string> eligibleKeys = new(StringComparer.OrdinalIgnoreCase);
-            foreach (StationMarketListing listing in listings ?? Array.Empty<StationMarketListing>())
+            foreach (MarketShortageState shortage in shortages)
             {
-                if (!TryBuildFreightTerms(destination, listing, out Commodity commodity, out int quantity, out int reward))
+                if (!TryBuildEmergencySupplyTerms(
+                        destination,
+                        shortage,
+                        out Commodity commodity,
+                        out int quantity,
+                        out int reward,
+                        out Station suggestedSource))
                     continue;
 
                 string key = BuildFreightOfferKey(destination, commodity);
@@ -1490,16 +1527,19 @@ namespace Roguelancer
                     offer == null ||
                     offer.Status != MissionStatus.Available ||
                     offer.RequiredQuantity != quantity ||
-                    offer.Reward != reward)
+                    offer.Reward != reward ||
+                    !string.Equals(offer.SourceStationName, suggestedSource?.Name ?? string.Empty, StringComparison.OrdinalIgnoreCase))
                 {
-                    offer = Mission.CreateFreightContract(
+                    offer = Mission.CreateEmergencySupplyContract(
                         commodity,
                         destination,
                         quantity,
                         reward,
                         destination.Config?.SystemIndex ?? 0,
+                        suggestedSource: suggestedSource,
                         offeredBy: $"{destination.Name} Authority",
-                        factionId: destination.FactionId);
+                        factionId: _marketManager.GetMarketFactionId(destination));
+                    ConfigureGeneratedReputationRequirement(offer);
                     _freightOffers[key] = offer;
                 }
 
@@ -1511,6 +1551,89 @@ namespace Roguelancer
                 _freightOffers.Remove(key);
 
             return offers;
+        }
+
+        private bool TryBuildEmergencySupplyTerms(
+            Station destination,
+            MarketShortageState shortage,
+            out Commodity commodity,
+            out int quantity,
+            out int reward,
+            out Station suggestedSource)
+        {
+            commodity = shortage?.Commodity;
+            quantity = 0;
+            reward = 0;
+            suggestedSource = null;
+            if (destination == null || shortage == null || !shortage.IsShortage || !shortage.IsMature ||
+                !IsExportCommodity(commodity) || shortage.Deficit < FreightMinimumShortageUnits)
+            {
+                return false;
+            }
+
+            int volumeBound = FreightMaximumCargoVolume / Math.Max(1, commodity.VolumePerUnit);
+            int usefulDeficit = Math.Min(shortage.Deficit, Math.Max(0, shortage.TargetStock - shortage.CurrentStock));
+            int requested = (int)Math.Min(
+                int.MaxValue,
+                ((long)usefulDeficit * FreightShortageSharePercent + 99L) / 100L);
+            int maximumQuantity = Math.Min(FreightMaximumUnits, volumeBound);
+            if (maximumQuantity < 2)
+                return false;
+
+            quantity = Math.Clamp(requested, 2, maximumQuantity);
+            quantity = Math.Min(quantity, usefulDeficit);
+            if (quantity <= 0)
+                return false;
+
+            suggestedSource = FindBestSupplySource(destination, commodity, quantity);
+            StationMarketListing destinationListing = _marketManager.GetListingForCommodity(destination, commodity);
+            reward = CalculateEmergencySupplyReward(destinationListing, commodity, quantity, shortage);
+            return destinationListing != null && reward > 0;
+        }
+
+        private Station FindBestSupplySource(Station destination, Commodity commodity, int quantity)
+        {
+            Station best = null;
+            long bestScore = long.MinValue;
+            string destinationIdentity = Mission.BuildStationIdentity(destination);
+            foreach (Station station in _worldManager.GetKnownStations())
+            {
+                if (station == null || string.Equals(Mission.BuildStationIdentity(station), destinationIdentity, StringComparison.OrdinalIgnoreCase) ||
+                    !_marketManager.HasMarketConfigForStation(station))
+                    continue;
+
+                StationMarketListing listing = _marketManager.GetListingForCommodity(station, commodity);
+                if (!IsExportCommodity(listing?.Commodity) || !listing.IsAvailable || listing.BuyPrice <= 0 ||
+                    listing.Stock - listing.MinimumStock < quantity)
+                    continue;
+
+                long surplus = Math.Max(0L, (long)listing.Stock - listing.BaselineStock);
+                long score = surplus * 1_000_000L - (long)listing.BuyPrice * 1_000L -
+                    (long)Math.Max(0, station.Config?.SystemIndex ?? 0);
+                if (best == null || score > bestScore ||
+                    (score == bestScore && string.Compare(station.Name, best.Name, StringComparison.OrdinalIgnoreCase) < 0))
+                {
+                    best = station;
+                    bestScore = score;
+                }
+            }
+
+            return best;
+        }
+
+        private static int CalculateEmergencySupplyReward(
+            StationMarketListing destinationListing,
+            Commodity commodity,
+            int quantity,
+            MarketShortageState shortage)
+        {
+            long severityPremiumPercent = shortage?.TargetStock > 0
+                ? 20L + Math.Clamp((long)shortage.Deficit * 30L * 100L / shortage.TargetStock / 100L, 0L, 30L)
+                : 20L;
+            long rawReward = (long)commodity.BasePrice * quantity * (120L + severityPremiumPercent) / 100L + 250L;
+            if (destinationListing?.BuyPrice > 0)
+                rawReward = Math.Max(rawReward, (long)destinationListing.BuyPrice * quantity + 250L);
+            return (int)Math.Clamp(rawReward, 500L, FreightMaximumReward);
         }
 
         private List<Mission> GenerateExportContracts(Station origin)
@@ -1902,13 +2025,27 @@ namespace Roguelancer
             if (mission.Type == MissionType.FreightContract)
             {
                 Commodity freightCommodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+                bool allowLegacyRewardOnlyFreight = _marketManager == null && _worldManager == null;
                 if (freightCommodity == null || freightCommodity.IsMissionCargo || freightCommodity.IsContraband ||
                     freightCommodity.VolumePerUnit <= 0 || mission.RequiredQuantity <= 0 ||
                     string.IsNullOrWhiteSpace(mission.Destination) ||
                     string.IsNullOrWhiteSpace(mission.DestinationStationId) ||
-                    _cargoHold == null)
+                    _cargoHold == null ||
+                    (!allowLegacyRewardOnlyFreight && (_marketManager == null || _worldManager == null)))
                 {
                     return RejectAcceptance(mission, "freight contract metadata or cargo authority is invalid");
+                }
+
+                Station destination = ResolveKnownStation(mission.DestinationStationId, mission.Destination);
+                string acceptedAt = Mission.BuildStationIdentity(originStation);
+                if (originStation == null ||
+                    !string.Equals(acceptedAt, mission.DestinationStationId, StringComparison.OrdinalIgnoreCase) ||
+                    (!allowLegacyRewardOnlyFreight &&
+                     (destination == null ||
+                      !_marketManager.HasMarketConfigForStation(destination) ||
+                      _marketManager.GetShortageState(destination, freightCommodity)?.IsShortage != true)))
+                {
+                    return RejectAcceptance(mission, "this emergency supply contract is no longer an active shortage");
                 }
             }
             else if (mission.Type == MissionType.ExportContract)
@@ -1937,14 +2074,25 @@ namespace Roguelancer
             }
 
             mission.SetOrigin(originStation);
+            if (mission.Type == MissionType.FreightContract && _marketManager != null)
+            {
+                Station destination = ResolveKnownStation(mission.DestinationStationId, mission.Destination);
+                Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+                if (!_marketManager.TryReserveSupplyContractCapacity(
+                        mission.Id,
+                        destination,
+                        commodity,
+                        mission.RequiredQuantity,
+                        out string capacityFailure))
+                {
+                    return RejectAcceptance(mission, capacityFailure);
+                }
+            }
             if (mission.Type == MissionType.CourierDelivery &&
                 !string.Equals(mission.SourceStationName, mission.OriginStationName, StringComparison.OrdinalIgnoreCase))
             {
                 return RejectAcceptance(mission, $"courier must be accepted at {mission.SourceStationName}");
             }
-
-            if (mission.Type == MissionType.FreightContract && !RegisterFreightReservation(mission))
-                return RejectAcceptance(mission, "freight reservation could not be registered");
 
             if (mission.Type == MissionType.ExportContract &&
                 !TryIssueExportCargo(mission, originStation, out string exportFailureReason))
@@ -1974,6 +2122,7 @@ namespace Roguelancer
                     TryRemoveIssuedSmugglingCargo(mission, out _);
                 }
                 ReleaseFreightReservation(mission);
+                _marketManager?.ReleaseSupplyContractCapacity(mission.Id);
                 mission.Status = MissionStatus.Available;
                 _worldManager.OnMissionFinished(mission);
                 return RejectAcceptance(mission, $"mission unavailable: {failureReason}");
@@ -1991,7 +2140,7 @@ namespace Roguelancer
             else if (mission.Type == MissionType.FreightContract)
             {
                 _notificationManager?.ShowMessage(
-                    $"Freight reserved: {GetFreightReservedQuantity(mission)}/{mission.RequiredQuantity} units",
+                    $"Supply cargo: {GetEmergencySupplyEligibleQuantity(mission)}/{mission.RequiredQuantity} eligible clean units",
                     3f);
             }
             else if (mission.Type == MissionType.ExportContract)
@@ -2206,6 +2355,7 @@ namespace Roguelancer
             }
 
             ReleaseFreightReservation(mission);
+            _marketManager?.ReleaseSupplyContractCapacity(mission.Id);
             ReleaseConvoyRaidCargo(mission);
             ReleaseSmugglingCargo(mission);
             mission.Status = MissionStatus.Failed;
@@ -2241,7 +2391,7 @@ namespace Roguelancer
                 : mission.Type == MissionType.CourierDelivery
                 ? $"Cargo delivered - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR"
                 : mission.Type == MissionType.FreightContract
-                    ? $"Freight delivered - +{mission.Reward:N0} CR"
+                    ? $"Emergency supply delivered - +{mission.Reward:N0} CR"
                 : mission.Type == MissionType.ExportContract
                     ? $"Export delivered - +{mission.Reward:N0} CR"
                 : $"Objective complete - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR";
@@ -2266,12 +2416,13 @@ namespace Roguelancer
                 return false;
             }
 
+            _marketManager?.ReleaseSupplyContractCapacity(mission.Id);
             CompleteMission(mission);
             mission.RewardPaid = true;
             _playerCredits.AddCredits(mission.Reward);
             ApplyMissionReputationReward(mission);
-            _notificationManager?.ShowMessage($"Freight reward received: {mission.Reward:N0} CR", 4f);
-            message = $"Freight reward received: {mission.Reward:N0} CR";
+            _notificationManager?.ShowMessage($"Emergency supply reward received: {mission.Reward:N0} CR", 4f);
+            message = $"Emergency supply reward received: {mission.Reward:N0} CR";
             return true;
         }
 
@@ -2522,6 +2673,7 @@ namespace Roguelancer
             }
 
             ReleaseFreightReservation(mission);
+            _marketManager?.ReleaseSupplyContractCapacity(mission.Id);
             ReleaseConvoyRaidCargo(mission);
             ReleaseSmugglingCargo(mission);
             mission.FailureReason = string.IsNullOrWhiteSpace(reason) ? "mission failed" : reason;

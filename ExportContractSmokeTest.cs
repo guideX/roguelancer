@@ -528,7 +528,9 @@ internal sealed class ExportContractSmokeTest
     private static (bool Success, string FailureReason) ValidateFreightRegression()
     {
         ExportContext context = CreateContext();
-        if (!CreateShortage(context, context.Newark, 140)) return Fail("could not stage Newark shortage");
+        if (!CreateShortage(context, context.Newark, 195)) return Fail("could not stage Newark shortage");
+        context.Market.GetShortageState(context.Newark, context.Food);
+        context.Market.AdvanceTime(MarketShortagePolicy.MaturitySeconds + 1);
         Mission freight = context.Manager.GenerateJobBoardMissions(10, context.Newark.FactionId, context.Newark)
             .FirstOrDefault(mission => mission.Type == MissionType.FreightContract);
         return freight != null && freight.RequiredQuantity > 0 ? Pass() : Fail("Phase 15 freight offer disappeared");
@@ -634,7 +636,7 @@ internal sealed class ExportContractSmokeTest
     private static (bool Success, string FailureReason) ValidateShortageOpportunity()
     {
         ExportContext context = CreateContext();
-        if (!CreateShortage(context, context.Newark, 140)) return Fail("could not stage shortage");
+        if (!CreateShortage(context, context.Newark, 195)) return Fail("could not stage shortage");
         return context.Manager.GetMarketOpportunities().Any(opportunity => opportunity.Type == MarketOpportunityType.Shortage && opportunity.StationName == context.Newark.Name)
             ? Pass() : Fail("shortage was not surfaced");
     }
@@ -689,7 +691,7 @@ internal sealed class ExportContractSmokeTest
     {
         ExportContext context = CreateContext();
         IReadOnlyList<MarketOpportunity> before = context.Manager.GetMarketOpportunities();
-        if (!CreateShortage(context, context.Newark, 140)) return Fail("could not change market state");
+        if (!CreateShortage(context, context.Newark, 195)) return Fail("could not change market state");
         IReadOnlyList<MarketOpportunity> after = context.Manager.GetMarketOpportunities();
         return before.Count != after.Count || after.Any(opportunity => opportunity.StationName == context.Newark.Name)
             ? Pass() : Fail("opportunity refresh ignored market change");

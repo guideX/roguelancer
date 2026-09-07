@@ -28,12 +28,15 @@ namespace Roguelancer
         private SpriteFont _font;
         private Texture2D _pixel;
         private float _animationTime;
+        private CargoHold _cargoHold;
 
         public MissionGuidanceHUD(SpriteFont font, Texture2D pixel)
         {
             _font = font;
             _pixel = pixel;
         }
+
+        public void SetCargoHold(CargoHold cargoHold) => _cargoHold = cargoHold;
 
         public void Update(float deltaTime)
         {
@@ -132,7 +135,7 @@ namespace Roguelancer
                 MissionType.Bounty => $"Target: {data.Mission.GetTargetLabel()}",
                 MissionType.Delivery => $"Destination: {data.Mission.GetDestinationLabel()}",
                 MissionType.CourierDelivery => $"Destination: {data.Mission.GetDestinationLabel()}",
-                MissionType.FreightContract => $"Destination: {data.Mission.GetDestinationLabel()}",
+                MissionType.FreightContract => $"Deliver to: {data.Mission.GetDestinationLabel()}",
                 MissionType.ExportContract => $"Destination: {data.Mission.GetDestinationLabel()}",
                 MissionType.TradeLaneDisruption => $"Segment: {data.Mission.GetTargetLabel()}",
                 MissionType.Escort => data.TargetObject is NpcShip
@@ -143,7 +146,9 @@ namespace Roguelancer
                     : $"Convoy: {data.Mission.ConvoySurvivors} / {data.Mission.ConvoyShipCount} ships",
                 _ => data.Mission.GetObjectiveText()
             };
-            string statusLine = data.Mission.Type == MissionType.TradeLaneDisruption || data.Mission.Type == MissionType.ConvoyEscort
+            string statusLine = data.Mission.Type == MissionType.FreightContract
+                ? BuildSupplyStatusLine(data.Mission)
+                : data.Mission.Type == MissionType.TradeLaneDisruption || data.Mission.Type == MissionType.ConvoyEscort
                 ? $"Status: {data.Mission.GetHudProgressLine()}"
                 : data.ResolvedTarget != null
                 ? escortMission && data.TargetObject is NpcShip && data.DestinationObject != null
@@ -248,6 +253,17 @@ namespace Roguelancer
             spriteBatch.DrawString(_font, info.ClientLine, cursor, Color.Cyan);
         }
 
+        private string BuildSupplyStatusLine(Mission mission)
+        {
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission?.CommodityId);
+            int eligible = commodity == null || _cargoHold == null
+                ? 0
+                : _cargoHold.GetSellableCleanCommodityQuantity(commodity.Name);
+            return eligible >= (mission?.RequiredQuantity ?? int.MaxValue)
+                ? $"Status: Supply cargo ready for delivery ({eligible} / {mission.RequiredQuantity})"
+                : $"Status: Cargo {eligible} / {mission?.RequiredQuantity ?? 0}";
+        }
+
         private void DrawOnScreenMarker(SpriteBatch spriteBatch, Vector2 screenPos,
             MissionGuidanceData data, Color color, Viewport viewport)
         {
@@ -256,7 +272,7 @@ namespace Roguelancer
             {
                 MissionType.Delivery => "[DELIVER]",
                 MissionType.CourierDelivery => "[COURIER]",
-                MissionType.FreightContract => "[FREIGHT]",
+                MissionType.FreightContract => "[SUPPLY]",
                 MissionType.ExportContract => "[EXPORT]",
                 MissionType.Bounty => "[BOUNTY]",
                 MissionType.TradeLaneDisruption => "[SABOTAGE]",

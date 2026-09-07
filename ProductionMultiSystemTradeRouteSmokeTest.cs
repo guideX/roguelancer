@@ -368,7 +368,9 @@ internal sealed class ProductionMultiSystemTradeRouteSmokeTest
     private bool ValidateRemoteFreightEligibility()
     {
         Context context = CreateContext();
-        if (!context.Manager.TryRemoveSupply(_destination, _food, 150, 0, out _)) return false;
+        if (!context.Manager.TryRemoveSupply(_destination, _food, 190, 0, out _)) return false;
+        if (context.Manager.GetShortageState(_destination, _food)?.IsShortage != true) return false;
+        context.Manager.AdvanceTime(MarketShortagePolicy.MaturitySeconds + 1d);
         List<Mission> offers = context.Missions.CreateBoardMissions(_destination);
         return Check(offers.Any(mission => mission.Type == MissionType.FreightContract && mission.DestinationStationId == Mission.BuildStationIdentity(_destination)), "remote shortage did not create normal freight eligibility");
     }

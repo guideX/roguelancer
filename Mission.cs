@@ -11,7 +11,10 @@ namespace Roguelancer
         DestroyHostiles,
         Delivery,
         CourierDelivery,
-        FreightContract,
+        // Phase 60 canonical identity. FreightContract remains an enum alias
+        // so Phase 15 saves/callers continue to resolve the same mission.
+        EmergencySupply,
+        FreightContract = EmergencySupply,
         ExportContract,
         Bounty,
         Escort,
@@ -466,23 +469,46 @@ namespace Roguelancer
             string offeredBy = "Mission Board",
             string factionId = null)
         {
+            return CreateEmergencySupplyContract(
+                commodity,
+                destination,
+                requiredQuantity,
+                reward,
+                targetSystemIndex,
+                suggestedSource: null,
+                offeredBy: offeredBy,
+                factionId: factionId);
+        }
+
+        public static Mission CreateEmergencySupplyContract(
+            Commodity commodity,
+            Station destination,
+            int requiredQuantity,
+            int reward,
+            int targetSystemIndex,
+            Station suggestedSource = null,
+            string offeredBy = "Mission Board",
+            string factionId = null)
+        {
             if (commodity == null || destination == null || requiredQuantity <= 0 || reward <= 0)
             {
                 return null;
             }
 
             Mission mission = new Mission(
-                MissionType.FreightContract,
-                requiredQuantity >= 20 ? MissionDifficulty.Medium : MissionDifficulty.Easy,
+                MissionType.EmergencySupply,
+                requiredQuantity >= 8 ? MissionDifficulty.Hard :
+                    requiredQuantity >= 5 ? MissionDifficulty.Medium : MissionDifficulty.Easy,
                 commodity.Name,
                 destination.Name,
                 reward,
                 0f,
-                $"{destination.Name} is experiencing a {commodity.Name} shortage. Deliver {requiredQuantity} {commodity.Name}.",
+                BuildEmergencySupplyDescription(destination, commodity, requiredQuantity, suggestedSource),
                 factionId ?? destination.FactionId,
-                title: $"{commodity.Name} Supply Contract")
+                title: "Emergency Supply")
             {
                 OfferedBy = offeredBy ?? "Mission Board",
+                SourceStationName = suggestedSource?.Name ?? string.Empty,
                 CommodityId = commodity.Id,
                 RequiredQuantity = requiredQuantity,
                 TargetLocation = destination.Name,
@@ -493,6 +519,18 @@ namespace Roguelancer
             };
 
             return mission;
+        }
+
+        private static string BuildEmergencySupplyDescription(
+            Station destination,
+            Commodity commodity,
+            int quantity,
+            Station suggestedSource)
+        {
+            string source = suggestedSource == null
+                ? string.Empty
+                : $" Suggested source: {suggestedSource.Name}.";
+            return $"{destination.Name} is experiencing a shortage of {commodity.Name}. Deliver {quantity} {commodity.Name} to the station.{source}";
         }
 
         public static Mission CreateExportContract(
@@ -1384,7 +1422,7 @@ namespace Roguelancer
             MissionType.DestroyHostiles => "DESTROY HOSTILES",
             MissionType.Delivery => "DELIVERY",
             MissionType.CourierDelivery => "COURIER",
-            MissionType.FreightContract => "FREIGHT CONTRACT",
+            MissionType.FreightContract => "EMERGENCY SUPPLY",
             MissionType.ExportContract => "BULK EXPORT",
             MissionType.Bounty => "BOUNTY",
             MissionType.Escort => "ESCORT",
@@ -1549,7 +1587,7 @@ namespace Roguelancer
             MissionType.DestroyHostiles => $"Hostiles destroyed: {CurrentProgress} / {RequiredProgress}",
             MissionType.ReachLocation => $"Reach {GetDestinationLabel()}",
             MissionType.CourierDelivery => ObjectiveComplete ? "Cargo delivered" : $"Deliver package to {GetDestinationLabel()}",
-            MissionType.FreightContract => ObjectiveComplete ? "Freight delivered" : $"Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
+            MissionType.FreightContract => ObjectiveComplete ? "Supply delivered" : $"Deliver {GetTargetLabel()} to {GetDestinationLabel()}",
             MissionType.ExportContract => ObjectiveComplete ? "Export delivered" : $"Haul {GetTargetLabel()} to {GetDestinationLabel()}",
             MissionType.ContrabandSmuggling => GetSmugglingHudStatus(),
             MissionType.TradeLaneDisruption => GetTradeLaneHudStatus(),

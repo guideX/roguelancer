@@ -164,9 +164,13 @@ internal sealed class FreightContractSmokeTest
     {
         FreightContext mild = CreateContext();
         FreightContext severe = CreateContext();
-        if (!BuyAt(mild, mild.Newark, mild.Food, 140, mild.SinkCredits, mild.SinkCargo) ||
-            !BuyAt(severe, severe.Newark, severe.Food, 180, severe.SinkCredits, severe.SinkCargo))
+        if (!BuyAt(mild, mild.Newark, mild.Food, 180, mild.SinkCredits, mild.SinkCargo) ||
+            !BuyAt(severe, severe.Newark, severe.Food, 200, severe.SinkCredits, severe.SinkCargo))
             return Fail("could not create severity fixtures");
+        mild.Market.GetShortageState(mild.Newark, mild.Food);
+        severe.Market.GetShortageState(severe.Newark, severe.Food);
+        mild.Market.AdvanceTime(MarketShortagePolicy.MaturitySeconds + 1);
+        severe.Market.AdvanceTime(MarketShortagePolicy.MaturitySeconds + 1);
         Mission mildOffer = FindOffer(mild);
         Mission severeOffer = FindOffer(severe);
         return mildOffer != null && severeOffer != null &&
@@ -217,10 +221,11 @@ internal sealed class FreightContractSmokeTest
         Mission offer = FindOffer(context);
         if (offer == null || !context.Manager.AcceptMission(offer, context.Newark))
             return Fail("could not accept freight with existing cargo");
-        return context.Player.CargoHold.GetMissionCargoQuantity(offer.Id) == 10 &&
-            context.Player.CargoHold.GetSellableCommodityQuantity(context.Food.Name) == 0
+        return context.Player.CargoHold.GetMissionCargoQuantity(offer.Id) == 0 &&
+            context.Player.CargoHold.GetSellableCleanCommodityQuantity(context.Food.Name) == 10 &&
+            context.Player.CargoHold.GetMissionReservationTargetQuantity(offer.Id) == 0
             ? Pass()
-            : Fail("existing ordinary units were not reserved exactly once");
+            : Fail("pre-owned clean units were not kept fungible for emergency supply");
     }
 
     private (bool Success, string FailureReason) ValidateInsufficientCargoReservesAvailableOnly()
@@ -229,9 +234,9 @@ internal sealed class FreightContractSmokeTest
         Mission offer = FindOffer(context);
         return offer != null && context.Manager.AcceptMission(offer, context.Newark) &&
             context.Player.CargoHold.GetMissionCargoQuantity(offer.Id) == 0 &&
-            context.Player.CargoHold.GetMissionReservationTargetQuantity(offer.Id) == offer.RequiredQuantity
+            context.Player.CargoHold.GetMissionReservationTargetQuantity(offer.Id) == 0
             ? Pass()
-            : Fail("empty hold did not create a pending reservation target");
+            : Fail("empty hold created a mission reservation for fungible supply cargo");
     }
 
     private (bool Success, string FailureReason) ValidateProgressiveReservation()
@@ -241,11 +246,13 @@ internal sealed class FreightContractSmokeTest
         if (offer == null || !context.Manager.AcceptMission(offer, context.Newark))
             return Fail("could not accept freight");
         if (!context.Player.CargoHold.AddCommodity(context.Food, 10) ||
-            context.Player.CargoHold.GetMissionCargoQuantity(offer.Id) != 10)
-            return Fail("first purchase did not reserve newly acquired units");
+            context.Player.CargoHold.GetMissionCargoQuantity(offer.Id) != 0 ||
+            context.Player.CargoHold.GetSellableCleanCommodityQuantity(context.Food.Name) != 10)
+            return Fail("first purchase was not kept as fungible clean cargo");
         if (!context.Player.CargoHold.AddCommodity(context.Food, offer.RequiredQuantity) ||
-            context.Player.CargoHold.GetMissionCargoQuantity(offer.Id) != offer.RequiredQuantity)
-            return Fail("second purchase did not stop at the required quantity");
+            context.Player.CargoHold.GetMissionCargoQuantity(offer.Id) != 0 ||
+            context.Player.CargoHold.GetSellableCleanCommodityQuantity(context.Food.Name) != offer.RequiredQuantity + 10)
+            return Fail("second purchase changed fungible supply attribution");
         return Pass();
     }
 
@@ -256,9 +263,10 @@ internal sealed class FreightContractSmokeTest
         if (offer == null || !context.Manager.AcceptMission(offer, context.Newark))
             return Fail("could not accept freight");
         context.Player.CargoHold.AddCommodity(context.Food, offer.RequiredQuantity + 5);
-        return context.Player.CargoHold.GetMissionCargoQuantity(offer.Id) == offer.RequiredQuantity
+        return context.Player.CargoHold.GetMissionCargoQuantity(offer.Id) == 0 &&
+            context.Player.CargoHold.GetMissionReservationTargetQuantity(offer.Id) == 0
             ? Pass()
-            : Fail("reservation exceeded required quantity");
+            : Fail("fungible emergency cargo created a mission reservation");
     }
 
     private (bool Success, string FailureReason) ValidateExcessRemainsSellable()
@@ -268,9 +276,9 @@ internal sealed class FreightContractSmokeTest
         if (offer == null || !context.Manager.AcceptMission(offer, context.Newark) ||
             !context.Player.CargoHold.AddCommodity(context.Food, offer.RequiredQuantity + 5))
             return Fail("could not stage freight plus excess");
-        return context.Player.CargoHold.GetSellableCommodityQuantity(context.Food.Name) == 5
+        return context.Player.CargoHold.GetSellableCleanCommodityQuantity(context.Food.Name) == offer.RequiredQuantity + 5
             ? Pass()
-            : Fail("excess ordinary cargo was not left sellable");
+            : Fail("clean emergency cargo was not left sellable");
     }
 
     private (bool Success, string FailureReason) ValidateProtectedCargoCannotSell()
@@ -280,22 +288,24 @@ internal sealed class FreightContractSmokeTest
         if (offer == null || !context.Manager.AcceptMission(offer, context.Newark) ||
             !context.Player.CargoHold.AddCommodity(context.Food, offer.RequiredQuantity))
             return Fail("could not stage protected food");
-        CommodityDealer dealer = new();
-        dealer.SetDockedStation(context.Newark);
-        return !dealer.TrySellCommodity(context.Food, 1, context.PlayerCredits, context.Player.CargoHold, out _)
+        int before = context.Player.CargoHold.GetSellableCleanCommodityQuantity(context.Food.Name);
+        return context.Market.TrySell(context.Newark, context.Food, 1, context.PlayerCredits, context.Player.CargoHold, out _) &&
+            context.Player.CargoHold.GetSellableCleanCommodityQuantity(context.Food.Name) == before - 1
             ? Pass()
-            : Fail("trader sold protected freight");
+            : Fail("fungible emergency cargo could not be sold through the ordinary market");
     }
 
     private (bool Success, string FailureReason) ValidateWrongCommodityCannotComplete()
     {
         FreightContext context = PrepareAccepted(out Mission mission);
         Commodity water = CommodityCatalog.GetById("water");
-        int before = context.Player.CargoHold.GetMissionCargoQuantity(mission.Id);
-        bool removed = context.Player.CargoHold.RemoveMissionCargo(mission.Id, water, before);
-        return !removed && context.Player.CargoHold.GetMissionCargoQuantity(mission.Id) == before
+        int beforeFood = context.Player.CargoHold.GetSellableCleanCommodityQuantity(context.Food.Name);
+        bool removed = context.World.NotifyStationDocked(context.Newark);
+        return !removed && mission.Status == MissionStatus.InProgress &&
+            context.Player.CargoHold.GetSellableCleanCommodityQuantity(context.Food.Name) == beforeFood &&
+            context.Player.CargoHold.GetMissionCargoQuantity(mission.Id) == 0
             ? Pass()
-            : Fail("wrong commodity affected freight reservation");
+            : Fail("wrong or missing commodity affected emergency supply cargo");
     }
 
     private (bool Success, string FailureReason) ValidateInsufficientQuantityCannotComplete()
@@ -316,12 +326,11 @@ internal sealed class FreightContractSmokeTest
     private (bool Success, string FailureReason) ValidateWrongDestinationCannotComplete()
     {
         FreightContext context = PrepareAccepted(out Mission mission);
-        int reserved = context.Player.CargoHold.GetMissionCargoQuantity(mission.Id);
         return !context.World.NotifyStationDocked(context.FortBush) &&
             mission.Status == MissionStatus.InProgress &&
-            context.Player.CargoHold.GetMissionCargoQuantity(mission.Id) == reserved
+            context.Player.CargoHold.GetSellableCleanCommodityQuantity(context.Food.Name) == 0
             ? Pass()
-            : Fail("wrong destination changed freight state");
+            : Fail("wrong destination changed fungible supply state");
     }
 
     private (bool Success, string FailureReason) ValidateSuccessfulDeliveryRemovesCargo()
@@ -405,14 +414,12 @@ internal sealed class FreightContractSmokeTest
         FreightContext context = PrepareAccepted(out Mission mission);
         if (!context.Player.CargoHold.AddCommodity(context.Food, 10))
             return Fail("could not stage cancellation cargo");
-        int reserved = context.Player.CargoHold.GetMissionCargoQuantity(mission.Id);
-        if (reserved == 0 || !context.Player.CargoHold.GetMissionReservationTargetQuantity(mission.Id).Equals(mission.RequiredQuantity))
-            return Fail("fixture did not create a partial reservation");
         context.Manager.FailMission(mission, "smoke cancellation");
         return context.Player.CargoHold.GetMissionCargoQuantity(mission.Id) == 0 &&
-            context.Player.CargoHold.GetSellableCommodityQuantity(context.Food.Name) == reserved
+            context.Player.CargoHold.GetMissionReservationTargetQuantity(mission.Id) == 0 &&
+            context.Player.CargoHold.GetSellableCleanCommodityQuantity(context.Food.Name) == 10
             ? Pass()
-            : Fail("cancellation did not release freight reservation");
+            : Fail("cancellation changed fungible emergency cargo");
     }
 
     private (bool Success, string FailureReason) ValidateCancellationLeavesMarketUnchanged()
@@ -457,10 +464,11 @@ internal sealed class FreightContractSmokeTest
             saver.ApplyCargo(resumed.Player.CargoHold, data, out _);
             saver.ApplyMissions(resumed.Manager, data, out _);
             Mission mission = resumed.Manager.ActiveMission;
-            return mission != null &&
-                resumed.Player.CargoHold.GetMissionCargoQuantity(mission.Id) == mission.RequiredQuantity
+        return mission != null &&
+                resumed.Player.CargoHold.GetMissionCargoQuantity(mission.Id) == 0 &&
+                resumed.Player.CargoHold.GetMissionReservationTargetQuantity(mission.Id) == 0
                 ? Pass()
-                : Fail("reserved freight quantity did not survive load");
+                : Fail("fungible emergency cargo gained mission attribution on load");
         }
         finally
         {
@@ -480,9 +488,9 @@ internal sealed class FreightContractSmokeTest
             Mission mission = resumed.Manager.ActiveMission;
             return mission != null &&
                 resumed.Player.CargoHold.GetCommodityQuantity(resumed.Food.Name) == mission.RequiredQuantity + 5 &&
-                resumed.Player.CargoHold.GetSellableCommodityQuantity(resumed.Food.Name) == 5
+                resumed.Player.CargoHold.GetSellableCleanCommodityQuantity(resumed.Food.Name) == mission.RequiredQuantity + 5
                 ? Pass()
-                : Fail("unreserved excess cargo did not survive load");
+                : Fail("fungible clean cargo did not survive load");
         }
         finally
         {
@@ -535,10 +543,11 @@ internal sealed class FreightContractSmokeTest
         ShipDefinition transport = dealer.GetShipByName("Pirate Transport");
         if (transport == null || !dealer.TryPurchaseShip(transport, context.PlayerCredits, context.Player, out _))
             return Fail("larger ship purchase failed");
-        return context.Player.CargoHold.GetMissionCargoQuantity(mission.Id) > 0 &&
-            context.Player.CargoHold.GetMissionReservationTargetQuantity(mission.Id) == mission.RequiredQuantity
+        return context.Player.CargoHold.GetMissionCargoQuantity(mission.Id) == 0 &&
+            context.Player.CargoHold.GetMissionReservationTargetQuantity(mission.Id) == 0 &&
+            context.Player.CargoHold.GetSellableCleanCommodityQuantity(context.Food.Name) == 10
             ? Pass()
-            : Fail("ship purchase lost protected freight");
+            : Fail("ship purchase lost fungible clean freight");
     }
 
     private (bool Success, string FailureReason) ValidateShipRejectsInsufficientCapacity()
@@ -577,24 +586,22 @@ internal sealed class FreightContractSmokeTest
         FreightContext context = PrepareFullFreight(out Mission mission);
         StationMarketListing listing = context.Market.GetListingForCommodity(context.Newark, context.Food);
         int beforeStock = listing.Stock;
+        int availableCapacity = context.Market.GetAvailableSupplyCapacity(context.Newark, context.Food);
+        if (availableCapacity > 0 && !context.Market.TryAddSupply(context.Newark, context.Food, availableCapacity, out _))
+            return Fail("ambient trader could not use unreserved destination capacity");
+
         int beforeCargo = context.Player.CargoHold.GetCommodityQuantity(context.Food.Name);
         int beforeCredits = context.PlayerCredits.Credits;
-        while (listing.Stock < listing.MaximumStock)
-        {
-            int step = Math.Min(100, listing.MaximumStock - listing.Stock);
-            if (!context.Market.TryAddSupply(context.Newark, context.Food, step, out _))
-                return Fail("could not fill destination market for atomicity fixture");
-            listing = context.Market.GetListingForCommodity(context.Newark, context.Food);
-        }
-
         bool completed = context.World.NotifyStationDocked(context.Newark);
-        return !completed &&
-            mission.Status == MissionStatus.InProgress &&
-            context.Player.CargoHold.GetCommodityQuantity(context.Food.Name) == beforeCargo &&
-            context.PlayerCredits.Credits == beforeCredits &&
-            context.Market.GetListingForCommodity(context.Newark, context.Food).Stock == listing.Stock
+        return completed &&
+            mission.Status == MissionStatus.Completed &&
+            context.Player.CargoHold.GetCommodityQuantity(context.Food.Name) == beforeCargo - mission.RequiredQuantity &&
+            context.PlayerCredits.Credits == beforeCredits + mission.Reward &&
+            context.Market.GetListingForCommodity(context.Newark, context.Food).Stock >= beforeStock + mission.RequiredQuantity &&
+            context.Market.GetListingForCommodity(context.Newark, context.Food).Stock <=
+                context.Market.GetListingForCommodity(context.Newark, context.Food).MaximumStock
             ? Pass()
-            : Fail("failed delivery partially mutated mission, cargo, credits, or market");
+            : Fail("ambient market activity consumed the accepted contract's guaranteed capacity");
     }
 
     private string BuildRepresentativeReport()
@@ -670,8 +677,10 @@ internal sealed class FreightContractSmokeTest
     private static FreightContext CreateShortageContext()
     {
         FreightContext context = CreateContext();
-        if (!BuyAt(context, context.Newark, context.Food, 140, context.SinkCredits, context.SinkCargo))
+        if (!BuyAt(context, context.Newark, context.Food, 195, context.SinkCredits, context.SinkCargo))
             throw new InvalidOperationException("could not create Newark food shortage");
+        context.Market.GetShortageState(context.Newark, context.Food);
+        context.Market.AdvanceTime(MarketShortagePolicy.MaturitySeconds + 1);
         return context;
     }
 
