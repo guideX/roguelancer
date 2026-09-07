@@ -240,6 +240,25 @@ namespace Roguelancer
             return result;
         }
 
+        /// <summary>
+        /// Applies a bounded flee objective while retaining the normal traffic
+        /// hold timer. Pirate cargo demands use this seam so a trader resumes
+        /// its route through the existing NPC movement code.
+        /// </summary>
+        public bool MarkNpcFleeing(NpcShip trader, Vector3 threatPosition, Action<string> log = null)
+        {
+            if (!TryGetTrafficRuntime(trader, out TrafficShipRuntime runtime, out TrafficZoneRuntime zoneRuntime))
+                return false;
+
+            Vector3 escapePosition = GetTraderEscapePosition(zoneRuntime.Zone, trader, threatPosition);
+            TrafficEncounterState previous = trader.EncounterState;
+            trader.SetEncounterState(TrafficEncounterState.Fleeing, threatPosition, escapePosition);
+            RefreshHold(runtime, TraderFleeHoldSeconds);
+            if (previous != TrafficEncounterState.Fleeing)
+                log?.Invoke($"[TRAFFIC] Trader fleeing after cargo demand: {trader.Name}.");
+            return true;
+        }
+
         public int RequestTradeLaneSecurityResponse(Vector3 disruptionPosition, MissionDifficulty difficulty, string missionId)
         {
             int requestedCount = difficulty == MissionDifficulty.Easy ? 1 : FactionDistressResponseService.ReinforcementWaveSize;

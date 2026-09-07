@@ -7,6 +7,7 @@
 - `Shift+F2`: cycle stations in reverse distance order
 - `Ctrl+F2`: target the nearest dockable station
 - `G`: start normal GOTO on the selected target
+- `Y`: demand cargo from a targeted eligible civilian/commercial trader (within 3,500 m)
 - On a fresh undocked start with no active mission, the HUD briefly shows:
   - `Press Ctrl+F2 to target nearest station`
   - `Press F3 for dock assist`

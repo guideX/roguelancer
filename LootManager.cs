@@ -422,6 +422,62 @@ namespace Roguelancer
         public int SpawnSalvageForDestroyedNpc(NpcShip destroyedShip, Action<string> log = null) =>
             SpawnLootForDestroyedNpc(destroyedShip, log);
 
+        /// <summary>
+        /// Releases one canonical trader cargo stack into the ordinary
+        /// physical loot system. The caller owns the NPC manifest mutation;
+        /// this method only creates a real quantity-bearing CargoPod and
+        /// reports the quantity that was actually released.
+        /// </summary>
+        public int SpawnExtortionCargo(
+            NpcShip trader,
+            string commodityId,
+            int quantity,
+            out int podCount,
+            Action<string> log = null)
+        {
+            podCount = 0;
+            Commodity commodity = CommodityCatalog.GetById(commodityId);
+            int safeQuantity = Math.Clamp(quantity, 1, 40);
+            if (trader == null || trader.IsDestroyed || commodity == null || commodity.IsMissionCargo ||
+                safeQuantity <= 0 || _activePods.Count >= CombatSalvageService.MaxLiveSalvageObjects)
+            {
+                return 0;
+            }
+
+            Vector3[] offsets =
+            {
+                new Vector3(110f, 0f, 0f),
+                new Vector3(-110f, 35f, 0f),
+                new Vector3(0f, -35f, 110f),
+                new Vector3(0f, 20f, -110f)
+            };
+            for (int attempt = 0; attempt < offsets.Length; attempt++)
+            {
+                Vector3 position = trader.Position + offsets[attempt];
+                if (!TradeLaneStateSanitizer.IsFinite(position) ||
+                    !IsSpawnPositionAvailable(position, trader) ||
+                    !CargoPod.TryCreate(
+                        commodity.Id,
+                        safeQuantity,
+                        position,
+                        trader.Velocity * 0.15f,
+                        (float)CombatSalvageService.SalvageLifetimeSeconds,
+                        CombatSalvageService.PickupRadius,
+                        out CargoPod pod))
+                {
+                    continue;
+                }
+
+                pod.SetSalvageSource(trader, CombatSalvageTier.Standard);
+                _activePods.Add(pod);
+                podCount = 1;
+                log?.Invoke($"[PIRACY] cargo pod spawned: {pod.GetPayloadName()} x{pod.Quantity}");
+                return safeQuantity;
+            }
+
+            return 0;
+        }
+
         public void Update(GameTime gameTime, Ship playerShip, bool tractorActive, NotificationManager notificationManager = null, Action<string> log = null)
         {
             LastPickupNotification = string.Empty;

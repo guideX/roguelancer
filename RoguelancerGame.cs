@@ -215,6 +215,7 @@ namespace Roguelancer {
 
         // Cargo pod loot system
         private LootManager _lootManager;
+        private PirateCargoDemandService _piracyDemand;
 
         // Full-route GOTO autopilot
         private GotoAutopilot _gotoAutopilot;
@@ -258,6 +259,7 @@ namespace Roguelancer {
         private readonly bool _runTradeLaneDefenseMissionSmoke;
         private readonly bool _runConvoyEscortMissionSmoke;
         private readonly bool _runConvoyRaidMissionSmoke;
+        private readonly bool _runPiracyDemandSmoke;
         private readonly bool _runFactionDistressResponseSmoke;
         private readonly bool _runFactionCombatEscalationSmoke;
         private readonly bool _runFactionCombatDisengagementSmoke;
@@ -369,6 +371,7 @@ namespace Roguelancer {
             _runTradeLaneDefenseMissionSmoke = args?.Any(arg => string.Equals(arg, "--trade-lane-defense-mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runConvoyEscortMissionSmoke = args?.Any(arg => string.Equals(arg, "--convoy-escort-mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runConvoyRaidMissionSmoke = args?.Any(arg => string.Equals(arg, "--convoy-raid-mission-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPiracyDemandSmoke = args?.Any(arg => string.Equals(arg, "--piracy-demand-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatEscalationSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-escalation-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionCombatDisengagementSmoke = args?.Any(arg => string.Equals(arg, "--faction-combat-disengagement-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1275,6 +1278,21 @@ namespace Roguelancer {
                 npc => _trafficManager?.RegisterMissionNpc(npc),
                  npc => _tradelaneManager?.EjectNpcFromTransit(npc),
                  missionId => _lootManager?.ReleaseMissionCargoAttribution(missionId));
+            _piracyDemand = new PirateCargoDemandService(
+                _npcShips,
+                _reputationManager,
+                npc => _missionWorldManager?.IsMissionOwnedNpc(npc) == true,
+                (trader, commodityId, quantity) => _lootManager?.SpawnExtortionCargo(
+                    trader, commodityId, quantity, out _, Console.WriteLine) ?? 0,
+                (trader, threatPosition) => _trafficManager?.MarkNpcFleeing(trader, threatPosition, Console.WriteLine) == true,
+                (trader, player, sourceId) => _trafficManager?.DistressResponse.ProcessPlayerCrime(trader, player, sourceId) ?? default,
+                (response, trader, player) =>
+                {
+                    if ((response.WaveSpawned || response.AssistedShipCount > 0) && _policeFugitiveManager != null)
+                        _policeFugitiveManager.BeginPursuit(player, "Police response to pirate cargo demand", Console.WriteLine);
+                },
+                _trafficManager?.CombatCommunication,
+                Console.WriteLine);
             _lootManager.ConfigureMissionCargoCallbacks(
                 npc => _missionWorldManager?.GetMissionCargoDrop(npc),
                 pod => _missionWorldManager?.NotifyMissionCargoPodSpawned(pod),
@@ -1451,6 +1469,11 @@ namespace Roguelancer {
             else if (_runConvoyRaidMissionSmoke)
             {
                 var result = RunConvoyRaidMissionSmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runPiracyDemandSmoke)
+            {
+                var result = RunPiracyDemandSmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runFactionDistressResponseSmoke)
@@ -1659,6 +1682,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("trade-lane defense mission smoke", RunTradeLaneDefenseMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("convoy escort mission smoke", RunConvoyEscortMissionSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("convoy raid mission smoke", RunConvoyRaidMissionSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("piracy demand smoke", RunPiracyDemandSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2072,6 +2096,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[CONVOY RAID MISSION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPiracyDemandSmokeTest()
+        {
+            try
+            {
+                return new PiracyDemandSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PIRACY DEMAND SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2564,6 +2601,7 @@ namespace Roguelancer {
             }
 
             int targetSystemIndex = Math.Max(1, saveData.CurrentSystemIndex);
+            _piracyDemand?.Reset();
             _policeScanSystem?.Reset();
             _policeFugitiveManager?.Reset(Console.WriteLine, "save/load");
             if (_stationDockUI?.IsDocked == true)
@@ -3072,6 +3110,7 @@ namespace Roguelancer {
             _countermeasureSystem?.Update(gameTime);
 
             _trafficManager?.Update(gameTime, _playerShip, _reputationManager, Console.WriteLine);
+            _piracyDemand?.Update(deltaTime, _playerShip);
             if (_trafficManager != null &&
                 _trafficManager.TryDequeueCombatCommunication(out FactionCombatCommunicationRequest communication))
             {
@@ -3428,6 +3467,7 @@ namespace Roguelancer {
         }
 
         private void HandleNpcDestroyed(NpcShip destroyedShip) {
+            _piracyDemand?.NotifyNpcDestroyed(destroyedShip);
             _policeFugitiveManager?.NotifyPlayerDamage(destroyedShip, _playerShip, Console.WriteLine);
             _factionCombatConsequences?.RecordPlayerDamage(destroyedShip);
             _factionCombatConsequences?.ApplyPlayerShipDestroyed(destroyedShip);
@@ -3545,6 +3585,7 @@ namespace Roguelancer {
             bool f7Pressed = keyboardState.IsKeyDown(Keys.F7) && _prevKeys.IsKeyUp(Keys.F7);
             bool gPressed = keyboardState.IsKeyDown(Keys.G) && _prevKeys.IsKeyUp(Keys.G);
             bool rPressed = keyboardState.IsKeyDown(Keys.R) && _prevKeys.IsKeyUp(Keys.R);
+            bool yPressed = keyboardState.IsKeyDown(Keys.Y) && _prevKeys.IsKeyUp(Keys.Y);
 
             if (rPressed && HasTradePlanResumeAvailable())
             {
@@ -3579,6 +3620,19 @@ namespace Roguelancer {
 
             if (f7Pressed) {
                 SelectFirstMissionObjectiveTarget();
+            }
+
+            if (yPressed && _piracyDemand != null)
+            {
+                NpcShip trader = GetSelectedSpaceObjectTarget() as NpcShip;
+                if (_piracyDemand.TryIssueDemand(_playerShip, trader, out string failureReason))
+                {
+                    _notificationManager?.ShowMessage("Demand cargo from targeted transport", 3f);
+                }
+                else if (!string.IsNullOrWhiteSpace(failureReason))
+                {
+                    _notificationManager?.ShowMessage(failureReason, 2.5f);
+                }
             }
 
             // G key: GOTO selected target
@@ -6940,6 +6994,7 @@ namespace Roguelancer {
                     DrawCoordinates();
                     DrawActiveMissionsHUD();
                     DrawActiveTradePlanHUD();
+                    DrawPiracyDemandHUD();
 
                     // Draw mission guidance overlay (distance, arrows, proximity alerts)
                     _missionGuidanceHUD?.Draw(_spriteBatch, GraphicsDevice, _camera, _playerShip.Position, _missionWaypointSystem);
@@ -6971,6 +7026,17 @@ namespace Roguelancer {
         /// <summary>
         /// Draw the current system name in the top-left corner
         /// </summary>
+        private void DrawPiracyDemandHUD()
+        {
+            if (_font == null || _piracyDemand == null || string.IsNullOrWhiteSpace(_piracyDemand.HudText))
+                return;
+
+            string text = _piracyDemand.HudText;
+            Vector2 position = new Vector2(10f, 42f);
+            _spriteBatch.DrawString(_font, text, position + Vector2.One, Color.Black * 0.7f);
+            _spriteBatch.DrawString(_font, text, position, Color.Orange);
+        }
+
         private void DrawSystemName() {
             if (_font == null) return;
 
@@ -7106,6 +7172,7 @@ namespace Roguelancer {
             Console.WriteLine($"[SYSTEM CHANGE] Switching from system {oldSystemIndex} to system {newSystemIndex}");
             _policeScanSystem?.Reset();
             _policeFugitiveManager?.Reset(Console.WriteLine, "system transition");
+            _piracyDemand?.Reset();
             _tradeRouteValidation?.RecordSystemChange(oldSystemIndex, newSystemIndex, arrivalJumpHoleName);
 
             // A jump completion invalidates the old-system world object. Only

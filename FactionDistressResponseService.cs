@@ -69,6 +69,7 @@ public sealed class FactionDistressResponseService
     private readonly Action<string>? _log;
     private readonly Dictionary<EncounterKey, EncounterRecord> _encounters = new();
     private readonly Dictionary<string, EncounterRecord> _infrastructureEncounters = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, EncounterRecord> _crimeEncounters = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ResponseContextKey, float> _lastResponseTimes = new();
     private readonly Dictionary<NpcShip, PlayerDamageObservation> _observedPlayerDamage = new();
     private float _simulationTime;
@@ -144,6 +145,118 @@ public sealed class FactionDistressResponseService
             FactionDistressDamageSource.Player,
             target.LastPlayerDamage,
             allowDestroyedTarget: true);
+    }
+
+    /// <summary>
+    /// Routes one witnessed lawful-shipping crime into the existing Police
+    /// distress response path. It deliberately does not create a system-wide
+    /// incident when no local Police witness exists.
+    /// </summary>
+    public FactionDistressResponseResult ProcessPlayerCrime(
+        NpcShip? affectedTrader,
+        Ship? playerShip,
+        string? sourceId)
+    {
+        if (affectedTrader == null || affectedTrader.IsDestroyed || playerShip == null ||
+            playerShip.Hull?.IsDestroyed == true || string.IsNullOrWhiteSpace(sourceId) ||
+            !IsLawfulCargoFaction(affectedTrader.FactionId))
+        {
+            return Rejected("invalid witnessed piracy event");
+        }
+
+        float radiusSquared = LocalContextRadius * LocalContextRadius;
+        bool hasWitness = false;
+        for (int i = 0; i < _npcShips.Count; i++)
+        {
+            NpcShip? police = _npcShips[i];
+            if (police == null || police.IsDestroyed || !IsLibertyPolice(police) ||
+                Vector3.DistanceSquared(police.Position, affectedTrader.Position) > radiusSquared)
+                continue;
+
+            hasWitness = true;
+            break;
+        }
+
+        if (!hasWitness)
+            return new FactionDistressResponseResult(true, false, false, 0, 0, string.Empty,
+                FactionManager.LibertyPolice, "no local Police witness");
+
+        string key = string.IsNullOrWhiteSpace(affectedTrader.StableIdentity)
+            ? affectedTrader.Name ?? sourceId
+            : affectedTrader.StableIdentity;
+        if (!_crimeEncounters.TryGetValue(key, out EncounterRecord? encounter))
+        {
+            encounter = new EncounterRecord
+            {
+                Id = $"distress-piracy-{_nextEncounterSerial++}",
+                LastSeenTime = _simulationTime
+            };
+            _crimeEncounters[key] = encounter;
+        }
+        else
+        {
+            encounter.LastSeenTime = _simulationTime;
+        }
+
+        if (encounter.WaveRequested)
+        {
+            return new FactionDistressResponseResult(true, false, false, 0, 0, encounter.Id,
+                FactionManager.LibertyPolice, "piracy distress already answered");
+        }
+
+        _reputationManager?.TemporaryHostility.RecordHostileAction(
+            FactionManager.LibertyPolice,
+            "piracy distress",
+            TemporaryHostilityManager.MaximumDurationSeconds);
+
+        int assistedCount = 0;
+        for (int i = 0; i < _npcShips.Count; i++)
+        {
+            NpcShip? police = _npcShips[i];
+            if (police == null || police.IsDestroyed || !IsLibertyPolice(police) ||
+                Vector3.DistanceSquared(police.Position, affectedTrader.Position) > radiusSquared)
+                continue;
+
+            if (police.HasPlayerTarget && police.HasValidPlayerTarget(_reputationManager))
+            {
+                assistedCount++;
+                continue;
+            }
+
+            if (police.FactionCombatTarget != null && police.HasValidFactionCombatTarget())
+                continue;
+
+            police.ClearEncounterState();
+            police.SetPlayerTarget(playerShip.Position, NpcPlayerTargetReason.FactionDisposition);
+            assistedCount++;
+        }
+
+        int activeCount = CountActiveReinforcements(FactionManager.LibertyPolice, affectedTrader.Position);
+        int requestCount = Math.Min(ReinforcementWaveSize,
+            Math.Max(0, ActiveReinforcementCap - activeCount));
+        IReadOnlyList<NpcShip> spawned = requestCount > 0
+            ? _spawnReinforcements(FactionManager.LibertyPolice, affectedTrader.Position, encounter.Id, requestCount) ?? Array.Empty<NpcShip>()
+            : Array.Empty<NpcShip>();
+        for (int i = 0; i < spawned.Count; i++)
+        {
+            NpcShip? police = spawned[i];
+            police?.MarkDistressReinforcement(encounter.Id);
+            police?.SetPlayerTarget(playerShip.Position, NpcPlayerTargetReason.FactionDisposition);
+        }
+
+        encounter.WaveRequested = true;
+        FactionDistressResponseResult result = new(
+            true,
+            spawned.Count > 0,
+            false,
+            assistedCount,
+            spawned.Count,
+            encounter.Id,
+            FactionManager.LibertyPolice,
+            spawned.Count > 0 || assistedCount > 0 ? "Police responding to piracy distress" : "Police response unavailable");
+        if (spawned.Count > 0 || assistedCount > 0)
+            ResponseGenerated?.Invoke(result);
+        return result;
     }
 
     public FactionDistressResponseResult ProcessNpcDamage(
@@ -270,6 +383,7 @@ public sealed class FactionDistressResponseService
 
         _encounters.Clear();
         _infrastructureEncounters.Clear();
+        _crimeEncounters.Clear();
         _lastResponseTimes.Clear();
         _observedPlayerDamage.Clear();
         _simulationTime = 0f;
@@ -518,6 +632,24 @@ public sealed class FactionDistressResponseService
             }
         }
 
+        if (_crimeEncounters.Count > 0)
+        {
+            List<string>? expiredCrime = null;
+            foreach (KeyValuePair<string, EncounterRecord> entry in _crimeEncounters)
+            {
+                if (_simulationTime - entry.Value.LastSeenTime < EncounterExpirySeconds)
+                    continue;
+                expiredCrime ??= new List<string>();
+                expiredCrime.Add(entry.Key);
+            }
+
+            if (expiredCrime != null)
+            {
+                for (int i = 0; i < expiredCrime.Count; i++)
+                    _crimeEncounters.Remove(expiredCrime[i]);
+            }
+        }
+
         if (_lastResponseTimes.Count > 0)
         {
             List<ResponseContextKey>? expiredCooldowns = null;
@@ -543,6 +675,19 @@ public sealed class FactionDistressResponseService
         string normalized = FactionManager.NormalizeFactionId(factionId);
         return normalized.Equals(FactionManager.LibertyPolice, StringComparison.OrdinalIgnoreCase) ||
             normalized.Equals(FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsLibertyPolice(NpcShip? ship) =>
+        ship != null && string.Equals(
+            FactionManager.NormalizeFactionId(ship.FactionId),
+            FactionManager.LibertyPolice,
+            StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsLawfulCargoFaction(string? factionId)
+    {
+        string normalized = FactionManager.NormalizeFactionId(factionId);
+        return normalized.Equals(FactionManager.LibertyCorporations, StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals(FactionManager.NeutralCivilians, StringComparison.OrdinalIgnoreCase);
     }
 
     private static ResponseContextKey GetContextKey(string factionId, Vector3 position)

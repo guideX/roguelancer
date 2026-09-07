@@ -348,6 +348,31 @@ namespace Roguelancer
             _runtimeStates.Remove(mission.Id);
         }
 
+        /// <summary>
+        /// Shared mission-ownership gate for world interactions. Free-roam
+        /// systems may query this without taking ownership of mission state or
+        /// serializing raw NPC references.
+        /// </summary>
+        public bool IsMissionOwnedNpc(NpcShip ship)
+        {
+            if (ship == null)
+                return false;
+
+            foreach (MissionRuntimeState state in _runtimeStates.Values)
+            {
+                if (state == null || state.Mission == null ||
+                    state.Mission.Status is not (MissionStatus.Active or MissionStatus.InProgress))
+                    continue;
+
+                if (state.BountyTarget == ship || state.EscortTarget == ship ||
+                    state.MissionHostiles.Contains(ship) || state.ConvoyShips.Contains(ship) ||
+                    state.ConvoyHostiles.Contains(ship) || state.RaidShips.Contains(ship))
+                    return true;
+            }
+
+            return false;
+        }
+
         public void NotifyNpcDestroyed(NpcShip destroyedShip)
         {
             if (destroyedShip == null)

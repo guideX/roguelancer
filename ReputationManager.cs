@@ -28,6 +28,7 @@ namespace Roguelancer
         PoliceEnforcementPaid,
         PoliceEnforcementUnableToPay,
         PoliceEnforcementRefused,
+        PiracyDemand,
         TradeLaneDisrupted,
         ManualDebug,
         Other
@@ -426,6 +427,9 @@ namespace Roguelancer
                 return ReputationChangeReason.PirateAmbushDefense;
             if (reason.Contains("bribe", StringComparison.OrdinalIgnoreCase))
                 return ReputationChangeReason.ReputationBribe;
+            if (reason.Contains("piracy", StringComparison.OrdinalIgnoreCase) ||
+                reason.Contains("extort", StringComparison.OrdinalIgnoreCase))
+                return ReputationChangeReason.PiracyDemand;
             return ReputationChangeReason.Other;
         }
     }

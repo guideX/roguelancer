@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Globalization;
 
 namespace Roguelancer
 {
@@ -67,6 +68,8 @@ namespace Roguelancer
         public Matrix ModelRotationCorrection { get; set; } = Matrix.Identity;
         public string ModelPath { get; set; }
         public string FactionId { get; set; }
+        /// <summary>Stable identity for bounded world interactions.</summary>
+        public string StableIdentity { get; private set; } = string.Empty;
         /// <summary>
         /// Durable-definition snapshot for the equipment this NPC carried.
         /// Runtime NPC projectiles remain separate from this metadata so a
@@ -258,6 +261,7 @@ namespace Roguelancer
         private float _trafficRouteHoldTimer;
         private bool _trafficRouteTowardEnd = true;
         private Vector3 _missionHoldAnchor;
+        private string _stableIdentitySeed = string.Empty;
         private Quaternion _rotation = Quaternion.Identity; // Use Quaternion instead of Matrix
         
         public Vector3 Forward => Vector3.Transform(Vector3.Forward, _rotation);
@@ -271,6 +275,8 @@ namespace Roguelancer
             _patrolRadius = patrolRadius;
             _patrolSpeed = patrolSpeed;
             FactionId = FactionManager.NormalizeFactionId(factionId);
+            _stableIdentitySeed = BuildStableIdentitySeed(name, startPosition, FactionId);
+            StableIdentity = _stableIdentitySeed;
             // Stable presentation phase: traffic direction and movement must
             // remain repeatable across smoke runs and new sessions.
             int visualSeed = 17;
@@ -345,6 +351,9 @@ namespace Roguelancer
             TrafficRouteStart = routeStart;
             TrafficRouteEnd = routeEnd;
             _trafficRouteHoldTimer = 0f;
+            StableIdentity = string.IsNullOrWhiteSpace(TrafficZoneId)
+                ? _stableIdentitySeed
+                : $"{_stableIdentitySeed}|traffic:{TrafficZoneId}";
             ClearEncounterState();
 
             if (routeStart.HasValue && routeEnd.HasValue)
@@ -1048,6 +1057,16 @@ namespace Roguelancer
 
         private static bool IsFinitePositive(float value) =>
             !float.IsNaN(value) && !float.IsInfinity(value) && value > 0f;
+
+        private static string BuildStableIdentitySeed(string name, Vector3 position, string factionId)
+        {
+            return string.Join("|",
+                name ?? string.Empty,
+                FactionManager.NormalizeFactionId(factionId),
+                position.X.ToString("R", CultureInfo.InvariantCulture),
+                position.Y.ToString("R", CultureInfo.InvariantCulture),
+                position.Z.ToString("R", CultureInfo.InvariantCulture));
+        }
 
         public void SetTradeLaneTransit(bool inTransit, string laneId = null, TradeLaneDirection? direction = null, int ringIndex = -1)
         {
