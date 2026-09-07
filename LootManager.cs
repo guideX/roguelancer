@@ -28,6 +28,8 @@ namespace Roguelancer
         private Action<CargoPod, int> _missionCargoPodCollectedCallback;
         private Action<CargoPod, int> _missionCargoPodExpiredCallback;
         private Action<MissionCargoDrop> _missionCargoUnavailableCallback;
+        private Func<NpcShip, IReadOnlyList<SalvageDrop>> _economicSalvageResolver;
+        private Func<NpcShip, string, int, int> _economicSalvageConsumed;
 
         private bool _hasLastPlayerState;
         private Vector3 _lastPlayerPosition;
@@ -82,6 +84,14 @@ namespace Roguelancer
             _missionCargoPodCollectedCallback = podCollected;
             _missionCargoPodExpiredCallback = podExpired;
             _missionCargoUnavailableCallback = cargoUnavailable;
+        }
+
+        public void ConfigureEconomicCargoCallbacks(
+            Func<NpcShip, IReadOnlyList<SalvageDrop>> salvageResolver,
+            Func<NpcShip, string, int, int> salvageConsumed)
+        {
+            _economicSalvageResolver = salvageResolver;
+            _economicSalvageConsumed = salvageConsumed;
         }
 
         public List<SaveCargoPodData> CaptureMissionCargoPods()
@@ -460,7 +470,12 @@ namespace Roguelancer
                 _missionCargoUnavailableCallback?.Invoke(missionDrop);
             }
 
-            IReadOnlyList<SalvageDrop> drops = _salvageService.EvaluateDestruction(destroyedShip);
+            IReadOnlyList<SalvageDrop> economicDrops = _economicSalvageResolver?.Invoke(destroyedShip);
+            bool hasEconomicCargo = economicDrops != null;
+            IReadOnlyList<SalvageDrop> regularDrops = _salvageService.EvaluateDestruction(destroyedShip);
+            IReadOnlyList<SalvageDrop> drops = hasEconomicCargo
+                ? regularDrops.Where(drop => drop != null && !drop.IsCommodity).Concat(economicDrops).ToList()
+                : regularDrops;
             if (drops.Count == 0 || availableSlots <= 0)
             {
                 return spawned;
@@ -515,11 +530,23 @@ namespace Roguelancer
                 }
 
                 pod.SetSalvageSource(destroyedShip, drop.Tier);
-                if (drop.IsCommodity && IsPlayerPiracySource(destroyedShip))
+                int economicQuantity = drop.Quantity;
+                if (hasEconomicCargo && drop.IsCommodity)
+                {
+                    economicQuantity = Math.Clamp(
+                        _economicSalvageConsumed?.Invoke(destroyedShip, drop.CommodityId, drop.Quantity) ?? 0,
+                        0,
+                        drop.Quantity);
+                    if (economicQuantity <= 0)
+                        continue;
+                    if (economicQuantity < drop.Quantity)
+                        pod.TakeQuantity(drop.Quantity - economicQuantity);
+                }
+                if (!hasEconomicCargo && drop.IsCommodity && IsPlayerPiracySource(destroyedShip))
                     pod.SetStolenProvenance(true);
                 _activePods.Add(pod);
                 spawned++;
-                log?.Invoke($"[SALVAGE] pod spawned: {pod.GetPayloadName()} x{drop.Quantity}");
+                log?.Invoke($"[SALVAGE] pod spawned: {pod.GetPayloadName()} x{pod.Quantity}");
             }
 
             return spawned;

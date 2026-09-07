@@ -615,6 +615,18 @@ namespace Roguelancer
         }
 
         /// <summary>
+        /// Returns the exact bounded capacity available to a physical
+        /// shipment at a configured destination listing.
+        /// </summary>
+        public int GetAvailableSupplyCapacity(Station station, Commodity commodity)
+        {
+            if (!TryResolveSupplyListing(station, commodity, 1, out StationMarketListing listing, out _))
+                return 0;
+
+            return Math.Max(0, listing.MaximumStock - listing.Stock);
+        }
+
+        /// <summary>
         /// Validates removal of real station inventory without changing state.
         /// Export contracts use this to keep a shipment above its normal stock
         /// floor while the terms are being accepted.

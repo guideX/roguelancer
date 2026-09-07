@@ -27,11 +27,23 @@ public sealed class TraderCargoStack
         Quantity = InitialQuantity;
     }
 
+    internal TraderCargoStack(Commodity commodity, int initialQuantity, int remainingQuantity)
+    {
+        Commodity = commodity;
+        InitialQuantity = Math.Max(0, initialQuantity);
+        Quantity = Math.Clamp(remainingQuantity, 0, InitialQuantity);
+    }
+
     internal int Remove(int quantity)
     {
         int removed = Math.Min(Math.Max(0, quantity), Quantity);
         Quantity -= removed;
         return removed;
+    }
+
+    internal void SetRemainingQuantity(int quantity)
+    {
+        Quantity = Math.Clamp(quantity, 0, InitialQuantity);
     }
 }
 
@@ -39,14 +51,17 @@ public sealed class TraderCargoManifest
 {
     private readonly List<TraderCargoStack> _stacks;
 
-    internal TraderCargoManifest(IEnumerable<TraderCargoStack> stacks)
+    internal TraderCargoManifest(IEnumerable<TraderCargoStack> stacks, bool preserveEmptyStacks = false)
     {
-        _stacks = stacks?.Where(stack => stack?.Commodity != null && stack.Quantity > 0).ToList() ?? new List<TraderCargoStack>();
+        _stacks = stacks?.Where(stack => stack?.Commodity != null &&
+            (preserveEmptyStacks ? stack.InitialQuantity > 0 : stack.Quantity > 0)).ToList() ?? new List<TraderCargoStack>();
     }
 
     public IReadOnlyList<TraderCargoStack> Stacks => _stacks;
     public int CommodityTypeCount => _stacks.Count(stack => stack.Quantity > 0);
     public int RemainingQuantity => _stacks.Sum(stack => Math.Max(0, stack.Quantity));
+    public int InitialQuantity => _stacks.Sum(stack => Math.Max(0, stack.InitialQuantity));
+    public int RemovedQuantity => Math.Max(0, InitialQuantity - RemainingQuantity);
 
     internal IReadOnlyList<TraderCargoStack> Snapshot() => _stacks.ToList();
 }
@@ -98,6 +113,10 @@ public sealed class PirateCargoDemandService
     private readonly Action<FactionDistressResponseResult, NpcShip, Ship> _onPoliceResponse;
     private readonly FactionCombatCommunicationService _communication;
     private readonly Action<string> _log;
+    private readonly Func<NpcShip, TraderCargoManifest> _manifestResolver;
+    // Standalone Phase 56 smoke harnesses do not construct the live market
+    // owner. Keep their source-compatible deterministic fallback, while the
+    // game always injects EconomicShipmentManager as the sole manifest owner.
     private readonly Dictionary<NpcShip, TraderCargoManifest> _manifests = new();
     private readonly HashSet<string> _resolvedTargetIdentities = new(StringComparer.Ordinal);
     private ActiveDemand _activeDemand;
@@ -113,7 +132,8 @@ public sealed class PirateCargoDemandService
         Func<NpcShip, Ship, string, FactionDistressResponseResult> processDistress = null,
         Action<FactionDistressResponseResult, NpcShip, Ship> onPoliceResponse = null,
         FactionCombatCommunicationService communication = null,
-        Action<string> log = null)
+        Action<string> log = null,
+        Func<NpcShip, TraderCargoManifest> manifestResolver = null)
     {
         _npcShips = npcShips ?? throw new ArgumentNullException(nameof(npcShips));
         _reputationManager = reputationManager ?? throw new ArgumentNullException(nameof(reputationManager));
@@ -124,6 +144,7 @@ public sealed class PirateCargoDemandService
         _onPoliceResponse = onPoliceResponse;
         _communication = communication;
         _log = log;
+        _manifestResolver = manifestResolver;
     }
 
     public PiracyDemandState CurrentState => _activeDemand == null
@@ -166,6 +187,9 @@ public sealed class PirateCargoDemandService
         }
 
         TraderCargoManifest manifest = GetOrCreateManifest(trader);
+        if (manifest == null)
+            return false;
+
         snapshot = new NpcCargoManifestSnapshot(
             hasRegisteredCargo: true,
             manifest?.Stacks.Select(stack =>
@@ -438,6 +462,10 @@ public sealed class PirateCargoDemandService
     {
         if (trader == null)
             return null;
+
+        if (_manifestResolver != null)
+            return _manifestResolver(trader);
+
         if (_manifests.TryGetValue(trader, out TraderCargoManifest existing))
             return existing;
 

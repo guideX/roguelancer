@@ -508,7 +508,7 @@ internal sealed class FactionCombatEscalationSmokeTest
     private static bool SaveSchemaRemainsUnchanged()
     {
         string save = JsonSerializer.Serialize(new SaveGameData());
-        return SaveGameData.CurrentSchemaVersion == 10 &&
+        return SaveGameData.CurrentSchemaVersion == 11 &&
             !save.Contains("Escalation", StringComparison.OrdinalIgnoreCase) &&
             !save.Contains("Reinforcement", StringComparison.OrdinalIgnoreCase);
     }

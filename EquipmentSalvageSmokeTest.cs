@@ -345,7 +345,7 @@ namespace Roguelancer
                 bool saved = manager.TrySave(data, out _);
                 bool loaded = manager.TryLoad(out SaveGameData restored, out _);
                 ShipLoadout rebuilt = manager.BuildLoadout(restored, out _);
-                return saved && loaded && SaveGameData.CurrentSchemaVersion == 10 &&
+                return saved && loaded && SaveGameData.CurrentSchemaVersion == 11 &&
                        rebuilt.GetOwnedCount(weapon.Id) == 2
                     ? Pass()
                     : Fail("collected equipment did not survive the existing save schema");

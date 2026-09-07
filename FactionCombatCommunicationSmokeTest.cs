@@ -72,7 +72,7 @@ internal sealed class FactionCombatCommunicationSmokeTest
         Check("reset clears transient communication state", ResetClearsTransientState);
         Check("communications do not mutate reputation", CommunicationsDoNotMutateReputation);
         Check("communications do not alter combat target", CommunicationsDoNotAlterCombatTarget);
-        Check("save schema remains version 10", SaveSchemaRemainsVersionTen);
+        Check("save schema remains current", SaveSchemaRemainsVersionTen);
         Check("TrafficManager integration reports ordinary acquisition", TrafficManagerReportsAcquisition);
 
         Console.WriteLine($"[FACTION COMBAT COMMUNICATION SMOKE] RESULT: {_passed} passed, {_failed} failed");
@@ -472,7 +472,7 @@ internal sealed class FactionCombatCommunicationSmokeTest
     private static bool SaveSchemaRemainsVersionTen()
     {
         string save = JsonSerializer.Serialize(new SaveGameData());
-        return SaveGameData.CurrentSchemaVersion == 10 &&
+        return SaveGameData.CurrentSchemaVersion == 11 &&
             !save.Contains("communication", StringComparison.OrdinalIgnoreCase) &&
             !save.Contains("radio", StringComparison.OrdinalIgnoreCase);
     }

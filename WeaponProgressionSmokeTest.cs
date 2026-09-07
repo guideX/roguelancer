@@ -57,7 +57,7 @@ namespace Roguelancer
             Check("player WeaponSystem consumes a mounted new gun profile", NewGunWorksThroughPlayerWeaponSystem);
             Check("mounted new gun becomes exact Phase 39 salvage", NewGunSalvagePreservesMountedId);
             Check("dealer exposes the new gun through normal lifecycle", DealerLifecycleWorksForNewGun);
-            Check("new owned and mounted gun survives schema ten save/load", SaveLoadPreservesNewGun);
+            Check("new owned and mounted gun survives save/load", SaveLoadPreservesNewGun);
 
             Console.WriteLine($"[WEAPON PROGRESSION SMOKE] RESULT: {_passed} passed, {_failed} failed");
             return (_passed, _failed);
@@ -357,7 +357,7 @@ namespace Roguelancer
                 bool saved = manager.TrySave(data, out _);
                 bool loaded = manager.TryLoad(out SaveGameData restored, out _);
                 ShipLoadout rebuilt = manager.BuildLoadout(restored, out List<string> warnings);
-                return saved && loaded && SaveGameData.CurrentSchemaVersion == 10 && warnings.Count == 0 &&
+                return saved && loaded && SaveGameData.CurrentSchemaVersion == 11 && warnings.Count == 0 &&
                        rebuilt.GetOwnedCount(gun.Id) == 1 && rebuilt.GetMountedCount(gun.Id) == 1;
             }
             finally

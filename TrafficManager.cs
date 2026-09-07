@@ -46,6 +46,7 @@ namespace Roguelancer
         private readonly FactionCombatCommunicationService _combatCommunication;
         private ReputationManager _reputationManager;
         private ContentManager _content;
+        private EconomicShipmentManager _economicShipments;
 
         public Func<NpcShip, NpcShip> MissionTargetResolver { get; set; }
         public PoliceFugitiveManager FugitiveManager { get; set; }
@@ -84,6 +85,7 @@ namespace Roguelancer
         public FactionCombatEscalationService CombatEscalation => _combatEscalation;
         public FactionCombatDisengagementService CombatDisengagement => _combatDisengagement;
         public FactionCombatCommunicationService CombatCommunication => _combatCommunication;
+        public EconomicShipmentManager EconomicShipments => _economicShipments;
 
         public IReadOnlyList<NpcShip> GetActiveShipsForZone(string zoneId)
         {
@@ -105,8 +107,29 @@ namespace Roguelancer
             _content = content;
         }
 
+        public void ConfigureEconomicShipments(EconomicShipmentManager shipments, Action<string> log = null)
+        {
+            _economicShipments = shipments;
+            if (_economicShipments == null)
+                return;
+
+            foreach (TrafficZoneRuntime runtime in _zonesById.Values)
+            {
+                foreach (NpcShip ship in runtime.ActiveShips.ToList())
+                {
+                    SubscribeEconomicArrival(ship);
+                    if (ship?.TrafficBehavior == TrafficZoneBehaviorType.TraderRoute &&
+                        _economicShipments.TryAttachTrader(ship, runtime.Zone, out EconomicShipment shipment))
+                    {
+                        log?.Invoke($"[ECONOMY] Reserved {shipment.InitialQuantity} units for {ship.Name}: {shipment.OriginStationId} -> {shipment.DestinationStationId}.");
+                    }
+                }
+            }
+        }
+
         public void LoadZonesForSystem(int systemIndex, Action<string> log = null)
         {
+            _economicShipments?.ResetForWorldTeardown(restoreOriginStock: true);
             _combatCommunication.Reset();
             _combatEscalation.Reset();
             _combatDisengagement.Reset();
@@ -180,6 +203,7 @@ namespace Roguelancer
             _combatEscalation.NotifyNpcDestroyed(destroyedShip);
             _combatDisengagement.NotifyNpcDestroyed(destroyedShip);
             _combatCommunication.UnregisterShip(destroyedShip);
+            _economicShipments?.NotifyTraderDestroyed(destroyedShip);
 
             foreach (NpcShip other in _npcShips)
             {
@@ -196,6 +220,8 @@ namespace Roguelancer
 
                 _shipRuntimes.Remove(destroyedShip);
             }
+
+            destroyedShip.TrafficRouteEndpointReached -= HandleEconomicRouteArrival;
         }
 
         public void RegisterMissionNpc(NpcShip ship)
@@ -1026,8 +1052,28 @@ namespace Roguelancer
             _spaceObjects.Add(npc);
             _combatDisengagement.RegisterShip(npc);
             _combatCommunication.RegisterShip(npc);
+            SubscribeEconomicArrival(npc);
+            if (_economicShipments != null && zone.BehaviorType == TrafficZoneBehaviorType.TraderRoute &&
+                _economicShipments.TryAttachTrader(npc, zone, out EconomicShipment shipment))
+            {
+                log?.Invoke($"[ECONOMY] Reserved {shipment.InitialQuantity} units for {npc.Name}: {shipment.OriginStationId} -> {shipment.DestinationStationId}.");
+            }
             log?.Invoke($"[TRAFFIC] Spawned {npc.Name} in {zone.Name} ({zone.BehaviorType})");
             return true;
+        }
+
+        private void SubscribeEconomicArrival(NpcShip ship)
+        {
+            if (ship == null)
+                return;
+
+            ship.TrafficRouteEndpointReached -= HandleEconomicRouteArrival;
+            ship.TrafficRouteEndpointReached += HandleEconomicRouteArrival;
+        }
+
+        private void HandleEconomicRouteArrival(NpcShip ship, bool reachedRouteEnd)
+        {
+            _economicShipments?.NotifyRouteEndpointReached(ship, reachedRouteEnd, Console.WriteLine);
         }
 
         private IReadOnlyList<NpcShip> SpawnDistressReinforcements(
@@ -1281,6 +1327,9 @@ namespace Roguelancer
             }
 
             _shipRuntimes.Remove(ship);
+            ship.TrafficRouteEndpointReached -= HandleEconomicRouteArrival;
+            if (!ship.IsDestroyed)
+                _economicShipments?.NotifyTraderDespawned(ship, reason);
             _combatDisengagement.NotifyNpcDespawned(ship);
             _combatCommunication.UnregisterShip(ship);
             if (_onNpcDestroyed != null)

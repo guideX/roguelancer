@@ -58,7 +58,7 @@ internal sealed class FactionBountyRewardSmokeTest
         Check("escalation event itself gives no money", EscalationEventItselfGivesNoMoney);
         Check("disengagement event itself gives no money", DisengagementEventItselfGivesNoMoney);
         Check("radio communication remains presentation-only", RadioCommunicationRemainsPresentationOnly);
-        Check("save schema remains version 10", SaveSchemaRemainsVersionTen);
+        Check("save schema remains current", SaveSchemaRemainsVersionTen);
         Check("reset clears duplicate bookkeeping", ResetClearsDuplicateBookkeeping);
         Check("new NPC after reset is independent", NewNpcAfterResetIsIndependent);
         Check("duplicate state is bounded", DuplicateStateIsBounded);
@@ -448,7 +448,7 @@ internal sealed class FactionBountyRewardSmokeTest
         return fixture.Credits.Credits == 0 && fixture.Notifications.Count == 0;
     }
 
-    private static bool SaveSchemaRemainsVersionTen() => SaveGameData.CurrentSchemaVersion == 10;
+    private static bool SaveSchemaRemainsVersionTen() => SaveGameData.CurrentSchemaVersion == 11;
 
     private static bool ResetClearsDuplicateBookkeeping()
     {

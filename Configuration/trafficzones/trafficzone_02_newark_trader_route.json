@@ -12,10 +12,12 @@
   "max_ships": 4,
   "spawn_interval": 18.0,
   "behavior_type": "TraderRoute",
-  "route_start_x": -1200.0,
-  "route_start_y": -300.0,
-  "route_start_z": 900.0,
+  "route_start_x": 6000.0,
+  "route_start_y": 600.0,
+  "route_start_z": -4500.0,
   "route_end_x": -7500.0,
   "route_end_y": -900.0,
-  "route_end_z": 6000.0
+  "route_end_z": 6000.0,
+  "origin_station_id": "fort_bush",
+  "destination_station_id": "newark_station"
 }

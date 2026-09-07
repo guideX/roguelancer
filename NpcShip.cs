@@ -100,6 +100,7 @@ namespace Roguelancer
         public bool HasPlayerTarget => EncounterState == TrafficEncounterState.AttackingPlayer && PlayerTargetReason != NpcPlayerTargetReason.None;
         public bool HasFactionDerivedPlayerTarget => HasPlayerTarget && PlayerTargetReason == NpcPlayerTargetReason.FactionDisposition;
         public bool HasPlayerInitiatedRetaliationTarget => HasPlayerTarget && PlayerTargetReason == NpcPlayerTargetReason.PlayerInitiatedAggression;
+        public bool IsTrafficRouteTowardEnd => _trafficRouteTowardEnd;
 
         // The legacy NpcShip-only update path retains its original local
         // activation-range guard. TrafficManager enables this transient flag
@@ -240,6 +241,13 @@ namespace Roguelancer
         
         // Event to signal when the ship is destroyed
         public event Action<NpcShip> OnDestroyed;
+
+        /// <summary>
+        /// Raised once when ordinary trader movement reaches one configured
+        /// route endpoint. The movement code remains authoritative; listeners
+        /// only observe the arrival and may settle bounded world state.
+        /// </summary>
+        public event Action<NpcShip, bool> TrafficRouteEndpointReached;
 
         // Presentation-only observation hook. The communication layer may
         // listen for a new player target without gaining authority over the
@@ -785,6 +793,7 @@ namespace Roguelancer
             float distance = Vector3.Distance(Position, target);
             if (distance <= 180f)
             {
+                TrafficRouteEndpointReached?.Invoke(this, _trafficRouteTowardEnd);
                 _trafficRouteHoldTimer += deltaTime;
                 Speed = MathHelper.Lerp(Speed, 40f, deltaTime * 2f);
                 if (_trafficRouteHoldTimer >= 1.0f)
@@ -1099,6 +1108,19 @@ namespace Roguelancer
                 Speed = 0f;
                 ClearEncounterState();
             }
+        }
+
+        internal void RestoreTrafficRouteState(Vector3 position, Vector3 velocity, bool towardEnd, float ageSeconds)
+        {
+            if (!TradeLaneStateSanitizer.IsFinite(position) || !TradeLaneStateSanitizer.IsFinite(velocity))
+                return;
+
+            Position = position;
+            Velocity = velocity;
+            _trafficRouteTowardEnd = towardEnd;
+            _trafficRouteHoldTimer = 0f;
+            TrafficAgeSeconds = Math.Max(0f, float.IsNaN(ageSeconds) || float.IsInfinity(ageSeconds) ? 0f : ageSeconds);
+            ClearEncounterState();
         }
     }
 }

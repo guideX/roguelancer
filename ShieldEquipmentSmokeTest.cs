@@ -350,7 +350,7 @@ namespace Roguelancer
                 ShipLoadout rebuilt = manager.BuildLoadout(restored, out List<string> warnings);
                 SaveGameData old = new();
                 ShipLoadout oldLoadout = manager.BuildLoadout(old, out List<string> oldWarnings);
-                return saved && loaded && SaveGameData.CurrentSchemaVersion == 10 && warnings.Count == 0 &&
+                return saved && loaded && SaveGameData.CurrentSchemaVersion == 11 && warnings.Count == 0 &&
                        oldWarnings.Count == 0 && oldLoadout.GetMountedShield() == null &&
                        rebuilt.GetOwnedCount(shield.Id) == 1 && rebuilt.GetMountedShield()?.Id == shield.Id;
             }

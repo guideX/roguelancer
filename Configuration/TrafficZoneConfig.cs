@@ -76,6 +76,17 @@ namespace Roguelancer.Configuration
         [JsonPropertyName("route_end_z")]
         public float? RouteEndZ { get; set; }
 
+        /// <summary>
+        /// Optional stable market identities at the two ends of a trader
+        /// route. Ambient traffic remains ordinary non-economic traffic when
+        /// either end is absent or does not resolve to a configured market.
+        /// </summary>
+        [JsonPropertyName("origin_station_id")]
+        public string OriginStationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("destination_station_id")]
+        public string DestinationStationId { get; set; } = string.Empty;
+
         [JsonIgnore]
         public Vector3 Center => new Vector3(CenterX, CenterY, CenterZ);
 

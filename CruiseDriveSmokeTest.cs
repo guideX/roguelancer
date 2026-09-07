@@ -56,7 +56,7 @@ namespace Roguelancer
             Check("docking cancels cruise", DockingCancelsCruise, ref passed, ref failed);
             Check("reset clears cruise state", ResetClearsCruise, ref passed, ref failed);
             Check("save/load restores inactive cruise", SaveLoadRestoresInactiveCruise, ref passed, ref failed);
-            Check("save schema remains version 10", SaveSchemaRemainsVersion10, ref passed, ref failed);
+            Check("save schema remains current", SaveSchemaRemainsVersion10, ref passed, ref failed);
             Check("ready HUD is explicit", ReadyHudIsExplicit, ref passed, ref failed);
             Check("charging HUD is explicit", ChargingHudIsExplicit, ref passed, ref failed);
             Check("active HUD is explicit", ActiveHudIsExplicit, ref passed, ref failed);
@@ -358,7 +358,7 @@ namespace Roguelancer
 
         private static (bool Success, string FailureReason) SaveSchemaRemainsVersion10()
         {
-            return Result(SaveGameData.CurrentSchemaVersion == 10, "cruise changed save schema version");
+            return Result(SaveGameData.CurrentSchemaVersion == 11, "cruise changed save schema version");
         }
 
         private static (bool Success, string FailureReason) ReadyHudIsExplicit()

@@ -73,7 +73,7 @@ namespace Roguelancer
             Check("cruise remains independent outside lanes", CruiseRemainsIndependentOutsideLanes, ref passed, ref failed);
             Check("transient lane state resets on load", TransientLaneStateResetsOnLoad, ref passed, ref failed);
             Check("reset clears lane state", ResetClearsLaneState, ref passed, ref failed);
-            Check("save schema remains version 10", SaveSchemaRemainsVersionTen, ref passed, ref failed);
+            Check("save schema remains current", SaveSchemaRemainsVersionTen, ref passed, ref failed);
             Check("malformed route metadata is safe", MalformedRouteMetadataIsSafe, ref passed, ref failed);
             Check("malformed disruption timer is safe", MalformedDisruptionTimerIsSafe, ref passed, ref failed);
             Check("graphics-backed lane initialization succeeds", GraphicsBackedLaneInitializationSucceeds, ref passed, ref failed);
@@ -579,7 +579,7 @@ namespace Roguelancer
         }
 
         private (bool Success, string FailureReason) SaveSchemaRemainsVersionTen() =>
-            Result(SaveGameData.CurrentSchemaVersion == 10, "save schema version changed");
+            Result(SaveGameData.CurrentSchemaVersion == 11, "save schema version changed");
 
         private (bool Success, string FailureReason) MalformedRouteMetadataIsSafe()
         {

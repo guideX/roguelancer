@@ -10,7 +10,7 @@ namespace Roguelancer
     /// </summary>
     public sealed class SaveGameData
     {
-        public const int CurrentSchemaVersion = 10;
+        public const int CurrentSchemaVersion = 11;
 
         [JsonPropertyName("schema_version")]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -68,6 +68,9 @@ namespace Roguelancer
 
         [JsonPropertyName("station_markets")]
         public List<SaveMarketStateData> StationMarkets { get; set; } = new();
+
+        [JsonPropertyName("economic_shipments")]
+        public List<SaveEconomicShipmentData> EconomicShipments { get; set; } = new();
 
         [JsonPropertyName("market_elapsed_ms")]
         public long MarketElapsedMilliseconds { get; set; }
@@ -616,6 +619,64 @@ namespace Roguelancer
 
         [JsonPropertyName("listings")]
         public List<SaveMarketListingData> Listings { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Active ambient trader shipment snapshot. Historical deliveries are not
+    /// retained; only bounded in-flight manifests needed for rebind are saved.
+    /// </summary>
+    public sealed class SaveEconomicShipmentData
+    {
+        [JsonPropertyName("trader_identity")]
+        public string TraderIdentity { get; set; } = string.Empty;
+
+        [JsonPropertyName("route_id")]
+        public string RouteId { get; set; } = string.Empty;
+
+        [JsonPropertyName("origin_station_id")]
+        public string OriginStationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("destination_station_id")]
+        public string DestinationStationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("origin_station_name")]
+        public string OriginStationName { get; set; } = string.Empty;
+
+        [JsonPropertyName("destination_station_name")]
+        public string DestinationStationName { get; set; } = string.Empty;
+
+        [JsonPropertyName("initial_quantity")]
+        public int InitialQuantity { get; set; }
+
+        [JsonPropertyName("remaining_quantity")]
+        public int RemainingQuantity { get; set; }
+
+        [JsonPropertyName("route_toward_end")]
+        public bool RouteTowardEnd { get; set; }
+
+        [JsonPropertyName("position")]
+        public SaveVector3Data Position { get; set; } = new();
+
+        [JsonPropertyName("velocity")]
+        public SaveVector3Data Velocity { get; set; } = new();
+
+        [JsonPropertyName("traffic_age_seconds")]
+        public float TrafficAgeSeconds { get; set; }
+
+        [JsonPropertyName("stacks")]
+        public List<SaveEconomicShipmentStackData> Stacks { get; set; } = new();
+    }
+
+    public sealed class SaveEconomicShipmentStackData
+    {
+        [JsonPropertyName("commodity_id")]
+        public string CommodityId { get; set; } = string.Empty;
+
+        [JsonPropertyName("initial_quantity")]
+        public int InitialQuantity { get; set; }
+
+        [JsonPropertyName("remaining_quantity")]
+        public int RemainingQuantity { get; set; }
     }
 
     /// <summary>
