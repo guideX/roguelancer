@@ -61,10 +61,10 @@ public sealed class EconomicShipment
 /// </summary>
 public sealed class EconomicShipmentManager
 {
-    private const int MaximumActiveShipments = 64;
-    private const int MinimumShipmentQuantity = 2;
-    private const int MaximumShipmentQuantity = 12;
-    private const int MaximumCommodityTypes = 3;
+    public const int MaximumActiveShipments = 64;
+    public const int MinimumShipmentQuantity = 2;
+    public const int MaximumShipmentQuantity = 12;
+    public const int MaximumCommodityTypes = 3;
     private const float EndpointStationMatchDistance = 500f;
 
     private sealed class PendingShipment
@@ -77,21 +77,94 @@ public sealed class EconomicShipmentManager
     private readonly Func<NpcShip, bool> _isMissionOwned;
     private readonly Dictionary<NpcShip, EconomicShipment> _active = new();
     private readonly Dictionary<string, PendingShipment> _pendingRebind = new(StringComparer.Ordinal);
+    private AdaptiveTraderRoutingPlanner _routingPlanner;
+    private Func<IEnumerable<TrafficZoneConfig>> _routesProvider;
     private bool _rebindMode;
 
     public EconomicShipmentManager(
         MarketManager marketManager,
         Func<IEnumerable<Station>> stationsProvider,
-        Func<NpcShip, bool> isMissionOwned = null)
+        Func<NpcShip, bool> isMissionOwned = null,
+        Func<IEnumerable<TrafficZoneConfig>> routesProvider = null)
     {
         _marketManager = marketManager ?? throw new ArgumentNullException(nameof(marketManager));
         _stationsProvider = stationsProvider ?? (() => Array.Empty<Station>());
         _isMissionOwned = isMissionOwned ?? (_ => false);
+        SetRouteProvider(routesProvider);
     }
 
     public MarketManager MarketManager => _marketManager;
     public int ActiveShipmentCount => _active.Count;
     public IReadOnlyList<EconomicShipment> ActiveShipments => _active.Values.ToList();
+
+    /// <summary>
+    /// Installs the current system's configured TraderRoute view. The traffic
+    /// manager owns this view; the shipment manager only ranks its edges.
+    /// </summary>
+    public void SetRouteProvider(Func<IEnumerable<TrafficZoneConfig>> routesProvider)
+    {
+        _routesProvider = routesProvider ?? (() => Array.Empty<TrafficZoneConfig>());
+        _routingPlanner = new AdaptiveTraderRoutingPlanner(
+            _marketManager,
+            _stationsProvider,
+            _routesProvider,
+            GetInboundQuantity);
+    }
+
+    public AdaptiveTraderRoutingPlanner RoutingPlanner => _routingPlanner;
+
+    /// <summary>
+    /// Derives advisory inbound supply from active physical manifests. Lost,
+    /// delivered, and destroyed shipments therefore disappear immediately;
+    /// piracy changes the value naturally when the shared manifest shrinks.
+    /// Pending save snapshots are included only during the short rebind window.
+    /// </summary>
+    public int GetInboundQuantity(string destinationStationId, Commodity commodity)
+    {
+        if (string.IsNullOrWhiteSpace(destinationStationId) || commodity == null)
+            return 0;
+
+        long inbound = _active.Values
+            .Where(shipment => shipment?.Settlement == EconomicShipmentSettlement.Active &&
+                string.Equals(shipment.DestinationStationId, destinationStationId.Trim(), StringComparison.OrdinalIgnoreCase))
+            .Sum(shipment => (long)(shipment.Manifest?.Stacks
+                .Where(stack => string.Equals(stack.Commodity?.Id, commodity.Id, StringComparison.OrdinalIgnoreCase))
+                .Sum(stack => Math.Max(0, stack.Quantity)) ?? 0));
+
+        if (_rebindMode)
+        {
+            inbound += (_pendingRebind.Values ?? Enumerable.Empty<PendingShipment>())
+                .Where(pending => pending?.Data != null &&
+                    !_active.Values.Any(active => string.Equals(active?.TraderIdentity, pending.Data.TraderIdentity, StringComparison.Ordinal)) &&
+                    string.Equals(pending.Data.DestinationStationId, destinationStationId.Trim(), StringComparison.OrdinalIgnoreCase))
+                .Sum(pending => (long)(pending.Data?.Stacks ?? new List<SaveEconomicShipmentStackData>())
+                    .Where(stack => string.Equals(stack?.CommodityId, commodity.Id, StringComparison.OrdinalIgnoreCase))
+                    .Sum(stack => Math.Max(0, stack?.RemainingQuantity ?? 0)));
+        }
+
+        return (int)Math.Clamp(inbound, 0L, int.MaxValue);
+    }
+
+    public int GetInboundQuantity(Station destination, Commodity commodity) =>
+        GetInboundQuantity(_marketManager.GetStationId(destination), commodity);
+
+    public int GetInboundQuantity(string destinationStationId, string commodityId) =>
+        GetInboundQuantity(destinationStationId, _marketManager.ResolveCommodity(commodityId));
+
+    public bool TryGetRouteInfo(NpcShip trader, out PlayerTargetScanRouteInfo routeInfo)
+    {
+        routeInfo = null;
+        if (!TryGetShipment(trader, out EconomicShipment shipment))
+            return false;
+
+        routeInfo = new PlayerTargetScanRouteInfo(
+            shipment.RouteId,
+            shipment.OriginStationId,
+            shipment.OriginStationName,
+            shipment.DestinationStationId,
+            shipment.DestinationStationName);
+        return true;
+    }
 
     public bool TryGetShipment(NpcShip trader, out EconomicShipment shipment)
     {
@@ -130,10 +203,37 @@ public sealed class EconomicShipmentManager
             _active.Count >= MaximumActiveShipments)
             return false;
 
-        if (!TryResolveRouteStations(trader, route, out Station routeStart, out Station routeEnd))
+        string traderIdentity = NpcIdentity.GetStableIdentity(trader);
+        bool hasPendingShipment = _pendingRebind.TryGetValue(traderIdentity, out PendingShipment pending);
+        if (_rebindMode && !hasPendingShipment)
             return false;
 
-        bool towardEnd = trader.IsTrafficRouteTowardEnd;
+        AdaptiveTraderRoutePlan plan = null;
+        TrafficZoneConfig selectedRoute = route;
+        bool towardEnd;
+        Station routeStart;
+        Station routeEnd;
+
+        if (_rebindMode && hasPendingShipment)
+        {
+            selectedRoute = FindConfiguredRoute(pending.Data?.RouteId) ??
+                (string.Equals(route.Id, pending.Data?.RouteId, StringComparison.OrdinalIgnoreCase) ? route : null);
+            if (selectedRoute == null || !TryResolveRouteStations(trader, selectedRoute, out routeStart, out routeEnd))
+                return false;
+
+            towardEnd = pending.Data.RouteTowardEnd;
+        }
+        else
+        {
+            if (!_routingPlanner.TrySelectDestination(trader, route, out plan) || plan == null)
+                return false;
+
+            selectedRoute = plan.Route;
+            routeStart = plan.RouteTowardEnd ? plan.Origin : plan.Destination;
+            routeEnd = plan.RouteTowardEnd ? plan.Destination : plan.Origin;
+            towardEnd = plan.RouteTowardEnd;
+        }
+
         Station origin = towardEnd ? routeStart : routeEnd;
         Station destination = towardEnd ? routeEnd : routeStart;
         string originId = _marketManager.GetStationId(origin);
@@ -142,25 +242,28 @@ public sealed class EconomicShipmentManager
             string.Equals(originId, destinationId, StringComparison.OrdinalIgnoreCase))
             return false;
 
-        if (_rebindMode && _pendingRebind.TryGetValue(NpcIdentity.GetStableIdentity(trader), out PendingShipment pending))
+        if (_rebindMode && hasPendingShipment)
         {
-            if (!TryRestorePendingShipment(trader, route, origin, destination, pending.Data, towardEnd, out shipment))
+            if (!TryRestorePendingShipment(trader, selectedRoute, origin, destination, pending.Data, towardEnd, out shipment))
                 return false;
 
-            _pendingRebind.Remove(NpcIdentity.GetStableIdentity(trader));
+            _pendingRebind.Remove(traderIdentity);
             _active[trader] = shipment;
             return true;
         }
 
-        if (_rebindMode)
+        if (plan == null || !TryBuildAndReserveManifest(trader, selectedRoute, origin, destination, plan, out TraderCargoManifest manifest))
             return false;
 
-        if (!TryBuildAndReserveManifest(trader, route, origin, destination, out TraderCargoManifest manifest))
+        if (!trader.ConfigureTrafficRouteEndpoints(selectedRoute.RouteStart, selectedRoute.RouteEnd, towardEnd))
+        {
+            RollbackManifest(origin, manifest);
             return false;
+        }
 
         shipment = new EconomicShipment(
             trader,
-            route.Id,
+            selectedRoute.Id,
             originId,
             destinationId,
             origin.Name,
@@ -432,6 +535,12 @@ public sealed class EconomicShipmentManager
             destination.Name,
             towardEnd,
             new TraderCargoManifest(stacks, preserveEmptyStacks: true));
+        if (!trader.ConfigureTrafficRouteEndpoints(route.RouteStart, route.RouteEnd, towardEnd))
+        {
+            shipment = null;
+            return false;
+        }
+
         trader.RestoreTrafficRouteState(
             state.Position?.ToVector3(trader.Position) ?? trader.Position,
             state.Velocity?.ToVector3(Vector3.Zero) ?? Vector3.Zero,
@@ -445,40 +554,48 @@ public sealed class EconomicShipmentManager
         TrafficZoneConfig route,
         Station origin,
         Station destination,
+        AdaptiveTraderRoutePlan plan,
         out TraderCargoManifest manifest)
     {
         manifest = null;
-        List<StationMarketListing> originListings = _marketManager.GetListingsForStation(origin, MarketSurface.Ordinary)
-            .Where(listing => listing?.Commodity != null && listing.IsAvailable && listing.BuyPrice > 0 &&
-                !listing.Commodity.IsContraband && !listing.Commodity.IsMissionCargo &&
-                listing.Stock > listing.MinimumStock)
-            .Where(listing => _marketManager.GetAvailableSupplyCapacity(destination, listing.Commodity) > 0)
-            .ToList();
-
-        if (originListings.Count == 0)
+        if (plan == null || plan.Origin == null || plan.Destination == null ||
+            !ReferenceEquals(plan.Origin, origin) || !ReferenceEquals(plan.Destination, destination))
             return false;
 
-        List<(StationMarketListing Listing, int Score)> candidates = originListings
-            .Select(listing =>
+        List<(StationMarketListing Listing, int Score)> candidates = plan.CommodityOpportunities
+            .Where(opportunity => opportunity?.Commodity != null)
+            .Select(opportunity =>
             {
-                StationMarketListing destinationListing = _marketManager.GetListingForCommodity(destination, listing.Commodity);
-                int destinationPrice = destinationListing?.BuyPrice ?? 0;
-                int profitabilityScore = destinationPrice - listing.BuyPrice;
-                MarketShortageState shortage = _marketManager.GetShortageState(destination, listing.Commodity);
-                int shortageBonus = shortage?.IsShortage == true
-                    ? Math.Clamp(50 + (100 - shortage.StockPercent) * 2, 50, 250)
-                    : 0;
-                return (Listing: listing, Score: profitabilityScore + shortageBonus);
+                StationMarketListing listing = _marketManager.GetListingForCommodity(origin, opportunity.Commodity);
+                return (Listing: listing, Score: opportunity.Score);
             })
-            .OrderByDescending(candidate => candidate.Score > 0)
-            .ThenByDescending(candidate => candidate.Score)
+            .Where(candidate => candidate.Listing != null && candidate.Listing.IsAvailable && candidate.Listing.BuyPrice > 0 &&
+                !candidate.Listing.Commodity.IsContraband && !candidate.Listing.Commodity.IsMissionCargo &&
+                candidate.Listing.Stock > candidate.Listing.MinimumStock &&
+                _marketManager.GetAvailableSupplyCapacity(destination, candidate.Listing.Commodity) > 0)
+            .OrderByDescending(candidate => candidate.Score)
             .ThenBy(candidate => candidate.Listing.Commodity.Id, StringComparer.OrdinalIgnoreCase)
             .Take(MaximumCommodityTypes)
             .ToList();
 
+        if (candidates.Count == 0)
+            return false;
+
         uint seed = StableHash($"{NpcIdentity.GetStableIdentity(trader)}|{route.Id}|{_marketManager.GetStationId(origin)}|{_marketManager.GetStationId(destination)}");
         int desiredTotal = MinimumShipmentQuantity + (int)(seed % (uint)(MaximumShipmentQuantity - MinimumShipmentQuantity + 1));
-        int typeCount = Math.Min(candidates.Count, Math.Clamp(1 + (int)((seed >> 8) % MaximumCommodityTypes), 1, MaximumCommodityTypes));
+        AdaptiveTraderCommodityOpportunity bestOpportunity = plan.BestOpportunity;
+        if (bestOpportunity != null && bestOpportunity.RawDeficit > 0)
+        {
+            // In-transit supply is advisory, but it bounds another relief
+            // shipment so a high live price cannot create a shortage convoy.
+            int remainingNeed = bestOpportunity.EffectiveDeficit > 0
+                ? bestOpportunity.EffectiveDeficit
+                : MinimumShipmentQuantity;
+            desiredTotal = Math.Min(desiredTotal, Math.Clamp(remainingNeed, MinimumShipmentQuantity, MaximumShipmentQuantity));
+        }
+
+        int typeCount = Math.Min(candidates.Count,
+            Math.Min(desiredTotal, Math.Clamp(1 + (int)((seed >> 8) % MaximumCommodityTypes), 1, MaximumCommodityTypes)));
         if (typeCount <= 0)
             return false;
 
@@ -528,6 +645,15 @@ public sealed class EconomicShipmentManager
         return true;
     }
 
+    private void RollbackManifest(Station origin, TraderCargoManifest manifest)
+    {
+        foreach (TraderCargoStack stack in manifest?.Snapshot() ?? Array.Empty<TraderCargoStack>())
+        {
+            if (stack?.Commodity != null && stack.Quantity > 0)
+                _marketManager.TryAddSupply(origin, stack.Commodity, stack.Quantity, out _);
+        }
+    }
+
     private void RollbackReservation(Station origin, IEnumerable<(Commodity Commodity, int Quantity)> reserved)
     {
         foreach ((Commodity Commodity, int Quantity) entry in reserved ?? Enumerable.Empty<(Commodity Commodity, int Quantity)>())
@@ -565,6 +691,17 @@ public sealed class EconomicShipmentManager
             .Where(station => station != null && _marketManager.HasMarketConfigForStation(station))
             .FirstOrDefault(station => string.Equals(
                 _marketManager.GetStationId(station), stationId.Trim(), StringComparison.OrdinalIgnoreCase));
+    }
+
+    private TrafficZoneConfig FindConfiguredRoute(string routeId)
+    {
+        if (string.IsNullOrWhiteSpace(routeId))
+            return null;
+
+        return (_routesProvider() ?? Array.Empty<TrafficZoneConfig>())
+            .Where(route => route != null && route.BehaviorType == TrafficZoneBehaviorType.TraderRoute)
+            .OrderBy(route => route.Id ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(route => string.Equals(route.Id, routeId.Trim(), StringComparison.OrdinalIgnoreCase));
     }
 
     private Station FindNearestMarketStation(Vector3? position)

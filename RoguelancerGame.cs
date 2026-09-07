@@ -265,6 +265,7 @@ namespace Roguelancer {
         private readonly bool _runPiracyDemandSmoke;
         private readonly bool _runPlayerTargetScanSmoke;
         private readonly bool _runEconomicShipmentSmoke;
+        private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
         private readonly bool _runFactionDistressResponseSmoke;
@@ -382,6 +383,7 @@ namespace Roguelancer {
             _runPiracyDemandSmoke = args?.Any(arg => string.Equals(arg, "--piracy-demand-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPlayerTargetScanSmoke = args?.Any(arg => string.Equals(arg, "--player-target-scan-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runEconomicShipmentSmoke = args?.Any(arg => string.Equals(arg, "--phase59-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runFactionDistressResponseSmoke = args?.Any(arg => string.Equals(arg, "--faction-distress-response-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1329,7 +1331,10 @@ namespace Roguelancer {
                         return traderCargo;
 
                     return NpcCargoManifestSnapshot.NoRegisteredCargo();
-                });
+                },
+                target => _economicShipments?.TryGetRouteInfo(target, out PlayerTargetScanRouteInfo routeInfo) == true
+                    ? routeInfo
+                    : null);
             _lootManager.ConfigureMissionCargoCallbacks(
                 npc => _missionWorldManager?.GetMissionCargoDrop(npc),
                 pod => _missionWorldManager?.NotifyMissionCargoPodSpawned(pod),
@@ -1521,6 +1526,11 @@ namespace Roguelancer {
             else if (_runPhase60Smoke)
             {
                 var result = RunPhase60SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runPhase62Smoke)
+            {
+                var result = RunPhase62SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runPhase61Smoke)
@@ -1749,6 +1759,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("piracy demand smoke", RunPiracyDemandSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("player target scan smoke", RunPlayerTargetScanSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 59 economic shipment smoke", RunEconomicShipmentSmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 62 adaptive routing smoke", RunPhase62SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2204,6 +2215,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 59 ECONOMY SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase62SmokeTest()
+        {
+            try
+            {
+                return new AdaptiveTraderRoutingSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 62 ADAPTIVE ROUTING SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -5061,6 +5085,8 @@ namespace Roguelancer {
                 return lines;
 
             lines.Add("CARGO SCAN COMPLETE — LAST KNOWN");
+            if (result.HasRoute)
+                lines.Add($"Route: {result.RouteLabel}");
             if (!result.HasRegisteredCargo)
             {
                 lines.Add("No registered cargo");

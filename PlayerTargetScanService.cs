@@ -39,6 +39,32 @@ public sealed class PlayerTargetScanCargoEntry
     }
 }
 
+public sealed class PlayerTargetScanRouteInfo
+{
+    public string RouteId { get; }
+    public string OriginStationId { get; }
+    public string OriginStationName { get; }
+    public string DestinationStationId { get; }
+    public string DestinationStationName { get; }
+    public string RouteLabel => string.IsNullOrWhiteSpace(OriginStationName) || string.IsNullOrWhiteSpace(DestinationStationName)
+        ? string.Empty
+        : $"{OriginStationName} -> {DestinationStationName}";
+
+    public PlayerTargetScanRouteInfo(
+        string routeId,
+        string originStationId,
+        string originStationName,
+        string destinationStationId,
+        string destinationStationName)
+    {
+        RouteId = routeId ?? string.Empty;
+        OriginStationId = originStationId ?? string.Empty;
+        OriginStationName = originStationName ?? string.Empty;
+        DestinationStationId = destinationStationId ?? string.Empty;
+        DestinationStationName = destinationStationName ?? string.Empty;
+    }
+}
+
 public sealed class PlayerTargetScanResult
 {
     private readonly List<PlayerTargetScanCargoEntry> _cargo;
@@ -54,6 +80,11 @@ public sealed class PlayerTargetScanResult
     public float ShieldPercentage { get; }
     public bool HasRegisteredCargo { get; }
     public IReadOnlyList<PlayerTargetScanCargoEntry> Cargo => _cargo;
+    public PlayerTargetScanRouteInfo Route { get; }
+    public bool HasRoute => Route != null && !string.IsNullOrWhiteSpace(Route.RouteLabel);
+    public string OriginStationName => Route?.OriginStationName ?? string.Empty;
+    public string DestinationStationName => Route?.DestinationStationName ?? string.Empty;
+    public string RouteLabel => Route?.RouteLabel ?? string.Empty;
     public int EstimatedCargoValue =>
         (int)Math.Clamp(_cargo.Sum(entry => (long)Math.Max(0, entry.EstimatedValue)), 0L, int.MaxValue);
     public bool IsCargoHoldEmpty => HasRegisteredCargo && _cargo.Count == 0;
@@ -68,7 +99,8 @@ public sealed class PlayerTargetScanResult
         NpcShip target,
         string targetIdentity,
         FactionManager factionManager,
-        NpcCargoManifestSnapshot cargoSnapshot)
+        NpcCargoManifestSnapshot cargoSnapshot,
+        PlayerTargetScanRouteInfo routeInfo = null)
     {
         Target = target;
         TargetIdentity = targetIdentity ?? string.Empty;
@@ -79,6 +111,7 @@ public sealed class PlayerTargetScanResult
         HullPercentage = ReadPercentage(target?.Hull?.CurrentHull ?? 0f, target?.Hull?.MaxHull ?? 0f);
         ShieldPercentage = ReadPercentage(target?.Shields?.CurrentShields ?? 0f, target?.Shields?.MaxShields ?? 0f);
         HasRegisteredCargo = cargoSnapshot?.HasRegisteredCargo == true;
+        Route = routeInfo;
         _cargo = cargoSnapshot?.Stacks?
             .Where(stack => stack?.Commodity != null && stack.Quantity > 0)
             .Select(stack => new PlayerTargetScanCargoEntry(stack.Commodity, stack.Quantity))
@@ -133,6 +166,7 @@ public sealed class PlayerTargetScanService
     private readonly IReadOnlyList<NpcShip> _npcShips;
     private readonly FactionManager _factionManager;
     private readonly Func<NpcShip, NpcCargoManifestSnapshot> _cargoResolver;
+    private readonly Func<NpcShip, PlayerTargetScanRouteInfo> _routeResolver;
     private ActiveScan _activeScan;
     private PlayerTargetScanResult _lastResult;
     private string _feedbackText = string.Empty;
@@ -141,11 +175,13 @@ public sealed class PlayerTargetScanService
     public PlayerTargetScanService(
         IReadOnlyList<NpcShip> npcShips,
         FactionManager factionManager,
-        Func<NpcShip, NpcCargoManifestSnapshot> cargoResolver = null)
+        Func<NpcShip, NpcCargoManifestSnapshot> cargoResolver = null,
+        Func<NpcShip, PlayerTargetScanRouteInfo> routeResolver = null)
     {
         _npcShips = npcShips ?? throw new ArgumentNullException(nameof(npcShips));
         _factionManager = factionManager ?? new FactionManager();
         _cargoResolver = cargoResolver;
+        _routeResolver = routeResolver;
     }
 
     public PlayerTargetScanState State => _activeScan == null
@@ -277,11 +313,13 @@ public sealed class PlayerTargetScanService
 
         NpcCargoManifestSnapshot cargoSnapshot = _cargoResolver?.Invoke(target) ??
             NpcCargoManifestSnapshot.NoRegisteredCargo();
+        PlayerTargetScanRouteInfo routeInfo = _routeResolver?.Invoke(target);
         _lastResult = new PlayerTargetScanResult(
             target,
             scan.TargetIdentity,
             _factionManager,
-            cargoSnapshot);
+            cargoSnapshot,
+            routeInfo);
         _activeScan = null;
         SetFeedback("CARGO SCAN COMPLETE", 4f);
     }

@@ -81,6 +81,11 @@ namespace Roguelancer
         }
 
         public IReadOnlyList<TrafficZoneConfig> LoadedZones => _zonesById.Values.Select(runtime => runtime.Zone).ToList();
+        public IReadOnlyList<TrafficZoneConfig> ConfiguredTraderRoutes => _zonesById.Values
+            .Select(runtime => runtime.Zone)
+            .Where(zone => zone != null && zone.BehaviorType == TrafficZoneBehaviorType.TraderRoute)
+            .OrderBy(zone => zone.Id ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToList();
         public FactionDistressResponseService DistressResponse => _distressResponse;
         public FactionCombatEscalationService CombatEscalation => _combatEscalation;
         public FactionCombatDisengagementService CombatDisengagement => _combatDisengagement;
@@ -112,6 +117,8 @@ namespace Roguelancer
             _economicShipments = shipments;
             if (_economicShipments == null)
                 return;
+
+            _economicShipments.SetRouteProvider(() => ConfiguredTraderRoutes);
 
             foreach (TrafficZoneRuntime runtime in _zonesById.Values)
             {

@@ -378,6 +378,26 @@ namespace Roguelancer
             }
         }
 
+        /// <summary>
+        /// Rebinds only the physical endpoints of an existing ambient trader
+        /// route. Traffic-zone ownership and stable identity remain unchanged,
+        /// so adaptive route choices survive save/load and runtime cleanup.
+        /// </summary>
+        internal bool ConfigureTrafficRouteEndpoints(Vector3? routeStart, Vector3? routeEnd, bool towardEnd)
+        {
+            if (!routeStart.HasValue || !routeEnd.HasValue ||
+                !TradeLaneStateSanitizer.IsFinite(routeStart.Value) ||
+                !TradeLaneStateSanitizer.IsFinite(routeEnd.Value) ||
+                Vector3.DistanceSquared(routeStart.Value, routeEnd.Value) <= 1f)
+                return false;
+
+            TrafficRouteStart = routeStart;
+            TrafficRouteEnd = routeEnd;
+            _trafficRouteTowardEnd = towardEnd;
+            _trafficRouteHoldTimer = 0f;
+            return true;
+        }
+
         public void SetLoadout(ShipLoadout loadout)
         {
             Loadout = loadout ?? ShipLoadout.CreateStarterLoadout(false);
