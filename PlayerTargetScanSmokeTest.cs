@@ -95,6 +95,7 @@ internal sealed class PlayerTargetScanSmokeTest
         RunCase("incomplete scan reveals nothing", IncompleteScanRevealsNothing, ref passed, ref failed);
         RunCase("range loss cancels and resets", RangeLossCancelsAndResets, ref passed, ref failed);
         RunCase("target change cancels and clears", TargetChangeCancelsAndClears, ref passed, ref failed);
+        RunCase("separate trader scans stay bound", SeparateTraderScansStayBound, ref passed, ref failed);
         RunCase("only one active scan exists", OnlyOneActiveScanExists, ref passed, ref failed);
         RunCase("stable target binding prevents cross-target completion", StableTargetBindingPreventsCrossTargetCompletion, ref passed, ref failed);
         RunCase("lane transit blocks player scan", PlayerLaneTransitBlocksScan, ref passed, ref failed);
@@ -102,6 +103,7 @@ internal sealed class PlayerTargetScanSmokeTest
         RunCase("scan reports canonical target intelligence", ScanReportsCanonicalTargetIntelligence, ref passed, ref failed);
         RunCase("scan is read only", ScanIsReadOnly, ref passed, ref failed);
         RunCase("non-trader scan has no fabricated cargo", NonTraderHasNoFabricatedCargo, ref passed, ref failed);
+        RunCase("registered empty cargo reports empty", RegisteredEmptyCargoReportsEmpty, ref passed, ref failed);
         RunCase("Police scan is legal and public", PoliceScanIsLegal, ref passed, ref failed);
         RunCase("contraband uses canonical metadata", ContrabandUsesCanonicalMetadata, ref passed, ref failed);
         RunCase("cargo value uses canonical base price", CargoValueUsesCanonicalBasePrice, ref passed, ref failed);
@@ -210,6 +212,23 @@ internal sealed class PlayerTargetScanSmokeTest
         return Check(!c.Scanner.HasActiveScan && c.Scanner.GetResultFor(c.TraderB) == null && c.Scanner.LastResult == null, "old scan survived target change");
     }
 
+    private static (bool, string) SeparateTraderScansStayBound()
+    {
+        Context c = new();
+        PlayerTargetScanResult resultA = c.CompleteScan(c.TraderA);
+        c.Demand.TryGetAuthoritativeManifestSnapshot(c.TraderA, out NpcCargoManifestSnapshot manifestA);
+        c.Scanner.NotifyTargetChanged(c.TraderB);
+        PlayerTargetScanResult resultB = c.CompleteScan(c.TraderB);
+        c.Demand.TryGetAuthoritativeManifestSnapshot(c.TraderB, out NpcCargoManifestSnapshot manifestB);
+        return Check(resultA != null && resultB != null &&
+            resultA.TargetIdentity != resultB.TargetIdentity &&
+            ManifestKey(manifestA) == ScanKey(resultA) &&
+            ManifestKey(manifestB) == ScanKey(resultB) &&
+            c.Scanner.GetResultFor(c.TraderA) == null &&
+            ReferenceEquals(c.Scanner.GetResultFor(c.TraderB), resultB),
+            "two trader scans leaked identity or cargo across targets");
+    }
+
     private static (bool, string) OnlyOneActiveScanExists()
     {
         Context c = new();
@@ -274,6 +293,20 @@ internal sealed class PlayerTargetScanSmokeTest
         c.AddNpc(rogue);
         PlayerTargetScanResult result = c.CompleteScan(rogue);
         return Check(result != null && !result.HasRegisteredCargo && result.Cargo.Count == 0, "non-trader received fabricated cargo");
+    }
+
+    private static (bool, string) RegisteredEmptyCargoReportsEmpty()
+    {
+        Context c = new();
+        PlayerTargetScanService scanner = new(
+            c.Npcs,
+            c.Factions,
+            _ => new NpcCargoManifestSnapshot(hasRegisteredCargo: true));
+        scanner.TryStartScan(c.Player, c.TraderA, false, out _);
+        scanner.Update(PlayerTargetScanService.ScanDurationSeconds, c.Player, c.TraderA, false);
+        PlayerTargetScanResult result = scanner.LastResult;
+        return Check(result != null && result.HasRegisteredCargo && result.IsCargoHoldEmpty &&
+            result.CargoStatusLabel == "Cargo hold empty", "registered empty cargo was treated as missing or failed scanning");
     }
 
     private static (bool, string) PoliceScanIsLegal()
