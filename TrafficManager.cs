@@ -152,6 +152,9 @@ namespace Roguelancer
                 _economicShipments,
                 shipment => shipment?.Manifest?.Stacks?.Any(stack => stack?.Commodity != null &&
                     _economicShipments.IsDestinationShortage(shipment, stack.Commodity)) == true);
+            _ambientPirateRaids.ConfigureCriminalDelivery(
+                _economicShipments.MarketManager,
+                _economicShipments.GetKnownStations);
 
             foreach (TrafficZoneRuntime runtime in _zonesById.Values)
             {

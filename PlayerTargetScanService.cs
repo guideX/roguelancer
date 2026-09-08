@@ -17,15 +17,19 @@ public sealed class PlayerTargetScanCargoEntry
 {
     public Commodity Commodity { get; }
     public string CommodityId => Commodity?.Id ?? string.Empty;
-    public string DisplayName => Commodity?.Name ?? "Unknown Cargo";
+    public bool IsStolen { get; }
+    public string DisplayName => Commodity == null
+        ? "Unknown Cargo"
+        : IsStolen ? $"{Commodity.Name} [STOLEN]" : Commodity.Name;
     public int Quantity { get; }
     public bool IsContraband => Commodity?.IsContraband == true;
     public int EstimatedValue { get; }
 
-    public PlayerTargetScanCargoEntry(Commodity commodity, int quantity)
+    public PlayerTargetScanCargoEntry(Commodity commodity, int quantity, bool isStolen = false)
     {
         Commodity = commodity;
         Quantity = Math.Max(0, quantity);
+        IsStolen = isStolen;
         EstimatedValue = CalculateBaseValue(commodity, Quantity);
     }
 
@@ -130,7 +134,7 @@ public sealed class PlayerTargetScanResult
         Route = routeInfo;
         _cargo = cargoSnapshot?.Stacks?
             .Where(stack => stack?.Commodity != null && stack.Quantity > 0)
-            .Select(stack => new PlayerTargetScanCargoEntry(stack.Commodity, stack.Quantity))
+            .Select(stack => new PlayerTargetScanCargoEntry(stack.Commodity, stack.Quantity, stack.IsStolen))
             .ToList()
             ?? new List<PlayerTargetScanCargoEntry>();
     }

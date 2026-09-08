@@ -73,7 +73,7 @@ namespace Roguelancer
         public List<SaveEconomicShipmentData> EconomicShipments { get; set; } = new();
 
         /// <summary>
-        /// Optional Phase 66 snapshots. Keeping this field additive preserves
+        /// Optional Phase 66/67 snapshots. Keeping this field additive preserves
         /// schema version 12 compatibility with older saves.
         /// </summary>
         [JsonPropertyName("ambient_pirate_raids")]
@@ -836,10 +836,13 @@ namespace Roguelancer
 
     public enum AmbientPirateRaidState
     {
-        None,
-        Delayed,
-        Active,
-        Resolved
+        None = 0,
+        Delayed = 1,
+        Active = 2,
+        Resolved = 3,
+        ReturningWithLoot = 4,
+        Delivered = 5,
+        Lost = 6
     }
 
     /// <summary>Durable state for one bounded autonomous Rogue raid.</summary>
@@ -871,6 +874,12 @@ namespace Roguelancer
 
         [JsonPropertyName("recovered_quantity")]
         public int RecoveredQuantity { get; set; }
+
+        [JsonPropertyName("recovery_elapsed_seconds")]
+        public float RecoveryElapsedSeconds { get; set; }
+
+        [JsonPropertyName("return_elapsed_seconds")]
+        public float ReturnElapsedSeconds { get; set; }
 
         [JsonPropertyName("raiders")]
         public List<SaveAmbientPirateRaiderData> Raiders { get; set; } = new();
@@ -905,6 +914,18 @@ namespace Roguelancer
 
         [JsonPropertyName("haul")]
         public List<SaveAmbientPirateHaulData> Haul { get; set; } = new();
+
+        [JsonPropertyName("receiver_station_id")]
+        public string ReceiverStationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("receiver_station_name")]
+        public string ReceiverStationName { get; set; } = string.Empty;
+
+        [JsonPropertyName("delivery_settled")]
+        public bool DeliverySettled { get; set; }
+
+        [JsonPropertyName("delivery_lost")]
+        public bool DeliveryLost { get; set; }
     }
 
     public sealed class SaveAmbientPirateHaulData

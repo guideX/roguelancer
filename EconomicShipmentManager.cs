@@ -126,6 +126,15 @@ public sealed class EconomicShipmentManager
     public MarketManager MarketManager => _marketManager;
     public int ActiveShipmentCount => _active.Count;
     public IReadOnlyList<EconomicShipment> ActiveShipments => _active.Values.ToList();
+    /// <summary>
+    /// Returns the current system's real station objects. Consumers use this
+    /// only to resolve existing station authorities; it never creates a
+    /// warehouse or alternate inventory.
+    /// </summary>
+    public IReadOnlyList<Station> GetKnownStations() =>
+        (_stationsProvider?.Invoke() ?? Array.Empty<Station>())
+            .Where(station => station != null)
+            .ToList();
 
     public const int DynamicEscortRiskThreshold = 40;
     public const int DynamicEscortValueThreshold = 2_500;

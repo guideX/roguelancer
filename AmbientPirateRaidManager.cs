@@ -52,9 +52,14 @@ public sealed class AmbientPirateRaider
     public NpcShip Ship { get; internal set; }
     public bool IsAlive { get; internal set; }
     public bool HasEscaped { get; internal set; }
+    public string ReceiverStationId { get; internal set; } = string.Empty;
+    public string ReceiverStationName { get; internal set; } = string.Empty;
+    public bool DeliverySettled { get; internal set; }
+    public bool DeliveryLost { get; internal set; }
     public IReadOnlyList<AmbientPirateHaulEntry> Haul => _haul;
     internal List<AmbientPirateHaulEntry> MutableHaul => _haul;
     private readonly List<AmbientPirateHaulEntry> _haul = new();
+    internal int HaulQuantity => _haul.Sum(entry => Math.Max(0, entry?.Quantity ?? 0));
 }
 
 /// <summary>
@@ -82,6 +87,8 @@ public sealed class AmbientPirateRaid
     public bool SurrenderEvaluated { get; internal set; }
     public int SurrenderedQuantity { get; internal set; }
     public int RecoveredQuantity { get; internal set; }
+    public float RecoveryElapsedSeconds { get; internal set; }
+    public float ReturnElapsedSeconds { get; internal set; }
     public IReadOnlyList<AmbientPirateRaider> Raiders => _raiders;
     internal List<AmbientPirateRaider> MutableRaiders => _raiders;
     private readonly List<AmbientPirateRaider> _raiders = new();
@@ -110,6 +117,9 @@ public sealed class AmbientPirateRaidManager
     public const float RaiderSpawnSpacing = 620f;
     public const float MaximumCargoSeekDistance = 6_000f;
     public const float RaiderCargoPickupRadius = 180f;
+    public const float RecoveryWindowSeconds = 15f;
+    public const float ReturnTimeoutSeconds = 150f;
+    public const float ReceiverArrivalDistance = 500f;
 
     public delegate NpcShip RaiderSpawnFactory(
         EconomicShipment shipment,
@@ -138,6 +148,8 @@ public sealed class AmbientPirateRaidManager
     private Func<NpcShip, string, int, int> _spawnCargo;
     private CargoPodCollector _collectCargo;
     private Func<IEnumerable<CargoPod>> _cargoPodsProvider;
+    private MarketManager _marketManager;
+    private Func<IEnumerable<Station>> _stationsProvider;
     private float _evaluationTimer;
 
     public AmbientPirateRaidManager(
@@ -158,6 +170,9 @@ public sealed class AmbientPirateRaidManager
     public IReadOnlyList<AmbientPirateRaid> ActiveRaids => _raids.Values
         .Where(raid => raid?.State == AmbientPirateRaidState.Active)
         .ToList();
+    public IReadOnlyList<AmbientPirateRaid> ReturningRaids => _raids.Values
+        .Where(raid => raid?.State == AmbientPirateRaidState.ReturningWithLoot)
+        .ToList();
     public int ActiveRaidCount => ActiveRaids.Count;
     public int TrackedRaidCount => _raids.Count;
 
@@ -167,6 +182,37 @@ public sealed class AmbientPirateRaidManager
     {
         _economicShipments = economicShipments;
         _shortageResolver = shortageResolver;
+    }
+
+    public void ConfigureCriminalDelivery(
+        MarketManager marketManager,
+        Func<IEnumerable<Station>> stationsProvider)
+    {
+        _marketManager = marketManager;
+        _stationsProvider = stationsProvider;
+    }
+
+    /// <summary>
+    /// Exposes only the actual haul on a living ambient carrier. This keeps
+    /// reconnaissance read-only while making the stolen provenance visible to
+    /// the existing scanner UI.
+    /// </summary>
+    public bool TryGetHaulSnapshot(NpcShip target, out NpcCargoManifestSnapshot snapshot)
+    {
+        snapshot = null;
+        AmbientPirateRaider raider = _raids.Values
+            .SelectMany(raid => raid?.Raiders ?? Array.Empty<AmbientPirateRaider>())
+            .FirstOrDefault(candidate => candidate?.Ship == target && candidate.IsAlive);
+        if (raider == null)
+            return false;
+
+        snapshot = new NpcCargoManifestSnapshot(
+            hasRegisteredCargo: true,
+            raider.Haul
+                .Where(entry => entry?.Quantity > 0)
+                .Select(entry => new NpcCargoManifestStackSnapshot(
+                    CommodityCatalog.GetById(entry.CommodityId), entry.Quantity, isStolen: true)));
+        return true;
     }
 
     public void ConfigureRuntime(
@@ -312,6 +358,8 @@ public sealed class AmbientPirateRaidManager
 
             if (raid.State == AmbientPirateRaidState.Active)
                 UpdateActiveRaid(raid, delta, log);
+            else if (raid.State == AmbientPirateRaidState.ReturningWithLoot)
+                UpdateReturningRaid(raid, delta, log);
         }
     }
 
@@ -346,7 +394,8 @@ public sealed class AmbientPirateRaidManager
             if (raid == null)
                 continue;
 
-            if (raid.Shipment?.Trader == destroyedShip)
+            if (raid.Shipment?.Trader == destroyedShip &&
+                raid.State is AmbientPirateRaidState.Delayed or AmbientPirateRaidState.Active)
             {
                 Resolve(raid, "merchant destroyed", log);
                 continue;
@@ -359,10 +408,10 @@ public sealed class AmbientPirateRaidManager
             raider.IsAlive = false;
             raider.Ship = null;
             DropRaiderHaul(raid, raider, destroyedShip, log);
-            if (raid.State == AmbientPirateRaidState.Active &&
+            if ((raid.State is AmbientPirateRaidState.Active or AmbientPirateRaidState.ReturningWithLoot) &&
                 !raid.Raiders.Any(candidate => candidate?.IsAlive == true))
             {
-                Resolve(raid, "all assigned raiders destroyed", log);
+                CompleteReturningRaid(raid, log);
             }
         }
     }
@@ -381,7 +430,7 @@ public sealed class AmbientPirateRaidManager
     public void RestoreState(IEnumerable<SaveAmbientPirateRaidData> savedStates, Action<string> log = null)
     {
         foreach (AmbientPirateRaid raid in _raids.Values.ToList())
-            Resolve(raid, "save/load rebind", log);
+            TeardownRaid(raid, "save/load rebind", log);
         _raids.Clear();
 
         foreach (SaveAmbientPirateRaidData saved in (savedStates ?? Array.Empty<SaveAmbientPirateRaidData>()).Take(MaximumTrackedRaids))
@@ -412,20 +461,25 @@ public sealed class AmbientPirateRaidManager
                 RecentPressureSeconds = Math.Clamp(saved.RecentPressureSeconds, 0f, 10f),
                 SurrenderEvaluated = saved.SurrenderEvaluated,
                 SurrenderedQuantity = Math.Clamp(saved.SurrenderedQuantity, 0, shipment.InitialQuantity),
-                RecoveredQuantity = Math.Clamp(saved.RecoveredQuantity, 0, shipment.InitialQuantity)
+                RecoveredQuantity = Math.Clamp(saved.RecoveredQuantity, 0, shipment.InitialQuantity),
+                RecoveryElapsedSeconds = Math.Clamp(saved.RecoveryElapsedSeconds, 0f, RecoveryWindowSeconds),
+                ReturnElapsedSeconds = Math.Clamp(saved.ReturnElapsedSeconds, 0f, ReturnTimeoutSeconds)
             };
             shipment.AmbientRaidAttempted = true;
             shipment.AmbientRaidState = raid.State;
             shipment.AmbientRaidSurrendered = raid.SurrenderedQuantity > 0;
             _raids[raid.ShipmentIdentity] = raid;
 
-            if (raid.State == AmbientPirateRaidState.Active)
+            if (raid.State is AmbientPirateRaidState.Active or AmbientPirateRaidState.ReturningWithLoot)
             {
                 RestoreActiveRaiders(raid, saved.Raiders, log);
-                if (!raid.Raiders.Any(raider => raider?.IsAlive == true))
+                if (raid.State == AmbientPirateRaidState.Active &&
+                    !raid.Raiders.Any(raider => raider?.IsAlive == true))
                     Resolve(raid, "saved raid had no surviving raiders", log);
-                else
+                else if (raid.State == AmbientPirateRaidState.Active)
                     SetMerchantUnderRaid(raid.Shipment);
+                else
+                    RestoreReturningRaiders(raid, log);
             }
         }
     }
@@ -433,7 +487,7 @@ public sealed class AmbientPirateRaidManager
     public void Reset(Action<string> log = null)
     {
         foreach (AmbientPirateRaid raid in _raids.Values.ToList())
-            Resolve(raid, "world reset", log);
+            TeardownRaid(raid, "world reset", log);
         _raids.Clear();
         _evaluationTimer = 0f;
     }
@@ -546,7 +600,11 @@ public sealed class AmbientPirateRaidManager
                 tier)
             {
                 HasEscaped = saved.Escaped,
-                IsAlive = saved.Alive
+                IsAlive = saved.Alive,
+                ReceiverStationId = saved.ReceiverStationId ?? string.Empty,
+                ReceiverStationName = saved.ReceiverStationName ?? string.Empty,
+                DeliverySettled = saved.DeliverySettled,
+                DeliveryLost = saved.DeliveryLost
             };
             foreach (SaveAmbientPirateHaulData haul in (saved.Haul ?? new List<SaveAmbientPirateHaulData>()).Take(MaximumHaulStacksPerRaider))
             {
@@ -592,6 +650,40 @@ public sealed class AmbientPirateRaidManager
 
             raid.MutableRaiders.Add(raider);
         }
+    }
+
+    private void RestoreReturningRaiders(AmbientPirateRaid raid, Action<string> log)
+    {
+        foreach (AmbientPirateRaider raider in raid.MutableRaiders.ToList())
+        {
+            if (raider == null)
+                continue;
+
+            if (!raider.IsAlive)
+            {
+                if (raider.HaulQuantity > 0)
+                {
+                    raider.MutableHaul.Clear();
+                    raider.DeliveryLost = true;
+                }
+                continue;
+            }
+
+            if (raider.HaulQuantity <= 0 || raider.DeliverySettled)
+            {
+                RetireCarrier(raid, raider, "saved carrier had no pending haul");
+                continue;
+            }
+
+            if (!TrySelectReceiver(raid, raider, out _))
+            {
+                DropAndLoseRaider(raid, raider, raider.Ship, "saved criminal receiver unavailable", log);
+                continue;
+            }
+
+            SetReturnMovement(raider);
+        }
+        CompleteReturningRaid(raid, log, "save/load rebind");
     }
 
     private void UpdateActiveRaid(AmbientPirateRaid raid, float delta, Action<string> log)
@@ -652,10 +744,23 @@ public sealed class AmbientPirateRaidManager
             }
         }
 
-        if (raid.SurrenderedQuantity > 0 && raid.RecoveredQuantity >= raid.SurrenderedQuantity / 2f)
+        if (raid.SurrenderedQuantity > 0)
         {
-            Resolve(raid, "raiders recovered meaningful cargo", log);
-            return;
+            raid.RecoveryElapsedSeconds = Math.Min(RecoveryWindowSeconds,
+                raid.RecoveryElapsedSeconds + delta);
+            bool ownedPodsRemain = FindRaidPods(raid).Any();
+            bool allSurrenderedRecovered = raid.RecoveredQuantity >= raid.SurrenderedQuantity;
+            bool recoveryWindowExpired = raid.RecoveryElapsedSeconds >= RecoveryWindowSeconds;
+            if ((raid.RecoveredQuantity > 0 && !ownedPodsRemain) ||
+                allSurrenderedRecovered || recoveryWindowExpired)
+            {
+                Resolve(raid, allSurrenderedRecovered
+                    ? "raiders recovered the surrendered cargo"
+                    : recoveryWindowExpired
+                        ? "ambient piracy recovery window expired"
+                        : "recovered cargo pods were no longer available", log);
+                return;
+            }
         }
 
         if (raid.ElapsedSeconds >= RaidTimeoutSeconds)
@@ -664,14 +769,6 @@ public sealed class AmbientPirateRaidManager
             return;
         }
 
-        if (raid.SurrenderedQuantity > 0 && raid.Raiders.All(raider =>
-            raider?.IsAlive != true || raider.MutableHaul.Sum(entry => entry?.Quantity ?? 0) > 0))
-        {
-            // Every surviving raider has either a recovered haul or has been
-            // removed. Their cargo is an economic sink until a later phase
-            // adds a Rogue delivery economy.
-            Resolve(raid, "raiders disengaged with stolen haul", log);
-        }
     }
 
     private void UpdateRaiderObjectives(AmbientPirateRaid raid, Action<string> log)
@@ -697,13 +794,14 @@ public sealed class AmbientPirateRaidManager
                 continue;
             }
 
-            if (!CanAcceptHaul(raider, targetPod))
+            int haulCapacity = GetHaulCapacity(raider, targetPod);
+            if (haulCapacity <= 0)
             {
                 ship.ClearAmbientCargoObjective();
                 continue;
             }
 
-            if (_collectCargo(ship, targetPod, Math.Max(1, targetPod.Quantity), out string commodityId, out int quantity) &&
+            if (_collectCargo(ship, targetPod, haulCapacity, out string commodityId, out int quantity) &&
                 quantity > 0 && !string.IsNullOrWhiteSpace(commodityId))
             {
                 AddHaul(raider, commodityId, quantity);
@@ -722,6 +820,7 @@ public sealed class AmbientPirateRaidManager
         return (_cargoPodsProvider?.Invoke() ?? Array.Empty<CargoPod>())
             .OfType<CargoPod>()
             .Where(pod => pod != null && !pod.IsExpired && !pod.IsDepleted && pod.IsStolen &&
+                !pod.IsMissionCargo &&
                 pod.PayloadType == CargoPodPayloadType.Commodity &&
                 string.Equals(pod.SourceNpcName, raid.Shipment.Trader.Name, StringComparison.OrdinalIgnoreCase) &&
                 Vector3.DistanceSquared(pod.Position, raider.Position) <= MaximumCargoSeekDistance * MaximumCargoSeekDistance)
@@ -729,13 +828,27 @@ public sealed class AmbientPirateRaidManager
             .FirstOrDefault();
     }
 
-    private bool CanAcceptHaul(AmbientPirateRaider raider, CargoPod pod)
+    private IEnumerable<CargoPod> FindRaidPods(AmbientPirateRaid raid)
+    {
+        if (raid?.Shipment?.Trader == null)
+            return Enumerable.Empty<CargoPod>();
+
+        return (_cargoPodsProvider?.Invoke() ?? Array.Empty<CargoPod>())
+            .Where(pod => pod != null && !pod.IsExpired && !pod.IsDepleted && pod.IsStolen &&
+                !pod.IsMissionCargo && pod.PayloadType == CargoPodPayloadType.Commodity &&
+                string.Equals(pod.SourceNpcName, raid.Shipment.Trader.Name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private int GetHaulCapacity(AmbientPirateRaider raider, CargoPod pod)
     {
         if (raider == null || pod == null || pod.PayloadType != CargoPodPayloadType.Commodity || !pod.IsStolen)
-            return false;
-        if (raider.MutableHaul.Any(entry => string.Equals(entry?.CommodityId, pod.CommodityId, StringComparison.OrdinalIgnoreCase)))
-            return true;
-        return raider.MutableHaul.Count < MaximumHaulStacksPerRaider;
+            return 0;
+
+        AmbientPirateHaulEntry existing = raider.MutableHaul.FirstOrDefault(entry =>
+            string.Equals(entry?.CommodityId, pod.CommodityId, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+            return Math.Max(0, 40 - existing.Quantity);
+        return raider.MutableHaul.Count < MaximumHaulStacksPerRaider ? 40 : 0;
     }
 
     private static void AddHaul(AmbientPirateRaider raider, string commodityId, int quantity)
@@ -759,18 +872,23 @@ public sealed class AmbientPirateRaidManager
 
     private void DropRaiderHaul(AmbientPirateRaid raid, AmbientPirateRaider raider, NpcShip destroyedShip, Action<string> log)
     {
-        if (raider == null || destroyedShip == null || _spawnCargo == null)
+        if (raider == null)
             return;
 
+        bool hadHaul = raider.HaulQuantity > 0;
         foreach (AmbientPirateHaulEntry entry in raider.MutableHaul.ToList())
         {
-            int dropped = Math.Clamp(_spawnCargo(destroyedShip, entry.CommodityId, entry.Quantity), 0, entry.Quantity);
-            entry.Quantity -= dropped;
-            if (entry.Quantity <= 0)
-                raider.MutableHaul.Remove(entry);
+            int requested = Math.Max(0, entry.Quantity);
+            int dropped = destroyedShip != null && _spawnCargo != null && requested > 0
+                ? Math.Clamp(_spawnCargo(destroyedShip, entry.CommodityId, requested), 0, requested)
+                : 0;
             if (dropped > 0)
                 log?.Invoke($"[PIRACY] Destroyed raider dropped stolen haul: {entry.CommodityId} x{dropped}.");
+            if (dropped < requested)
+                log?.Invoke($"[PIRACY] Destroyed raider lost {requested - dropped} haul unit(s) because no physical pod was available.");
         }
+        raider.MutableHaul.Clear();
+        raider.DeliveryLost |= hadHaul;
     }
 
     private void UpdateRaiderTargetPriority(AmbientPirateRaid raid)
@@ -817,29 +935,290 @@ public sealed class AmbientPirateRaidManager
         shipment.Trader.SetEncounterState(TrafficEncounterState.Fleeing, threat, escape);
     }
 
+    private void UpdateReturningRaid(AmbientPirateRaid raid, float delta, Action<string> log)
+    {
+        raid.ReturnElapsedSeconds = Math.Min(ReturnTimeoutSeconds, raid.ReturnElapsedSeconds + delta);
+        foreach (AmbientPirateRaider raider in raid.MutableRaiders.ToList())
+        {
+            if (raider == null || !raider.IsAlive)
+                continue;
+
+            if (raider.Ship == null || raider.Ship.IsDestroyed)
+            {
+                DropRaiderHaul(raid, raider, raider.Ship, log);
+                raider.IsAlive = false;
+                raider.Ship = null;
+                continue;
+            }
+
+            if (!TrySelectReceiver(raid, raider, out Station receiver))
+            {
+                DropAndLoseRaider(raid, raider, raider.Ship, "criminal receiver unavailable", log);
+                continue;
+            }
+
+            if (Vector3.DistanceSquared(raider.Ship.Position, receiver.Position) <=
+                ReceiverArrivalDistance * ReceiverArrivalDistance)
+            {
+                if (TryDeliverRaider(receiver, raider, out string receipt))
+                {
+                    log?.Invoke($"[PIRACY] Rogue carrier delivered haul to {receiver.Name}: {receipt}.");
+                    RetireCarrier(raid, raider, "ambient Rogue haul delivered");
+                    continue;
+                }
+
+                // Capacity or policy can change while a carrier is in flight;
+                // the next deterministic eligible station gets one chance.
+                raider.ReceiverStationId = string.Empty;
+                raider.ReceiverStationName = string.Empty;
+                if (!TrySelectReceiver(raid, raider, out _))
+                {
+                    DropAndLoseRaider(raid, raider, raider.Ship, "criminal receiver rejected haul", log);
+                    continue;
+                }
+            }
+
+            if (raid.ReturnElapsedSeconds >= ReturnTimeoutSeconds)
+                DropAndLoseRaider(raid, raider, raider.Ship, "return timeout", log);
+            else if (raider.Ship.EncounterState == TrafficEncounterState.Cruising)
+                SetReturnMovement(raider);
+        }
+
+        CompleteReturningRaid(raid, log);
+    }
+
     private void Resolve(AmbientPirateRaid raid, string reason, Action<string> log)
     {
-        if (raid == null || raid.State == AmbientPirateRaidState.Resolved)
+        if (raid == null || raid.State is AmbientPirateRaidState.Resolved or
+            AmbientPirateRaidState.Delivered or AmbientPirateRaidState.Lost)
             return;
 
-        raid.State = AmbientPirateRaidState.Resolved;
         if (raid.Shipment != null)
         {
-            raid.Shipment.AmbientRaidState = AmbientPirateRaidState.Resolved;
             raid.Shipment.AmbientRaidAttempted = true;
         }
 
+        bool returning = false;
         foreach (AmbientPirateRaider raider in raid.MutableRaiders.ToList())
         {
-            if (raider?.Ship == null || raider.Ship.IsDestroyed || !raider.IsAlive)
+            if (raider == null || !raider.IsAlive || raider.Ship == null || raider.Ship.IsDestroyed)
                 continue;
-            raider.HasEscaped = true;
-            raider.IsAlive = false;
-            raider.Ship.ClearAmbientPirateRaider();
-            _retireRaider?.Invoke(raider.Ship, reason ?? "ambient raid resolved");
-            raider.Ship = null;
+
+            if (raider.HaulQuantity > 0)
+            {
+                if (TrySelectReceiver(raid, raider, out _))
+                {
+                    SetReturnMovement(raider);
+                    returning = true;
+                }
+                else
+                {
+                    DropAndLoseRaider(raid, raider, raider.Ship, "no eligible criminal receiver", log);
+                }
+            }
+            else
+            {
+                RetireCarrier(raid, raider, reason ?? "ambient raid resolved");
+            }
         }
-        log?.Invoke($"[PIRACY] Ambient Rogue raid resolved for {raid.ShipmentIdentity}: {reason}.");
+
+        if (returning)
+        {
+            raid.State = AmbientPirateRaidState.ReturningWithLoot;
+            if (raid.Shipment != null)
+                raid.Shipment.AmbientRaidState = AmbientPirateRaidState.ReturningWithLoot;
+            log?.Invoke($"[PIRACY] Ambient Rogue carriers are returning stolen haul for {raid.ShipmentIdentity}: {reason}.");
+            return;
+        }
+
+        CompleteReturningRaid(raid, log, reason);
+    }
+
+    private void CompleteReturningRaid(AmbientPirateRaid raid, Action<string> log, string reason = null)
+    {
+        if (raid == null)
+            return;
+
+        if (raid.Raiders.Any(raider => raider?.IsAlive == true && raider.HaulQuantity > 0))
+            return;
+
+        bool delivered = raid.Raiders.Any(raider => raider?.DeliverySettled == true);
+        bool lost = raid.Raiders.Any(raider => raider?.DeliveryLost == true);
+        AmbientPirateRaidState terminalState = delivered
+            ? lost ? AmbientPirateRaidState.Lost : AmbientPirateRaidState.Delivered
+            : lost ? AmbientPirateRaidState.Lost : AmbientPirateRaidState.Resolved;
+        raid.State = terminalState;
+        if (raid.Shipment != null)
+        {
+            raid.Shipment.AmbientRaidState = terminalState;
+            raid.Shipment.AmbientRaidAttempted = true;
+        }
+        if (delivered || lost)
+            log?.Invoke($"[PIRACY] Ambient Rogue raid {terminalState} for {raid.ShipmentIdentity}: {reason ?? "carriers settled"}.");
+    }
+
+    private bool TrySelectReceiver(AmbientPirateRaid raid, AmbientPirateRaider raider, out Station receiver)
+    {
+        receiver = null;
+        if (raid == null || raider == null || raider.HaulQuantity <= 0 || _marketManager == null)
+            return false;
+
+        List<Station> candidates = (_stationsProvider?.Invoke() ?? Array.Empty<Station>())
+            .Where(station => station != null && _marketManager.HasBlackMarketForStation(station))
+            .OrderBy(station => Vector3.DistanceSquared(raider.Ship?.Position ?? Vector3.Zero, station.Position))
+            .ThenBy(station => _marketManager.GetStationId(station), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(station => station.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (!string.IsNullOrWhiteSpace(raider.ReceiverStationId))
+        {
+            Station preferred = candidates.FirstOrDefault(station =>
+                string.Equals(_marketManager.GetStationId(station), raider.ReceiverStationId, StringComparison.OrdinalIgnoreCase));
+            if (preferred != null && CanReceiveEntireHaul(preferred, raider))
+            {
+                receiver = preferred;
+                return true;
+            }
+        }
+
+        receiver = candidates.FirstOrDefault(candidate => CanReceiveEntireHaul(candidate, raider));
+        if (receiver == null)
+        {
+            raider.ReceiverStationId = string.Empty;
+            raider.ReceiverStationName = string.Empty;
+            return false;
+        }
+
+        raider.ReceiverStationId = _marketManager.GetStationId(receiver);
+        raider.ReceiverStationName = receiver.Name ?? string.Empty;
+        return true;
+    }
+
+    private bool CanReceiveEntireHaul(Station station, AmbientPirateRaider raider)
+    {
+        return station != null && raider != null &&
+            raider.Haul.All(entry => entry != null && entry.Quantity > 0 &&
+                _marketManager.CanReceiveCriminalSupply(
+                    station,
+                    CommodityCatalog.GetById(entry.CommodityId),
+                    entry.Quantity,
+                    out _));
+    }
+
+    private bool TryDeliverRaider(Station receiver, AmbientPirateRaider raider, out string receipt)
+    {
+        receipt = string.Empty;
+        if (!CanReceiveEntireHaul(receiver, raider))
+            return false;
+
+        List<string> receipts = new();
+        foreach (AmbientPirateHaulEntry entry in raider.MutableHaul.ToList())
+        {
+            if (!_marketManager.TryAddCriminalSupply(
+                    receiver,
+                    CommodityCatalog.GetById(entry.CommodityId),
+                    entry.Quantity,
+                    out int accepted,
+                    out string message) || accepted != entry.Quantity)
+                return false;
+            receipts.Add($"{entry.CommodityId} x{accepted}");
+        }
+
+        raider.MutableHaul.Clear();
+        raider.DeliverySettled = true;
+        receipt = string.Join(", ", receipts);
+        return true;
+    }
+
+    private void SetReturnMovement(AmbientPirateRaider raider)
+    {
+        if (raider?.Ship == null)
+            return;
+
+        Station receiver = (_stationsProvider?.Invoke() ?? Array.Empty<Station>())
+            .FirstOrDefault(station => station != null &&
+                string.Equals(_marketManager?.GetStationId(station), raider.ReceiverStationId, StringComparison.OrdinalIgnoreCase));
+        if (receiver == null)
+            return;
+
+        raider.Ship.ClearAmbientCargoObjective();
+        raider.Ship.ClearFactionCombatTarget();
+        raider.Ship.SetEncounterState(TrafficEncounterState.Fleeing, raider.Ship.Position, receiver.Position);
+        raider.Ship.TrafficLifetimeSeconds = Math.Max(
+            raider.Ship.TrafficLifetimeSeconds,
+            ReturnTimeoutSeconds + 10f);
+    }
+
+    private void RetireCarrier(AmbientPirateRaid raid, AmbientPirateRaider raider, string reason)
+    {
+        if (raider == null)
+            return;
+
+        NpcShip ship = raider.Ship;
+        raider.HasEscaped = true;
+        raider.IsAlive = false;
+        raider.Ship = null;
+        if (ship == null)
+            return;
+
+        ship.ClearAmbientPirateRaider();
+        _retireRaider?.Invoke(ship, reason ?? "ambient raid resolved");
+    }
+
+    private void DropAndLoseRaider(
+        AmbientPirateRaid raid,
+        AmbientPirateRaider raider,
+        NpcShip source,
+        string reason,
+        Action<string> log)
+    {
+        if (raider == null)
+            return;
+
+        foreach (AmbientPirateHaulEntry entry in raider.MutableHaul.ToList())
+        {
+            int requested = Math.Max(0, entry.Quantity);
+            int dropped = requested > 0 && _spawnCargo != null
+                ? Math.Clamp(_spawnCargo(source, entry.CommodityId, requested), 0, requested)
+                : 0;
+            if (dropped > 0)
+                log?.Invoke($"[PIRACY] Carrier lost; physical stolen haul dropped: {entry.CommodityId} x{dropped}.");
+            if (dropped < requested)
+                log?.Invoke($"[PIRACY] Carrier haul loss was bounded at {requested - dropped} unit(s): {reason}.");
+        }
+
+        raider.MutableHaul.Clear();
+        raider.DeliveryLost = true;
+        RetireCarrier(raid, raider, reason);
+    }
+
+    private void TeardownRaid(AmbientPirateRaid raid, string reason, Action<string> log)
+    {
+        if (raid == null)
+            return;
+
+        bool hadHaul = false;
+        foreach (AmbientPirateRaider raider in raid.MutableRaiders.ToList())
+        {
+            if (raider == null)
+                continue;
+            bool raiderHadHaul = raider.HaulQuantity > 0;
+            hadHaul |= raiderHadHaul;
+            // World teardown clears the physical pod set as part of the same
+            // transaction. Never turn that reset into a criminal-market credit.
+            raider.MutableHaul.Clear();
+            if (raider.IsAlive)
+                RetireCarrier(raid, raider, reason ?? "ambient raid teardown");
+            raider.DeliveryLost |= raiderHadHaul;
+        }
+
+        raid.State = hadHaul ? AmbientPirateRaidState.Lost : AmbientPirateRaidState.Resolved;
+        if (raid.Shipment != null)
+        {
+            raid.Shipment.AmbientRaidState = raid.State;
+            raid.Shipment.AmbientRaidAttempted = true;
+        }
+        log?.Invoke($"[PIRACY] Ambient Rogue raid torn down for {raid.ShipmentIdentity}: {reason}.");
     }
 
     private bool IsEligibleShipment(EconomicShipment shipment)
@@ -912,6 +1291,8 @@ public sealed class AmbientPirateRaidManager
             SurrenderEvaluated = raid.SurrenderEvaluated,
             SurrenderedQuantity = Math.Max(0, raid.SurrenderedQuantity),
             RecoveredQuantity = Math.Max(0, raid.RecoveredQuantity),
+            RecoveryElapsedSeconds = Math.Clamp(raid.RecoveryElapsedSeconds, 0f, RecoveryWindowSeconds),
+            ReturnElapsedSeconds = Math.Clamp(raid.ReturnElapsedSeconds, 0f, ReturnTimeoutSeconds),
             Raiders = raid.Raiders.Take(MaximumRaidersPerRaid).Select(raider => new SaveAmbientPirateRaiderData
             {
                 StableIdentity = raider.StableIdentity,
@@ -920,6 +1301,10 @@ public sealed class AmbientPirateRaidManager
                 LoadoutTier = raider.LoadoutTier,
                 Alive = raider.IsAlive && raider.Ship != null && !raider.Ship.IsDestroyed,
                 Escaped = raider.HasEscaped,
+                ReceiverStationId = raider.ReceiverStationId,
+                ReceiverStationName = raider.ReceiverStationName,
+                DeliverySettled = raider.DeliverySettled,
+                DeliveryLost = raider.DeliveryLost,
                 Position = SaveVector3Data.From(raider.Ship?.Position ?? Vector3.Zero),
                 Velocity = SaveVector3Data.From(raider.Ship?.Velocity ?? Vector3.Zero),
                 Haul = raider.Haul.Select(entry => new SaveAmbientPirateHaulData

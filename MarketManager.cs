@@ -787,6 +787,100 @@ namespace Roguelancer
         }
 
         /// <summary>
+        /// Validates a physical Rogue haul at an existing criminal receiver.
+        /// Contraband enters the station's canonical black-market listing;
+        /// legal stolen cargo follows the existing Phase 57 fence-only policy.
+        /// This is an NPC receipt boundary, so it deliberately does not ask
+        /// for the player's reputation or create a second inventory.
+        /// </summary>
+        public bool CanReceiveCriminalSupply(
+            Station station,
+            Commodity commodity,
+            int quantity,
+            out string message)
+        {
+            message = string.Empty;
+            Commodity canonical = ResolveCommodity(commodity?.Id ?? commodity?.Name);
+            if (station == null || canonical == null || quantity <= 0)
+            {
+                message = "No valid criminal supply receipt.";
+                return false;
+            }
+
+            if (canonical.IsMissionCargo || !HasBlackMarketForStation(station))
+            {
+                message = "This station is not an eligible criminal receiver.";
+                return false;
+            }
+
+            StationMarketListing listing = GetMutableListing(
+                GetStationKey(station.Name, station.Config?.Description), canonical);
+            if (listing == null || !listing.IsAvailable || listing.SellPrice <= 0)
+            {
+                message = "The criminal receiver will not accept this commodity.";
+                return false;
+            }
+
+            if (canonical.IsContraband)
+            {
+                if (!listing.Commodity.IsContraband ||
+                    (long)listing.Stock + quantity > listing.MaximumStock)
+                {
+                    message = "The criminal receiver has no room for this haul.";
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (GetFenceListing(station, canonical) == null)
+            {
+                message = "No fence quote exists for this legal stolen cargo.";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Settles one exact physical Rogue haul at an existing criminal
+        /// receiver. The call is intentionally all-or-nothing so a carrier's
+        /// saved haul can never be partially credited and then delivered
+        /// again after a load.
+        /// </summary>
+        public bool TryAddCriminalSupply(
+            Station station,
+            Commodity commodity,
+            int quantity,
+            out int acceptedQuantity,
+            out string message)
+        {
+            acceptedQuantity = 0;
+            if (!CanReceiveCriminalSupply(station, commodity, quantity, out message))
+                return false;
+
+            Commodity canonical = ResolveCommodity(commodity?.Id ?? commodity?.Name);
+            if (canonical.IsContraband)
+            {
+                StationMarketListing listing = GetMutableListing(
+                    GetStationKey(station.Name, station.Config?.Description), canonical);
+                listing.Stock = checked(listing.Stock + quantity);
+                listing.RecoveryEnabled = true;
+                listing.ImmediateSellPriceCeiling = 0;
+                listing.RecoveryRemainderMilliseconds = 0;
+                RefreshPrices(listing);
+                message = $"Criminal receiver accepted {quantity} {listing.Commodity.Name}; stock is now {listing.Stock:N0}.";
+            }
+            else
+            {
+                message = $"Fence accepted {quantity} {canonical.Name}; legal stolen cargo remains outside canonical market stock.";
+            }
+
+            acceptedQuantity = quantity;
+            return true;
+        }
+
+        /// <summary>
         /// Reserves normal market capacity for an accepted emergency supply
         /// contract. The reservation is bounded by the listing capacity and
         /// prevents ambient traders or ordinary sales from making the accepted

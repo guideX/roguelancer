@@ -685,7 +685,7 @@ namespace Roguelancer
             podCount = 0;
             Commodity commodity = CommodityCatalog.GetById(commodityId);
             int safeQuantity = Math.Clamp(quantity, 1, 40);
-            if (source == null || commodity == null || commodity.IsContraband || commodity.IsMissionCargo ||
+            if (source == null || commodity == null || commodity.IsMissionCargo ||
                 safeQuantity <= 0 || _activePods.Count >= CombatSalvageService.MaxLiveSalvageObjects)
                 return 0;
 

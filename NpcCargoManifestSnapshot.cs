@@ -13,11 +13,13 @@ public sealed class NpcCargoManifestStackSnapshot
 {
     public Commodity Commodity { get; }
     public int Quantity { get; }
+    public bool IsStolen { get; }
 
-    public NpcCargoManifestStackSnapshot(Commodity commodity, int quantity)
+    public NpcCargoManifestStackSnapshot(Commodity commodity, int quantity, bool isStolen = false)
     {
         Commodity = commodity;
         Quantity = Math.Max(0, quantity);
+        IsStolen = isStolen;
     }
 }
 
@@ -36,7 +38,7 @@ public sealed class NpcCargoManifestSnapshot
         HasRegisteredCargo = hasRegisteredCargo;
         _stacks = stacks?
             .Where(stack => stack?.Commodity != null && stack.Quantity > 0)
-            .Select(stack => new NpcCargoManifestStackSnapshot(stack.Commodity, stack.Quantity))
+            .Select(stack => new NpcCargoManifestStackSnapshot(stack.Commodity, stack.Quantity, stack.IsStolen))
             .ToList()
             ?? new List<NpcCargoManifestStackSnapshot>();
     }

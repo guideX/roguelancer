@@ -270,6 +270,7 @@ namespace Roguelancer {
         private readonly bool _runPhase64Smoke;
         private readonly bool _runPhase65Smoke;
         private readonly bool _runPhase66Smoke;
+        private readonly bool _runPhase67Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -392,6 +393,7 @@ namespace Roguelancer {
             _runPhase64Smoke = args?.Any(arg => string.Equals(arg, "--phase64-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase65Smoke = args?.Any(arg => string.Equals(arg, "--phase65-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase66Smoke = args?.Any(arg => string.Equals(arg, "--phase66-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase67Smoke = args?.Any(arg => string.Equals(arg, "--phase67-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1351,6 +1353,9 @@ namespace Roguelancer {
                     if (_missionWorldManager?.TryGetPlayerScanCargo(target, out NpcCargoManifestSnapshot missionCargo) == true)
                         return missionCargo;
 
+                    if (_trafficManager?.AmbientPirateRaids.TryGetHaulSnapshot(target, out NpcCargoManifestSnapshot rogueHaul) == true)
+                        return rogueHaul;
+
                     if (_piracyDemand?.TryGetAuthoritativeManifestSnapshot(target, out NpcCargoManifestSnapshot traderCargo) == true)
                         return traderCargo;
 
@@ -1576,6 +1581,11 @@ namespace Roguelancer {
             else if (_runPhase66Smoke)
             {
                 var result = RunPhase66SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runPhase67Smoke)
+            {
+                var result = RunPhase67SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runPhase61Smoke)
@@ -1809,6 +1819,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 64 shipment interdiction smoke", RunPhase64SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 65 shipment security smoke", RunPhase65SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 66 ambient pirate raid smoke", RunPhase66SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 67 Rogue loot delivery smoke", RunPhase67SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2329,6 +2340,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 66 AMBIENT PIRATE RAID SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase67SmokeTest()
+        {
+            try
+            {
+                return new Phase67RogueLootDeliverySmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 67 ROGUE LOOT DELIVERY SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
