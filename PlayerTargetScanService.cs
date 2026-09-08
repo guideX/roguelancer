@@ -48,6 +48,10 @@ public sealed class PlayerTargetScanRouteInfo
     public string DestinationStationName { get; }
     public int RouteRisk { get; }
     public string RouteRiskLabel { get; }
+    public int SecurityEscortCount { get; }
+    public string SecurityLabel => SecurityEscortCount > 0
+        ? $"{SecurityEscortCount} escort(s)"
+        : "none";
     public string RouteLabel => string.IsNullOrWhiteSpace(OriginStationName) || string.IsNullOrWhiteSpace(DestinationStationName)
         ? string.Empty
         : $"{OriginStationName} -> {DestinationStationName}";
@@ -59,7 +63,8 @@ public sealed class PlayerTargetScanRouteInfo
         string destinationStationId,
         string destinationStationName,
         int routeRisk = 0,
-        string routeRiskLabel = null)
+        string routeRiskLabel = null,
+        int securityEscortCount = 0)
     {
         RouteId = routeId ?? string.Empty;
         OriginStationId = originStationId ?? string.Empty;
@@ -70,6 +75,7 @@ public sealed class PlayerTargetScanRouteInfo
         RouteRiskLabel = string.IsNullOrWhiteSpace(routeRiskLabel)
             ? TradeRouteRiskManager.GetRiskLabel(RouteRisk)
             : routeRiskLabel.Trim();
+        SecurityEscortCount = Math.Clamp(securityEscortCount, 0, ShipmentSecurityManager.MaximumEscortsPerShipment);
     }
 }
 
@@ -93,6 +99,8 @@ public sealed class PlayerTargetScanResult
     public string OriginStationName => Route?.OriginStationName ?? string.Empty;
     public string DestinationStationName => Route?.DestinationStationName ?? string.Empty;
     public string RouteLabel => Route?.RouteLabel ?? string.Empty;
+    public int SecurityEscortCount => Route?.SecurityEscortCount ?? 0;
+    public string SecurityLabel => Route?.SecurityLabel ?? "unknown";
     public int EstimatedCargoValue =>
         (int)Math.Clamp(_cargo.Sum(entry => (long)Math.Max(0, entry.EstimatedValue)), 0L, int.MaxValue);
     public bool IsCargoHoldEmpty => HasRegisteredCargo && _cargo.Count == 0;

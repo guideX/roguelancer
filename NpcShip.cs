@@ -102,6 +102,17 @@ namespace Roguelancer
         public bool HasPlayerInitiatedRetaliationTarget => HasPlayerTarget && PlayerTargetReason == NpcPlayerTargetReason.PlayerInitiatedAggression;
         public bool IsTrafficRouteTowardEnd => _trafficRouteTowardEnd;
 
+        /// <summary>
+        /// True for a real NPC hired to protect an economic shipment. This is
+        /// provenance only; movement, targeting, damage, and salvage continue
+        /// to use the ordinary NPC systems.
+        /// </summary>
+        public bool IsShipmentSecurityEscort { get; private set; }
+        public string SecurityShipmentIdentity { get; private set; } = string.Empty;
+        public NpcShip FormationLeader { get; private set; }
+        public Vector3 FormationOffset { get; private set; }
+        public bool IsFormationFollower => FormationLeader != null;
+
         // The legacy NpcShip-only update path retains its original local
         // activation-range guard. TrafficManager enables this transient flag
         // through FactionCombatDisengagementService so Phase 35 can own the
@@ -199,6 +210,31 @@ namespace Roguelancer
         {
             IsEscalationReinforcement = false;
             EscalationReinforcementEncounterId = string.Empty;
+        }
+
+        internal void MarkShipmentSecurityEscort(string shipmentIdentity)
+        {
+            IsShipmentSecurityEscort = true;
+            SecurityShipmentIdentity = shipmentIdentity ?? string.Empty;
+        }
+
+        internal void ClearShipmentSecurityEscort()
+        {
+            IsShipmentSecurityEscort = false;
+            SecurityShipmentIdentity = string.Empty;
+            ClearFormationFollower();
+        }
+
+        internal void ConfigureFormationFollower(NpcShip leader, Vector3 offset)
+        {
+            FormationLeader = leader;
+            FormationOffset = TradeLaneStateSanitizer.IsFinite(offset) ? offset : Vector3.Zero;
+        }
+
+        internal void ClearFormationFollower()
+        {
+            FormationLeader = null;
+            FormationOffset = Vector3.Zero;
         }
 
         internal bool CapturePlayerAggressionProvenance(bool wasFactionHostile)
@@ -699,6 +735,16 @@ namespace Roguelancer
 
             UpdatePlayerDispositionTarget(playerShip, reputationManager);
 
+            // Ambient hired security follows the economic trader only while
+            // ordinary movement is available. A faction combat target, flee
+            // state, mission hold, or trade-lane transit always retains the
+            // established NPC authority above this follower convenience.
+            if (EncounterState == TrafficEncounterState.Cruising &&
+                IsFormationFollower && UpdateFormationFollower(deltaTime))
+            {
+                return;
+            }
+
             switch (EncounterState)
             {
                 case TrafficEncounterState.Fleeing:
@@ -886,6 +932,27 @@ namespace Roguelancer
             }
 
             MoveTowardTarget(targetPosition, speed, deltaTime, 2.0f);
+        }
+
+        private bool UpdateFormationFollower(float deltaTime)
+        {
+            NpcShip leader = FormationLeader;
+            if (leader == null || leader.IsDestroyed)
+            {
+                ClearFormationFollower();
+                return false;
+            }
+
+            Vector3 targetPosition = leader.Position +
+                leader.Right * FormationOffset.X +
+                leader.Up * FormationOffset.Y -
+                leader.Forward * FormationOffset.Z;
+            if (!TradeLaneStateSanitizer.IsFinite(targetPosition))
+                return false;
+
+            float followSpeed = Math.Max(TrafficCruiseSpeed, leader.TrafficCruiseSpeed * 1.15f);
+            MoveTowardTarget(targetPosition, followSpeed, deltaTime, 2.0f);
+            return true;
         }
 
         private void UpdatePlayerDispositionTarget(Ship playerShip, ReputationManager reputationManager)
@@ -1141,6 +1208,12 @@ namespace Roguelancer
             _trafficRouteHoldTimer = 0f;
             TrafficAgeSeconds = Math.Max(0f, float.IsNaN(ageSeconds) || float.IsInfinity(ageSeconds) ? 0f : ageSeconds);
             ClearEncounterState();
+        }
+
+        internal void RestoreStableIdentity(string stableIdentity)
+        {
+            if (!string.IsNullOrWhiteSpace(stableIdentity))
+                StableIdentity = stableIdentity.Trim();
         }
     }
 }

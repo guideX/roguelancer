@@ -1028,6 +1028,9 @@ namespace Roguelancer
                 $"Recover {requiredQuantity} {commodity.Name} from the real shipment. " +
                 $"Estimated shipment value: {shipment.RemainingManifestValue:N0} CR. " +
                 $"Route risk: {TradeRouteRiskManager.GetRiskLabel(routeRisk)} ({routeRisk}/100)." +
+                (shipment.ActiveSecurityEscortCount > 0
+                    ? $" Security: {shipment.ActiveSecurityEscortCount} escort(s)."
+                    : string.Empty) +
                 (string.IsNullOrWhiteSpace(shortageLabel) ? string.Empty : $" Destination demand: {shortageLabel}."),
                 FactionManager.LibertyRogues,
                 title: "Shipment Interdiction")

@@ -740,6 +740,52 @@ namespace Roguelancer
 
         [JsonPropertyName("interdiction_offer_expired")]
         public bool InterdictionOfferExpired { get; set; }
+
+        /// <summary>
+        /// Durable decision bit for the one-shot ambient security lifecycle.
+        /// A true value is intentionally saved even when no guard spawned, so
+        /// loading cannot re-run qualification or create replacements.
+        /// </summary>
+        [JsonPropertyName("security_assignment_decided")]
+        public bool SecurityAssignmentDecided { get; set; }
+
+        [JsonPropertyName("security_members")]
+        public List<SaveShipmentSecurityMemberData> SecurityMembers { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Stable snapshot of one ambient security member. Runtime NPC references
+    /// are deliberately absent; the member is rebound from its identity after
+    /// the parent economic shipment has been reconstructed.
+    /// </summary>
+    public sealed class SaveShipmentSecurityMemberData
+    {
+        [JsonPropertyName("stable_identity")]
+        public string StableIdentity { get; set; } = string.Empty;
+
+        [JsonPropertyName("faction_id")]
+        public string FactionId { get; set; } = string.Empty;
+
+        [JsonPropertyName("archetype_name")]
+        public string ArchetypeName { get; set; } = string.Empty;
+
+        [JsonPropertyName("model_path")]
+        public string ModelPath { get; set; } = string.Empty;
+
+        [JsonPropertyName("loadout_tier")]
+        public NpcLoadoutTier LoadoutTier { get; set; } = NpcLoadoutTier.Standard;
+
+        [JsonPropertyName("alive")]
+        public bool Alive { get; set; }
+
+        [JsonPropertyName("formation_offset")]
+        public SaveVector3Data FormationOffset { get; set; } = new();
+
+        [JsonPropertyName("position")]
+        public SaveVector3Data Position { get; set; } = new();
+
+        [JsonPropertyName("velocity")]
+        public SaveVector3Data Velocity { get; set; } = new();
     }
 
     public sealed class SaveTradeRouteRiskData

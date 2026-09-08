@@ -62,6 +62,11 @@ public sealed class EconomicShipment
     public bool InterdictionOfferIssued { get; internal set; }
     public long InterdictionOfferExpiresMilliseconds { get; internal set; }
     public bool InterdictionOfferExpired { get; internal set; }
+    internal bool SecurityAssignmentDecided { get; set; }
+    internal ShipmentSecurityDetail SecurityDetail { get; set; }
+    internal int EffectiveRouteRisk { get; set; }
+    public int ActiveSecurityEscortCount => SecurityDetail?.ActiveEscortCount ?? 0;
+    public bool HasAmbientSecurity => ActiveSecurityEscortCount > 0;
     public int InitialManifestValue => Manifest?.Stacks.Sum(stack =>
         Math.Max(0, stack.InitialQuantity) * Math.Max(0, stack.Commodity?.BasePrice ?? 0)) ?? 0;
     public int RemainingManifestValue => Manifest?.Stacks.Sum(stack =>
@@ -95,6 +100,7 @@ public sealed class EconomicShipmentManager
     private TradeRouteRiskManager _riskManager;
     private Func<IEnumerable<TrafficZoneConfig>> _routesProvider;
     private bool _rebindMode;
+    public ShipmentSecurityManager Security { get; }
 
     public EconomicShipmentManager(
         MarketManager marketManager,
@@ -105,6 +111,7 @@ public sealed class EconomicShipmentManager
         _marketManager = marketManager ?? throw new ArgumentNullException(nameof(marketManager));
         _stationsProvider = stationsProvider ?? (() => Array.Empty<Station>());
         _isMissionOwned = isMissionOwned ?? (_ => false);
+        Security = new ShipmentSecurityManager();
         SetRouteProvider(routesProvider);
     }
 
@@ -193,7 +200,8 @@ public sealed class EconomicShipmentManager
             shipment.DestinationStationId,
             shipment.DestinationStationName,
             GetRiskForShipment(shipment),
-            TradeRouteRiskManager.GetRiskLabel(GetRiskForShipment(shipment)));
+            TradeRouteRiskManager.GetRiskLabel(GetRiskForShipment(shipment)),
+            shipment.ActiveSecurityEscortCount);
         return true;
     }
 
@@ -217,6 +225,17 @@ public sealed class EconomicShipmentManager
 
     public int GetEffectiveRouteRisk(EconomicShipment shipment) =>
         shipment == null ? 0 : GetRiskForShipment(shipment);
+
+    public string GetSecurityFaction(EconomicShipment shipment)
+    {
+        Station origin = FindMarketStation(shipment?.OriginStationId);
+        string factionId = FactionManager.NormalizeFactionId(origin?.FactionId);
+        return factionId == FactionManager.LibertyPolice ||
+            factionId == FactionManager.LibertyNavy ||
+            factionId == FactionManager.LibertyCorporations
+            ? factionId
+            : FactionManager.LibertyCorporations;
+    }
 
     public int GetRemainingCommodityQuantity(EconomicShipment shipment, string commodityId) =>
         shipment?.Manifest?.Stacks
@@ -525,7 +544,9 @@ public sealed class EconomicShipmentManager
             destination.Name,
             destinationIsRouteEnd: towardEnd,
             manifest);
+        shipment.EffectiveRouteRisk = GetRiskForShipment(shipment);
         _active[trader] = shipment;
+        Security.TryEvaluateAndAssign(shipment, Console.WriteLine);
         return true;
     }
 
@@ -570,6 +591,7 @@ public sealed class EconomicShipmentManager
             stack.Remove(stack.Quantity);
 
         shipment.Settlement = EconomicShipmentSettlement.Delivered;
+        Security.NotifyShipmentSettled(shipment, "delivered");
         _settlementHistory[shipment.TraderIdentity] = EconomicShipmentSettlement.Delivered;
         if (_riskManager != null)
         {
@@ -596,6 +618,7 @@ public sealed class EconomicShipmentManager
                     $"destroyed:{shipment.TraderIdentity}");
             }
             shipment.Settlement = EconomicShipmentSettlement.Lost;
+            Security.NotifyShipmentSettled(shipment, "merchant destroyed");
             _settlementHistory[shipment.TraderIdentity] = EconomicShipmentSettlement.Lost;
         }
     }
@@ -606,6 +629,7 @@ public sealed class EconomicShipmentManager
             return;
 
         shipment.Settlement = EconomicShipmentSettlement.Lost;
+        Security.NotifyShipmentSettled(shipment, "shipment lost");
         _settlementHistory[shipment.TraderIdentity] = EconomicShipmentSettlement.Lost;
         _active.Remove(trader);
     }
@@ -618,6 +642,7 @@ public sealed class EconomicShipmentManager
         foreach (TraderCargoStack stack in shipment.Manifest.Snapshot())
             stack.Remove(stack.Quantity);
         shipment.Settlement = EconomicShipmentSettlement.Lost;
+        Security.NotifyShipmentSettled(shipment, "merchant destroyed");
         _settlementHistory[shipment.TraderIdentity] = EconomicShipmentSettlement.Lost;
         _active.Remove(trader);
     }
@@ -656,6 +681,7 @@ public sealed class EconomicShipmentManager
             return;
 
         shipment.Settlement = EconomicShipmentSettlement.Lost;
+        Security.NotifyShipmentSettled(shipment, reason ?? "merchant despawned");
         _settlementHistory[shipment.TraderIdentity] = EconomicShipmentSettlement.Lost;
         _active.Remove(trader);
     }
@@ -667,6 +693,7 @@ public sealed class EconomicShipmentManager
     /// </summary>
     public void ResetForWorldTeardown(bool restoreOriginStock)
     {
+        Security.Reset();
         foreach (EconomicShipment shipment in _active.Values.ToList())
         {
             bool preservedForRebind = _rebindMode &&
@@ -690,6 +717,7 @@ public sealed class EconomicShipmentManager
 
     public void Reset()
     {
+        Security.Reset();
         _active.Clear();
         _pendingRebind.Clear();
         _settlementHistory.Clear();
@@ -724,6 +752,8 @@ public sealed class EconomicShipmentManager
                 InterdictionOfferIssued = shipment.InterdictionOfferIssued,
                 InterdictionOfferExpiresMilliseconds = shipment.InterdictionOfferExpiresMilliseconds,
                 InterdictionOfferExpired = shipment.InterdictionOfferExpired,
+                SecurityAssignmentDecided = shipment.SecurityAssignmentDecided,
+                SecurityMembers = Security.CaptureState(shipment).ToList(),
                 Stacks = shipment.Manifest.Stacks.Select(stack => new SaveEconomicShipmentStackData
                 {
                     CommodityId = stack.Commodity?.Id ?? string.Empty,
@@ -844,7 +874,30 @@ public sealed class EconomicShipmentManager
         shipment.InterdictionOfferIssued = state.InterdictionOfferIssued;
         shipment.InterdictionOfferExpiresMilliseconds = Math.Max(0L, state.InterdictionOfferExpiresMilliseconds);
         shipment.InterdictionOfferExpired = state.InterdictionOfferExpired;
+        shipment.SecurityAssignmentDecided = state.SecurityAssignmentDecided;
+        shipment.EffectiveRouteRisk = GetRiskForShipment(shipment);
+        if (state.SecurityAssignmentDecided)
+            Security.RestoreShipmentSecurity(shipment, state, Console.WriteLine);
+        else
+            Security.TryEvaluateAndAssign(shipment, Console.WriteLine);
         return true;
+    }
+
+    public bool IsDestinationShortage(EconomicShipment shipment, Commodity commodity, bool criticalOnly = false)
+    {
+        if (shipment == null || commodity == null)
+            return false;
+
+        Station destination = FindMarketStation(shipment.DestinationStationId);
+        MarketShortageState shortage = destination == null
+            ? null
+            : _marketManager.GetShortageState(destination, commodity);
+        if (shortage == null)
+            return false;
+
+        return criticalOnly
+            ? shortage.Level == MarketShortageLevel.Critical
+            : shortage.Level != MarketShortageLevel.Normal;
     }
 
     private bool IsSevereDestinationShortage(EconomicShipment shipment)

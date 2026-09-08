@@ -28,7 +28,12 @@ namespace Roguelancer
         private static readonly FactionRelationshipDefinition[] CombatRelationships =
         {
             new(FactionManager.LibertyPolice, FactionManager.LibertyRogues, FactionRelationshipKind.Hostile),
-            new(FactionManager.LibertyRogues, FactionManager.LibertyPolice, FactionRelationshipKind.Hostile)
+            new(FactionManager.LibertyRogues, FactionManager.LibertyPolice, FactionRelationshipKind.Hostile),
+            // Corporation security details use the ordinary faction combat
+            // pipeline against the same Rogue NPC threat that can attack a
+            // protected merchant.
+            new(FactionManager.LibertyCorporations, FactionManager.LibertyRogues, FactionRelationshipKind.Hostile),
+            new(FactionManager.LibertyRogues, FactionManager.LibertyCorporations, FactionRelationshipKind.Hostile)
         };
 
         private static readonly IReadOnlyList<FactionRelationshipDefinition> EmptyCombatRelationships =
@@ -107,8 +112,9 @@ namespace Roguelancer
 
         /// <summary>
         /// Returns the static faction-to-faction relationship used by the
-        /// Phase 31 combat policy. The configured Police/Rogue pair is stored
-        /// in both directions; unknown and unconfigured pairs are Neutral.
+        /// Phase 31 combat policy. The configured Police/Rogue and
+        /// Corporation/Rogue pairs are stored in both directions; unknown and
+        /// unconfigured pairs are Neutral.
         /// This is faction metadata, not player reputation and not persisted.
         /// </summary>
         public static FactionRelationshipKind GetRelationship(string? sourceFactionId, string? targetFactionId)

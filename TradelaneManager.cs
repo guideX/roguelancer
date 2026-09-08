@@ -310,7 +310,7 @@ namespace Roguelancer
             for (int i = 0; i < _npcShips.Count; i++)
             {
                 NpcShip npc = _npcShips[i];
-                if (npc == null || npc.IsDestroyed || npc.IsTradeLaneTransit || npc.IsTrafficEngaged ||
+                if (npc == null || npc.IsDestroyed || npc.IsShipmentSecurityEscort || npc.IsTradeLaneTransit || npc.IsTrafficEngaged ||
                     npc.TrafficBehavior != TrafficZoneBehaviorType.TraderRoute ||
                     !npc.TrafficRouteStart.HasValue || !npc.TrafficRouteEnd.HasValue ||
                     (_npcEntryCooldowns.TryGetValue(npc, out float cooldown) && cooldown > 0f))
@@ -322,7 +322,7 @@ namespace Roguelancer
 
         public bool TryEnterNpcTraffic(NpcShip npc)
         {
-            if (npc == null || npc.IsDestroyed || npc.IsTradeLaneTransit || npc.IsTrafficEngaged)
+            if (npc == null || npc.IsDestroyed || npc.IsShipmentSecurityEscort || npc.IsTradeLaneTransit || npc.IsTrafficEngaged)
                 return false;
             if (!npc.TrafficRouteStart.HasValue || !npc.TrafficRouteEnd.HasValue)
                 return false;

@@ -30,6 +30,7 @@ namespace Roguelancer
         private const float TraderFleeHoldSeconds = 8f;
         private const float PirateAttackHoldSeconds = 12f;
         private const float PatrolInterceptHoldSeconds = 10f;
+        public const int MaximumNpcPopulation = 64;
 
         private readonly ConfigurationManager _config;
         private readonly List<NpcShip> _npcShips;
@@ -47,6 +48,9 @@ namespace Roguelancer
         private ReputationManager _reputationManager;
         private ContentManager _content;
         private EconomicShipmentManager _economicShipments;
+        private readonly HashSet<NpcShip> _securityShips = new();
+        private readonly HashSet<NpcShip> _pendingSecurityCleanup = new();
+        private readonly Dictionary<NpcShip, string> _securityCleanupReasons = new();
 
         public Func<NpcShip, NpcShip> MissionTargetResolver { get; set; }
         public PoliceFugitiveManager FugitiveManager { get; set; }
@@ -91,6 +95,11 @@ namespace Roguelancer
         public FactionCombatDisengagementService CombatDisengagement => _combatDisengagement;
         public FactionCombatCommunicationService CombatCommunication => _combatCommunication;
         public EconomicShipmentManager EconomicShipments => _economicShipments;
+        public IReadOnlyList<NpcShip> ActiveSecurityShips => _securityShips
+            .Where(ship => ship != null && !ship.IsDestroyed)
+            .OrderBy(ship => ship.StableIdentity, StringComparer.Ordinal)
+            .ToList();
+        public int ActiveSecurityEscortCount => ActiveSecurityShips.Count;
 
         public IReadOnlyList<NpcShip> GetActiveShipsForZone(string zoneId)
         {
@@ -119,6 +128,12 @@ namespace Roguelancer
                 return;
 
             _economicShipments.SetRouteProvider(() => ConfiguredTraderRoutes);
+            _economicShipments.Security.Configure(
+                TrySpawnSecurityEscort,
+                RegisterSecurityShip,
+                QueueSecurityShipCleanup,
+                _economicShipments.GetSecurityFaction,
+                (shipment, commodity) => _economicShipments.IsDestinationShortage(shipment, commodity, criticalOnly: true));
 
             foreach (TrafficZoneRuntime runtime in _zonesById.Values)
             {
@@ -137,6 +152,7 @@ namespace Roguelancer
         public void LoadZonesForSystem(int systemIndex, Action<string> log = null)
         {
             _economicShipments?.ResetForWorldTeardown(restoreOriginStock: true);
+            ProcessSecurityCleanup(log);
             _combatCommunication.Reset();
             _combatEscalation.Reset();
             _combatDisengagement.Reset();
@@ -178,6 +194,7 @@ namespace Roguelancer
 
             float deltaTime = Math.Max(0f, (float)gameTime.ElapsedGameTime.TotalSeconds);
 
+            ProcessSecurityCleanup(log);
             _reputationManager = reputationManager;
             _distressResponse.SetReputationManager(reputationManager);
             _combatCommunication.Update(deltaTime, playerShip);
@@ -210,6 +227,7 @@ namespace Roguelancer
             _combatEscalation.NotifyNpcDestroyed(destroyedShip);
             _combatDisengagement.NotifyNpcDestroyed(destroyedShip);
             _combatCommunication.UnregisterShip(destroyedShip);
+            _economicShipments?.Security.NotifyNpcDestroyed(destroyedShip);
             _economicShipments?.NotifyTraderDestroyed(destroyedShip);
 
             foreach (NpcShip other in _npcShips)
@@ -428,7 +446,8 @@ namespace Roguelancer
 
                 if (ship.TrafficBehavior == TrafficZoneBehaviorType.TraderRoute)
                 {
-                    traderShips.Add(ship);
+                    if (!ship.IsShipmentSecurityEscort)
+                        traderShips.Add(ship);
                 }
                 else if (ship.TrafficBehavior == TrafficZoneBehaviorType.PirateAmbush)
                 {
@@ -662,6 +681,22 @@ namespace Roguelancer
                 NpcShip source = _npcShips[i];
                 if (source == null || source.IsDestroyed)
                     continue;
+
+                NpcShip securityThreat = _economicShipments?.Security.GetPriorityThreat(source, _npcShips);
+                if (securityThreat != null)
+                {
+                    bool isNewSecurityEngagement = source.FactionCombatTarget != securityThreat;
+                    if (source.SetFactionCombatTarget(
+                        securityThreat,
+                        preserveExistingEncounterState: true,
+                        targetOrigin: FactionCombatTargetOrigin.OrdinaryAcquisition))
+                    {
+                        if (isNewSecurityEngagement)
+                            TryReportCommunication(() => _combatCommunication.NotifyEngagementAcquired(source, securityThreat, playerShip));
+                        log?.Invoke($"[SECURITY] {source.Name} protecting {source.SecurityShipmentIdentity} from {securityThreat.Name}.");
+                        continue;
+                    }
+                }
 
                 if (source.FactionCombatTarget != null &&
                     source.HasValidFactionCombatTarget())
@@ -1317,6 +1352,151 @@ namespace Roguelancer
                 TrafficZoneBehaviorType.StationTraffic => Math.Max(14000f, zone.Radius * 2.5f),
                 _ => Math.Max(26000f, zone.Radius * 4f),
             };
+        }
+
+        private NpcShip TrySpawnSecurityEscort(
+            EconomicShipment shipment,
+            ShipmentSecurityMember member,
+            Vector3 position)
+        {
+            if (shipment?.Trader == null || shipment.Trader.IsDestroyed || member == null ||
+                !TradeLaneStateSanitizer.IsFinite(position) || _npcShips.Count >= MaximumNpcPopulation)
+                return null;
+
+            // Security ships are not zone population entries. They are still
+            // ordinary world NPCs and therefore consume the same global cap.
+            const float minimumSpawnSpacing = 220f;
+            if (_npcShips.Any(other => other != null && !other.IsDestroyed &&
+                Vector3.DistanceSquared(other.Position, position) < minimumSpawnSpacing * minimumSpawnSpacing))
+                return null;
+
+            ShipConfig shipConfig = _config.GetAllShipConfigs()
+                .FirstOrDefault(candidate => candidate != null &&
+                    string.Equals(candidate.Description, member.ArchetypeName, StringComparison.OrdinalIgnoreCase))
+                ?? _config.GetAllShipConfigs()
+                    .Where(candidate => candidate != null &&
+                        candidate.Description?.Contains("Patrol Fighter", StringComparison.OrdinalIgnoreCase) == true)
+                    .OrderBy(candidate => candidate.Description, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
+
+            string archetype = string.IsNullOrWhiteSpace(member.ArchetypeName)
+                ? shipConfig?.Description ?? "Patrol Fighter 1"
+                : member.ArchetypeName;
+            string factionId = FactionManager.NormalizeFactionId(member.FactionId);
+            NpcShip securityShip = new(
+                $"Security Escort {member.StableIdentity}",
+                position,
+                shipment.Trader.Position,
+                900f,
+                0.2f,
+                factionId);
+            securityShip.ConfigureTrafficBehavior(
+                TrafficZoneBehaviorType.TraderRoute,
+                $"security:{shipment.TraderIdentity}",
+                shipment.Trader.Position,
+                900f,
+                Math.Max(180f, shipment.Trader.TrafficCruiseSpeed * 1.15f),
+                ShipmentSecurityManager.ThreatRange,
+                shipment.Trader.TrafficRouteStart,
+                shipment.Trader.TrafficRouteEnd);
+            securityShip.TrafficLifetimeSeconds = 0f;
+            securityShip.RestoreStableIdentity(member.StableIdentity);
+            securityShip.SetFacing(shipment.Trader.Forward);
+
+            ModelConfig modelConfig = null;
+            if (shipConfig != null && shipConfig.ModelIndex > 0)
+                modelConfig = _config.GetModel(shipConfig.ModelIndex);
+            string modelPath = string.IsNullOrWhiteSpace(member.ModelPath)
+                ? modelConfig?.Path
+                : member.ModelPath;
+            if (_content != null && !string.IsNullOrWhiteSpace(modelPath))
+            {
+                try
+                {
+                    securityShip.ModelPath = modelPath;
+                    securityShip.Model = _content.Load<Model>(modelPath);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SECURITY] Model load failed for {securityShip.Name}: {ex.Message}");
+                }
+            }
+
+            if (modelConfig != null)
+            {
+                securityShip.ModelRotationCorrection = shipConfig.ModelCorrectionRotation;
+                securityShip.ModelPath = modelConfig.Path;
+            }
+
+            securityShip.SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
+                archetype,
+                factionId,
+                securityShip.ModelPath,
+                TrafficZoneBehaviorType.TraderRoute,
+                member.LoadoutTier));
+            return securityShip;
+        }
+
+        private void RegisterSecurityShip(NpcShip ship)
+        {
+            if (ship == null || ship.IsDestroyed)
+                return;
+
+            _securityShips.Add(ship);
+            if (!_npcShips.Contains(ship))
+                _npcShips.Add(ship);
+            if (!_spaceObjects.Contains(ship))
+                _spaceObjects.Add(ship);
+            if (_onNpcDestroyed != null)
+                ship.OnDestroyed += _onNpcDestroyed;
+            _combatDisengagement.RegisterShip(ship);
+            _combatCommunication.RegisterShip(ship);
+        }
+
+        private void QueueSecurityShipCleanup(NpcShip ship, string reason)
+        {
+            if (ship != null)
+            {
+                _pendingSecurityCleanup.Add(ship);
+                _securityCleanupReasons[ship] = string.IsNullOrWhiteSpace(reason)
+                    ? "shipment settled"
+                    : reason;
+            }
+        }
+
+        private void ProcessSecurityCleanup(Action<string> log)
+        {
+            if (_pendingSecurityCleanup.Count == 0)
+                return;
+
+            foreach (NpcShip ship in _pendingSecurityCleanup.ToList())
+            {
+                _pendingSecurityCleanup.Remove(ship);
+                if (ship == null)
+                    continue;
+
+                string cleanupReason = _securityCleanupReasons.TryGetValue(ship, out string queuedReason)
+                    ? queuedReason
+                    : "shipment settled";
+                _securityCleanupReasons.Remove(ship);
+
+                _securityShips.Remove(ship);
+                foreach (NpcShip other in _npcShips)
+                {
+                    if (other != null && other.FactionCombatTarget == ship)
+                        other.ClearFactionCombatTarget();
+                }
+
+                _combatDisengagement.NotifyNpcDespawned(ship);
+                _combatCommunication.UnregisterShip(ship);
+                ship.TrafficRouteEndpointReached -= HandleEconomicRouteArrival;
+                if (_onNpcDestroyed != null)
+                    ship.OnDestroyed -= _onNpcDestroyed;
+                ship.ClearShipmentSecurityEscort();
+                _npcShips.Remove(ship);
+                _spaceObjects.Remove(ship);
+                log?.Invoke($"[SECURITY] Retired {ship.Name} ({cleanupReason}).");
+            }
         }
 
         private void ReleaseShip(TrafficZoneRuntime runtime, NpcShip ship, Action<string> log, string reason)

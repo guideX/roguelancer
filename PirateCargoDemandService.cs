@@ -116,6 +116,7 @@ public sealed class PirateCargoDemandService
     private readonly Func<NpcShip, TraderCargoManifest> _manifestResolver;
     private readonly Func<NpcShip, bool> _isAuthorizedMissionTarget;
     private readonly Func<NpcShip, string, bool> _isMissionDemandCommodity;
+    private readonly Func<NpcShip, int> _securityEscortCountResolver;
     // Standalone Phase 56 smoke harnesses do not construct the live market
     // owner. Keep their source-compatible deterministic fallback, while the
     // game always injects EconomicShipmentManager as the sole manifest owner.
@@ -137,7 +138,8 @@ public sealed class PirateCargoDemandService
         Action<string> log = null,
         Func<NpcShip, TraderCargoManifest> manifestResolver = null,
         Func<NpcShip, bool> isAuthorizedMissionTarget = null,
-        Func<NpcShip, string, bool> isMissionDemandCommodity = null)
+        Func<NpcShip, string, bool> isMissionDemandCommodity = null,
+        Func<NpcShip, int> securityEscortCountResolver = null)
     {
         _npcShips = npcShips ?? throw new ArgumentNullException(nameof(npcShips));
         _reputationManager = reputationManager ?? throw new ArgumentNullException(nameof(reputationManager));
@@ -151,6 +153,7 @@ public sealed class PirateCargoDemandService
         _manifestResolver = manifestResolver;
         _isAuthorizedMissionTarget = isAuthorizedMissionTarget ?? (_ => false);
         _isMissionDemandCommodity = isMissionDemandCommodity ?? ((_, _) => false);
+        _securityEscortCountResolver = securityEscortCountResolver ?? (_ => 0);
     }
 
     public PiracyDemandState CurrentState => _activeDemand == null
@@ -538,6 +541,7 @@ public sealed class PirateCargoDemandService
             score += 0.05f;
         if (HasNearbyPolice(target))
             score -= 0.25f;
+        score -= Math.Clamp(_securityEscortCountResolver(target), 0, ShipmentSecurityManager.MaximumEscortsPerShipment) * 0.12f;
 
         float threshold = 0.40f + (StableHash($"{GetTargetIdentity(target)}|response") % 31u) / 100f;
         return Math.Clamp(score, 0f, 1f) >= threshold;

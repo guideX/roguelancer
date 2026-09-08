@@ -268,6 +268,7 @@ namespace Roguelancer {
         private readonly bool _runEconomicShipmentSmoke;
         private readonly bool _runPhase63Smoke;
         private readonly bool _runPhase64Smoke;
+        private readonly bool _runPhase65Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -388,6 +389,7 @@ namespace Roguelancer {
             _runEconomicShipmentSmoke = args?.Any(arg => string.Equals(arg, "--phase59-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase63Smoke = args?.Any(arg => string.Equals(arg, "--phase63-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase64Smoke = args?.Any(arg => string.Equals(arg, "--phase64-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase65Smoke = args?.Any(arg => string.Equals(arg, "--phase65-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1334,7 +1336,10 @@ namespace Roguelancer {
                 Console.WriteLine,
                 npc => _economicShipments?.GetManifest(npc),
                 npc => _missionWorldManager?.IsPiracyDemandAllowed(npc) == true,
-                (npc, commodityId) => _missionWorldManager?.IsInterdictionDemandCommodity(npc, commodityId) == true);
+                (npc, commodityId) => _missionWorldManager?.IsInterdictionDemandCommodity(npc, commodityId) == true,
+                npc => _economicShipments?.ActiveShipments
+                    .FirstOrDefault(shipment => shipment?.Trader == npc)
+                    ?.ActiveSecurityEscortCount ?? 0);
             _piracyDemand.DemandResolved += result => _economicShipments?.RecordPiracyDemandResult(result);
             _playerTargetScan = new PlayerTargetScanService(
                 _npcShips,
@@ -1558,6 +1563,11 @@ namespace Roguelancer {
             else if (_runPhase64Smoke)
             {
                 var result = RunPhase64SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runPhase65Smoke)
+            {
+                var result = RunPhase65SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runPhase61Smoke)
@@ -1789,6 +1799,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 62 adaptive routing smoke", RunPhase62SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 63 trade route risk smoke", RunPhase63SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 64 shipment interdiction smoke", RunPhase64SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 65 shipment security smoke", RunPhase65SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2283,6 +2294,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 64 SHIPMENT INTERDICTION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase65SmokeTest()
+        {
+            try
+            {
+                return new Phase65ShipmentSecuritySmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 65 SHIPMENT SECURITY SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -5146,6 +5170,7 @@ namespace Roguelancer {
             {
                 lines.Add($"Route: {result.RouteLabel}");
                 lines.Add($"Route risk: {result.Route.RouteRiskLabel} ({result.Route.RouteRisk}/100)");
+                lines.Add($"Security: {result.SecurityLabel}");
             }
             if (!result.HasRegisteredCargo)
             {
