@@ -381,6 +381,17 @@ namespace Roguelancer
         public Vector3? ConvoyEncounterPosition { get; set; }
         public Vector3? ConvoyDestinationPosition { get; set; }
 
+        // Phase 63 dynamic escort metadata points at one real Phase 59
+        // economic shipment. The convoy fields above remain the shared
+        // lifecycle/state surface; no mission cargo is created here.
+        public bool IsEconomicEscort { get; set; }
+        public string EconomicShipmentTraderIdentity { get; set; } = string.Empty;
+        public string EconomicShipmentRouteId { get; set; } = string.Empty;
+        public int EconomicShipmentValue { get; set; }
+        public int EconomicRouteRisk { get; set; }
+        public string EconomicShortageLabel { get; set; } = string.Empty;
+        public long EconomicOfferExpiresMilliseconds { get; set; }
+
         public bool IsExpired => TimeLimit > 0 && ElapsedTime >= TimeLimit;
         public float TimeRemaining => TimeLimit > 0 ? Math.Max(0, TimeLimit - ElapsedTime) : -1;
         public bool IsActive => Status is MissionStatus.Accepted or MissionStatus.InProgress;
@@ -763,7 +774,7 @@ namespace Roguelancer
                 origin == null || destination == null || ReferenceEquals(origin, destination) ||
                 !TradeLaneStateSanitizer.IsFinite(rendezvousPosition) ||
                 !TradeLaneStateSanitizer.IsFinite(encounterPosition) || encounterRingIndex < 1 ||
-                convoySize is < 2 or > 4 || attackForceSize is < 2 or > 6 || reward <= 0)
+                convoySize is < 1 or > 4 || attackForceSize is < 2 or > 6 || reward <= 0)
             {
                 return null;
             }
@@ -820,6 +831,56 @@ namespace Roguelancer
                 ConvoyDestinationPosition = destination.Position
             };
             mission.SetOrigin(origin);
+            return mission;
+        }
+
+        public static Mission CreateEconomicEscort(
+            EconomicShipment shipment,
+            Station origin,
+            Station destination,
+            Vector3 rendezvousPosition,
+            Vector3 encounterPosition,
+            int routeRisk,
+            int reward,
+            MissionDifficulty difficulty,
+            string shortageLabel,
+            string offeredBy)
+        {
+            if (shipment == null || origin == null || destination == null ||
+                string.IsNullOrWhiteSpace(shipment.TraderIdentity) ||
+                string.IsNullOrWhiteSpace(shipment.RouteId) ||
+                !TradeLaneStateSanitizer.IsFinite(rendezvousPosition) ||
+                !TradeLaneStateSanitizer.IsFinite(encounterPosition) || reward <= 0)
+                return null;
+
+            Mission mission = CreateConvoyEscort(
+                shipment.RouteId,
+                shipment.RouteId,
+                $"economic-escort:{shipment.RouteId}",
+                shipment.RouteTowardEnd ? TradeLaneDirection.Forward : TradeLaneDirection.Reverse,
+                $"Trade route {shipment.RouteId}",
+                origin,
+                destination,
+                rendezvousPosition,
+                encounterPosition,
+                1,
+                1,
+                routeRisk >= TradeRouteRiskManager.SevereRiskThreshold ? 3 : 2,
+                reward,
+                difficulty,
+                $"Protect the live trader shipment from {origin.Name} to {destination.Name}. " +
+                $"Cargo value: {shipment.InitialManifestValue:N0} CR. Route condition: {TradeRouteRiskManager.GetRiskLabel(routeRisk)} ({routeRisk}/100)." +
+                (string.IsNullOrWhiteSpace(shortageLabel) ? string.Empty : $" Destination demand: {shortageLabel}."),
+                offeredBy);
+            if (mission == null)
+                return null;
+
+            mission.IsEconomicEscort = true;
+            mission.EconomicShipmentTraderIdentity = shipment.TraderIdentity;
+            mission.EconomicShipmentRouteId = shipment.RouteId;
+            mission.EconomicShipmentValue = Math.Max(0, shipment.InitialManifestValue);
+            mission.EconomicRouteRisk = Math.Clamp(routeRisk, 0, TradeRouteRiskManager.MaximumRiskScore);
+            mission.EconomicShortageLabel = shortageLabel ?? string.Empty;
             return mission;
         }
 
@@ -1206,7 +1267,14 @@ namespace Roguelancer
             IReadOnlyList<int> raidCargoAllocation = null,
             ContrabandSmugglingStage smugglingStage = ContrabandSmugglingStage.EnRoute,
             bool smugglingPoliceDetected = false,
-            int smugglingJettisonedQuantity = 0)
+            int smugglingJettisonedQuantity = 0,
+            bool economicEscort = false,
+            string economicShipmentTraderIdentity = "",
+            string economicShipmentRouteId = "",
+            int economicShipmentValue = 0,
+            int economicRouteRisk = 0,
+            string economicShortageLabel = "",
+            long economicOfferExpiresMilliseconds = 0L)
         {
             Mission mission = new Mission(
                 id,
@@ -1323,6 +1391,13 @@ namespace Roguelancer
             mission.ConvoyRendezvousPosition = convoyRendezvousPosition?.ToVector3();
             mission.ConvoyEncounterPosition = convoyEncounterPosition?.ToVector3();
             mission.ConvoyDestinationPosition = convoyDestinationPosition?.ToVector3();
+            mission.IsEconomicEscort = economicEscort;
+            mission.EconomicShipmentTraderIdentity = economicShipmentTraderIdentity ?? string.Empty;
+            mission.EconomicShipmentRouteId = economicShipmentRouteId ?? string.Empty;
+            mission.EconomicShipmentValue = Math.Max(0, economicShipmentValue);
+            mission.EconomicRouteRisk = Math.Clamp(economicRouteRisk, 0, TradeRouteRiskManager.MaximumRiskScore);
+            mission.EconomicShortageLabel = economicShortageLabel ?? string.Empty;
+            mission.EconomicOfferExpiresMilliseconds = Math.Max(0L, economicOfferExpiresMilliseconds);
             mission.RaidRouteId = raidRouteId ?? string.Empty;
             mission.RaidRouteLaneId = raidRouteLaneId ?? string.Empty;
             mission.RaidRouteSegmentId = raidRouteSegmentId ?? string.Empty;

@@ -37,11 +37,14 @@ namespace Roguelancer
         private readonly Dictionary<string, Mission> _tradeLaneDisruptionOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _tradeLaneDefenseOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _convoyEscortOffers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Mission> _economicEscortOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _convoyRaidOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _smugglingOffers = new(StringComparer.OrdinalIgnoreCase);
         private ReputationManager _reputationManager;
         private MissionWaypointSystem _waypointSystem;
         private MissionWorldManager _worldManager;
+        private EconomicShipmentManager _economicShipments;
+        private TradeRouteRiskManager _tradeRouteRisk;
 
         public string LastAcceptanceFailureReason { get; private set; } = string.Empty;
 
@@ -147,6 +150,8 @@ namespace Roguelancer
         public void SetReputationManager(ReputationManager reputationManager) => _reputationManager = reputationManager;
         public void SetWaypointSystem(MissionWaypointSystem waypointSystem) => _waypointSystem = waypointSystem;
         public void SetWorldManager(MissionWorldManager worldManager) => _worldManager = worldManager;
+        public void SetEconomicShipmentManager(EconomicShipmentManager economicShipments) => _economicShipments = economicShipments;
+        public void SetTradeRouteRiskManager(TradeRouteRiskManager tradeRouteRisk) => _tradeRouteRisk = tradeRouteRisk;
 
         /// <summary>
         /// Receives the cargo authority's attribution report after a Police
@@ -364,6 +369,7 @@ namespace Roguelancer
             _tradeLaneDisruptionOffers.Clear();
             _tradeLaneDefenseOffers.Clear();
             _convoyEscortOffers.Clear();
+            _economicEscortOffers.Clear();
             _convoyRaidOffers.Clear();
             _smugglingOffers.Clear();
             _worldManager?.ClearState();
@@ -459,6 +465,7 @@ namespace Roguelancer
             missions.AddRange(GenerateExportContracts(originStation));
             missions.AddRange(GenerateTradeLaneDisruptionMissions(originStation));
             missions.AddRange(GenerateTradeLaneDefenseMissions(originStation));
+            missions.AddRange(GenerateEconomicEscortMissions(originStation));
             missions.AddRange(GenerateConvoyEscortMissions(originStation));
             missions.AddRange(GenerateConvoyRaidMissions(originStation));
             return missions;
@@ -824,6 +831,118 @@ namespace Roguelancer
             }
 
             return offers;
+        }
+
+        /// <summary>
+        /// Creates at most one offer for one real Phase 59 shipment. The
+        /// physical trader and its existing manifest remain authoritative;
+        /// this method only creates a mission-board wrapper around them.
+        /// </summary>
+        public List<Mission> GenerateEconomicEscortMissions(Station originStation)
+        {
+            List<Mission> offers = new();
+            if (originStation == null || _economicShipments == null || _tradeRouteRisk == null)
+                return offers;
+
+            string originFaction = FactionManager.NormalizeFactionId(originStation.FactionId);
+            if (originFaction != FactionManager.LibertyPolice &&
+                originFaction != FactionManager.LibertyCorporations &&
+                originFaction != FactionManager.NeutralCivilians)
+                return offers;
+
+            EconomicShipment shipment = _economicShipments.GetEscortCandidates(originStation).FirstOrDefault();
+            if (shipment?.Trader == null || shipment.Trader.IsDestroyed)
+                return offers;
+
+            string key = $"{Mission.BuildStationIdentity(originStation)}|{shipment.TraderIdentity}|{shipment.RouteId}";
+            long now = _marketManager?.ElapsedMilliseconds ?? 0L;
+            if (_economicEscortOffers.TryGetValue(key, out Mission existing) &&
+                existing?.Status == MissionStatus.Available &&
+                shipment.EscortOfferIssued && shipment.EscortOfferExpiresMilliseconds > now)
+            {
+                offers.Add(existing);
+                return offers;
+            }
+
+            if (existing != null)
+                _economicEscortOffers.Remove(key);
+            if (shipment.EscortOfferIssued && shipment.EscortOfferExpiresMilliseconds <= now)
+                _economicShipments.ExpireEscortOffer(shipment.TraderIdentity);
+
+            Station destination = (_worldManager?.GetKnownStations() ?? Array.Empty<Station>())
+                .FirstOrDefault(candidate => MatchesEconomicStationId(candidate, shipment.DestinationStationId));
+            if (destination == null)
+                return offers;
+
+            int risk = _economicShipments.GetEffectiveRouteRisk(shipment);
+            Vector3 rendezvous = shipment.Trader.Position;
+            Vector3 destinationPosition = shipment.Trader.TrafficRouteEnd ?? destination.Position;
+            if (!shipment.RouteTowardEnd)
+                destinationPosition = shipment.Trader.TrafficRouteStart ?? destination.Position;
+            Vector3 encounter = Vector3.Lerp(rendezvous, destinationPosition, 0.5f);
+            MissionDifficulty difficulty = risk >= TradeRouteRiskManager.SevereRiskThreshold
+                ? MissionDifficulty.Hard
+                : risk >= TradeRouteRiskManager.DangerousRiskThreshold
+                    ? MissionDifficulty.Medium
+                    : MissionDifficulty.Easy;
+            int reward = Math.Clamp(
+                4_000 + risk * 35 + Math.Max(0, shipment.InitialManifestValue / 8),
+                4_000,
+                24_000);
+            string employerFaction = originFaction == FactionManager.LibertyPolice
+                ? FactionManager.LibertyPolice
+                : FactionManager.LibertyCorporations;
+            string shortageLabel = GetEconomicEscortShortageLabel(shipment, destination);
+            Mission offer = Mission.CreateEconomicEscort(
+                shipment,
+                originStation,
+                destination,
+                rendezvous,
+                encounter,
+                risk,
+                reward,
+                difficulty,
+                shortageLabel,
+                $"{originStation.Name} {(employerFaction == FactionManager.LibertyPolice ? "Police Operations" : "Commercial Operations")}");
+            if (offer == null)
+                return offers;
+
+            offer.FactionId = employerFaction;
+            offer.MinimumEmployerReputation = GetConvoyEscortMinimumReputation(difficulty);
+            offer.EconomicOfferExpiresMilliseconds = now + EconomicShipmentManager.DynamicEscortOfferLifetimeMilliseconds;
+            offer.SetOrigin(originStation);
+            if (!_economicShipments.MarkEscortOffer(shipment, offer.Id, offer.EconomicOfferExpiresMilliseconds))
+                return offers;
+            _economicEscortOffers[key] = offer;
+            offers.Add(offer);
+            return offers;
+        }
+
+        private string GetEconomicEscortShortageLabel(EconomicShipment shipment, Station destination)
+        {
+            if (shipment?.Manifest == null || destination == null)
+                return string.Empty;
+            return shipment.Manifest.Stacks
+                .Select(stack => stack?.Commodity == null
+                    ? string.Empty
+                    : _marketManager?.GetShortageState(destination, stack.Commodity)?.ConditionLabel ?? string.Empty)
+                .FirstOrDefault(label => !string.IsNullOrWhiteSpace(label) &&
+                    !string.Equals(label, "NORMAL", StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
+        }
+
+        private bool MatchesEconomicStationId(Station station, string economicStationId)
+        {
+            if (station == null || string.IsNullOrWhiteSpace(economicStationId))
+                return false;
+
+            return string.Equals(
+                       _marketManager?.GetStationId(station),
+                       economicStationId,
+                       StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(
+                    Mission.BuildStationIdentity(station),
+                    economicStationId,
+                    StringComparison.OrdinalIgnoreCase);
         }
 
         public List<Mission> GenerateConvoyRaidMissions(Station originStation)
@@ -1939,6 +2058,32 @@ namespace Roguelancer
             {
                 string employerFaction = FactionManager.NormalizeFactionId(mission.FactionId);
                 string originFaction = FactionManager.NormalizeFactionId(originStation?.FactionId);
+                if (mission.IsEconomicEscort)
+                {
+                    bool validEmployer = employerFaction == FactionManager.LibertyPolice ||
+                        employerFaction == FactionManager.LibertyCorporations;
+                    bool validOrigin = originFaction == FactionManager.LibertyPolice ||
+                        originFaction == FactionManager.LibertyCorporations ||
+                        originFaction == FactionManager.NeutralCivilians;
+                    bool validRoute = _economicShipments?.TryGetShipmentByIdentity(
+                        mission.EconomicShipmentTraderIdentity, out EconomicShipment shipment) == true &&
+                        shipment?.Trader != null && !shipment.Trader.IsDestroyed &&
+                        shipment.EscortMissionId <= 0 &&
+                        shipment.EscortOfferIssued &&
+                        shipment.EscortOfferExpiresMilliseconds > (_marketManager?.ElapsedMilliseconds ?? 0L) &&
+                        MatchesEconomicStationId(originStation, shipment.OriginStationId) &&
+                        string.Equals(shipment.RouteId, mission.EconomicShipmentRouteId, StringComparison.OrdinalIgnoreCase);
+                    if (!validEmployer || !validOrigin || !validRoute ||
+                        string.IsNullOrWhiteSpace(mission.EconomicShipmentTraderIdentity) ||
+                        mission.ConvoyShipCount != 1 || mission.ConvoyRequiredSurvivors != 1 ||
+                        mission.ConvoyAttackForceSize is < 2 or > 6 ||
+                        !mission.ConvoyRendezvousPosition.HasValue ||
+                        !mission.ConvoyEncounterPosition.HasValue ||
+                        !mission.ConvoyDestinationPosition.HasValue)
+                    {
+                        return RejectAcceptance(mission, "economic escort offer is stale or shipment metadata is invalid");
+                    }
+                }
                 if (originStation == null ||
                     (employerFaction != FactionManager.LibertyPolice && employerFaction != FactionManager.LibertyCorporations) ||
                     (originFaction != FactionManager.LibertyPolice && originFaction != FactionManager.LibertyCorporations &&
@@ -1948,7 +2093,7 @@ namespace Roguelancer
                     string.IsNullOrWhiteSpace(mission.ConvoyRouteSegmentId) ||
                     FactionManager.NormalizeFactionId(mission.ConvoyFactionId) != FactionManager.LibertyCorporations ||
                     FactionManager.NormalizeFactionId(mission.ConvoyHostileFactionId) != FactionManager.LibertyRogues ||
-                    mission.ConvoyShipCount is < 2 or > 4 ||
+                    (mission.IsEconomicEscort ? mission.ConvoyShipCount != 1 : mission.ConvoyShipCount is < 2 or > 4) ||
                     mission.ConvoyRequiredSurvivors is < 1 or > 4 ||
                     mission.ConvoyAttackForceSize is < 2 or > 6 ||
                     !mission.ConvoyRendezvousPosition.HasValue ||
@@ -2111,6 +2256,19 @@ namespace Roguelancer
             mission.ReputationRewardApplied = false;
             mission.Status = MissionStatus.Accepted;
 
+            bool economicEscortAttached = false;
+            if (mission.IsEconomicEscort)
+            {
+                economicEscortAttached = _economicShipments?.TryAttachEconomicEscort(
+                    mission.Id,
+                    mission.EconomicShipmentTraderIdentity) == true;
+                if (!economicEscortAttached)
+                {
+                    mission.Status = MissionStatus.Available;
+                    return RejectAcceptance(mission, "economic shipment departed before escort binding");
+                }
+            }
+
             if (_worldManager != null && !_worldManager.TryAcceptMission(mission, out string failureReason))
             {
                 if (mission.Type == MissionType.ExportContract)
@@ -2123,6 +2281,8 @@ namespace Roguelancer
                 }
                 ReleaseFreightReservation(mission);
                 _marketManager?.ReleaseSupplyContractCapacity(mission.Id);
+                if (economicEscortAttached)
+                    _economicShipments?.ReleaseEconomicEscort(mission.Id);
                 mission.Status = MissionStatus.Available;
                 _worldManager.OnMissionFinished(mission);
                 return RejectAcceptance(mission, $"mission unavailable: {failureReason}");

@@ -54,6 +54,7 @@ namespace Roguelancer
         private readonly Action<NpcShip> _missionNpcRegisteredCallback;
         private readonly Action<NpcShip> _ejectNpcFromTradeLaneCallback;
         private readonly Action<int> _releaseMissionCargoAttributionCallback;
+        private EconomicShipmentManager _economicShipments;
         private readonly Dictionary<int, MissionRuntimeState> _runtimeStates = new();
         private const int MaximumMissionNpcPopulation = 64;
 
@@ -181,6 +182,9 @@ namespace Roguelancer
             IReadOnlyList<TradeLane> lanes = _tradeLaneProvider?.Invoke() ?? Array.Empty<TradeLane>();
             return lanes == null ? Array.Empty<TradeLane>() : lanes.Where(lane => lane != null).ToList();
         }
+
+        public void SetEconomicShipmentManager(EconomicShipmentManager economicShipments) =>
+            _economicShipments = economicShipments;
 
         public void RebindMission(Mission mission)
         {
@@ -992,6 +996,8 @@ namespace Roguelancer
                 failureReason = "mission was null";
                 return false;
             }
+            if (mission.IsEconomicEscort)
+                return TryBindEconomicEscortMission(state, out failureReason);
             if (mission.ConvoyShipCount is < 2 or > 4 || mission.ConvoyRequiredSurvivors < 1 ||
                 mission.ConvoyAttackForceSize is < 2 or > 6 || string.IsNullOrWhiteSpace(mission.ConvoyRouteLaneId) ||
                 FactionManager.NormalizeFactionId(mission.ConvoyFactionId) != FactionManager.LibertyCorporations ||
@@ -1088,6 +1094,94 @@ namespace Roguelancer
             }
 
             return true;
+        }
+
+        private bool TryBindEconomicEscortMission(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            if (mission == null || _economicShipments == null)
+            {
+                failureReason = "economic shipment authority is unavailable";
+                return false;
+            }
+
+            if (mission.ConvoyShipCount != 1 || mission.ConvoyRequiredSurvivors != 1 ||
+                mission.ConvoyAttackForceSize is < 2 or > 6 ||
+                string.IsNullOrWhiteSpace(mission.EconomicShipmentTraderIdentity) ||
+                string.IsNullOrWhiteSpace(mission.EconomicShipmentRouteId))
+            {
+                failureReason = "economic escort metadata is outside the bounded range";
+                return false;
+            }
+
+            if (!_economicShipments.TryGetShipmentByIdentity(
+                    mission.EconomicShipmentTraderIdentity,
+                    out EconomicShipment shipment) ||
+                shipment?.Trader == null || shipment.Trader.IsDestroyed ||
+                !string.Equals(shipment.RouteId, mission.EconomicShipmentRouteId, StringComparison.OrdinalIgnoreCase))
+            {
+                failureReason = "the live economic shipment is no longer available";
+                return false;
+            }
+
+            if (shipment.EscortMissionId > 0 && shipment.EscortMissionId != mission.Id)
+            {
+                failureReason = "the economic shipment is already under escort";
+                return false;
+            }
+            if (shipment.EscortMissionId <= 0 && !_economicShipments.TryAttachEconomicEscort(
+                    mission.Id, mission.EconomicShipmentTraderIdentity))
+            {
+                failureReason = "the economic shipment could not be reserved for escort";
+                return false;
+            }
+
+            Station destination = GetKnownStations().FirstOrDefault(candidate =>
+                MatchesEconomicStationId(candidate, shipment.DestinationStationId));
+            if (destination == null || !_npcShips.Contains(shipment.Trader))
+            {
+                failureReason = "the shipment destination or trader is unavailable";
+                return false;
+            }
+
+            state.ConvoyTradeLane = null;
+            state.ConvoyDestination = destination;
+            state.ConvoyShips.Clear();
+            state.ConvoyShips.Add(shipment.Trader);
+            mission.TargetSpaceObject = shipment.Trader;
+            mission.TargetSystemIndex = destination.Config?.SystemIndex ?? mission.TargetSystemIndex;
+            mission.DestinationStationId = Mission.BuildStationIdentity(destination);
+            mission.ConvoyRendezvousPosition ??= shipment.Trader.Position;
+            mission.ConvoyDestinationPosition ??= shipment.RouteTowardEnd
+                ? shipment.Trader.TrafficRouteEnd ?? destination.Position
+                : shipment.Trader.TrafficRouteStart ?? destination.Position;
+            mission.ConvoyEncounterPosition ??= Vector3.Lerp(
+                mission.ConvoyRendezvousPosition.Value,
+                mission.ConvoyDestinationPosition.Value,
+                0.5f);
+            mission.TargetPosition = mission.ConvoyStage == ConvoyEscortStage.Rendezvous
+                ? mission.ConvoyRendezvousPosition
+                : mission.ConvoyEncounterPosition;
+            mission.ConvoySurvivors = 1;
+            if (!mission.ConvoyRouteStarted)
+                shipment.Trader.SetMissionHoldPosition(true, mission.ConvoyRendezvousPosition.Value);
+            return true;
+        }
+
+        private bool MatchesEconomicStationId(Station station, string economicStationId)
+        {
+            if (station == null || string.IsNullOrWhiteSpace(economicStationId))
+                return false;
+
+            return string.Equals(
+                       _marketManager?.GetStationId(station),
+                       economicStationId,
+                       StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(
+                    Mission.BuildStationIdentity(station),
+                    economicStationId,
+                    StringComparison.OrdinalIgnoreCase);
         }
 
         private bool TryBindConvoyRaidMission(MissionRuntimeState state, out string failureReason)
@@ -1484,6 +1578,10 @@ namespace Roguelancer
                     return true;
                 }
 
+                if (mission.IsEconomicEscort && state.ConvoyShips.Contains(target) &&
+                    _economicShipments?.TryGetManifestSnapshot(target, out snapshot) == true)
+                    return true;
+
                 if (state.ConvoyShips.Contains(target) || state.ConvoyHostiles.Contains(target) ||
                     state.MissionHostiles.Contains(target) || state.BountyTarget == target ||
                     state.EscortTarget == target)
@@ -1612,6 +1710,11 @@ namespace Roguelancer
             Mission mission = state?.Mission;
             TradeLane lane = state?.ConvoyTradeLane;
             Station destination = state?.ConvoyDestination;
+            if (mission?.IsEconomicEscort == true)
+            {
+                UpdateEconomicEscortMission(state, deltaTime, log, out complete, out failureReason);
+                return;
+            }
             if (mission == null || lane == null || destination == null || _playerShip == null)
             {
                 failureReason = "convoy escort binding became invalid";
@@ -1720,6 +1823,123 @@ namespace Roguelancer
                     mission.ConvoyStage = ConvoyEscortStage.ApproachingDestination;
                 }
             }
+        }
+
+        private void UpdateEconomicEscortMission(
+            MissionRuntimeState state,
+            float deltaTime,
+            Action<string> log,
+            out bool complete,
+            out string failureReason)
+        {
+            complete = false;
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            Station destination = state?.ConvoyDestination;
+            NpcShip trader = state?.ConvoyShips.FirstOrDefault();
+            if (mission == null || destination == null || trader == null || _playerShip == null)
+            {
+                failureReason = "economic escort binding became invalid";
+                return;
+            }
+
+            if (trader.IsDestroyed || mission.ConvoyDestroyedCount > 0)
+            {
+                failureReason = "protected trader was destroyed";
+                return;
+            }
+
+            if (mission.ConvoyStage == ConvoyEscortStage.Rendezvous)
+            {
+                mission.TargetPosition = mission.ConvoyRendezvousPosition;
+                if (!mission.ConvoyRendezvousPosition.HasValue ||
+                    Vector3.Distance(_playerShip.Position, mission.ConvoyRendezvousPosition.Value) > mission.ConvoyRendezvousRadius)
+                    return;
+
+                trader.SetMissionHoldPosition(false);
+                trader.ConfigureTrafficRouteEndpoints(
+                    trader.TrafficRouteStart,
+                    trader.TrafficRouteEnd,
+                    trader.IsTrafficRouteTowardEnd);
+                mission.ConvoyRouteStarted = true;
+                mission.ConvoyStage = ConvoyEscortStage.Escorting;
+                mission.TargetPosition = trader.Position;
+                _missionManager?.ShowNotification("Rendezvous reached — escort the live shipment", 3f);
+                log?.Invoke($"[MISSION] Economic shipment rendezvous reached (mission #{mission.Id}).");
+            }
+
+            if (!mission.ConvoyEncounterActivated && mission.ConvoyRouteStarted &&
+                mission.ConvoyEncounterPosition.HasValue &&
+                Vector3.Distance(trader.Position, mission.ConvoyEncounterPosition.Value) <= 1800f)
+            {
+                mission.ConvoyEncounterActivated = true;
+                mission.ConvoyEncounterSpawnAttempted = true;
+                mission.ConvoyStage = ConvoyEscortStage.EncounterActive;
+                if (!SpawnConvoyAttackers(state, out _))
+                {
+                    mission.ConvoyEncounterResolved = true;
+                    mission.ConvoyStage = ConvoyEscortStage.Escorting;
+                }
+                else if (!state.ConvoyHostiles.Any(attacker => attacker != null && !attacker.IsDestroyed))
+                {
+                    mission.ConvoyEncounterResolved = true;
+                    mission.ConvoyStage = ConvoyEscortStage.Escorting;
+                }
+                else
+                {
+                    _missionManager?.ShowNotification("Rogue interceptors detected", 3f);
+                    log?.Invoke($"[MISSION] Economic shipment interception started (mission #{mission.Id}).");
+                }
+            }
+
+            if (mission.ConvoyEncounterActivated)
+            {
+                mission.ConvoyAttackersRemaining = state.ConvoyHostiles.Count(attacker =>
+                    attacker != null && !attacker.IsDestroyed && _npcShips.Contains(attacker));
+                if (mission.ConvoyAttackersRemaining == 0)
+                {
+                    mission.ConvoyEncounterResolved = true;
+                    mission.ConvoyStage = ConvoyEscortStage.Escorting;
+                    trader.ClearEncounterState();
+                }
+            }
+
+            UpdateConvoyAbandonment(mission, state, deltaTime, out failureReason);
+            if (!string.IsNullOrWhiteSpace(failureReason))
+                return;
+
+            if (!mission.ConvoyEncounterResolved)
+            {
+                mission.TargetPosition = trader.Position;
+                return;
+            }
+
+            Vector3 destinationPosition = mission.ConvoyDestinationPosition ?? destination.Position;
+            if (Vector3.Distance(trader.Position, destinationPosition) > mission.ConvoyArrivalRadius &&
+                Vector3.Distance(trader.Position, destination.Position) > mission.ConvoyArrivalRadius)
+            {
+                mission.ConvoyStage = ConvoyEscortStage.ApproachingDestination;
+                mission.TargetPosition = trader.Position;
+                return;
+            }
+
+            bool delivered = _economicShipments?.TryDeliver(trader, log) == true;
+            if (!delivered && _economicShipments?.TryGetShipment(trader, out _) == true)
+            {
+                failureReason = "shipment could not be settled at destination";
+                return;
+            }
+
+            mission.ConvoyArrivedMask |= 1;
+            mission.ConvoyArrivedCount = 1;
+            mission.ConvoyStage = ConvoyEscortStage.Successful;
+            mission.ObjectiveComplete = true;
+            trader.SetMissionHoldPosition(false);
+            _ejectNpcFromTradeLaneCallback?.Invoke(trader);
+            _npcShips.Remove(trader);
+            _spaceObjects.Remove(trader);
+            _retiredNpcCallback?.Invoke(trader);
+            complete = true;
         }
 
         private void ActivateConvoyRoute(MissionRuntimeState state)
@@ -2439,6 +2659,24 @@ namespace Roguelancer
                  state.Mission.Type != MissionType.ConvoyEscort &&
                  state.Mission.Type != MissionType.ConvoyRaid))
                 return;
+
+            if (state.Mission.IsEconomicEscort)
+            {
+                _economicShipments?.ReleaseEconomicEscort(state.Mission.Id);
+                foreach (NpcShip attacker in state.ConvoyHostiles.ToList())
+                {
+                    if (attacker == null)
+                        continue;
+                    attacker.ClearEncounterState();
+                    attacker.SetMissionHoldPosition(false);
+                    _npcShips.Remove(attacker);
+                    _spaceObjects.Remove(attacker);
+                    _retiredNpcCallback?.Invoke(attacker);
+                }
+                state.ConvoyShips.Clear();
+                state.ConvoyHostiles.Clear();
+                return;
+            }
 
             IEnumerable<NpcShip> ownedShips = state.Mission.Type == MissionType.ConvoyEscort
                 ? state.ConvoyShips.Concat(state.ConvoyHostiles).Distinct().ToList()

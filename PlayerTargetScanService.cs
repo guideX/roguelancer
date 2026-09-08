@@ -46,6 +46,8 @@ public sealed class PlayerTargetScanRouteInfo
     public string OriginStationName { get; }
     public string DestinationStationId { get; }
     public string DestinationStationName { get; }
+    public int RouteRisk { get; }
+    public string RouteRiskLabel { get; }
     public string RouteLabel => string.IsNullOrWhiteSpace(OriginStationName) || string.IsNullOrWhiteSpace(DestinationStationName)
         ? string.Empty
         : $"{OriginStationName} -> {DestinationStationName}";
@@ -55,13 +57,19 @@ public sealed class PlayerTargetScanRouteInfo
         string originStationId,
         string originStationName,
         string destinationStationId,
-        string destinationStationName)
+        string destinationStationName,
+        int routeRisk = 0,
+        string routeRiskLabel = null)
     {
         RouteId = routeId ?? string.Empty;
         OriginStationId = originStationId ?? string.Empty;
         OriginStationName = originStationName ?? string.Empty;
         DestinationStationId = destinationStationId ?? string.Empty;
         DestinationStationName = destinationStationName ?? string.Empty;
+        RouteRisk = Math.Clamp(routeRisk, 0, TradeRouteRiskManager.MaximumRiskScore);
+        RouteRiskLabel = string.IsNullOrWhiteSpace(routeRiskLabel)
+            ? TradeRouteRiskManager.GetRiskLabel(RouteRisk)
+            : routeRiskLabel.Trim();
     }
 }
 

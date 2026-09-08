@@ -53,6 +53,15 @@ public sealed class EconomicShipment
     public int InitialQuantity => Manifest?.InitialQuantity ?? 0;
     public int RemainingQuantity => Manifest?.RemainingQuantity ?? 0;
     public int RemovedQuantity => Manifest?.RemovedQuantity ?? 0;
+    public bool RouteTowardEnd => DestinationIsRouteEnd;
+    public int EscortMissionId { get; internal set; }
+    public bool EscortOfferIssued { get; internal set; }
+    public long EscortOfferExpiresMilliseconds { get; internal set; }
+    public bool EscortOfferExpired { get; internal set; }
+    public int InitialManifestValue => Manifest?.Stacks.Sum(stack =>
+        Math.Max(0, stack.InitialQuantity) * Math.Max(0, stack.Commodity?.BasePrice ?? 0)) ?? 0;
+    public int RemainingManifestValue => Manifest?.Stacks.Sum(stack =>
+        Math.Max(0, stack.Quantity) * Math.Max(0, stack.Commodity?.BasePrice ?? 0)) ?? 0;
 }
 
 /// <summary>
@@ -78,6 +87,7 @@ public sealed class EconomicShipmentManager
     private readonly Dictionary<NpcShip, EconomicShipment> _active = new();
     private readonly Dictionary<string, PendingShipment> _pendingRebind = new(StringComparer.Ordinal);
     private AdaptiveTraderRoutingPlanner _routingPlanner;
+    private TradeRouteRiskManager _riskManager;
     private Func<IEnumerable<TrafficZoneConfig>> _routesProvider;
     private bool _rebindMode;
 
@@ -97,6 +107,10 @@ public sealed class EconomicShipmentManager
     public int ActiveShipmentCount => _active.Count;
     public IReadOnlyList<EconomicShipment> ActiveShipments => _active.Values.ToList();
 
+    public const int DynamicEscortRiskThreshold = 40;
+    public const int DynamicEscortValueThreshold = 2_500;
+    public const long DynamicEscortOfferLifetimeMilliseconds = 90_000L;
+
     /// <summary>
     /// Installs the current system's configured TraderRoute view. The traffic
     /// manager owns this view; the shipment manager only ranks its edges.
@@ -108,7 +122,14 @@ public sealed class EconomicShipmentManager
             _marketManager,
             _stationsProvider,
             _routesProvider,
-            GetInboundQuantity);
+            GetInboundQuantity,
+            _riskManager);
+    }
+
+    public void ConfigureRiskManager(TradeRouteRiskManager riskManager)
+    {
+        _riskManager = riskManager;
+        SetRouteProvider(_routesProvider);
     }
 
     public AdaptiveTraderRoutingPlanner RoutingPlanner => _routingPlanner;
@@ -162,7 +183,9 @@ public sealed class EconomicShipmentManager
             shipment.OriginStationId,
             shipment.OriginStationName,
             shipment.DestinationStationId,
-            shipment.DestinationStationName);
+            shipment.DestinationStationName,
+            GetRiskForShipment(shipment),
+            TradeRouteRiskManager.GetRiskLabel(GetRiskForShipment(shipment)));
         return true;
     }
 
@@ -171,6 +194,111 @@ public sealed class EconomicShipmentManager
         shipment = null;
         return trader != null && _active.TryGetValue(trader, out shipment) &&
             shipment?.Settlement == EconomicShipmentSettlement.Active;
+    }
+
+    public bool TryGetShipmentByIdentity(string traderIdentity, out EconomicShipment shipment)
+    {
+        shipment = null;
+        if (string.IsNullOrWhiteSpace(traderIdentity))
+            return false;
+        shipment = _active.Values.FirstOrDefault(candidate =>
+            candidate?.Settlement == EconomicShipmentSettlement.Active &&
+            string.Equals(candidate.TraderIdentity, traderIdentity.Trim(), StringComparison.Ordinal));
+        return shipment != null;
+    }
+
+    public int GetEffectiveRouteRisk(EconomicShipment shipment) =>
+        shipment == null ? 0 : GetRiskForShipment(shipment);
+
+    public IReadOnlyList<EconomicShipment> GetEscortCandidates(Station originStation)
+    {
+        if (_riskManager == null)
+            return Array.Empty<EconomicShipment>();
+
+        string originId = _marketManager.GetStationId(originStation);
+        long now = _marketManager.ElapsedMilliseconds;
+        return _active.Values
+            .Where(shipment => shipment?.Settlement == EconomicShipmentSettlement.Active &&
+                shipment.EscortMissionId <= 0 &&
+                shipment.RemainingQuantity >= MinimumShipmentQuantity &&
+                (string.IsNullOrWhiteSpace(originId) ||
+                 string.Equals(shipment.OriginStationId, originId, StringComparison.OrdinalIgnoreCase)) &&
+                GetRiskForShipment(shipment) >= DynamicEscortRiskThreshold &&
+                (shipment.InitialManifestValue >= DynamicEscortValueThreshold || IsSevereDestinationShortage(shipment)) &&
+                (!shipment.EscortOfferIssued || shipment.EscortOfferExpiresMilliseconds > now))
+            .OrderByDescending(GetRiskForShipment)
+            .ThenByDescending(shipment => shipment.InitialManifestValue)
+            .ThenBy(shipment => shipment.TraderIdentity, StringComparer.Ordinal)
+            .Take(1)
+            .ToList();
+    }
+
+    public bool TryAttachEconomicEscort(int missionId, string traderIdentity)
+    {
+        if (missionId <= 0 || !TryGetShipmentByIdentity(traderIdentity, out EconomicShipment shipment))
+            return false;
+        if (shipment.EscortMissionId > 0 && shipment.EscortMissionId != missionId)
+            return false;
+        shipment.EscortMissionId = missionId;
+        shipment.EscortOfferIssued = false;
+        shipment.EscortOfferExpired = false;
+        return true;
+    }
+
+    public void ReleaseEconomicEscort(int missionId)
+    {
+        EconomicShipment shipment = _active.Values.FirstOrDefault(candidate => candidate?.EscortMissionId == missionId);
+        if (shipment == null)
+            return;
+        shipment.EscortMissionId = 0;
+        shipment.EscortOfferIssued = false;
+        shipment.EscortOfferExpired = true;
+    }
+
+    public bool MarkEscortOffer(EconomicShipment shipment, int missionId, long expiresMilliseconds)
+    {
+        if (shipment == null || shipment.Settlement != EconomicShipmentSettlement.Active || missionId <= 0)
+            return false;
+        shipment.EscortMissionId = 0;
+        shipment.EscortOfferIssued = true;
+        shipment.EscortOfferExpiresMilliseconds = Math.Max(0L, expiresMilliseconds);
+        shipment.EscortOfferExpired = false;
+        return true;
+    }
+
+    public void ExpireEscortOffer(string traderIdentity)
+    {
+        if (!TryGetShipmentByIdentity(traderIdentity, out EconomicShipment shipment))
+            return;
+        shipment.EscortOfferIssued = false;
+        shipment.EscortOfferExpiresMilliseconds = 0L;
+        shipment.EscortOfferExpired = true;
+    }
+
+    public void RecordPiracyDemandResult(PiracyDemandResult result)
+    {
+        if (result?.Target == null || !TryGetShipment(result.Target, out EconomicShipment shipment) || _riskManager == null)
+            return;
+
+        TradeLaneDirection direction = shipment.RouteTowardEnd ? TradeLaneDirection.Forward : TradeLaneDirection.Reverse;
+        int surrenderedValue = EstimateManifestValue(
+            shipment,
+            result.SurrenderedQuantity);
+        if (result.State == PiracyDemandState.Complying && result.SurrenderedQuantity > 0)
+        {
+            _riskManager.RecordCargoExtorted(shipment.RouteId, direction,
+                surrenderedValue, $"extortion:{shipment.TraderIdentity}");
+            if (result.RemainingManifestQuantity > 0)
+            {
+                _riskManager.RecordPartialCargoLoss(shipment.RouteId, direction,
+                    surrenderedValue, $"partial-loss:{shipment.TraderIdentity}");
+            }
+        }
+        else if (result.State == PiracyDemandState.RefusingFleeing &&
+            (result.DistressResponse.WaveSpawned || result.DistressResponse.AssistedShipCount > 0))
+        {
+            _riskManager.RecordRefusalDistress(shipment.RouteId, direction, $"distress:{shipment.TraderIdentity}");
+        }
     }
 
     public TraderCargoManifest GetManifest(NpcShip trader) =>
@@ -315,6 +443,13 @@ public sealed class EconomicShipmentManager
             stack.Remove(stack.Quantity);
 
         shipment.Settlement = EconomicShipmentSettlement.Delivered;
+        if (_riskManager != null)
+        {
+            _riskManager.RecordSafeDelivery(
+                shipment.RouteId,
+                shipment.RouteTowardEnd ? TradeLaneDirection.Forward : TradeLaneDirection.Reverse,
+                $"delivery:{shipment.TraderIdentity}");
+        }
         _active.Remove(trader);
         log?.Invoke($"[ECONOMY] Delivered {delivered} units from {shipment.OriginStationName} to {shipment.DestinationStationName}; overflow/loss={overflowLost}.");
         return true;
@@ -323,7 +458,17 @@ public sealed class EconomicShipmentManager
     public void NotifyTraderDestroyed(NpcShip trader)
     {
         if (TryGetShipment(trader, out EconomicShipment shipment))
+        {
+            if (_riskManager != null)
+            {
+                _riskManager.RecordTraderDestroyed(
+                    shipment.RouteId,
+                    shipment.RouteTowardEnd ? TradeLaneDirection.Forward : TradeLaneDirection.Reverse,
+                    shipment.RemainingManifestValue,
+                    $"destroyed:{shipment.TraderIdentity}");
+            }
             shipment.Settlement = EconomicShipmentSettlement.Lost;
+        }
     }
 
     private void MarkLost(NpcShip trader)
@@ -392,7 +537,9 @@ public sealed class EconomicShipmentManager
     {
         foreach (EconomicShipment shipment in _active.Values.ToList())
         {
-            if (restoreOriginStock && shipment.Settlement == EconomicShipmentSettlement.Active)
+            bool preservedForRebind = _rebindMode &&
+                _pendingRebind.ContainsKey(shipment.TraderIdentity);
+            if (restoreOriginStock && !preservedForRebind && shipment.Settlement == EconomicShipmentSettlement.Active)
             {
                 Station origin = FindMarketStation(shipment.OriginStationId);
                 foreach (TraderCargoStack stack in shipment.Manifest.Snapshot())
@@ -413,6 +560,7 @@ public sealed class EconomicShipmentManager
         _active.Clear();
         _pendingRebind.Clear();
         _rebindMode = false;
+        _riskManager?.Reset();
     }
 
     public List<SaveEconomicShipmentData> CaptureState()
@@ -434,6 +582,10 @@ public sealed class EconomicShipmentManager
                 Position = SaveVector3Data.From(shipment.Trader?.Position ?? Vector3.Zero),
                 Velocity = SaveVector3Data.From(shipment.Trader?.Velocity ?? Vector3.Zero),
                 TrafficAgeSeconds = shipment.Trader?.TrafficAgeSeconds ?? 0f,
+                EscortMissionId = shipment.EscortMissionId,
+                EscortOfferIssued = shipment.EscortOfferIssued,
+                EscortOfferExpiresMilliseconds = shipment.EscortOfferExpiresMilliseconds,
+                EscortOfferExpired = shipment.EscortOfferExpired,
                 Stacks = shipment.Manifest.Stacks.Select(stack => new SaveEconomicShipmentStackData
                 {
                     CommodityId = stack.Commodity?.Id ?? string.Empty,
@@ -546,7 +698,39 @@ public sealed class EconomicShipmentManager
             state.Velocity?.ToVector3(Vector3.Zero) ?? Vector3.Zero,
             state.RouteTowardEnd,
             state.TrafficAgeSeconds);
+        shipment.EscortMissionId = Math.Max(0, state.EscortMissionId);
+        shipment.EscortOfferIssued = state.EscortOfferIssued;
+        shipment.EscortOfferExpiresMilliseconds = Math.Max(0L, state.EscortOfferExpiresMilliseconds);
+        shipment.EscortOfferExpired = state.EscortOfferExpired;
         return true;
+    }
+
+    private bool IsSevereDestinationShortage(EconomicShipment shipment)
+    {
+        Station destination = FindMarketStation(shipment?.DestinationStationId);
+        return destination != null && (shipment.Manifest?.Stacks ?? Array.Empty<TraderCargoStack>())
+            .Any(stack => _marketManager.GetShortageState(destination, stack.Commodity)?.Level == MarketShortageLevel.Critical);
+    }
+
+    private int GetRiskForShipment(EconomicShipment shipment)
+    {
+        if (_riskManager == null || shipment == null)
+            return 0;
+        TradeLaneDirection direction = shipment.RouteTowardEnd ? TradeLaneDirection.Forward : TradeLaneDirection.Reverse;
+        TrafficZoneConfig route = (_routesProvider?.Invoke() ?? Array.Empty<TrafficZoneConfig>())
+            .FirstOrDefault(candidate => string.Equals(candidate?.Id, shipment.RouteId, StringComparison.OrdinalIgnoreCase));
+        return route == null
+            ? _riskManager.GetEffectiveRisk(shipment.RouteId, direction)
+            : _riskManager.GetEffectiveRisk(route, shipment.RouteTowardEnd);
+    }
+
+    private static int EstimateManifestValue(EconomicShipment shipment, int quantity)
+    {
+        if (shipment?.Manifest == null || quantity <= 0 || shipment.InitialQuantity <= 0)
+            return 0;
+
+        long value = (long)shipment.InitialManifestValue * Math.Min(quantity, shipment.InitialQuantity);
+        return (int)Math.Clamp(value / shipment.InitialQuantity, 0L, int.MaxValue);
     }
 
     private bool TryBuildAndReserveManifest(

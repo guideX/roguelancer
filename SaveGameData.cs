@@ -72,6 +72,9 @@ namespace Roguelancer
         [JsonPropertyName("economic_shipments")]
         public List<SaveEconomicShipmentData> EconomicShipments { get; set; } = new();
 
+        [JsonPropertyName("trade_route_risks")]
+        public List<SaveTradeRouteRiskData> TradeRouteRisks { get; set; } = new();
+
         [JsonPropertyName("market_elapsed_ms")]
         public long MarketElapsedMilliseconds { get; set; }
 
@@ -524,6 +527,27 @@ namespace Roguelancer
         [JsonPropertyName("convoy_destination_position")]
         public SaveVector3Data ConvoyDestinationPosition { get; set; }
 
+        [JsonPropertyName("economic_escort")]
+        public bool EconomicEscort { get; set; }
+
+        [JsonPropertyName("economic_shipment_trader_identity")]
+        public string EconomicShipmentTraderIdentity { get; set; } = string.Empty;
+
+        [JsonPropertyName("economic_shipment_route_id")]
+        public string EconomicShipmentRouteId { get; set; } = string.Empty;
+
+        [JsonPropertyName("economic_shipment_value")]
+        public int EconomicShipmentValue { get; set; }
+
+        [JsonPropertyName("economic_route_risk")]
+        public int EconomicRouteRisk { get; set; }
+
+        [JsonPropertyName("economic_shortage_label")]
+        public string EconomicShortageLabel { get; set; } = string.Empty;
+
+        [JsonPropertyName("economic_offer_expires_ms")]
+        public long EconomicOfferExpiresMilliseconds { get; set; }
+
         [JsonPropertyName("raid_route_id")]
         public string RaidRouteId { get; set; } = string.Empty;
 
@@ -665,6 +689,36 @@ namespace Roguelancer
 
         [JsonPropertyName("stacks")]
         public List<SaveEconomicShipmentStackData> Stacks { get; set; } = new();
+
+        [JsonPropertyName("escort_mission_id")]
+        public int EscortMissionId { get; set; }
+
+        [JsonPropertyName("escort_offer_issued")]
+        public bool EscortOfferIssued { get; set; }
+
+        [JsonPropertyName("escort_offer_expires_ms")]
+        public long EscortOfferExpiresMilliseconds { get; set; }
+
+        [JsonPropertyName("escort_offer_expired")]
+        public bool EscortOfferExpired { get; set; }
+    }
+
+    public sealed class SaveTradeRouteRiskData
+    {
+        [JsonPropertyName("route_id")]
+        public string RouteId { get; set; } = string.Empty;
+
+        [JsonPropertyName("direction")]
+        public TradeLaneDirection Direction { get; set; } = TradeLaneDirection.Forward;
+
+        [JsonPropertyName("score")]
+        public int Score { get; set; }
+
+        [JsonPropertyName("last_processed_ms")]
+        public long LastProcessedMilliseconds { get; set; }
+
+        [JsonPropertyName("incident_keys")]
+        public List<string> IncidentKeys { get; set; } = new();
     }
 
     public sealed class SaveEconomicShipmentStackData

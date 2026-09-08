@@ -18,7 +18,8 @@ public sealed class AdaptiveTraderRoutePlan
         Station destination,
         bool routeTowardEnd,
         IReadOnlyList<AdaptiveTraderCommodityOpportunity> opportunities,
-        bool isDefaultRoute)
+        bool isDefaultRoute,
+        int routeRisk)
     {
         Route = route;
         Origin = origin;
@@ -26,6 +27,7 @@ public sealed class AdaptiveTraderRoutePlan
         RouteTowardEnd = routeTowardEnd;
         CommodityOpportunities = opportunities ?? Array.Empty<AdaptiveTraderCommodityOpportunity>();
         IsDefaultRoute = isDefaultRoute;
+        RouteRisk = Math.Clamp(routeRisk, 0, TradeRouteRiskManager.MaximumRiskScore);
     }
 
     public TrafficZoneConfig Route { get; }
@@ -33,6 +35,8 @@ public sealed class AdaptiveTraderRoutePlan
     public Station Destination { get; }
     public bool RouteTowardEnd { get; }
     public bool IsDefaultRoute { get; }
+    public int RouteRisk { get; }
+    public string RouteRiskLabel => TradeRouteRiskManager.GetRiskLabel(RouteRisk);
     public IReadOnlyList<AdaptiveTraderCommodityOpportunity> CommodityOpportunities { get; }
     public AdaptiveTraderCommodityOpportunity BestOpportunity => CommodityOpportunities.FirstOrDefault();
     public Commodity BestCommodity => BestOpportunity?.Commodity;
@@ -64,6 +68,7 @@ public sealed class AdaptiveTraderCommodityOpportunity
         int deficitUsefulnessBonus,
         int routeCostPenalty,
         int diversityBias,
+        int routeRisk,
         int score)
     {
         Commodity = commodity;
@@ -81,6 +86,7 @@ public sealed class AdaptiveTraderCommodityOpportunity
         DeficitUsefulnessBonus = Math.Max(0, deficitUsefulnessBonus);
         RouteCostPenalty = Math.Max(0, routeCostPenalty);
         DiversityBias = Math.Max(0, diversityBias);
+        RouteRisk = Math.Clamp(routeRisk, 0, TradeRouteRiskManager.MaximumRiskScore);
         Score = score;
     }
 
@@ -100,6 +106,8 @@ public sealed class AdaptiveTraderCommodityOpportunity
     public int DeficitUsefulnessBonus { get; }
     public int RouteCostPenalty { get; }
     public int DiversityBias { get; }
+    public int RouteRisk { get; }
+    public int RouteRiskPenalty => Math.Clamp(RouteRisk * TradeRouteRiskManager.RouteRiskPenaltyPerPoint, 0, TradeRouteRiskManager.MaximumRouteRiskPenalty);
     public int Score { get; }
 }
 
@@ -129,17 +137,20 @@ public sealed class AdaptiveTraderRoutingPlanner
     private readonly Func<IEnumerable<Station>> _stationsProvider;
     private readonly Func<IEnumerable<TrafficZoneConfig>> _routesProvider;
     private readonly Func<string, Commodity, int> _inboundQuantityResolver;
+    private readonly TradeRouteRiskManager _riskManager;
 
     public AdaptiveTraderRoutingPlanner(
         MarketManager marketManager,
         Func<IEnumerable<Station>> stationsProvider,
         Func<IEnumerable<TrafficZoneConfig>> routesProvider = null,
-        Func<string, Commodity, int> inboundQuantityResolver = null)
+        Func<string, Commodity, int> inboundQuantityResolver = null,
+        TradeRouteRiskManager riskManager = null)
     {
         _marketManager = marketManager ?? throw new ArgumentNullException(nameof(marketManager));
         _stationsProvider = stationsProvider ?? (() => Array.Empty<Station>());
         _routesProvider = routesProvider ?? (() => Array.Empty<TrafficZoneConfig>());
         _inboundQuantityResolver = inboundQuantityResolver ?? ((_, _) => 0);
+        _riskManager = riskManager;
     }
 
     /// <summary>
@@ -212,7 +223,8 @@ public sealed class AdaptiveTraderRoutingPlanner
                 origin,
                 destination,
                 route,
-                routeDistance);
+                routeDistance,
+                towardEnd);
             if (opportunities.Count == 0)
                 continue;
 
@@ -222,7 +234,8 @@ public sealed class AdaptiveTraderRoutingPlanner
                 destination,
                 towardEnd,
                 opportunities,
-                string.Equals(route.Id, defaultRoute.Id, StringComparison.OrdinalIgnoreCase)));
+                string.Equals(route.Id, defaultRoute.Id, StringComparison.OrdinalIgnoreCase),
+                opportunities.FirstOrDefault()?.RouteRisk ?? 0));
         }
 
         List<AdaptiveTraderRoutePlan> bounded = allValid
@@ -282,13 +295,15 @@ public sealed class AdaptiveTraderRoutingPlanner
         int shortageBonus,
         int deficitUsefulnessBonus,
         int routeCostPenalty,
-        int diversityBias = 0)
+        int diversityBias = 0,
+        int routeRiskPenalty = 0)
     {
         long score = Math.Clamp(destinationValueMinusOriginValue, MinimumProfitOpportunity, MaximumProfitOpportunity);
         score += Math.Clamp(shortageBonus, 0, MaximumShortageBonus);
         score += Math.Clamp(deficitUsefulnessBonus, 0, MaximumDeficitUsefulnessBonus);
         score -= Math.Clamp(routeCostPenalty, 0, MaximumRouteCostPenalty);
         score += Math.Clamp(diversityBias, 0, MaximumDiversityBias);
+        score -= Math.Clamp(routeRiskPenalty, 0, TradeRouteRiskManager.MaximumRouteRiskPenalty);
         return (int)Math.Clamp(score, MinimumShipmentOpportunityScore, MaximumShipmentOpportunityScore);
     }
 
@@ -297,7 +312,8 @@ public sealed class AdaptiveTraderRoutingPlanner
         Station origin,
         Station destination,
         TrafficZoneConfig route,
-        float routeDistance)
+        float routeDistance,
+        bool routeTowardEnd)
     {
         string originId = _marketManager.GetStationId(origin);
         string destinationId = _marketManager.GetStationId(destination);
@@ -329,11 +345,18 @@ public sealed class AdaptiveTraderRoutingPlanner
                 : 0;
             int deficitBonus = Math.Clamp(effectiveDeficit * DeficitBonusPerUnit, 0, MaximumDeficitUsefulnessBonus);
             int routeCostPenalty = CalculateRouteCostPenalty(routeDistance);
+            // The candidate's direction is determined by the shared origin
+            // edge. This keeps risk directional even when the authored route
+            // is evaluated from its reverse end.
+            int routeRisk = _riskManager?.GetEffectiveRisk(route, routeTowardEnd) ?? 0;
+            int routeRiskPenalty = _riskManager == null
+                ? 0
+                : Math.Clamp(routeRisk * TradeRouteRiskManager.RouteRiskPenaltyPerPoint, 0, TradeRouteRiskManager.MaximumRouteRiskPenalty);
             int profit = Math.Clamp(destinationListing.BuyPrice - originListing.BuyPrice,
                 MinimumProfitOpportunity,
                 MaximumProfitOpportunity);
             int diversity = CalculateDiversityBias(trader, route, originId, destinationId, originListing.Commodity.Id);
-            int score = CalculateOpportunityScore(profit, shortageBonus, deficitBonus, routeCostPenalty, diversity);
+            int score = CalculateOpportunityScore(profit, shortageBonus, deficitBonus, routeCostPenalty, diversity, routeRiskPenalty);
 
             opportunities.Add(new AdaptiveTraderCommodityOpportunity(
                 originListing.Commodity,
@@ -351,6 +374,7 @@ public sealed class AdaptiveTraderRoutingPlanner
                 deficitBonus,
                 routeCostPenalty,
                 diversity,
+                routeRisk,
                 score));
         }
 

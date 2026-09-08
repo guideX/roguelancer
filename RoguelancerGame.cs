@@ -215,6 +215,7 @@ namespace Roguelancer {
         // Ambient traffic system
         private TrafficManager _trafficManager;
         private EconomicShipmentManager _economicShipments;
+        private TradeRouteRiskManager _tradeRouteRisk;
 
         // Cargo pod loot system
         private LootManager _lootManager;
@@ -265,6 +266,7 @@ namespace Roguelancer {
         private readonly bool _runPiracyDemandSmoke;
         private readonly bool _runPlayerTargetScanSmoke;
         private readonly bool _runEconomicShipmentSmoke;
+        private readonly bool _runPhase63Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -383,6 +385,7 @@ namespace Roguelancer {
             _runPiracyDemandSmoke = args?.Any(arg => string.Equals(arg, "--piracy-demand-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPlayerTargetScanSmoke = args?.Any(arg => string.Equals(arg, "--player-target-scan-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runEconomicShipmentSmoke = args?.Any(arg => string.Equals(arg, "--phase59-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase63Smoke = args?.Any(arg => string.Equals(arg, "--phase63-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1034,6 +1037,9 @@ namespace Roguelancer {
             _commodityDealer.SetReputationManager(_reputationManager);
             _marketIntelligence = new MarketIntelligence(_commodityDealer.MarketManager);
             _commodityDealer.SetMarketIntelligence(_marketIntelligence);
+            _tradeRouteRisk = new TradeRouteRiskManager(
+                () => _commodityDealer?.MarketManager?.ElapsedMilliseconds ?? 0L,
+                () => _tradelaneManager?.GetTradeLanes() ?? new List<TradeLane>());
 
             // Initialize equipment dealer
             _equipmentDealer = new EquipmentDealer(_reputationManager);
@@ -1201,6 +1207,7 @@ namespace Roguelancer {
                 _commodityDealer.MarketManager,
                 () => _stationManager?.GetStations() ?? new List<Station>(),
                 npc => _missionWorldManager?.IsMissionOwnedNpc(npc) == true);
+            _economicShipments.ConfigureRiskManager(_tradeRouteRisk);
             _trafficManager?.ConfigureEconomicShipments(_economicShipments, Console.WriteLine);
 
             // Load sun content
@@ -1303,6 +1310,9 @@ namespace Roguelancer {
                 npc => _trafficManager?.RegisterMissionNpc(npc),
                  npc => _tradelaneManager?.EjectNpcFromTransit(npc),
                  missionId => _lootManager?.ReleaseMissionCargoAttribution(missionId));
+            _missionWorldManager.SetEconomicShipmentManager(_economicShipments);
+            _missionManager?.SetEconomicShipmentManager(_economicShipments);
+            _missionManager?.SetTradeRouteRiskManager(_tradeRouteRisk);
             _piracyDemand = new PirateCargoDemandService(
                 _npcShips,
                 _reputationManager,
@@ -1319,6 +1329,7 @@ namespace Roguelancer {
                 _trafficManager?.CombatCommunication,
                 Console.WriteLine,
                 npc => _economicShipments?.GetManifest(npc));
+            _piracyDemand.DemandResolved += result => _economicShipments?.RecordPiracyDemandResult(result);
             _playerTargetScan = new PlayerTargetScanService(
                 _npcShips,
                 _factionManager,
@@ -1531,6 +1542,11 @@ namespace Roguelancer {
             else if (_runPhase62Smoke)
             {
                 var result = RunPhase62SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runPhase63Smoke)
+            {
+                var result = RunPhase63SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runPhase61Smoke)
@@ -1760,6 +1776,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("player target scan smoke", RunPlayerTargetScanSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 59 economic shipment smoke", RunEconomicShipmentSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 62 adaptive routing smoke", RunPhase62SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 63 trade route risk smoke", RunPhase63SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2228,6 +2245,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 62 ADAPTIVE ROUTING SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase63SmokeTest()
+        {
+            try
+            {
+                return new TradeRouteRiskSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 63 TRADE ROUTE RISK SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -2719,6 +2749,7 @@ namespace Roguelancer {
             saveData.PhysicalCargoPods = _lootManager?.CaptureCargoPods() ?? new List<SaveCargoPodData>();
             saveData.StationMarkets = _commodityDealer?.CaptureMarketState() ?? new List<SaveMarketStateData>();
             saveData.EconomicShipments = _economicShipments?.CaptureState() ?? new List<SaveEconomicShipmentData>();
+            saveData.TradeRouteRisks = _tradeRouteRisk?.CaptureState()?.ToList() ?? new List<SaveTradeRouteRiskData>();
             saveData.MarketElapsedMilliseconds = _commodityDealer?.MarketManager?.ElapsedMilliseconds ?? 0L;
             saveData.MarketIntelligence = _marketIntelligence?.CaptureState() ?? new List<SaveMarketIntelligenceData>();
             saveData.TradePlan = _tradePlanManager?.CaptureState();
@@ -2779,6 +2810,7 @@ namespace Roguelancer {
             _saveGameManager?.ApplyTemporaryHostility(_reputationManager, saveData);
             _commodityDealer?.MarketManager?.RestoreElapsedMilliseconds(saveData.MarketElapsedMilliseconds);
             _commodityDealer?.RestoreMarketState(saveData.StationMarkets);
+            _tradeRouteRisk?.RestoreState(saveData.TradeRouteRisks);
             _economicShipments?.CompleteRebind();
             _marketIntelligence?.Clear();
             _marketIntelligence?.RestoreState(saveData.MarketIntelligence);
@@ -5086,7 +5118,10 @@ namespace Roguelancer {
 
             lines.Add("CARGO SCAN COMPLETE — LAST KNOWN");
             if (result.HasRoute)
+            {
                 lines.Add($"Route: {result.RouteLabel}");
+                lines.Add($"Route risk: {result.Route.RouteRiskLabel} ({result.Route.RouteRisk}/100)");
+            }
             if (!result.HasRegisteredCargo)
             {
                 lines.Add("No registered cargo");
