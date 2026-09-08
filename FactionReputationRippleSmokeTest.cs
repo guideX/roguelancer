@@ -403,7 +403,7 @@ internal sealed class FactionReputationRippleSmokeTest
 
     private static bool RelationshipDefinitionsAreNotPersisted()
     {
-        return SaveGameData.CurrentSchemaVersion == 11 &&
+        return new SaveGameData().SchemaVersion == SaveGameData.CurrentSchemaVersion &&
             !typeof(SaveGameData).GetProperties()
                 .Any(property => property.Name.Contains("Relationship", StringComparison.OrdinalIgnoreCase));
     }

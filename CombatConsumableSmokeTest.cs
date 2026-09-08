@@ -391,7 +391,7 @@ namespace Roguelancer
                 bool loaded = manager.TryLoad(out SaveGameData restored, out _);
                 ShipLoadout rebuilt = manager.BuildLoadout(restored, out _);
                 return saved && loaded && rebuilt.CombatConsumables.Nanobots == 17 &&
-                       rebuilt.CombatConsumables.ShieldBatteries == 23 && SaveGameData.CurrentSchemaVersion == 11;
+                       rebuilt.CombatConsumables.ShieldBatteries == 23 && restored.SchemaVersion == SaveGameData.CurrentSchemaVersion;
             }
             finally
             {

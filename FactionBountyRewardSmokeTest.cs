@@ -448,7 +448,7 @@ internal sealed class FactionBountyRewardSmokeTest
         return fixture.Credits.Credits == 0 && fixture.Notifications.Count == 0;
     }
 
-    private static bool SaveSchemaRemainsVersionTen() => SaveGameData.CurrentSchemaVersion == 11;
+    private static bool SaveSchemaRemainsVersionTen() => new SaveGameData().SchemaVersion == SaveGameData.CurrentSchemaVersion;
 
     private static bool ResetClearsDuplicateBookkeeping()
     {

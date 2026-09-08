@@ -357,7 +357,7 @@ namespace Roguelancer
                 bool saved = manager.TrySave(data, out _);
                 bool loaded = manager.TryLoad(out SaveGameData restored, out _);
                 ShipLoadout rebuilt = manager.BuildLoadout(restored, out List<string> warnings);
-                return saved && loaded && SaveGameData.CurrentSchemaVersion == 11 && warnings.Count == 0 &&
+                return saved && loaded && restored.SchemaVersion == SaveGameData.CurrentSchemaVersion && warnings.Count == 0 &&
                        rebuilt.GetOwnedCount(gun.Id) == 1 && rebuilt.GetMountedCount(gun.Id) == 1;
             }
             finally

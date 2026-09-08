@@ -22,6 +22,7 @@ namespace Roguelancer
         TradeLaneDefense,
         ConvoyEscort,
         ConvoyRaid,
+        ShipmentInterdiction,
         ContrabandSmuggling
     }
 
@@ -49,6 +50,15 @@ namespace Roguelancer
         EnRoute,
         InterceptionActive,
         CargoRecovery,
+        Successful,
+        Failed
+    }
+
+    public enum ShipmentInterdictionStage
+    {
+        Intercept,
+        Recover,
+        Return,
         Successful,
         Failed
     }
@@ -190,6 +200,7 @@ namespace Roguelancer
         public const string TradeLaneDefenseId = "trade-lane-defense";
         public const string ConvoyEscortId = "convoy-escort";
         public const string ConvoyRaidId = "convoy-raid";
+        public const string ShipmentInterdictionId = "shipment-interdiction";
         public const string ContrabandSmugglingId = "contraband-smuggling";
 
         private static readonly IReadOnlyList<MissionDefinition> Definitions = new[]
@@ -385,12 +396,22 @@ namespace Roguelancer
         // economic shipment. The convoy fields above remain the shared
         // lifecycle/state surface; no mission cargo is created here.
         public bool IsEconomicEscort { get; set; }
+        public bool IsEconomicInterdiction { get; set; }
         public string EconomicShipmentTraderIdentity { get; set; } = string.Empty;
         public string EconomicShipmentRouteId { get; set; } = string.Empty;
         public int EconomicShipmentValue { get; set; }
         public int EconomicRouteRisk { get; set; }
         public string EconomicShortageLabel { get; set; } = string.Empty;
         public long EconomicOfferExpiresMilliseconds { get; set; }
+
+        public int InterdictionSourceAvailableQuantity { get; set; }
+        public int InterdictionReleasedQuantity { get; set; }
+        public int InterdictionCargoLostQuantity { get; set; }
+        public int InterdictionCargoRecoveredQuantity { get; set; }
+        public int InterdictionRemainingPossibleQuantity { get; set; }
+        public ShipmentInterdictionStage InterdictionStage { get; set; } = ShipmentInterdictionStage.Intercept;
+        public bool InterdictionTargetDestroyed { get; set; }
+        public bool InterdictionTargetDelivered { get; set; }
 
         public bool IsExpired => TimeLimit > 0 && ElapsedTime >= TimeLimit;
         public float TimeRemaining => TimeLimit > 0 ? Math.Max(0, TimeLimit - ElapsedTime) : -1;
@@ -400,6 +421,7 @@ namespace Roguelancer
         public bool IsTradeLaneDefenseMission() => Type == MissionType.TradeLaneDefense;
         public bool IsConvoyEscortMission() => Type == MissionType.ConvoyEscort;
         public bool IsConvoyRaidMission() => Type == MissionType.ConvoyRaid;
+        public bool IsShipmentInterdictionMission() => Type == MissionType.ShipmentInterdiction;
 
         // Raid state is intentionally separate from Phase 50 escort state.
         // Route movement still belongs to TradeLane/TrafficManager, while the
@@ -972,6 +994,73 @@ namespace Roguelancer
             return mission;
         }
 
+        public static Mission CreateEconomicInterdiction(
+            EconomicShipment shipment,
+            Station origin,
+            Station destination,
+            Commodity commodity,
+            int requiredQuantity,
+            int reward,
+            MissionDifficulty difficulty,
+            int routeRisk,
+            string shortageLabel,
+            long offerExpiresMilliseconds,
+            string offeredBy = "Liberty Rogue Contact")
+        {
+            if (shipment == null || origin == null || destination == null || commodity == null ||
+                requiredQuantity <= 0 || reward <= 0 || string.IsNullOrWhiteSpace(shipment.TraderIdentity) ||
+                string.IsNullOrWhiteSpace(shipment.RouteId) || commodity.IsContraband || commodity.IsMissionCargo ||
+                commodity.VolumePerUnit <= 0 || shipment.RemainingQuantity <= 0 ||
+                string.IsNullOrWhiteSpace(shipment.DestinationStationId))
+            {
+                return null;
+            }
+
+            int systemIndex = destination.Config?.SystemIndex ?? origin.Config?.SystemIndex ?? 0;
+            Mission mission = new Mission(
+                MissionType.ShipmentInterdiction,
+                difficulty,
+                shipment.Trader?.Name ?? "Live economic trader",
+                destination.Name,
+                reward,
+                0f,
+                $"Intercept the live {shipment.Trader?.Name ?? "commercial trader"} en route to {destination.Name}. " +
+                $"Recover {requiredQuantity} {commodity.Name} from the real shipment. " +
+                $"Estimated shipment value: {shipment.RemainingManifestValue:N0} CR. " +
+                $"Route risk: {TradeRouteRiskManager.GetRiskLabel(routeRisk)} ({routeRisk}/100)." +
+                (string.IsNullOrWhiteSpace(shortageLabel) ? string.Empty : $" Destination demand: {shortageLabel}."),
+                FactionManager.LibertyRogues,
+                title: "Shipment Interdiction")
+            {
+                DefinitionId = MissionCatalog.ShipmentInterdictionId,
+                OfferedBy = offeredBy ?? "Liberty Rogue Contact",
+                TargetLocation = shipment.Trader?.Name ?? "Live economic trader",
+                TargetSystemIndex = Math.Max(0, systemIndex),
+                TargetCount = requiredQuantity,
+                RequiredProgress = requiredQuantity,
+                CommodityId = commodity.Id,
+                RequiredQuantity = requiredQuantity,
+                DestinationStationId = shipment.DestinationStationId,
+                EconomicShipmentTraderIdentity = shipment.TraderIdentity,
+                EconomicShipmentRouteId = shipment.RouteId,
+                EconomicShipmentValue = Math.Max(0, shipment.RemainingManifestValue),
+                EconomicRouteRisk = Math.Clamp(routeRisk, 0, TradeRouteRiskManager.MaximumRiskScore),
+                EconomicShortageLabel = shortageLabel ?? string.Empty,
+                EconomicOfferExpiresMilliseconds = Math.Max(0L, offerExpiresMilliseconds),
+                IsEconomicInterdiction = true,
+                InterdictionSourceAvailableQuantity = Math.Max(0, GetManifestQuantity(shipment, commodity.Id)),
+                InterdictionRemainingPossibleQuantity = Math.Max(0, GetManifestQuantity(shipment, commodity.Id)),
+                InterdictionStage = ShipmentInterdictionStage.Intercept
+            };
+            mission.SetOrigin(origin);
+            return mission;
+        }
+
+        private static int GetManifestQuantity(EconomicShipment shipment, string commodityId) =>
+            shipment?.Manifest?.Stacks
+                .Where(stack => string.Equals(stack?.Commodity?.Id, commodityId, StringComparison.OrdinalIgnoreCase))
+                .Sum(stack => Math.Max(0, stack.Quantity)) ?? 0;
+
         private Mission(
             int id,
             string definitionId,
@@ -1505,6 +1594,7 @@ namespace Roguelancer
             MissionType.TradeLaneDefense => "TRADE-LANE DEFENSE",
             MissionType.ConvoyEscort => "CONVOY ESCORT",
             MissionType.ConvoyRaid => "CARGO INTERDICTION",
+            MissionType.ShipmentInterdiction => "SHIPMENT INTERDICTION",
             MissionType.ContrabandSmuggling => "CONTRABAND SMUGGLING",
             _ => "MISSION"
         };
@@ -1546,8 +1636,9 @@ namespace Roguelancer
         public string GetCargoLabel()
         {
             bool raid = Type == MissionType.ConvoyRaid;
-            string cargoId = raid ? RaidCommodityId : PackageId;
-            int quantity = raid ? RaidRequiredQuantity : PackageQuantity;
+            bool interdiction = Type == MissionType.ShipmentInterdiction;
+            string cargoId = raid ? RaidCommodityId : interdiction ? CommodityId : PackageId;
+            int quantity = raid ? RaidRequiredQuantity : interdiction ? RequiredQuantity : PackageQuantity;
             Commodity commodity = CommodityCatalog.GetByIdOrName(cargoId);
             string label = commodity?.Name ?? (string.IsNullOrWhiteSpace(cargoId) ? "Mission package" : cargoId);
             return quantity > 0 ? $"{label} x{quantity}" : label;
@@ -1596,6 +1687,13 @@ namespace Roguelancer
                     ? $"Recover {RaidRequiredQuantity:N0} cargo units"
                     : $"{raidCommodity.Name} x{RaidRequiredQuantity:N0}";
             }
+            if (Type == MissionType.ShipmentInterdiction)
+            {
+                Commodity commodity = CommodityCatalog.GetByIdOrName(CommodityId);
+                return commodity == null
+                    ? $"Recover {RequiredQuantity:N0} cargo units"
+                    : $"{commodity.Name} x{RequiredQuantity:N0}";
+            }
             if (!string.IsNullOrWhiteSpace(Target))
             {
                 if (Type == MissionType.Escort && TargetSpaceObject is NpcShip escortShip && !escortShip.IsDestroyed)
@@ -1614,7 +1712,7 @@ namespace Roguelancer
 
         public string GetDestinationLabel() => !string.IsNullOrWhiteSpace(Destination)
             ? Destination.Trim()
-            : Type is MissionType.Escort or MissionType.ConvoyEscort or MissionType.ConvoyRaid or MissionType.Delivery or MissionType.CourierDelivery or MissionType.FreightContract or MissionType.ExportContract or MissionType.ContrabandSmuggling ? "Destination unavailable" : "Location unavailable";
+            : Type is MissionType.Escort or MissionType.ConvoyEscort or MissionType.ConvoyRaid or MissionType.ShipmentInterdiction or MissionType.Delivery or MissionType.CourierDelivery or MissionType.FreightContract or MissionType.ExportContract or MissionType.ContrabandSmuggling ? "Destination unavailable" : "Location unavailable";
 
         public string GetTargetFactionLabel() => FactionManager.GetFactionDisplayName(
             string.IsNullOrWhiteSpace(BountyTargetFactionId) ? FactionId : BountyTargetFactionId);
@@ -1634,6 +1732,7 @@ namespace Roguelancer
             MissionType.TradeLaneDefense => $"Defend {GetTargetLabel()} against Liberty Rogues",
             MissionType.ConvoyEscort => $"Escort merchant convoy ({ConvoyShipCount} freighters) from {OriginStationName} to {GetDestinationLabel()}",
             MissionType.ConvoyRaid => $"Interdict convoy and recover {GetTargetLabel()} along the {TargetLocation} corridor",
+            MissionType.ShipmentInterdiction => $"Intercept {GetTargetLabel()} and recover the cargo for {OriginStationName}",
             _ => Description
         };
 
@@ -1654,6 +1753,7 @@ namespace Roguelancer
             MissionType.TradeLaneDefense => GetTradeLaneDefenseHudStatus(),
             MissionType.ConvoyEscort => GetConvoyEscortHudStatus(),
             MissionType.ConvoyRaid => GetConvoyRaidHudStatus(),
+            MissionType.ShipmentInterdiction => GetShipmentInterdictionHudStatus(),
             _ => string.Empty
         };
 
@@ -1669,6 +1769,7 @@ namespace Roguelancer
             MissionType.TradeLaneDefense => GetTradeLaneDefenseHudStatus(),
             MissionType.ConvoyEscort => GetConvoyEscortHudStatus(),
             MissionType.ConvoyRaid => GetConvoyRaidHudStatus(),
+            MissionType.ShipmentInterdiction => GetShipmentInterdictionHudStatus(),
             _ => GetObjectiveText()
         };
 
@@ -1738,6 +1839,25 @@ namespace Roguelancer
             if (RaidStage == ConvoyRaidStage.InterceptionActive)
                 return $"INTERCEPT TRANSPORTS | {cargoName}: {Math.Max(0, RaidCargoRecoveredQuantity)} / {Math.Max(0, RaidRequiredQuantity)}";
             return $"INTERDICTED CARGO: {Math.Max(0, RaidCargoRecoveredQuantity)} / {Math.Max(0, RaidRequiredQuantity)} | REMAINING POSSIBLE: {Math.Max(0, RaidRemainingPossibleQuantity)}";
+        }
+
+        public string GetShipmentInterdictionHudStatus()
+        {
+            if (Type != MissionType.ShipmentInterdiction)
+                return string.Empty;
+            Commodity commodity = CommodityCatalog.GetByIdOrName(CommodityId);
+            string cargoName = commodity?.Name ?? CommodityId;
+            int recovered = Math.Max(0, CurrentProgress);
+            int required = Math.Max(0, RequiredQuantity);
+            if (Status == MissionStatus.Failed || InterdictionStage == ShipmentInterdictionStage.Failed)
+                return "INTERDICTION FAILED";
+            if (ObjectiveComplete || InterdictionStage == ShipmentInterdictionStage.Successful)
+                return $"RETURN TO {OriginStationName} | {cargoName}: {recovered} / {required}";
+            if (InterdictionTargetDelivered)
+                return $"SHIPMENT DELIVERED — RECOVERED: {cargoName} {recovered} / {required}";
+            if (InterdictionTargetDestroyed)
+                return $"RECOVER CARGO | {cargoName}: {recovered} / {required} | POSSIBLE: {Math.Max(0, InterdictionRemainingPossibleQuantity)}";
+            return $"INTERDICTION TARGET | {cargoName}: {recovered} / {required} | IN TRANSIT TO {GetDestinationLabel()}";
         }
 
         public string GetSmugglingHudStatus()

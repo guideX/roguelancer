@@ -328,7 +328,7 @@ namespace Roguelancer
             NpcShip ship = CreateNpc("Rogue Save Isolation", FactionManager.LibertyRogues, TrafficZoneBehaviorType.PirateAmbush);
             Destroy(ship, NpcDestructionSource.Player);
             service.EvaluateDestruction(ship);
-            return SaveGameData.CurrentSchemaVersion == 11 &&
+            return new SaveGameData().SchemaVersion == SaveGameData.CurrentSchemaVersion &&
                    !save.Contains("Salvage", StringComparison.OrdinalIgnoreCase) &&
                    !save.Contains("CargoPod", StringComparison.OrdinalIgnoreCase) &&
                    credits.Credits == 500 && cargo.UsedCapacity == 0

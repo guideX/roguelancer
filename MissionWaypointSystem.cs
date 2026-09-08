@@ -135,6 +135,12 @@ namespace Roguelancer
                     data.ResolvedTarget = raidLeader.Position;
                     mission.TargetPosition = data.ResolvedTarget;
                 }
+                else if (mission.Type == MissionType.ShipmentInterdiction &&
+                    data.TargetObject is NpcShip shipmentTrader && !shipmentTrader.IsDestroyed)
+                {
+                    data.ResolvedTarget = shipmentTrader.Position;
+                    mission.TargetPosition = data.ResolvedTarget;
+                }
 
                 if (data.ResolvedTarget == null) continue;
 
@@ -296,6 +302,20 @@ namespace Roguelancer
                         {
                             data.ResolvedTarget = mission.TargetPosition.Value;
                         }
+                    }
+
+                    data.DestinationObject = FindSpaceObjectByName(spaceObjects, mission.Destination);
+                    break;
+
+                case MissionType.ShipmentInterdiction:
+                    if (mission.TargetSpaceObject is NpcShip shipmentTrader && !shipmentTrader.IsDestroyed)
+                    {
+                        data.ResolvedTarget = shipmentTrader.Position;
+                        data.TargetObject = shipmentTrader;
+                    }
+                    else if (mission.TargetPosition.HasValue)
+                    {
+                        data.ResolvedTarget = mission.TargetPosition.Value;
                     }
 
                     data.DestinationObject = FindSpaceObjectByName(spaceObjects, mission.Destination);

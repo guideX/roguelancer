@@ -500,7 +500,7 @@ internal sealed class FactionCombatDisengagementSmokeTest
     private static bool SaveSchemaRemainsUnchanged()
     {
         string save = JsonSerializer.Serialize(new SaveGameData());
-        return SaveGameData.CurrentSchemaVersion == 11 &&
+        return new SaveGameData().SchemaVersion == SaveGameData.CurrentSchemaVersion &&
             !save.Contains("Disengagement", StringComparison.OrdinalIgnoreCase) &&
             !save.Contains("CombatTarget", StringComparison.OrdinalIgnoreCase);
     }

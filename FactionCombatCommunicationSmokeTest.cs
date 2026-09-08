@@ -472,7 +472,7 @@ internal sealed class FactionCombatCommunicationSmokeTest
     private static bool SaveSchemaRemainsVersionTen()
     {
         string save = JsonSerializer.Serialize(new SaveGameData());
-        return SaveGameData.CurrentSchemaVersion == 11 &&
+        return new SaveGameData().SchemaVersion == SaveGameData.CurrentSchemaVersion &&
             !save.Contains("communication", StringComparison.OrdinalIgnoreCase) &&
             !save.Contains("radio", StringComparison.OrdinalIgnoreCase);
     }

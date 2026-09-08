@@ -27,6 +27,7 @@ namespace Roguelancer
         public TradeLane RaidTradeLane { get; set; }
         public Station RaidDestination { get; set; }
         public List<NpcShip> RaidShips { get; } = new();
+        public NpcShip InterdictionTarget { get; set; }
         // Transient encounter binding is deliberately not serialized. A
         // restored active defense mission starts unbound and reconstructs its
         // Rogue group once; a live encounter that has been defeated must not
@@ -130,6 +131,8 @@ namespace Roguelancer
                     return TryBindConvoyEscortMission(state, out failureReason);
                 case MissionType.ConvoyRaid:
                     return TryBindConvoyRaidMission(state, out failureReason);
+                case MissionType.ShipmentInterdiction:
+                    return TryBindShipmentInterdictionMission(state, out failureReason);
                 case MissionType.ContrabandSmuggling:
                     return TryBindSmugglingMission(state, out failureReason);
                 default:
@@ -337,6 +340,10 @@ namespace Roguelancer
             {
                 TryBindConvoyRaidMission(state, out _);
             }
+            else if (mission.Type == MissionType.ShipmentInterdiction)
+            {
+                TryBindShipmentInterdictionMission(state, out _);
+            }
         }
 
         public void OnMissionFinished(Mission mission)
@@ -370,7 +377,8 @@ namespace Roguelancer
 
                 if (state.BountyTarget == ship || state.EscortTarget == ship ||
                     state.MissionHostiles.Contains(ship) || state.ConvoyShips.Contains(ship) ||
-                    state.ConvoyHostiles.Contains(ship) || state.RaidShips.Contains(ship))
+                    state.ConvoyHostiles.Contains(ship) || state.RaidShips.Contains(ship) ||
+                    state.InterdictionTarget == ship)
                     return true;
             }
 
@@ -458,6 +466,27 @@ namespace Roguelancer
                         mission.RaidDestroyedCount = Math.Min(mission.RaidShipCount, mission.RaidDestroyedCount + 1);
                         _missionManager?.ShowNotification("Transport destroyed — recover its cargo", 3f);
                     }
+                    return;
+                }
+
+                if (mission.IsShipmentInterdictionMission() && state.InterdictionTarget == destroyedShip)
+                {
+                    if (_economicShipments?.TryGetShipment(destroyedShip, out EconomicShipment shipment) == true)
+                    {
+                        // Once the trader is destroyed, all remaining
+                        // onboard units can only arrive as physical salvage.
+                        // Keep the authoritative quantity in Released rather
+                        // than counting it both as onboard and as a pod.
+                        mission.InterdictionSourceAvailableQuantity = 0;
+                    }
+                    mission.InterdictionTargetDestroyed = true;
+                    mission.InterdictionStage = ShipmentInterdictionStage.Recover;
+                    mission.TargetSpaceObject = null;
+                    mission.TargetPosition = destroyedShip.Position;
+                    mission.InterdictionRemainingPossibleQuantity = Math.Max(
+                        mission.InterdictionRemainingPossibleQuantity,
+                        mission.InterdictionSourceAvailableQuantity);
+                    _missionManager?.ShowNotification("Interdiction target destroyed — recover the real cargo", 3f);
                     return;
                 }
 
@@ -819,6 +848,31 @@ namespace Roguelancer
                     break;
                 }
 
+                if (mission.Type == MissionType.ShipmentInterdiction)
+                {
+                    if (!TryBindShipmentInterdictionMission(state, out string interdictionBindFailure))
+                    {
+                        pendingFailureMission = mission;
+                        pendingFailure = interdictionBindFailure;
+                        break;
+                    }
+
+                    UpdateShipmentInterdictionMission(
+                        state,
+                        out bool interdictionComplete,
+                        out string interdictionFailure);
+                    if (!string.IsNullOrWhiteSpace(interdictionFailure))
+                    {
+                        pendingFailureMission = mission;
+                        pendingFailure = interdictionFailure;
+                    }
+                    else if (interdictionComplete)
+                    {
+                        pendingCompletion = mission;
+                    }
+                    break;
+                }
+
                 if (mission.Type != MissionType.Escort)
                 {
                     continue;
@@ -1167,6 +1221,185 @@ namespace Roguelancer
             if (!mission.ConvoyRouteStarted)
                 shipment.Trader.SetMissionHoldPosition(true, mission.ConvoyRendezvousPosition.Value);
             return true;
+        }
+
+        private bool TryBindShipmentInterdictionMission(MissionRuntimeState state, out string failureReason)
+        {
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            if (mission == null || _economicShipments == null || !mission.IsEconomicInterdiction ||
+                FactionManager.NormalizeFactionId(mission.FactionId) != FactionManager.LibertyRogues ||
+                string.IsNullOrWhiteSpace(mission.EconomicShipmentTraderIdentity) ||
+                string.IsNullOrWhiteSpace(mission.EconomicShipmentRouteId) ||
+                string.IsNullOrWhiteSpace(mission.CommodityId) || mission.RequiredQuantity <= 0)
+            {
+                failureReason = "shipment-interdiction metadata is invalid";
+                return false;
+            }
+
+            // A destroyed/delivered target is intentionally not reconstructed
+            // from the live traffic list on load. Durable mission state plus
+            // saved physical pods is sufficient to continue recovery.
+            if (mission.InterdictionTargetDestroyed || mission.InterdictionTargetDelivered)
+            {
+                mission.TargetSpaceObject = null;
+                mission.InterdictionStage = ShipmentInterdictionStage.Recover;
+                return true;
+            }
+
+            if (state.InterdictionTarget != null)
+            {
+                if (mission.InterdictionTargetDestroyed || mission.InterdictionTargetDelivered ||
+                    state.InterdictionTarget.IsDestroyed || _npcShips.Contains(state.InterdictionTarget))
+                {
+                    mission.TargetSpaceObject = mission.InterdictionTargetDestroyed ? null : state.InterdictionTarget;
+                    mission.TargetPosition = mission.InterdictionTargetDestroyed
+                        ? mission.TargetPosition
+                        : state.InterdictionTarget.Position;
+                    return true;
+                }
+            }
+
+            if (!_economicShipments.TryGetShipmentByIdentity(
+                    mission.EconomicShipmentTraderIdentity,
+                    out EconomicShipment shipment) ||
+                shipment?.Trader == null ||
+                !string.Equals(shipment.RouteId, mission.EconomicShipmentRouteId, StringComparison.OrdinalIgnoreCase))
+            {
+                if (_economicShipments.TryGetSettlementByIdentity(
+                        mission.EconomicShipmentTraderIdentity,
+                        out EconomicShipmentSettlement settlement))
+                {
+                    if (settlement == EconomicShipmentSettlement.Delivered)
+                    {
+                        mission.InterdictionTargetDelivered = true;
+                        mission.InterdictionSourceAvailableQuantity = 0;
+                        mission.InterdictionStage = ShipmentInterdictionStage.Recover;
+                        return true;
+                    }
+
+                    mission.InterdictionTargetDestroyed = true;
+                    mission.InterdictionSourceAvailableQuantity = 0;
+                    mission.InterdictionStage = ShipmentInterdictionStage.Recover;
+                    return true;
+                }
+
+                failureReason = "the live economic shipment is no longer available";
+                return false;
+            }
+
+            if (shipment.InterdictionMissionId > 0 && shipment.InterdictionMissionId != mission.Id)
+            {
+                failureReason = "the economic shipment is already claimed by another mission";
+                return false;
+            }
+            if (shipment.EscortMissionId > 0)
+            {
+                failureReason = "the economic shipment is already under escort";
+                return false;
+            }
+            if (shipment.InterdictionMissionId <= 0 &&
+                !_economicShipments.TryAttachEconomicInterdiction(mission.Id, mission.EconomicShipmentTraderIdentity))
+            {
+                failureReason = "the economic shipment could not be reserved for interdiction";
+                return false;
+            }
+
+            Station destination = GetKnownStations().FirstOrDefault(candidate =>
+                MatchesEconomicStationId(candidate, shipment.DestinationStationId));
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+            int available = _economicShipments.GetRemainingCommodityQuantity(shipment, mission.CommodityId);
+            if (destination == null || commodity == null || commodity.IsContraband || commodity.IsMissionCargo ||
+                available < mission.RequiredQuantity || !_npcShips.Contains(shipment.Trader))
+            {
+                failureReason = "the live shipment no longer carries the required cargo";
+                return false;
+            }
+
+            state.InterdictionTarget = shipment.Trader;
+            mission.TargetSpaceObject = shipment.Trader;
+            mission.TargetPosition = shipment.Trader.Position;
+            mission.DestinationStationId = Mission.BuildStationIdentity(destination);
+            mission.TargetSystemIndex = destination.Config?.SystemIndex ?? mission.TargetSystemIndex;
+            mission.InterdictionSourceAvailableQuantity = Math.Max(
+                mission.InterdictionSourceAvailableQuantity,
+                available);
+            mission.InterdictionRemainingPossibleQuantity = Math.Max(
+                mission.InterdictionRemainingPossibleQuantity,
+                available);
+            return true;
+        }
+
+        private void UpdateShipmentInterdictionMission(
+            MissionRuntimeState state,
+            out bool complete,
+            out string failureReason)
+        {
+            complete = false;
+            failureReason = string.Empty;
+            Mission mission = state?.Mission;
+            if (mission == null || _playerShip == null || !mission.IsEconomicInterdiction)
+            {
+                failureReason = "shipment-interdiction binding became invalid";
+                return;
+            }
+
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+            if (commodity == null || _playerShip.CargoHold == null)
+            {
+                failureReason = "shipment-interdiction cargo authority is unavailable";
+                return;
+            }
+
+            int held = Math.Max(0, _playerShip.CargoHold.GetMissionCargoQuantity(mission.Id));
+            mission.InterdictionCargoRecoveredQuantity = held;
+            mission.CurrentProgress = Math.Min(mission.RequiredQuantity, held);
+            mission.InterdictionRemainingPossibleQuantity = GetInterdictionPossibleQuantity(mission);
+
+            if (held >= mission.RequiredQuantity)
+            {
+                mission.InterdictionStage = ShipmentInterdictionStage.Successful;
+                mission.ObjectiveComplete = true;
+                complete = true;
+                return;
+            }
+
+            if (state.InterdictionTarget != null && !state.InterdictionTarget.IsDestroyed &&
+                _economicShipments.TryGetShipment(state.InterdictionTarget, out EconomicShipment activeShipment))
+            {
+                mission.TargetSpaceObject = state.InterdictionTarget;
+                mission.TargetPosition = state.InterdictionTarget.Position;
+                mission.InterdictionStage = ShipmentInterdictionStage.Intercept;
+                return;
+            }
+
+            if (_economicShipments.TryGetSettlementByIdentity(
+                    mission.EconomicShipmentTraderIdentity,
+                    out EconomicShipmentSettlement settlement))
+            {
+                mission.InterdictionTargetDelivered = settlement == EconomicShipmentSettlement.Delivered;
+                mission.InterdictionTargetDestroyed |= settlement == EconomicShipmentSettlement.Lost;
+                if (mission.InterdictionTargetDelivered)
+                    mission.InterdictionSourceAvailableQuantity = 0;
+                mission.InterdictionStage = ShipmentInterdictionStage.Recover;
+            }
+
+            mission.InterdictionRemainingPossibleQuantity = GetInterdictionPossibleQuantity(mission);
+            if (mission.InterdictionRemainingPossibleQuantity < mission.RequiredQuantity)
+            {
+                failureReason = mission.InterdictionTargetDelivered
+                    ? "the shipment reached its destination before enough cargo was recovered"
+                    : "not enough attributed shipment cargo remains recoverable";
+                return;
+            }
+        }
+
+        private static int GetInterdictionPossibleQuantity(Mission mission)
+        {
+            if (mission == null)
+                return 0;
+            int physical = Math.Max(0, mission.InterdictionReleasedQuantity - mission.InterdictionCargoLostQuantity);
+            return Math.Max(0, mission.InterdictionSourceAvailableQuantity) + physical;
         }
 
         private bool MatchesEconomicStationId(Station station, string economicStationId)
@@ -1578,6 +1811,15 @@ namespace Roguelancer
                     return true;
                 }
 
+                if (mission.IsShipmentInterdictionMission() && state.InterdictionTarget == target)
+                {
+                    if (!target.IsDestroyed && _economicShipments?.TryGetManifestSnapshot(target, out snapshot) == true)
+                        return true;
+
+                    snapshot = NpcCargoManifestSnapshot.NoRegisteredCargo();
+                    return true;
+                }
+
                 if (mission.IsEconomicEscort && state.ConvoyShips.Contains(target) &&
                     _economicShipments?.TryGetManifestSnapshot(target, out snapshot) == true)
                     return true;
@@ -1594,11 +1836,76 @@ namespace Roguelancer
             return false;
         }
 
+        public bool IsPiracyDemandAllowed(NpcShip target)
+        {
+            if (target == null)
+                return false;
+
+            return _runtimeStates.Values.Any(state =>
+                state?.Mission?.IsShipmentInterdictionMission() == true &&
+                state.Mission.Status is MissionStatus.Active or MissionStatus.InProgress &&
+                state.InterdictionTarget == target && !target.IsDestroyed);
+        }
+
+        public bool IsInterdictionDemandCommodity(NpcShip target, string commodityId)
+        {
+            if (target == null || string.IsNullOrWhiteSpace(commodityId))
+                return false;
+
+            return _runtimeStates.Values.Any(state =>
+                state?.Mission?.IsShipmentInterdictionMission() == true &&
+                state.Mission.Status is MissionStatus.Active or MissionStatus.InProgress &&
+                state.InterdictionTarget == target &&
+                string.Equals(state.Mission.CommodityId, commodityId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public MissionCargoDrop GetEconomicMissionCargoDrop(NpcShip target, string commodityId, int quantity)
+        {
+            if (target == null || string.IsNullOrWhiteSpace(commodityId) || quantity <= 0)
+                return null;
+
+            foreach (MissionRuntimeState state in _runtimeStates.Values)
+            {
+                Mission mission = state?.Mission;
+                if (mission?.IsShipmentInterdictionMission() != true ||
+                    mission.Status is not (MissionStatus.Active or MissionStatus.InProgress) ||
+                    state.InterdictionTarget != target ||
+                    !string.Equals(mission.CommodityId, commodityId, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                return new MissionCargoDrop
+                {
+                    MissionId = mission.Id,
+                    SourceIndex = 0,
+                    CommodityId = commodityId,
+                    Quantity = Math.Clamp(quantity, 1, 40),
+                    SourceNpcName = target.Name ?? string.Empty,
+                    SourcePosition = target.Position
+                };
+            }
+
+            return null;
+        }
+
         public void NotifyMissionCargoPodSpawned(CargoPod pod)
         {
             if (pod == null || !pod.IsMissionCargo || !_runtimeStates.TryGetValue(pod.MissionId, out MissionRuntimeState state))
                 return;
             Mission mission = state.Mission;
+            if (mission?.IsShipmentInterdictionMission() == true)
+            {
+                if (string.Equals(pod.CommodityId, mission.CommodityId, StringComparison.OrdinalIgnoreCase))
+                {
+                    mission.InterdictionSourceAvailableQuantity = Math.Max(
+                        0,
+                        mission.InterdictionSourceAvailableQuantity - pod.Quantity);
+                    mission.InterdictionReleasedQuantity = Math.Max(
+                        0,
+                        mission.InterdictionReleasedQuantity + pod.Quantity);
+                    mission.InterdictionRemainingPossibleQuantity = GetInterdictionPossibleQuantity(mission);
+                }
+                return;
+            }
             int index = pod.MissionCargoSourceIndex;
             if (mission == null || !mission.IsConvoyRaidMission() || index < 0 || index >= mission.RaidShipCount ||
                 (mission.RaidCargoReleasedMask & (1 << index)) != 0)
@@ -1622,6 +1929,15 @@ namespace Roguelancer
                     0,
                     state.Mission.RaidTotalAllocatedQuantity);
             }
+            else if (state.Mission?.IsShipmentInterdictionMission() == true && _playerShip.CargoHold != null)
+            {
+                state.Mission.InterdictionCargoRecoveredQuantity = Math.Max(
+                    0,
+                    _playerShip.CargoHold.GetMissionCargoQuantity(pod.MissionId));
+                state.Mission.CurrentProgress = Math.Min(
+                    state.Mission.RequiredQuantity,
+                    state.Mission.InterdictionCargoRecoveredQuantity);
+            }
         }
 
         public void NotifyMissionCargoPodExpired(CargoPod pod, int quantity)
@@ -1630,6 +1946,14 @@ namespace Roguelancer
                 !_runtimeStates.TryGetValue(pod.MissionId, out MissionRuntimeState state))
                 return;
             Mission mission = state.Mission;
+            if (mission?.IsShipmentInterdictionMission() == true)
+            {
+                mission.InterdictionCargoLostQuantity = Math.Max(
+                    0,
+                    mission.InterdictionCargoLostQuantity + quantity);
+                mission.InterdictionRemainingPossibleQuantity = GetInterdictionPossibleQuantity(mission);
+                return;
+            }
             if (mission?.IsConvoyRaidMission() != true)
                 return;
             mission.RaidCargoLostQuantity = Math.Min(
@@ -1642,6 +1966,17 @@ namespace Roguelancer
             if (drop == null || drop.Quantity <= 0 || !_runtimeStates.TryGetValue(drop.MissionId, out MissionRuntimeState state))
                 return;
             Mission mission = state.Mission;
+            if (mission?.IsShipmentInterdictionMission() == true)
+            {
+                mission.InterdictionSourceAvailableQuantity = Math.Max(
+                    0,
+                    mission.InterdictionSourceAvailableQuantity - drop.Quantity);
+                mission.InterdictionCargoLostQuantity = Math.Max(
+                    0,
+                    mission.InterdictionCargoLostQuantity + drop.Quantity);
+                mission.InterdictionRemainingPossibleQuantity = GetInterdictionPossibleQuantity(mission);
+                return;
+            }
             if (mission?.IsConvoyRaidMission() != true || drop.SourceIndex < 0 || drop.SourceIndex >= mission.RaidShipCount ||
                 (mission.RaidCargoReleasedMask & (1 << drop.SourceIndex)) != 0)
                 return;
@@ -2657,7 +2992,8 @@ namespace Roguelancer
             if (state?.Mission == null ||
                 (state.Mission.Type != MissionType.TradeLaneDefense &&
                  state.Mission.Type != MissionType.ConvoyEscort &&
-                 state.Mission.Type != MissionType.ConvoyRaid))
+                 state.Mission.Type != MissionType.ConvoyRaid &&
+                 !state.Mission.IsShipmentInterdictionMission()))
                 return;
 
             if (state.Mission.IsEconomicEscort)
@@ -2675,6 +3011,13 @@ namespace Roguelancer
                 }
                 state.ConvoyShips.Clear();
                 state.ConvoyHostiles.Clear();
+                return;
+            }
+
+            if (state.Mission.IsShipmentInterdictionMission())
+            {
+                _economicShipments?.ReleaseEconomicInterdiction(state.Mission.Id);
+                state.InterdictionTarget = null;
                 return;
             }
 

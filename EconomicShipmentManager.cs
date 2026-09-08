@@ -58,6 +58,10 @@ public sealed class EconomicShipment
     public bool EscortOfferIssued { get; internal set; }
     public long EscortOfferExpiresMilliseconds { get; internal set; }
     public bool EscortOfferExpired { get; internal set; }
+    public int InterdictionMissionId { get; internal set; }
+    public bool InterdictionOfferIssued { get; internal set; }
+    public long InterdictionOfferExpiresMilliseconds { get; internal set; }
+    public bool InterdictionOfferExpired { get; internal set; }
     public int InitialManifestValue => Manifest?.Stacks.Sum(stack =>
         Math.Max(0, stack.InitialQuantity) * Math.Max(0, stack.Commodity?.BasePrice ?? 0)) ?? 0;
     public int RemainingManifestValue => Manifest?.Stacks.Sum(stack =>
@@ -85,6 +89,7 @@ public sealed class EconomicShipmentManager
     private readonly Func<IEnumerable<Station>> _stationsProvider;
     private readonly Func<NpcShip, bool> _isMissionOwned;
     private readonly Dictionary<NpcShip, EconomicShipment> _active = new();
+    private readonly Dictionary<string, EconomicShipmentSettlement> _settlementHistory = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PendingShipment> _pendingRebind = new(StringComparer.Ordinal);
     private AdaptiveTraderRoutingPlanner _routingPlanner;
     private TradeRouteRiskManager _riskManager;
@@ -110,6 +115,9 @@ public sealed class EconomicShipmentManager
     public const int DynamicEscortRiskThreshold = 40;
     public const int DynamicEscortValueThreshold = 2_500;
     public const long DynamicEscortOfferLifetimeMilliseconds = 90_000L;
+    public const int DynamicInterdictionValueThreshold = 2_500;
+    public const long DynamicInterdictionOfferLifetimeMilliseconds = 60_000L;
+    public const int MaximumDynamicInterdictionCandidates = 16;
 
     /// <summary>
     /// Installs the current system's configured TraderRoute view. The traffic
@@ -210,6 +218,18 @@ public sealed class EconomicShipmentManager
     public int GetEffectiveRouteRisk(EconomicShipment shipment) =>
         shipment == null ? 0 : GetRiskForShipment(shipment);
 
+    public int GetRemainingCommodityQuantity(EconomicShipment shipment, string commodityId) =>
+        shipment?.Manifest?.Stacks
+            .Where(stack => string.Equals(stack?.Commodity?.Id, commodityId, StringComparison.OrdinalIgnoreCase))
+            .Sum(stack => Math.Max(0, stack.Quantity)) ?? 0;
+
+    public bool TryGetSettlementByIdentity(string traderIdentity, out EconomicShipmentSettlement settlement)
+    {
+        settlement = EconomicShipmentSettlement.Active;
+        return !string.IsNullOrWhiteSpace(traderIdentity) &&
+            _settlementHistory.TryGetValue(traderIdentity.Trim(), out settlement);
+    }
+
     public IReadOnlyList<EconomicShipment> GetEscortCandidates(Station originStation)
     {
         if (_riskManager == null)
@@ -220,6 +240,7 @@ public sealed class EconomicShipmentManager
         return _active.Values
             .Where(shipment => shipment?.Settlement == EconomicShipmentSettlement.Active &&
                 shipment.EscortMissionId <= 0 &&
+                shipment.InterdictionMissionId <= 0 &&
                 shipment.RemainingQuantity >= MinimumShipmentQuantity &&
                 (string.IsNullOrWhiteSpace(originId) ||
                  string.Equals(shipment.OriginStationId, originId, StringComparison.OrdinalIgnoreCase)) &&
@@ -238,6 +259,8 @@ public sealed class EconomicShipmentManager
         if (missionId <= 0 || !TryGetShipmentByIdentity(traderIdentity, out EconomicShipment shipment))
             return false;
         if (shipment.EscortMissionId > 0 && shipment.EscortMissionId != missionId)
+            return false;
+        if (shipment.InterdictionMissionId > 0)
             return false;
         shipment.EscortMissionId = missionId;
         shipment.EscortOfferIssued = false;
@@ -264,6 +287,110 @@ public sealed class EconomicShipmentManager
         shipment.EscortOfferExpiresMilliseconds = Math.Max(0L, expiresMilliseconds);
         shipment.EscortOfferExpired = false;
         return true;
+    }
+
+    public IReadOnlyList<EconomicShipment> GetInterdictionCandidates(Station originStation, int maximumCandidates = MaximumDynamicInterdictionCandidates)
+    {
+        int boundedMaximum = Math.Clamp(maximumCandidates, 0, MaximumDynamicInterdictionCandidates);
+        if (originStation == null || boundedMaximum == 0)
+            return Array.Empty<EconomicShipment>();
+
+        long now = _marketManager.ElapsedMilliseconds;
+        return _active.Values
+            .Where(shipment => shipment?.Settlement == EconomicShipmentSettlement.Active &&
+                shipment.Trader != null && !shipment.Trader.IsDestroyed &&
+                !_isMissionOwned(shipment.Trader) &&
+                shipment.RemainingQuantity >= MinimumShipmentQuantity &&
+                shipment.InterdictionMissionId <= 0 && shipment.EscortMissionId <= 0 &&
+                IsInterdictionInScope(originStation, shipment) &&
+                (shipment.RemainingManifestValue >= DynamicInterdictionValueThreshold ||
+                 IsSevereDestinationShortage(shipment)) &&
+                (!shipment.InterdictionOfferIssued || shipment.InterdictionOfferExpiresMilliseconds > now))
+            .OrderByDescending(GetInterdictionScore)
+            .ThenByDescending(shipment => shipment.RemainingManifestValue)
+            .ThenBy(shipment => shipment.TraderIdentity, StringComparer.Ordinal)
+            .Take(boundedMaximum)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Rogue intelligence is local to the contact's system. The commercial
+    /// origin may be a different station on the same system, so acceptance
+    /// must use this visibility rule rather than requiring the contact to be
+    /// the shipment's market origin.
+    /// </summary>
+    public bool IsInterdictionInScope(Station originStation, EconomicShipment shipment)
+    {
+        if (originStation == null || shipment == null ||
+            shipment.Settlement != EconomicShipmentSettlement.Active)
+            return false;
+
+        Station shipmentOrigin = FindMarketStation(shipment.OriginStationId);
+        return shipmentOrigin != null &&
+            (shipmentOrigin.Config?.SystemIndex ?? 0) == (originStation.Config?.SystemIndex ?? 0);
+    }
+
+    public int GetInterdictionScore(EconomicShipment shipment)
+    {
+        if (shipment == null)
+            return int.MinValue;
+
+        int risk = GetRiskForShipment(shipment);
+        int shortageBonus = IsSevereDestinationShortage(shipment) ? 1_500 : 0;
+        int progressBonus = Math.Clamp(shipment.RemainingQuantity * 20, 0, 500);
+        return Math.Clamp(
+            Math.Max(0, shipment.RemainingManifestValue) + risk * 25 + shortageBonus + progressBonus,
+            0,
+            int.MaxValue);
+    }
+
+    public bool TryAttachEconomicInterdiction(int missionId, string traderIdentity)
+    {
+        if (missionId <= 0 || !TryGetShipmentByIdentity(traderIdentity, out EconomicShipment shipment))
+            return false;
+        if (shipment.InterdictionMissionId > 0 && shipment.InterdictionMissionId != missionId)
+            return false;
+        if (shipment.EscortMissionId > 0)
+            return false;
+
+        shipment.InterdictionMissionId = missionId;
+        shipment.InterdictionOfferIssued = false;
+        shipment.InterdictionOfferExpired = false;
+        return true;
+    }
+
+    public void ReleaseEconomicInterdiction(int missionId)
+    {
+        EconomicShipment shipment = _active.Values.FirstOrDefault(candidate => candidate?.InterdictionMissionId == missionId);
+        if (shipment == null)
+            return;
+
+        shipment.InterdictionMissionId = 0;
+        shipment.InterdictionOfferIssued = false;
+        shipment.InterdictionOfferExpiresMilliseconds = 0L;
+        shipment.InterdictionOfferExpired = true;
+    }
+
+    public bool MarkInterdictionOffer(EconomicShipment shipment, long expiresMilliseconds)
+    {
+        if (shipment == null || shipment.Settlement != EconomicShipmentSettlement.Active ||
+            shipment.InterdictionMissionId > 0)
+            return false;
+
+        shipment.InterdictionOfferIssued = true;
+        shipment.InterdictionOfferExpiresMilliseconds = Math.Max(0L, expiresMilliseconds);
+        shipment.InterdictionOfferExpired = false;
+        return true;
+    }
+
+    public void ExpireInterdictionOffer(string traderIdentity)
+    {
+        if (!TryGetShipmentByIdentity(traderIdentity, out EconomicShipment shipment))
+            return;
+
+        shipment.InterdictionOfferIssued = false;
+        shipment.InterdictionOfferExpiresMilliseconds = 0L;
+        shipment.InterdictionOfferExpired = true;
     }
 
     public void ExpireEscortOffer(string traderIdentity)
@@ -443,6 +570,7 @@ public sealed class EconomicShipmentManager
             stack.Remove(stack.Quantity);
 
         shipment.Settlement = EconomicShipmentSettlement.Delivered;
+        _settlementHistory[shipment.TraderIdentity] = EconomicShipmentSettlement.Delivered;
         if (_riskManager != null)
         {
             _riskManager.RecordSafeDelivery(
@@ -468,6 +596,7 @@ public sealed class EconomicShipmentManager
                     $"destroyed:{shipment.TraderIdentity}");
             }
             shipment.Settlement = EconomicShipmentSettlement.Lost;
+            _settlementHistory[shipment.TraderIdentity] = EconomicShipmentSettlement.Lost;
         }
     }
 
@@ -477,6 +606,7 @@ public sealed class EconomicShipmentManager
             return;
 
         shipment.Settlement = EconomicShipmentSettlement.Lost;
+        _settlementHistory[shipment.TraderIdentity] = EconomicShipmentSettlement.Lost;
         _active.Remove(trader);
     }
 
@@ -488,6 +618,7 @@ public sealed class EconomicShipmentManager
         foreach (TraderCargoStack stack in shipment.Manifest.Snapshot())
             stack.Remove(stack.Quantity);
         shipment.Settlement = EconomicShipmentSettlement.Lost;
+        _settlementHistory[shipment.TraderIdentity] = EconomicShipmentSettlement.Lost;
         _active.Remove(trader);
     }
 
@@ -525,6 +656,7 @@ public sealed class EconomicShipmentManager
             return;
 
         shipment.Settlement = EconomicShipmentSettlement.Lost;
+        _settlementHistory[shipment.TraderIdentity] = EconomicShipmentSettlement.Lost;
         _active.Remove(trader);
     }
 
@@ -553,12 +685,14 @@ public sealed class EconomicShipmentManager
         }
 
         _active.Clear();
+        _settlementHistory.Clear();
     }
 
     public void Reset()
     {
         _active.Clear();
         _pendingRebind.Clear();
+        _settlementHistory.Clear();
         _rebindMode = false;
         _riskManager?.Reset();
     }
@@ -586,6 +720,10 @@ public sealed class EconomicShipmentManager
                 EscortOfferIssued = shipment.EscortOfferIssued,
                 EscortOfferExpiresMilliseconds = shipment.EscortOfferExpiresMilliseconds,
                 EscortOfferExpired = shipment.EscortOfferExpired,
+                InterdictionMissionId = shipment.InterdictionMissionId,
+                InterdictionOfferIssued = shipment.InterdictionOfferIssued,
+                InterdictionOfferExpiresMilliseconds = shipment.InterdictionOfferExpiresMilliseconds,
+                InterdictionOfferExpired = shipment.InterdictionOfferExpired,
                 Stacks = shipment.Manifest.Stacks.Select(stack => new SaveEconomicShipmentStackData
                 {
                     CommodityId = stack.Commodity?.Id ?? string.Empty,
@@ -702,6 +840,10 @@ public sealed class EconomicShipmentManager
         shipment.EscortOfferIssued = state.EscortOfferIssued;
         shipment.EscortOfferExpiresMilliseconds = Math.Max(0L, state.EscortOfferExpiresMilliseconds);
         shipment.EscortOfferExpired = state.EscortOfferExpired;
+        shipment.InterdictionMissionId = Math.Max(0, state.InterdictionMissionId);
+        shipment.InterdictionOfferIssued = state.InterdictionOfferIssued;
+        shipment.InterdictionOfferExpiresMilliseconds = Math.Max(0L, state.InterdictionOfferExpiresMilliseconds);
+        shipment.InterdictionOfferExpired = state.InterdictionOfferExpired;
         return true;
     }
 

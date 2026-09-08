@@ -658,6 +658,15 @@ namespace Roguelancer
                     EconomicRouteRisk = mission.EconomicRouteRisk,
                     EconomicShortageLabel = mission.EconomicShortageLabel ?? string.Empty,
                     EconomicOfferExpiresMilliseconds = mission.EconomicOfferExpiresMilliseconds,
+                    EconomicInterdiction = mission.IsEconomicInterdiction,
+                    InterdictionSourceAvailableQuantity = mission.InterdictionSourceAvailableQuantity,
+                    InterdictionReleasedQuantity = mission.InterdictionReleasedQuantity,
+                    InterdictionCargoLostQuantity = mission.InterdictionCargoLostQuantity,
+                    InterdictionCargoRecoveredQuantity = mission.InterdictionCargoRecoveredQuantity,
+                    InterdictionRemainingPossibleQuantity = mission.InterdictionRemainingPossibleQuantity,
+                    InterdictionStage = mission.InterdictionStage,
+                    InterdictionTargetDestroyed = mission.InterdictionTargetDestroyed,
+                    InterdictionTargetDelivered = mission.InterdictionTargetDelivered,
                      RaidRouteId = mission.RaidRouteId ?? string.Empty,
                      RaidRouteLaneId = mission.RaidRouteLaneId ?? string.Empty,
                      RaidRouteSegmentId = mission.RaidRouteSegmentId ?? string.Empty,
@@ -862,7 +871,7 @@ namespace Roguelancer
                 acceptedAtUtc = parsed;
             }
 
-            return Mission.CreateRestored(
+            Mission mission = Mission.CreateRestored(
                 data.MissionId,
                 data.DefinitionId,
                 data.Title,
@@ -990,6 +999,23 @@ namespace Roguelancer
                 data.EconomicRouteRisk,
                 data.EconomicShortageLabel,
                 data.EconomicOfferExpiresMilliseconds);
+
+            if (mission != null)
+            {
+                mission.IsEconomicInterdiction = data.EconomicInterdiction;
+                mission.InterdictionSourceAvailableQuantity = Math.Max(0, data.InterdictionSourceAvailableQuantity);
+                mission.InterdictionReleasedQuantity = Math.Max(0, data.InterdictionReleasedQuantity);
+                mission.InterdictionCargoLostQuantity = Math.Max(0, data.InterdictionCargoLostQuantity);
+                mission.InterdictionCargoRecoveredQuantity = Math.Max(0, data.InterdictionCargoRecoveredQuantity);
+                mission.InterdictionRemainingPossibleQuantity = Math.Max(0, data.InterdictionRemainingPossibleQuantity);
+                mission.InterdictionStage = Enum.IsDefined(typeof(ShipmentInterdictionStage), data.InterdictionStage)
+                    ? data.InterdictionStage
+                    : ShipmentInterdictionStage.Intercept;
+                mission.InterdictionTargetDestroyed = data.InterdictionTargetDestroyed;
+                mission.InterdictionTargetDelivered = data.InterdictionTargetDelivered;
+            }
+
+            return mission;
         }
 
         private static float NormalizeStanding(float value)

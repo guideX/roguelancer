@@ -358,7 +358,7 @@ namespace Roguelancer
 
         private static (bool Success, string FailureReason) SaveSchemaRemainsVersion10()
         {
-            return Result(SaveGameData.CurrentSchemaVersion == 11, "cruise changed save schema version");
+            return Result(new SaveGameData().SchemaVersion == SaveGameData.CurrentSchemaVersion, "cruise changed save schema version");
         }
 
         private static (bool Success, string FailureReason) ReadyHudIsExplicit()

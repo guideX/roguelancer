@@ -579,7 +579,7 @@ namespace Roguelancer
         }
 
         private (bool Success, string FailureReason) SaveSchemaRemainsVersionTen() =>
-            Result(SaveGameData.CurrentSchemaVersion == 11, "save schema version changed");
+            Result(new SaveGameData().SchemaVersion == SaveGameData.CurrentSchemaVersion, "save schema version changed");
 
         private (bool Success, string FailureReason) MalformedRouteMetadataIsSafe()
         {

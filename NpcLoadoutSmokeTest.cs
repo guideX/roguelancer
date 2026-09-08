@@ -352,7 +352,7 @@ namespace Roguelancer
             return ambient.HasMountedGun() && missionTarget.HasMountedGun() && !escort.HasMountedGun();
         }
 
-        private static bool SaveSchemaRemainsVersionTen() => SaveGameData.CurrentSchemaVersion == 11;
+        private static bool SaveSchemaRemainsVersionTen() => new SaveGameData().SchemaVersion == SaveGameData.CurrentSchemaVersion;
 
         private static void RecordCommodityCandidate(CombatSalvageService service, NpcShip ship, ref string selectedName)
         {

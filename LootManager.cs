@@ -30,6 +30,8 @@ namespace Roguelancer
         private Action<MissionCargoDrop> _missionCargoUnavailableCallback;
         private Func<NpcShip, IReadOnlyList<SalvageDrop>> _economicSalvageResolver;
         private Func<NpcShip, string, int, int> _economicSalvageConsumed;
+        private Func<NpcShip, string, int, MissionCargoDrop> _economicMissionCargoResolver;
+        private Action<MissionCargoDrop> _economicCargoUnavailableCallback;
 
         private bool _hasLastPlayerState;
         private Vector3 _lastPlayerPosition;
@@ -88,10 +90,14 @@ namespace Roguelancer
 
         public void ConfigureEconomicCargoCallbacks(
             Func<NpcShip, IReadOnlyList<SalvageDrop>> salvageResolver,
-            Func<NpcShip, string, int, int> salvageConsumed)
+            Func<NpcShip, string, int, int> salvageConsumed,
+            Func<NpcShip, string, int, MissionCargoDrop> economicMissionCargoResolver = null,
+            Action<MissionCargoDrop> economicCargoUnavailable = null)
         {
             _economicSalvageResolver = salvageResolver;
             _economicSalvageConsumed = salvageConsumed;
+            _economicMissionCargoResolver = economicMissionCargoResolver;
+            _economicCargoUnavailableCallback = economicCargoUnavailable;
         }
 
         public List<SaveCargoPodData> CaptureMissionCargoPods()
@@ -478,6 +484,18 @@ namespace Roguelancer
                 : regularDrops;
             if (drops.Count == 0 || availableSlots <= 0)
             {
+                if (hasEconomicCargo)
+                {
+                    foreach (SalvageDrop drop in economicDrops.Where(candidate => candidate?.IsCommodity == true))
+                    {
+                        MissionCargoDrop unavailable = _economicMissionCargoResolver?.Invoke(
+                            destroyedShip,
+                            drop.CommodityId,
+                            drop.Quantity);
+                        if (unavailable != null)
+                            _economicCargoUnavailableCallback?.Invoke(unavailable);
+                    }
+                }
                 return spawned;
             }
 
@@ -494,6 +512,15 @@ namespace Roguelancer
                     (drop.IsConsumable && (consumable == null || !consumable.IsValid || drop.Quantity <= 0)) ||
                     !TryFindSpawnPosition(destroyedShip, drop.StackIndex, out Vector3 position))
                 {
+                    if (drop.IsCommodity)
+                    {
+                        MissionCargoDrop unavailable = _economicMissionCargoResolver?.Invoke(
+                            destroyedShip,
+                            drop.CommodityId,
+                            drop.Quantity);
+                        if (unavailable != null)
+                            _economicCargoUnavailableCallback?.Invoke(unavailable);
+                    }
                     continue;
                 }
 
@@ -526,6 +553,15 @@ namespace Roguelancer
                             out pod);
                 if (!created)
                 {
+                    if (drop.IsCommodity)
+                    {
+                        MissionCargoDrop unavailable = _economicMissionCargoResolver?.Invoke(
+                            destroyedShip,
+                            drop.CommodityId,
+                            drop.Quantity);
+                        if (unavailable != null)
+                            _economicCargoUnavailableCallback?.Invoke(unavailable);
+                    }
                     continue;
                 }
 
@@ -542,7 +578,19 @@ namespace Roguelancer
                     if (economicQuantity < drop.Quantity)
                         pod.TakeQuantity(drop.Quantity - economicQuantity);
                 }
-                if (!hasEconomicCargo && drop.IsCommodity && IsPlayerPiracySource(destroyedShip))
+                MissionCargoDrop economicMissionDrop = drop.IsCommodity
+                    ? _economicMissionCargoResolver?.Invoke(destroyedShip, drop.CommodityId, economicQuantity)
+                    : null;
+                if (economicMissionDrop != null)
+                {
+                    pod.SetMissionCargoAttribution(
+                        economicMissionDrop.MissionId,
+                        economicMissionDrop.SourceIndex,
+                        economicMissionDrop.SourceNpcName);
+                    _missionCargoPodSpawnedCallback?.Invoke(pod);
+                }
+                if (drop.IsCommodity &&
+                    (IsPlayerPiracySource(destroyedShip) || economicMissionDrop != null))
                     pod.SetStolenProvenance(true);
                 _activePods.Add(pod);
                 spawned++;
@@ -603,6 +651,15 @@ namespace Roguelancer
 
                 pod.SetSalvageSource(trader, CombatSalvageTier.Standard);
                 pod.SetStolenProvenance(true);
+                MissionCargoDrop missionDrop = _economicMissionCargoResolver?.Invoke(trader, commodity.Id, safeQuantity);
+                if (missionDrop != null)
+                {
+                    pod.SetMissionCargoAttribution(
+                        missionDrop.MissionId,
+                        missionDrop.SourceIndex,
+                        missionDrop.SourceNpcName);
+                    _missionCargoPodSpawnedCallback?.Invoke(pod);
+                }
                 _activePods.Add(pod);
                 podCount = 1;
                 log?.Invoke($"[PIRACY] cargo pod spawned: {pod.GetPayloadName()} x{pod.Quantity}");

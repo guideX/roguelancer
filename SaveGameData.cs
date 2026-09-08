@@ -10,7 +10,7 @@ namespace Roguelancer
     /// </summary>
     public sealed class SaveGameData
     {
-        public const int CurrentSchemaVersion = 11;
+        public const int CurrentSchemaVersion = 12;
 
         [JsonPropertyName("schema_version")]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -548,6 +548,33 @@ namespace Roguelancer
         [JsonPropertyName("economic_offer_expires_ms")]
         public long EconomicOfferExpiresMilliseconds { get; set; }
 
+        [JsonPropertyName("economic_interdiction")]
+        public bool EconomicInterdiction { get; set; }
+
+        [JsonPropertyName("interdiction_source_available_quantity")]
+        public int InterdictionSourceAvailableQuantity { get; set; }
+
+        [JsonPropertyName("interdiction_released_quantity")]
+        public int InterdictionReleasedQuantity { get; set; }
+
+        [JsonPropertyName("interdiction_cargo_lost_quantity")]
+        public int InterdictionCargoLostQuantity { get; set; }
+
+        [JsonPropertyName("interdiction_cargo_recovered_quantity")]
+        public int InterdictionCargoRecoveredQuantity { get; set; }
+
+        [JsonPropertyName("interdiction_remaining_possible_quantity")]
+        public int InterdictionRemainingPossibleQuantity { get; set; }
+
+        [JsonPropertyName("interdiction_stage")]
+        public ShipmentInterdictionStage InterdictionStage { get; set; } = ShipmentInterdictionStage.Intercept;
+
+        [JsonPropertyName("interdiction_target_destroyed")]
+        public bool InterdictionTargetDestroyed { get; set; }
+
+        [JsonPropertyName("interdiction_target_delivered")]
+        public bool InterdictionTargetDelivered { get; set; }
+
         [JsonPropertyName("raid_route_id")]
         public string RaidRouteId { get; set; } = string.Empty;
 
@@ -701,6 +728,18 @@ namespace Roguelancer
 
         [JsonPropertyName("escort_offer_expired")]
         public bool EscortOfferExpired { get; set; }
+
+        [JsonPropertyName("interdiction_mission_id")]
+        public int InterdictionMissionId { get; set; }
+
+        [JsonPropertyName("interdiction_offer_issued")]
+        public bool InterdictionOfferIssued { get; set; }
+
+        [JsonPropertyName("interdiction_offer_expires_ms")]
+        public long InterdictionOfferExpiresMilliseconds { get; set; }
+
+        [JsonPropertyName("interdiction_offer_expired")]
+        public bool InterdictionOfferExpired { get; set; }
     }
 
     public sealed class SaveTradeRouteRiskData

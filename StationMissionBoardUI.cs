@@ -452,6 +452,19 @@ public sealed class StationMissionBoardUI
             spriteBatch.DrawString(_font, $"Threat: {mission.ConvoyAttackForceSize} Liberty Rogue interceptors | Route: {mission.TargetLocation}", new Vector2(x, y), Color.Orange);
             y += 26;
         }
+        else if (mission.Type == MissionType.ShipmentInterdiction)
+        {
+            Commodity commodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+            int held = _cargoHold?.GetMissionCargoQuantity(mission.Id) ?? 0;
+            spriteBatch.DrawString(_font, $"Target: {mission.Target}", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Destination: {mission.GetDestinationLabel()} | Route risk: {mission.EconomicRouteRisk}/100", new Vector2(x, y), Color.LightGreen);
+            y += 24;
+            spriteBatch.DrawString(_font, $"Recover: {commodity?.Name ?? mission.CommodityId} x{mission.RequiredQuantity} | Held: {held}/{mission.RequiredQuantity}", new Vector2(x, y), Color.Orange);
+            y += 24;
+            spriteBatch.DrawString(_font, "Target is already in transit; extortion or destruction can release real physical cargo.", new Vector2(x, y), Color.LightSkyBlue);
+            y += 26;
+        }
         spriteBatch.DrawString(_font, $"Reward: {mission.Reward:N0} CR", new Vector2(x, y), Color.Yellow);
         y += 30;
         string action = _missionManager.ActiveMission == null ? "[ENTER] ACCEPT" : "ACTIVE MISSION BLOCKS ACCEPT";

@@ -114,6 +114,8 @@ public sealed class PirateCargoDemandService
     private readonly FactionCombatCommunicationService _communication;
     private readonly Action<string> _log;
     private readonly Func<NpcShip, TraderCargoManifest> _manifestResolver;
+    private readonly Func<NpcShip, bool> _isAuthorizedMissionTarget;
+    private readonly Func<NpcShip, string, bool> _isMissionDemandCommodity;
     // Standalone Phase 56 smoke harnesses do not construct the live market
     // owner. Keep their source-compatible deterministic fallback, while the
     // game always injects EconomicShipmentManager as the sole manifest owner.
@@ -133,7 +135,9 @@ public sealed class PirateCargoDemandService
         Action<FactionDistressResponseResult, NpcShip, Ship> onPoliceResponse = null,
         FactionCombatCommunicationService communication = null,
         Action<string> log = null,
-        Func<NpcShip, TraderCargoManifest> manifestResolver = null)
+        Func<NpcShip, TraderCargoManifest> manifestResolver = null,
+        Func<NpcShip, bool> isAuthorizedMissionTarget = null,
+        Func<NpcShip, string, bool> isMissionDemandCommodity = null)
     {
         _npcShips = npcShips ?? throw new ArgumentNullException(nameof(npcShips));
         _reputationManager = reputationManager ?? throw new ArgumentNullException(nameof(reputationManager));
@@ -145,6 +149,8 @@ public sealed class PirateCargoDemandService
         _communication = communication;
         _log = log;
         _manifestResolver = manifestResolver;
+        _isAuthorizedMissionTarget = isAuthorizedMissionTarget ?? (_ => false);
+        _isMissionDemandCommodity = isMissionDemandCommodity ?? ((_, _) => false);
     }
 
     public PiracyDemandState CurrentState => _activeDemand == null
@@ -181,7 +187,7 @@ public sealed class PirateCargoDemandService
         snapshot = null;
         if (trader == null || trader.IsDestroyed || !_npcShips.Contains(trader) ||
             trader.TrafficBehavior != TrafficZoneBehaviorType.TraderRoute ||
-            _isMissionOwned(trader) || !IsEligibleFaction(trader.FactionId))
+            IsBlockedMissionOwned(trader) || !IsEligibleFaction(trader.FactionId))
         {
             return false;
         }
@@ -267,7 +273,7 @@ public sealed class PirateCargoDemandService
         }
 
         if (!IsEligibleTrader(target, includeActiveDemand: true) || target.IsTradeLaneTransit ||
-            target.IsTrafficEngaged || _isMissionOwned(target))
+            target.IsTrafficEngaged || IsBlockedMissionOwned(target))
         {
             ResolveRefusal(demand, "target state changed before response");
             return;
@@ -324,7 +330,7 @@ public sealed class PirateCargoDemandService
     public bool IsEligibleTrader(NpcShip target, bool includeActiveDemand)
     {
         if (target == null || target.IsDestroyed || target.TrafficBehavior != TrafficZoneBehaviorType.TraderRoute ||
-            target.IsTradeLaneTransit || _isMissionOwned(target) ||
+            target.IsTradeLaneTransit || IsBlockedMissionOwned(target) ||
             !IsEligibleFaction(target.FactionId) || target.IsMissionHoldPosition ||
             target.IsTrafficEngaged || target.FactionCombatTarget != null)
             return false;
@@ -344,7 +350,9 @@ public sealed class PirateCargoDemandService
 
         if (manifest != null && _spawnCargo != null)
         {
-            foreach (TraderCargoStack stack in manifest.Snapshot())
+            foreach (TraderCargoStack stack in manifest.Snapshot()
+                         .OrderByDescending(stack => _isMissionDemandCommodity(demand.Target, stack?.Commodity?.Id))
+                         .ThenBy(stack => stack?.Commodity?.Id, StringComparer.OrdinalIgnoreCase))
             {
                 if (surrendered >= surrenderTarget || stack.Quantity <= 0)
                     break;
@@ -573,7 +581,7 @@ public sealed class PirateCargoDemandService
             return "trade-lane traffic cannot be hailed";
         if (target.TrafficBehavior != TrafficZoneBehaviorType.TraderRoute)
             return "target is not an ordinary trader";
-        if (_isMissionOwned(target))
+        if (IsBlockedMissionOwned(target))
             return "mission-owned traffic is protected";
         if (!IsEligibleFaction(target.FactionId))
             return "target faction is not eligible for free-roam extortion";
@@ -587,6 +595,9 @@ public sealed class PirateCargoDemandService
     }
 
     private static string GetTargetIdentity(NpcShip target) => NpcIdentity.GetStableIdentity(target);
+
+    private bool IsBlockedMissionOwned(NpcShip target) =>
+        _isMissionOwned(target) && !_isAuthorizedMissionTarget(target);
 
     private static float NormalizeDelta(float delta) =>
         float.IsNaN(delta) || float.IsInfinity(delta) ? 0f : Math.Clamp(delta, 0f, 60f);

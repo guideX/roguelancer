@@ -38,6 +38,7 @@ namespace Roguelancer
         private readonly Dictionary<string, Mission> _tradeLaneDefenseOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _convoyEscortOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _economicEscortOffers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Mission> _economicInterdictionOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _convoyRaidOffers = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Mission> _smugglingOffers = new(StringComparer.OrdinalIgnoreCase);
         private ReputationManager _reputationManager;
@@ -79,6 +80,9 @@ namespace Roguelancer
         public const int ExportMaximumCargoVolume = 40;
         public const int ExportMaximumUnits = 40;
         public const int ExportMaximumReward = 100_000;
+        public const int DynamicInterdictionMaximumOffers = 3;
+        public const int DynamicInterdictionMinimumValue = EconomicShipmentManager.DynamicInterdictionValueThreshold;
+        public const int DynamicInterdictionMaximumRequiredQuantity = 8;
         public const int MarketOpportunityMaximumEntries = 8;
         public const float MissionFailureReputationPenalty = -0.02f;
         public const float TradeLaneDisruptionHoldSeconds = 10f;
@@ -106,6 +110,7 @@ namespace Roguelancer
                 MissionType.TradeLaneDefense => 0.025f,
                 MissionType.ConvoyEscort => 0.030f,
                 MissionType.ConvoyRaid => 0.035f,
+                MissionType.ShipmentInterdiction => 0.040f,
                 MissionType.ContrabandSmuggling => 0.040f,
                 MissionType.Escort => 0.030f,
                 MissionType.EmergencySupply or MissionType.ExportContract => 0.025f,
@@ -170,6 +175,26 @@ namespace Roguelancer
                          .ToList())
             {
                 Mission mission = _activeMissions.FirstOrDefault(candidate => candidate?.Id == missionId);
+                if (mission?.IsShipmentInterdictionMission() == true)
+                {
+                    int confiscated = confiscations
+                        .Where(entry => entry != null && entry.MissionId == missionId)
+                        .Sum(entry => Math.Max(0, entry.Quantity));
+                    mission.InterdictionCargoLostQuantity = Math.Max(
+                        0,
+                        mission.InterdictionCargoLostQuantity + confiscated);
+                    mission.InterdictionCargoRecoveredQuantity = _cargoHold?.GetMissionCargoQuantity(mission.Id) ?? 0;
+                    mission.CurrentProgress = Math.Min(mission.RequiredQuantity, mission.InterdictionCargoRecoveredQuantity);
+                    mission.InterdictionRemainingPossibleQuantity = Math.Max(
+                        0,
+                        mission.InterdictionSourceAvailableQuantity +
+                        mission.InterdictionReleasedQuantity -
+                        mission.InterdictionCargoLostQuantity);
+                    _cargoHold?.ConvertMissionCargoToOrdinary(missionId);
+                    if (mission.InterdictionRemainingPossibleQuantity < mission.RequiredQuantity)
+                        FailMission(mission, "Police confiscated the required interdiction cargo");
+                    continue;
+                }
                 if (mission?.Type != MissionType.ContrabandSmuggling)
                 {
                     // No active mission may retain a stale reservation after a
@@ -355,6 +380,12 @@ namespace Roguelancer
             foreach (Mission mission in _activeMissions.Where(candidate => candidate?.Type == MissionType.ConvoyRaid))
                 ReleaseConvoyRaidCargo(mission);
 
+            foreach (Mission mission in _activeMissions.Where(candidate => candidate?.IsShipmentInterdictionMission() == true))
+                ReleaseEconomicInterdictionCargo(mission);
+
+            foreach (Mission mission in _activeMissions.Where(candidate => candidate?.IsShipmentInterdictionMission() == true))
+                _economicShipments?.ReleaseEconomicInterdiction(mission.Id);
+
             foreach (Mission mission in _activeMissions.Where(candidate => candidate?.Type == MissionType.ContrabandSmuggling))
                 ReleaseSmugglingCargo(mission);
 
@@ -370,6 +401,7 @@ namespace Roguelancer
             _tradeLaneDefenseOffers.Clear();
             _convoyEscortOffers.Clear();
             _economicEscortOffers.Clear();
+            _economicInterdictionOffers.Clear();
             _convoyRaidOffers.Clear();
             _smugglingOffers.Clear();
             _worldManager?.ClearState();
@@ -431,6 +463,12 @@ namespace Roguelancer
                         restoredActive.RequiredQuantity,
                         out _);
                 }
+                else if (restoredActive.IsShipmentInterdictionMission())
+                {
+                    _economicShipments?.TryAttachEconomicInterdiction(
+                        restoredActive.Id,
+                        restoredActive.EconomicShipmentTraderIdentity);
+                }
                 _waypointSystem?.RegisterMission(restoredActive);
             }
 
@@ -467,7 +505,13 @@ namespace Roguelancer
             missions.AddRange(GenerateTradeLaneDefenseMissions(originStation));
             missions.AddRange(GenerateEconomicEscortMissions(originStation));
             missions.AddRange(GenerateConvoyEscortMissions(originStation));
-            missions.AddRange(GenerateConvoyRaidMissions(originStation));
+            List<Mission> economicInterdictionOffers = GenerateEconomicInterdictionMissions(originStation);
+            missions.AddRange(economicInterdictionOffers);
+            // A real qualifying shipment supersedes the synthetic Phase 51
+            // raid board for this refresh. The Rogue contact should never
+            // offer both a real target and a duplicate fabricated convoy.
+            if (economicInterdictionOffers.Count == 0)
+                missions.AddRange(GenerateConvoyRaidMissions(originStation));
             return missions;
         }
 
@@ -928,6 +972,114 @@ namespace Roguelancer
                     : _marketManager?.GetShortageState(destination, stack.Commodity)?.ConditionLabel ?? string.Empty)
                 .FirstOrDefault(label => !string.IsNullOrWhiteSpace(label) &&
                     !string.Equals(label, "NORMAL", StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
+        }
+
+        public List<Mission> GenerateEconomicInterdictionMissions(Station originStation)
+        {
+            List<Mission> offers = new();
+            if (originStation == null || _economicShipments == null || _worldManager == null ||
+                !string.Equals(
+                    FactionManager.NormalizeFactionId(originStation.FactionId),
+                    FactionManager.LibertyRogues,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return offers;
+            }
+
+            IReadOnlyList<Station> stations = _worldManager.GetKnownStations();
+            IReadOnlyList<EconomicShipment> candidates = _economicShipments
+                .GetInterdictionCandidates(originStation, EconomicShipmentManager.MaximumDynamicInterdictionCandidates);
+            long now = _marketManager?.ElapsedMilliseconds ?? 0L;
+
+            foreach (EconomicShipment shipment in candidates.Take(DynamicInterdictionMaximumOffers))
+            {
+                if (shipment?.Trader == null || shipment.Trader.IsDestroyed)
+                    continue;
+
+                Station destination = stations.FirstOrDefault(candidate =>
+                    MatchesEconomicStationId(candidate, shipment.DestinationStationId));
+                if (destination == null)
+                    continue;
+
+                Commodity commodity = shipment.Manifest?.Stacks
+                    .Where(stack => stack?.Commodity != null && stack.Quantity > 0 &&
+                        !stack.Commodity.IsContraband && !stack.Commodity.IsMissionCargo &&
+                        stack.Commodity.VolumePerUnit > 0)
+                    .OrderByDescending(stack => (long)stack.Quantity * Math.Max(0, stack.Commodity.BasePrice))
+                    .ThenByDescending(stack => stack.Quantity)
+                    .ThenBy(stack => stack.Commodity.Id, StringComparer.OrdinalIgnoreCase)
+                    .Select(stack => stack.Commodity)
+                    .FirstOrDefault();
+                int available = _economicShipments.GetRemainingCommodityQuantity(shipment, commodity?.Id);
+                if (commodity == null || available <= 0)
+                    continue;
+
+                string key = $"{Mission.BuildStationIdentity(originStation)}|{shipment.TraderIdentity}|{shipment.RouteId}";
+                if (_economicInterdictionOffers.TryGetValue(key, out Mission existing) &&
+                    existing?.Status == MissionStatus.Available &&
+                    shipment.InterdictionOfferIssued && shipment.InterdictionOfferExpiresMilliseconds > now)
+                {
+                    offers.Add(existing);
+                    continue;
+                }
+
+                _economicInterdictionOffers.Remove(key);
+                if (shipment.InterdictionOfferIssued && shipment.InterdictionOfferExpiresMilliseconds <= now)
+                    _economicShipments.ExpireInterdictionOffer(shipment.TraderIdentity);
+
+                int risk = _economicShipments.GetEffectiveRouteRisk(shipment);
+                string shortageLabel = GetEconomicEscortShortageLabel(shipment, destination);
+                bool shortageRelief = !string.IsNullOrWhiteSpace(shortageLabel);
+                MissionDifficulty difficulty = risk >= TradeRouteRiskManager.SevereRiskThreshold ||
+                    shipment.RemainingManifestValue >= 12_000
+                    ? MissionDifficulty.Hard
+                    : risk >= TradeRouteRiskManager.DangerousRiskThreshold ||
+                        shipment.RemainingManifestValue >= 6_000
+                        ? MissionDifficulty.Medium
+                        : MissionDifficulty.Easy;
+                int requested = difficulty switch
+                {
+                    MissionDifficulty.Hard => 5,
+                    MissionDifficulty.Medium => 4,
+                    _ => 3
+                };
+                int required = Math.Clamp(Math.Min(requested, available), 1, DynamicInterdictionMaximumRequiredQuantity);
+                int urgencyBonus = shortageRelief ? 1_500 : 0;
+                int reward = (int)Math.Clamp(
+                    2_500L + (long)commodity.BasePrice * required * 2L +
+                    risk * 45L + urgencyBonus,
+                    3_000L,
+                    30_000L);
+
+                Mission offer = Mission.CreateEconomicInterdiction(
+                    shipment,
+                    originStation,
+                    destination,
+                    commodity,
+                    required,
+                    reward,
+                    difficulty,
+                    risk,
+                    shortageLabel,
+                    now + EconomicShipmentManager.DynamicInterdictionOfferLifetimeMilliseconds,
+                    offeredBy: $"{originStation.Name} Rogue Contact");
+                if (offer == null)
+                    continue;
+
+                offer.MinimumEmployerReputation = difficulty >= MissionDifficulty.Hard
+                    ? ReputationManager.FriendlyThreshold
+                    : 0f;
+                offer.SetOrigin(originStation);
+                if (!_economicShipments.MarkInterdictionOffer(
+                        shipment,
+                        offer.EconomicOfferExpiresMilliseconds))
+                    continue;
+
+                _economicInterdictionOffers[key] = offer;
+                offers.Add(offer);
+            }
+
+            return offers;
         }
 
         private bool MatchesEconomicStationId(Station station, string economicStationId)
@@ -2010,7 +2162,7 @@ namespace Roguelancer
             if (!string.IsNullOrWhiteSpace(mission.DefinitionId))
             {
                 MissionDefinition definition = MissionCatalog.GetById(mission.DefinitionId);
-                if (mission.Type is not MissionType.TradeLaneDisruption and not MissionType.TradeLaneDefense and not MissionType.ConvoyEscort and not MissionType.ConvoyRaid and not MissionType.ContrabandSmuggling &&
+                if (mission.Type is not MissionType.TradeLaneDisruption and not MissionType.TradeLaneDefense and not MissionType.ConvoyEscort and not MissionType.ConvoyRaid and not MissionType.ShipmentInterdiction and not MissionType.ContrabandSmuggling &&
                     (definition == null || definition.Type != mission.Type ||
                     definition.RewardCredits != mission.Reward ||
                     definition.TargetCount != mission.RequiredProgress))
@@ -2069,6 +2221,7 @@ namespace Roguelancer
                         mission.EconomicShipmentTraderIdentity, out EconomicShipment shipment) == true &&
                         shipment?.Trader != null && !shipment.Trader.IsDestroyed &&
                         shipment.EscortMissionId <= 0 &&
+                        shipment.InterdictionMissionId <= 0 &&
                         shipment.EscortOfferIssued &&
                         shipment.EscortOfferExpiresMilliseconds > (_marketManager?.ElapsedMilliseconds ?? 0L) &&
                         MatchesEconomicStationId(originStation, shipment.OriginStationId) &&
@@ -2133,6 +2286,35 @@ namespace Roguelancer
                     string.IsNullOrWhiteSpace(mission.Destination) || string.IsNullOrWhiteSpace(mission.DestinationStationId))
                 {
                     return RejectAcceptance(mission, "cargo-interdiction metadata or Rogue employer is invalid");
+                }
+            }
+
+            if (mission.Type == MissionType.ShipmentInterdiction)
+            {
+                string employerFaction = FactionManager.NormalizeFactionId(mission.FactionId);
+                string originFaction = FactionManager.NormalizeFactionId(originStation?.FactionId);
+                bool validOrigin = originStation != null && originFaction == FactionManager.LibertyRogues;
+                bool validEmployer = employerFaction == FactionManager.LibertyRogues;
+                bool validCommodity = CommodityCatalog.GetByIdOrName(mission.CommodityId) is Commodity targetCommodity &&
+                    !targetCommodity.IsContraband && !targetCommodity.IsMissionCargo && targetCommodity.VolumePerUnit > 0;
+                bool validShipment = _economicShipments?.TryGetShipmentByIdentity(
+                        mission.EconomicShipmentTraderIdentity,
+                        out EconomicShipment shipment) == true &&
+                    shipment?.Trader != null && !shipment.Trader.IsDestroyed &&
+                    shipment.InterdictionMissionId <= 0 && shipment.EscortMissionId <= 0 &&
+                    shipment.InterdictionOfferIssued &&
+                    shipment.InterdictionOfferExpiresMilliseconds > (_marketManager?.ElapsedMilliseconds ?? 0L) &&
+                    string.Equals(shipment.RouteId, mission.EconomicShipmentRouteId, StringComparison.OrdinalIgnoreCase) &&
+                    _economicShipments.IsInterdictionInScope(originStation, shipment) &&
+                    validCommodity &&
+                    _economicShipments.GetRemainingCommodityQuantity(shipment, mission.CommodityId) >= mission.RequiredQuantity;
+                if (!validOrigin || !validEmployer || !validShipment ||
+                    !mission.IsEconomicInterdiction || mission.RequiredQuantity is < 1 or > DynamicInterdictionMaximumRequiredQuantity ||
+                    string.IsNullOrWhiteSpace(mission.EconomicShipmentTraderIdentity) ||
+                    string.IsNullOrWhiteSpace(mission.EconomicShipmentRouteId) ||
+                    string.IsNullOrWhiteSpace(mission.DestinationStationId))
+                {
+                    return RejectAcceptance(mission, "shipment-interdiction offer is stale or metadata is invalid");
                 }
             }
 
@@ -2257,6 +2439,7 @@ namespace Roguelancer
             mission.Status = MissionStatus.Accepted;
 
             bool economicEscortAttached = false;
+            bool economicInterdictionAttached = false;
             if (mission.IsEconomicEscort)
             {
                 economicEscortAttached = _economicShipments?.TryAttachEconomicEscort(
@@ -2266,6 +2449,17 @@ namespace Roguelancer
                 {
                     mission.Status = MissionStatus.Available;
                     return RejectAcceptance(mission, "economic shipment departed before escort binding");
+                }
+            }
+            if (mission.IsEconomicInterdiction)
+            {
+                economicInterdictionAttached = _economicShipments?.TryAttachEconomicInterdiction(
+                    mission.Id,
+                    mission.EconomicShipmentTraderIdentity) == true;
+                if (!economicInterdictionAttached)
+                {
+                    mission.Status = MissionStatus.Available;
+                    return RejectAcceptance(mission, "economic shipment departed before interdiction binding");
                 }
             }
 
@@ -2283,6 +2477,8 @@ namespace Roguelancer
                 _marketManager?.ReleaseSupplyContractCapacity(mission.Id);
                 if (economicEscortAttached)
                     _economicShipments?.ReleaseEconomicEscort(mission.Id);
+                if (economicInterdictionAttached)
+                    _economicShipments?.ReleaseEconomicInterdiction(mission.Id);
                 mission.Status = MissionStatus.Available;
                 _worldManager.OnMissionFinished(mission);
                 return RejectAcceptance(mission, $"mission unavailable: {failureReason}");
@@ -2517,6 +2713,9 @@ namespace Roguelancer
             ReleaseFreightReservation(mission);
             _marketManager?.ReleaseSupplyContractCapacity(mission.Id);
             ReleaseConvoyRaidCargo(mission);
+            ReleaseEconomicInterdictionCargo(mission);
+            if (mission.IsEconomicInterdiction)
+                _economicShipments?.ReleaseEconomicInterdiction(mission.Id);
             ReleaseSmugglingCargo(mission);
             mission.Status = MissionStatus.Failed;
             _activeMissions.Remove(mission);
@@ -2543,10 +2742,12 @@ namespace Roguelancer
             _completedMissions.RemoveAll(existing => existing.Id == mission.Id);
             _completedMissions.Add(mission);
             _waypointSystem?.UnregisterMission(mission);
+            if (mission.IsEconomicInterdiction)
+                _economicShipments?.ReleaseEconomicInterdiction(mission.Id);
             _worldManager?.OnMissionFinished(mission);
             string completionMessage = mission.Type == MissionType.ContrabandSmuggling
                 ? $"Smuggling cargo delivered - +{mission.Reward:N0} CR"
-                : mission.Type == MissionType.ConvoyRaid
+                : mission.Type is MissionType.ConvoyRaid or MissionType.ShipmentInterdiction
                 ? $"Cargo secured - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR"
                 : mission.Type == MissionType.CourierDelivery
                 ? $"Cargo delivered - return to {mission.OriginStationName} to claim {mission.Reward:N0} CR"
@@ -2726,6 +2927,12 @@ namespace Roguelancer
                 _cargoHold?.ConvertMissionCargoToOrdinary(mission.Id);
         }
 
+        private void ReleaseEconomicInterdictionCargo(Mission mission)
+        {
+            if (mission?.IsShipmentInterdictionMission() == true)
+                _cargoHold?.ConvertMissionCargoToOrdinary(mission.Id);
+        }
+
         private void ReleaseSmugglingCargo(Mission mission)
         {
             if (mission?.Type != MissionType.ContrabandSmuggling || _cargoHold == null)
@@ -2785,6 +2992,29 @@ namespace Roguelancer
                 mission.RaidCargoRecoveredQuantity = Math.Max(0, recovered - removed);
                 _cargoHold.ConvertMissionCargoToOrdinary(mission.Id);
             }
+            else if (mission.Type == MissionType.ShipmentInterdiction)
+            {
+                Commodity interdictionCommodity = CommodityCatalog.GetByIdOrName(mission.CommodityId);
+                int recovered = _cargoHold?.GetMissionCargoQuantity(mission.Id) ?? 0;
+                if (interdictionCommodity == null || recovered < mission.RequiredQuantity)
+                {
+                    message = $"recover {Math.Max(0, mission.RequiredQuantity - recovered)} more units of {mission.CommodityId}";
+                    return false;
+                }
+
+                if (!_cargoHold.RemoveMissionCargoQuantity(
+                        mission.Id,
+                        interdictionCommodity,
+                        mission.RequiredQuantity,
+                        out int removed) || removed != mission.RequiredQuantity)
+                {
+                    message = "interdiction cargo could not be verified for payment";
+                    return false;
+                }
+
+                mission.InterdictionCargoRecoveredQuantity = Math.Max(0, recovered - removed);
+                _cargoHold.ConvertMissionCargoToOrdinary(mission.Id);
+            }
 
             mission.RewardPaid = true;
             _playerCredits.AddCredits(mission.Reward);
@@ -2835,6 +3065,9 @@ namespace Roguelancer
             ReleaseFreightReservation(mission);
             _marketManager?.ReleaseSupplyContractCapacity(mission.Id);
             ReleaseConvoyRaidCargo(mission);
+            ReleaseEconomicInterdictionCargo(mission);
+            if (mission.IsEconomicInterdiction)
+                _economicShipments?.ReleaseEconomicInterdiction(mission.Id);
             ReleaseSmugglingCargo(mission);
             mission.FailureReason = string.IsNullOrWhiteSpace(reason) ? "mission failed" : reason;
             if (mission.Type == MissionType.ConvoyEscort)
