@@ -46,6 +46,28 @@ public static class NpcFactionCombatTargeting
     }
 
     /// <summary>
+    /// Ambient piracy is an explicit, shipment-owned exception to the broad
+    /// faction matrix: a Rogue raider may attack the ordinary trader it was
+    /// assigned even though neutral civilians are not a global Rogue combat
+    /// relationship. The trader still must be live and out of transit.
+    /// </summary>
+    public static bool IsValidAmbientPirateTarget(NpcShip? source, NpcShip? target, float? maxDistance = null)
+    {
+        if (source == null || target == null || source == target ||
+            !source.IsAmbientPirateRaider ||
+            !string.Equals(FactionManager.NormalizeFactionId(source.FactionId), FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase) ||
+            source.IsDestroyed || target.IsDestroyed ||
+            target.TrafficBehavior != TrafficZoneBehaviorType.TraderRoute || target.IsTradeLaneTransit)
+            return false;
+
+        if (!maxDistance.HasValue)
+            return true;
+
+        float distance = Math.Max(0f, maxDistance.Value);
+        return Vector3.DistanceSquared(source.Position, target.Position) <= distance * distance;
+    }
+
+    /// <summary>
     /// Validates a target supplied by an active mission objective. The mission
     /// owns the exception to the broad faction matrix; all runtime combat,
     /// damage, disengagement, and weapon behavior remains unchanged.

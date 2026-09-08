@@ -48,6 +48,7 @@ namespace Roguelancer
         private ReputationManager _reputationManager;
         private ContentManager _content;
         private EconomicShipmentManager _economicShipments;
+        private readonly AmbientPirateRaidManager _ambientPirateRaids;
         private readonly HashSet<NpcShip> _securityShips = new();
         private readonly HashSet<NpcShip> _pendingSecurityCleanup = new();
         private readonly Dictionary<NpcShip, string> _securityCleanupReasons = new();
@@ -77,6 +78,18 @@ namespace Roguelancer
                     _distressResponse.IsEncounterActive(encounterId) ||
                     _combatEscalation.IsEncounterActive(encounterId));
             _combatCommunication = new FactionCombatCommunicationService(_npcShips);
+            _ambientPirateRaids = new AmbientPirateRaidManager(
+                _npcShips,
+                _spaceObjects,
+                routesProvider: () => ConfiguredTraderRoutes,
+                isMissionOwned: ship => _economicShipments != null &&
+                    _economicShipments.ActiveShipments.Any(shipment => shipment?.Trader == ship &&
+                        (shipment.EscortMissionId > 0 || shipment.InterdictionMissionId > 0)));
+            _ambientPirateRaids.ConfigureRuntime(
+                TrySpawnAmbientPirateRaider,
+                RetireAmbientPirateRaider,
+                spawnCargo: null,
+                collectCargo: null);
             _combatDisengagement.Disengaged += HandleCombatDisengagement;
             _distressResponse.ResponseGenerated += HandleDistressResponseGenerated;
             _combatEscalation.ResponseGenerated += HandleCombatEscalationGenerated;
@@ -95,6 +108,7 @@ namespace Roguelancer
         public FactionCombatDisengagementService CombatDisengagement => _combatDisengagement;
         public FactionCombatCommunicationService CombatCommunication => _combatCommunication;
         public EconomicShipmentManager EconomicShipments => _economicShipments;
+        public AmbientPirateRaidManager AmbientPirateRaids => _ambientPirateRaids;
         public IReadOnlyList<NpcShip> ActiveSecurityShips => _securityShips
             .Where(ship => ship != null && !ship.IsDestroyed)
             .OrderBy(ship => ship.StableIdentity, StringComparer.Ordinal)
@@ -134,6 +148,10 @@ namespace Roguelancer
                 QueueSecurityShipCleanup,
                 _economicShipments.GetSecurityFaction,
                 (shipment, commodity) => _economicShipments.IsDestinationShortage(shipment, commodity, criticalOnly: true));
+            _ambientPirateRaids.ConfigureEconomicShipments(
+                _economicShipments,
+                shipment => shipment?.Manifest?.Stacks?.Any(stack => stack?.Commodity != null &&
+                    _economicShipments.IsDestinationShortage(shipment, stack.Commodity)) == true);
 
             foreach (TrafficZoneRuntime runtime in _zonesById.Values)
             {
@@ -149,8 +167,45 @@ namespace Roguelancer
             }
         }
 
+        public void ConfigureAmbientPirateLoot(LootManager lootManager)
+        {
+            _ambientPirateRaids.ConfigureRuntime(
+                TrySpawnAmbientPirateRaider,
+                RetireAmbientPirateRaider,
+                lootManager == null
+                    ? null
+                    : (source, commodityId, quantity) => lootManager.SpawnStolenCargo(
+                        source,
+                        commodityId,
+                        quantity,
+                        out _,
+                        Console.WriteLine),
+                lootManager == null
+                    ? null
+                    : (NpcShip collector, CargoPod pod, int maximumQuantity, out string commodityId, out int collectedQuantity) =>
+                        lootManager.TryCollectCargoPodForNpc(
+                            collector,
+                            pod,
+                            maximumQuantity,
+                            out commodityId,
+                            out collectedQuantity),
+                lootManager == null ? null : () => lootManager.ActivePods);
+        }
+
+        public List<SaveAmbientPirateRaidData> CaptureAmbientPirateRaids() =>
+            _ambientPirateRaids.CaptureState();
+
+        public void RestoreAmbientPirateRaids(
+            IEnumerable<SaveAmbientPirateRaidData> states,
+            Action<string> log = null) =>
+            _ambientPirateRaids.RestoreState(states, log);
+
+        public void ResetAmbientPirateRaids(Action<string> log = null) =>
+            _ambientPirateRaids.Reset(log);
+
         public void LoadZonesForSystem(int systemIndex, Action<string> log = null)
         {
+            _ambientPirateRaids.Reset(log);
             _economicShipments?.ResetForWorldTeardown(restoreOriginStock: true);
             ProcessSecurityCleanup(log);
             _combatCommunication.Reset();
@@ -202,6 +257,7 @@ namespace Roguelancer
             _combatDisengagement.SetReputationManager(reputationManager);
             _combatEscalation.Update(deltaTime);
             _combatDisengagement.Update(deltaTime, playerShip);
+            _ambientPirateRaids.Update(deltaTime, log);
             UpdateTrafficInteractions(playerShip, reputationManager, log, deltaTime);
 
             foreach (TrafficZoneRuntime runtime in _zonesById.Values)
@@ -224,6 +280,7 @@ namespace Roguelancer
                 return;
             }
 
+            _ambientPirateRaids.NotifyNpcDestroyed(destroyedShip, Console.WriteLine);
             _combatEscalation.NotifyNpcDestroyed(destroyedShip);
             _combatDisengagement.NotifyNpcDestroyed(destroyedShip);
             _combatCommunication.UnregisterShip(destroyedShip);
@@ -283,6 +340,7 @@ namespace Roguelancer
 
         public FactionDistressResponseResult NotifyNpcDamage(NpcShip attacker, NpcShip damagedShip, float damage)
         {
+            _ambientPirateRaids.NotifyNpcDamage(attacker, damagedShip, damage);
             FactionDistressResponseResult result = _combatEscalation.ProcessNpcDamage(attacker, damagedShip, damage);
             TryReportCommunication(() => _combatCommunication.NotifyDistressRequest(result, damagedShip, attacker));
             TryReportCommunication(() => _combatCommunication.NotifyDistressResponse(result));
@@ -338,6 +396,7 @@ namespace Roguelancer
 
         public void ResetTransientDistressState()
         {
+            _ambientPirateRaids.Reset(Console.WriteLine);
             for (int i = _npcShips.Count - 1; i >= 0; i--)
             {
                 NpcShip ship = _npcShips[i];
@@ -494,6 +553,9 @@ namespace Roguelancer
                 {
                     continue;
                 }
+
+                if (pirate.IsAmbientPirateRaider)
+                    continue;
 
                 if (!TryGetTrafficRuntime(pirate, out TrafficShipRuntime pirateRuntime, out TrafficZoneRuntime pirateZoneRuntime))
                 {
@@ -717,7 +779,8 @@ namespace Roguelancer
                 // combat; its movement state is preserved below.
                 if ((source.HasPlayerTarget && source.HasValidPlayerTarget(reputationManager)) ||
                     source.EncounterState == TrafficEncounterState.Fleeing ||
-                    source.EncounterState == TrafficEncounterState.AttackingTrader)
+                    source.EncounterState == TrafficEncounterState.AttackingTrader ||
+                    source.IsAmbientPirateRaider && source.HasAmbientCargoObjective)
                 {
                     continue;
                 }
@@ -1152,6 +1215,129 @@ namespace Roguelancer
             }
 
             return spawned;
+        }
+
+        private NpcShip TrySpawnAmbientPirateRaider(
+            EconomicShipment shipment,
+            string raidIdentity,
+            int index,
+            NpcLoadoutTier loadoutTier,
+            Vector3 position,
+            string stableIdentity)
+        {
+            if (shipment?.Trader == null || shipment.Trader.IsDestroyed ||
+                !TradeLaneStateSanitizer.IsFinite(position) ||
+                _npcShips.Count >= MaximumNpcPopulation)
+                return null;
+
+            TrafficZoneRuntime runtime = _zonesById.Values
+                .Where(candidate => candidate.Zone?.BehaviorType == TrafficZoneBehaviorType.PirateAmbush)
+                .OrderBy(candidate => Vector3.DistanceSquared(candidate.Zone.Center, shipment.Trader.Position))
+                .FirstOrDefault()
+                ?? _zonesById.Values.FirstOrDefault();
+            if (runtime?.Zone == null)
+                return null;
+
+            const float minimumNpcSpacing = 500f;
+            if (_npcShips.Any(other => other != null && !other.IsDestroyed &&
+                Vector3.DistanceSquared(other.Position, position) < minimumNpcSpacing * minimumNpcSpacing))
+                return null;
+
+            foreach (TradelaneRing ring in _spaceObjects.OfType<TradelaneRing>())
+            {
+                if (ring == null || ring.IsDestroyed)
+                    continue;
+                float ringClearance = Math.Max(600f, ring.Radius + 300f);
+                if (Vector3.DistanceSquared(ring.Position, position) < ringClearance * ringClearance)
+                    return null;
+            }
+
+            ShipConfig shipConfig = _config.GetAllShipConfigs()
+                .Where(candidate => candidate != null &&
+                    string.Equals(FactionManager.NormalizeFactionId(candidate.FactionId), FactionManager.LibertyRogues, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(candidate => candidate.Description?.Contains("fighter", StringComparison.OrdinalIgnoreCase) == true)
+                .ThenBy(candidate => candidate.Description, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+            if (shipConfig == null)
+                return null;
+
+            string name = $"Ambient Rogue Raider {raidIdentity} {index + 1}";
+            NpcShip raider = new(
+                name,
+                position,
+                shipment.Trader.Position,
+                Math.Max(500f, runtime.Zone.Radius),
+                0.35f,
+                FactionManager.LibertyRogues);
+            raider.ConfigureTrafficBehavior(
+                TrafficZoneBehaviorType.PirateAmbush,
+                runtime.Zone.Id,
+                runtime.Zone.Center,
+                Math.Max(500f, runtime.Zone.Radius),
+                220f,
+                Math.Max(12_000f, runtime.Zone.Radius),
+                null,
+                null);
+            raider.TrafficLifetimeSeconds = AmbientPirateRaidManager.RaidTimeoutSeconds + 20f;
+            raider.RestoreStableIdentity(stableIdentity);
+            raider.SetFacing(shipment.Trader.Position - position);
+
+            ModelConfig modelConfig = shipConfig.ModelIndex > 0 ? _config.GetModel(shipConfig.ModelIndex) : null;
+            if (_content != null && modelConfig != null && !string.IsNullOrWhiteSpace(modelConfig.Path))
+            {
+                try
+                {
+                    raider.ModelPath = modelConfig.Path;
+                    raider.Model = _content.Load<Model>(modelConfig.Path);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[PIRACY] Raider model load failed for {raider.Name}: {ex.Message}");
+                }
+            }
+            if (modelConfig != null)
+            {
+                raider.ModelRotationCorrection = shipConfig.ModelCorrectionRotation;
+                raider.ModelPath = modelConfig.Path;
+            }
+
+            raider.SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
+                shipConfig.Description,
+                FactionManager.LibertyRogues,
+                raider.ModelPath,
+                TrafficZoneBehaviorType.PirateAmbush,
+                loadoutTier));
+            runtime.ActiveShips.Add(raider);
+            _shipRuntimes[raider] = new TrafficShipRuntime
+            {
+                ZoneId = runtime.Zone.Id,
+                CombatHoldTimer = 0f
+            };
+            if (_onNpcDestroyed != null)
+                raider.OnDestroyed += _onNpcDestroyed;
+            _npcShips.Add(raider);
+            _spaceObjects.Add(raider);
+            _combatDisengagement.RegisterShip(raider);
+            _combatCommunication.RegisterShip(raider);
+            return raider;
+        }
+
+        private void RetireAmbientPirateRaider(NpcShip raider, string reason)
+        {
+            if (raider == null)
+                return;
+
+            if (_shipRuntimes.TryGetValue(raider, out TrafficShipRuntime shipRuntime) &&
+                _zonesById.TryGetValue(shipRuntime.ZoneId, out TrafficZoneRuntime runtime))
+            {
+                ReleaseShip(runtime, raider, Console.WriteLine, reason ?? "ambient raid resolved");
+                return;
+            }
+
+            _combatDisengagement.NotifyNpcDespawned(raider);
+            _combatCommunication.UnregisterShip(raider);
+            _npcShips.Remove(raider);
+            _spaceObjects.Remove(raider);
         }
 
         private IReadOnlyList<NpcShip> SpawnEscalationReinforcements(

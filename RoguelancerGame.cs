@@ -269,6 +269,7 @@ namespace Roguelancer {
         private readonly bool _runPhase63Smoke;
         private readonly bool _runPhase64Smoke;
         private readonly bool _runPhase65Smoke;
+        private readonly bool _runPhase66Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -390,6 +391,7 @@ namespace Roguelancer {
             _runPhase63Smoke = args?.Any(arg => string.Equals(arg, "--phase63-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase64Smoke = args?.Any(arg => string.Equals(arg, "--phase64-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase65Smoke = args?.Any(arg => string.Equals(arg, "--phase65-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase66Smoke = args?.Any(arg => string.Equals(arg, "--phase66-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1363,6 +1365,7 @@ namespace Roguelancer {
                 (pod, quantity) => _missionWorldManager?.NotifyMissionCargoPodCollected(pod, quantity),
                 (pod, quantity) => _missionWorldManager?.NotifyMissionCargoPodExpired(pod, quantity),
                 drop => _missionWorldManager?.NotifyMissionCargoDropUnavailable(drop));
+            _trafficManager?.ConfigureAmbientPirateLoot(_lootManager);
             _missionManager?.SetWorldManager(_missionWorldManager);
             _policeScanSystem?.SetMissionManager(_missionManager);
             if (_npcWeaponSystem != null)
@@ -1568,6 +1571,11 @@ namespace Roguelancer {
             else if (_runPhase65Smoke)
             {
                 var result = RunPhase65SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runPhase66Smoke)
+            {
+                var result = RunPhase66SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runPhase61Smoke)
@@ -1800,6 +1808,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 63 trade route risk smoke", RunPhase63SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 64 shipment interdiction smoke", RunPhase64SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 65 shipment security smoke", RunPhase65SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 66 ambient pirate raid smoke", RunPhase66SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2311,6 +2320,19 @@ namespace Roguelancer {
             }
         }
 
+        private (int Passed, int Failed) RunPhase66SmokeTest()
+        {
+            try
+            {
+                return new Phase66AmbientPirateRaidSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 66 AMBIENT PIRATE RAID SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
         private (int Passed, int Failed) RunFactionDistressResponseSmokeTest()
         {
             try
@@ -2798,6 +2820,7 @@ namespace Roguelancer {
             saveData.PhysicalCargoPods = _lootManager?.CaptureCargoPods() ?? new List<SaveCargoPodData>();
             saveData.StationMarkets = _commodityDealer?.CaptureMarketState() ?? new List<SaveMarketStateData>();
             saveData.EconomicShipments = _economicShipments?.CaptureState() ?? new List<SaveEconomicShipmentData>();
+            saveData.AmbientPirateRaids = _trafficManager?.CaptureAmbientPirateRaids() ?? new List<SaveAmbientPirateRaidData>();
             saveData.TradeRouteRisks = _tradeRouteRisk?.CaptureState()?.ToList() ?? new List<SaveTradeRouteRiskData>();
             saveData.MarketElapsedMilliseconds = _commodityDealer?.MarketManager?.ElapsedMilliseconds ?? 0L;
             saveData.MarketIntelligence = _marketIntelligence?.CaptureState() ?? new List<SaveMarketIntelligenceData>();
@@ -2901,6 +2924,7 @@ namespace Roguelancer {
             _lootManager?.RestoreCargoPods(
                 savedPods,
                 missionId => _missionManager?.ActiveMissions?.Any(mission => mission?.Id == missionId) == true);
+            _trafficManager?.RestoreAmbientPirateRaids(saveData.AmbientPirateRaids, Console.WriteLine);
 
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);

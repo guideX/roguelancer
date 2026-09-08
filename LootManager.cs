@@ -669,6 +669,97 @@ namespace Roguelancer
             return 0;
         }
 
+        /// <summary>
+        /// Releases a bounded stolen commodity pod from a destroyed or
+        /// escaping NPC raider. Unlike SpawnExtortionCargo this accepts a
+        /// destroyed source because the source's already-carried haul is the
+        /// only quantity being reintroduced physically.
+        /// </summary>
+        public int SpawnStolenCargo(
+            NpcShip source,
+            string commodityId,
+            int quantity,
+            out int podCount,
+            Action<string> log = null)
+        {
+            podCount = 0;
+            Commodity commodity = CommodityCatalog.GetById(commodityId);
+            int safeQuantity = Math.Clamp(quantity, 1, 40);
+            if (source == null || commodity == null || commodity.IsContraband || commodity.IsMissionCargo ||
+                safeQuantity <= 0 || _activePods.Count >= CombatSalvageService.MaxLiveSalvageObjects)
+                return 0;
+
+            Vector3[] offsets =
+            {
+                new Vector3(110f, 0f, 0f),
+                new Vector3(-110f, 35f, 0f),
+                new Vector3(0f, -35f, 110f),
+                new Vector3(0f, 20f, -110f)
+            };
+            for (int attempt = 0; attempt < offsets.Length; attempt++)
+            {
+                Vector3 position = source.Position + offsets[attempt];
+                if (!TradeLaneStateSanitizer.IsFinite(position) ||
+                    !IsSpawnPositionAvailable(position, source) ||
+                    !CargoPod.TryCreate(
+                        commodity.Id,
+                        safeQuantity,
+                        position,
+                        source.Velocity * 0.15f,
+                        (float)CombatSalvageService.SalvageLifetimeSeconds,
+                        CombatSalvageService.PickupRadius,
+                        out CargoPod pod))
+                    continue;
+
+                pod.SetSalvageSource(source, CombatSalvageTier.Standard);
+                pod.SetStolenProvenance(true);
+                _activePods.Add(pod);
+                podCount = 1;
+                log?.Invoke($"[PIRACY] raider haul dropped: {pod.GetPayloadName()} x{pod.Quantity}");
+                return safeQuantity;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Performs the same close-range physical pickup as the player path,
+        /// but transfers only to the caller's bounded ambient raid haul. The
+        /// pod is removed exactly once, so player/raider competition cannot
+        /// duplicate cargo.
+        /// </summary>
+        public bool TryCollectCargoPodForNpc(
+            NpcShip collector,
+            CargoPod pod,
+            int maximumQuantity,
+            out string commodityId,
+            out int collectedQuantity)
+        {
+            commodityId = string.Empty;
+            collectedQuantity = 0;
+            if (collector == null || collector.IsDestroyed || pod == null || pod.IsDepleted ||
+                pod.IsExpired || !pod.IsStolen || !pod.IsWithinPickupRange(collector.Position) ||
+                !_activePods.Contains(pod) || pod.PayloadType != CargoPodPayloadType.Commodity)
+            {
+                if (pod?.PayloadType == CargoPodPayloadType.Commodity)
+                    commodityId = pod.CommodityId ?? string.Empty;
+                return false;
+            }
+
+            Commodity commodity = pod.GetCommodity();
+            if (commodity == null || maximumQuantity <= 0)
+                return false;
+
+            collectedQuantity = pod.TakeQuantity(Math.Min(maximumQuantity, pod.Quantity));
+            if (collectedQuantity <= 0)
+                return false;
+
+            commodityId = commodity.Id;
+            if (pod.IsDepleted)
+                _activePods.Remove(pod);
+            return true;
+        }
+
         public void Update(GameTime gameTime, Ship playerShip, bool tractorActive, NotificationManager notificationManager = null, Action<string> log = null)
         {
             LastPickupNotification = string.Empty;

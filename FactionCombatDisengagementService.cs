@@ -438,7 +438,11 @@ public sealed class FactionCombatDisengagementService
             return;
         }
 
-        if (!NpcFactionCombatTargeting.IsValidHostileTarget(source, target))
+        // Some bounded systems (for example ambient piracy) use a scoped
+        // target rule instead of changing the global faction matrix. Defer
+        // to the source's live target validator so those engagements are not
+        // cleared on the next disengagement pass.
+        if (!source.HasValidFactionCombatTarget())
         {
             Disengage(source, engagement, FactionCombatDisengagementReason.TargetNoLongerHostile, suppress: false);
             return;

@@ -62,6 +62,14 @@ public sealed class EconomicShipment
     public bool InterdictionOfferIssued { get; internal set; }
     public long InterdictionOfferExpiresMilliseconds { get; internal set; }
     public bool InterdictionOfferExpired { get; internal set; }
+    /// <summary>
+    /// Durable one-shot gate for autonomous piracy. A shipment is marked when
+    /// an opportunity is scheduled, so failed spawn attempts and resolved
+    /// encounters cannot create replacement raiders later.
+    /// </summary>
+    public bool AmbientRaidAttempted { get; internal set; }
+    public AmbientPirateRaidState AmbientRaidState { get; internal set; } = AmbientPirateRaidState.None;
+    public bool AmbientRaidSurrendered { get; internal set; }
     internal bool SecurityAssignmentDecided { get; set; }
     internal ShipmentSecurityDetail SecurityDetail { get; set; }
     internal int EffectiveRouteRisk { get; set; }
@@ -447,6 +455,71 @@ public sealed class EconomicShipmentManager
         }
     }
 
+    /// <summary>
+    /// Removes cargo from the live economic manifest only after the supplied
+    /// physical-release authority has created a real pod. This is the shared
+    /// mutation boundary for autonomous piracy; no market stock or synthetic
+    /// loss counter is involved.
+    /// </summary>
+    public bool TrySurrenderCargo(
+        NpcShip trader,
+        Func<string, int, int> spawnPhysicalCargo,
+        out int surrenderedQuantity,
+        out int surrenderedValue)
+    {
+        surrenderedQuantity = 0;
+        surrenderedValue = 0;
+        if (!TryGetShipment(trader, out EconomicShipment shipment) ||
+            spawnPhysicalCargo == null || shipment.Manifest == null ||
+            shipment.RemainingQuantity <= 0)
+            return false;
+
+        int targetQuantity = PirateCargoDemandService.CalculateSurrenderQuantity(
+            trader,
+            shipment.RemainingQuantity);
+        foreach (TraderCargoStack stack in shipment.Manifest.Snapshot()
+                     .OrderBy(stack => stack?.Commodity?.Id, StringComparer.OrdinalIgnoreCase))
+        {
+            if (stack?.Commodity == null || stack.Quantity <= 0 ||
+                surrenderedQuantity >= targetQuantity)
+                continue;
+
+            int requested = Math.Min(stack.Quantity, targetQuantity - surrenderedQuantity);
+            int released = Math.Clamp(
+                spawnPhysicalCargo(stack.Commodity.Id, requested),
+                0,
+                requested);
+            if (released <= 0)
+                continue;
+
+            int removed = stack.Remove(released);
+            surrenderedQuantity += removed;
+            surrenderedValue += removed * Math.Max(0, stack.Commodity.BasePrice);
+        }
+
+        if (surrenderedQuantity <= 0)
+        {
+            surrenderedValue = 0;
+            return false;
+        }
+
+        return true;
+    }
+
+    public void RecordAmbientRaidSurrender(EconomicShipment shipment, int surrenderedValue)
+    {
+        if (shipment == null || _riskManager == null)
+            return;
+
+        TradeLaneDirection direction = shipment.RouteTowardEnd
+            ? TradeLaneDirection.Forward
+            : TradeLaneDirection.Reverse;
+        string identity = $"ambient-raid:{shipment.TraderIdentity}";
+        _riskManager.RecordCargoExtorted(shipment.RouteId, direction, surrenderedValue, $"{identity}:extorted");
+        if (shipment.RemainingQuantity > 0)
+            _riskManager.RecordPartialCargoLoss(shipment.RouteId, direction, surrenderedValue, $"{identity}:partial");
+    }
+
     public TraderCargoManifest GetManifest(NpcShip trader) =>
         TryGetShipment(trader, out EconomicShipment shipment) ? shipment.Manifest : null;
 
@@ -754,6 +827,9 @@ public sealed class EconomicShipmentManager
                 InterdictionOfferExpired = shipment.InterdictionOfferExpired,
                 SecurityAssignmentDecided = shipment.SecurityAssignmentDecided,
                 SecurityMembers = Security.CaptureState(shipment).ToList(),
+                AmbientRaidAttempted = shipment.AmbientRaidAttempted,
+                AmbientRaidState = shipment.AmbientRaidState,
+                AmbientRaidSurrendered = shipment.AmbientRaidSurrendered,
                 Stacks = shipment.Manifest.Stacks.Select(stack => new SaveEconomicShipmentStackData
                 {
                     CommodityId = stack.Commodity?.Id ?? string.Empty,
@@ -874,6 +950,11 @@ public sealed class EconomicShipmentManager
         shipment.InterdictionOfferIssued = state.InterdictionOfferIssued;
         shipment.InterdictionOfferExpiresMilliseconds = Math.Max(0L, state.InterdictionOfferExpiresMilliseconds);
         shipment.InterdictionOfferExpired = state.InterdictionOfferExpired;
+        shipment.AmbientRaidAttempted = state.AmbientRaidAttempted;
+        shipment.AmbientRaidState = Enum.IsDefined(typeof(AmbientPirateRaidState), state.AmbientRaidState)
+            ? state.AmbientRaidState
+            : AmbientPirateRaidState.None;
+        shipment.AmbientRaidSurrendered = state.AmbientRaidSurrendered;
         shipment.SecurityAssignmentDecided = state.SecurityAssignmentDecided;
         shipment.EffectiveRouteRisk = GetRiskForShipment(shipment);
         if (state.SecurityAssignmentDecided)

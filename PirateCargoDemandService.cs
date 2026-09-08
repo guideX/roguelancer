@@ -547,7 +547,12 @@ public sealed class PirateCargoDemandService
         return Math.Clamp(score, 0f, 1f) >= threshold;
     }
 
-    private static int CalculateSurrenderQuantity(NpcShip target, int remaining)
+    /// <summary>
+    /// Shared deterministic surrender quantity policy. Ambient NPC raids use
+    /// the same bounded 25-75% calculation as the player demand path without
+    /// invoking player-input state or changing its one-demand lifecycle.
+    /// </summary>
+    public static int CalculateSurrenderQuantity(NpcShip target, int remaining)
     {
         if (remaining <= 0)
             return 0;

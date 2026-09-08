@@ -42,7 +42,8 @@ namespace Roguelancer
         OrdinaryAcquisition,
         DistressResponse,
         EscalationResponse,
-        MissionObjective
+        MissionObjective,
+        AmbientPiracy
     }
 
     /// <summary>
@@ -109,6 +110,15 @@ namespace Roguelancer
         /// </summary>
         public bool IsShipmentSecurityEscort { get; private set; }
         public string SecurityShipmentIdentity { get; private set; } = string.Empty;
+        /// <summary>
+        /// Provenance for the one bounded autonomous piracy encounter that
+        /// owns this ship. It is separate from ordinary PirateAmbush traffic
+        /// so legacy traffic targeting cannot retask an assigned raider.
+        /// </summary>
+        public bool IsAmbientPirateRaider { get; private set; }
+        public string AmbientPirateRaidIdentity { get; private set; } = string.Empty;
+        public bool HasAmbientCargoObjective { get; private set; }
+        public Vector3? AmbientCargoObjectivePosition { get; private set; }
         public NpcShip FormationLeader { get; private set; }
         public Vector3 FormationOffset { get; private set; }
         public bool IsFormationFollower => FormationLeader != null;
@@ -223,6 +233,38 @@ namespace Roguelancer
             IsShipmentSecurityEscort = false;
             SecurityShipmentIdentity = string.Empty;
             ClearFormationFollower();
+        }
+
+        internal void MarkAmbientPirateRaider(string raidIdentity)
+        {
+            IsAmbientPirateRaider = true;
+            AmbientPirateRaidIdentity = raidIdentity ?? string.Empty;
+            HasAmbientCargoObjective = false;
+            AmbientCargoObjectivePosition = null;
+        }
+
+        internal void SetAmbientCargoObjective(Vector3 position)
+        {
+            if (!TradeLaneStateSanitizer.IsFinite(position))
+                return;
+
+            HasAmbientCargoObjective = true;
+            AmbientCargoObjectivePosition = position;
+            ClearFactionCombatTarget();
+            SetEncounterState(TrafficEncounterState.AttackingFactionNpc, position);
+        }
+
+        internal void ClearAmbientCargoObjective()
+        {
+            HasAmbientCargoObjective = false;
+            AmbientCargoObjectivePosition = null;
+        }
+
+        internal void ClearAmbientPirateRaider()
+        {
+            IsAmbientPirateRaider = false;
+            AmbientPirateRaidIdentity = string.Empty;
+            ClearAmbientCargoObjective();
         }
 
         internal void ConfigureFormationFollower(NpcShip leader, Vector3 offset)
@@ -556,7 +598,9 @@ namespace Roguelancer
         {
             bool validTarget = targetOrigin == FactionCombatTargetOrigin.MissionObjective
                 ? NpcFactionCombatTargeting.IsValidMissionTarget(this, target)
-                : NpcFactionCombatTargeting.IsValidHostileTarget(this, target);
+                : targetOrigin == FactionCombatTargetOrigin.AmbientPiracy
+                    ? NpcFactionCombatTargeting.IsValidAmbientPirateTarget(this, target)
+                    : NpcFactionCombatTargeting.IsValidHostileTarget(this, target);
             if (!validTarget)
                 return false;
 
@@ -584,7 +628,9 @@ namespace Roguelancer
         public bool HasValidFactionCombatTarget(float? maxDistance = null) =>
             FactionCombatTargetOrigin == FactionCombatTargetOrigin.MissionObjective
                 ? NpcFactionCombatTargeting.IsValidMissionTarget(this, FactionCombatTarget, maxDistance)
-                : NpcFactionCombatTargeting.IsValidHostileTarget(this, FactionCombatTarget, maxDistance);
+                : FactionCombatTargetOrigin == FactionCombatTargetOrigin.AmbientPiracy
+                    ? NpcFactionCombatTargeting.IsValidAmbientPirateTarget(this, FactionCombatTarget, maxDistance)
+                    : NpcFactionCombatTargeting.IsValidHostileTarget(this, FactionCombatTarget, maxDistance);
 
         public void ClearFactionCombatTarget()
         {

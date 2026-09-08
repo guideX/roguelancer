@@ -72,6 +72,13 @@ namespace Roguelancer
         [JsonPropertyName("economic_shipments")]
         public List<SaveEconomicShipmentData> EconomicShipments { get; set; } = new();
 
+        /// <summary>
+        /// Optional Phase 66 snapshots. Keeping this field additive preserves
+        /// schema version 12 compatibility with older saves.
+        /// </summary>
+        [JsonPropertyName("ambient_pirate_raids")]
+        public List<SaveAmbientPirateRaidData> AmbientPirateRaids { get; set; } = new();
+
         [JsonPropertyName("trade_route_risks")]
         public List<SaveTradeRouteRiskData> TradeRouteRisks { get; set; } = new();
 
@@ -751,6 +758,15 @@ namespace Roguelancer
 
         [JsonPropertyName("security_members")]
         public List<SaveShipmentSecurityMemberData> SecurityMembers { get; set; } = new();
+
+        [JsonPropertyName("ambient_raid_attempted")]
+        public bool AmbientRaidAttempted { get; set; }
+
+        [JsonPropertyName("ambient_raid_state")]
+        public AmbientPirateRaidState AmbientRaidState { get; set; }
+
+        [JsonPropertyName("ambient_raid_surrendered")]
+        public bool AmbientRaidSurrendered { get; set; }
     }
 
     /// <summary>
@@ -816,6 +832,88 @@ namespace Roguelancer
 
         [JsonPropertyName("remaining_quantity")]
         public int RemainingQuantity { get; set; }
+    }
+
+    public enum AmbientPirateRaidState
+    {
+        None,
+        Delayed,
+        Active,
+        Resolved
+    }
+
+    /// <summary>Durable state for one bounded autonomous Rogue raid.</summary>
+    public sealed class SaveAmbientPirateRaidData
+    {
+        [JsonPropertyName("shipment_identity")]
+        public string ShipmentIdentity { get; set; } = string.Empty;
+
+        [JsonPropertyName("state")]
+        public AmbientPirateRaidState State { get; set; }
+
+        [JsonPropertyName("delay_remaining_seconds")]
+        public float DelayRemainingSeconds { get; set; }
+
+        [JsonPropertyName("elapsed_seconds")]
+        public float ElapsedSeconds { get; set; }
+
+        [JsonPropertyName("pressure_seconds")]
+        public float PressureSeconds { get; set; }
+
+        [JsonPropertyName("recent_pressure_seconds")]
+        public float RecentPressureSeconds { get; set; }
+
+        [JsonPropertyName("surrender_evaluated")]
+        public bool SurrenderEvaluated { get; set; }
+
+        [JsonPropertyName("surrendered_quantity")]
+        public int SurrenderedQuantity { get; set; }
+
+        [JsonPropertyName("recovered_quantity")]
+        public int RecoveredQuantity { get; set; }
+
+        [JsonPropertyName("raiders")]
+        public List<SaveAmbientPirateRaiderData> Raiders { get; set; } = new();
+    }
+
+    /// <summary>Durable identity/haul snapshot for one assigned raider.</summary>
+    public sealed class SaveAmbientPirateRaiderData
+    {
+        [JsonPropertyName("stable_identity")]
+        public string StableIdentity { get; set; } = string.Empty;
+
+        [JsonPropertyName("archetype_name")]
+        public string ArchetypeName { get; set; } = string.Empty;
+
+        [JsonPropertyName("model_path")]
+        public string ModelPath { get; set; } = string.Empty;
+
+        [JsonPropertyName("loadout_tier")]
+        public NpcLoadoutTier LoadoutTier { get; set; } = NpcLoadoutTier.Standard;
+
+        [JsonPropertyName("alive")]
+        public bool Alive { get; set; }
+
+        [JsonPropertyName("escaped")]
+        public bool Escaped { get; set; }
+
+        [JsonPropertyName("position")]
+        public SaveVector3Data Position { get; set; } = new();
+
+        [JsonPropertyName("velocity")]
+        public SaveVector3Data Velocity { get; set; } = new();
+
+        [JsonPropertyName("haul")]
+        public List<SaveAmbientPirateHaulData> Haul { get; set; } = new();
+    }
+
+    public sealed class SaveAmbientPirateHaulData
+    {
+        [JsonPropertyName("commodity_id")]
+        public string CommodityId { get; set; } = string.Empty;
+
+        [JsonPropertyName("quantity")]
+        public int Quantity { get; set; }
     }
 
     /// <summary>
