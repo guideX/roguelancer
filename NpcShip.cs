@@ -111,6 +111,13 @@ namespace Roguelancer
         public bool IsShipmentSecurityEscort { get; private set; }
         public string SecurityShipmentIdentity { get; private set; } = string.Empty;
         /// <summary>
+        /// Provenance for the real Phase 68 criminal logistics carrier. This
+        /// is deliberately separate from Phase 67's ambient pirate-raider
+        /// provenance and never implies stolen cargo.
+        /// </summary>
+        public bool IsRogueSmuggler { get; private set; }
+        public string RogueSmugglingShipmentIdentity { get; private set; } = string.Empty;
+        /// <summary>
         /// Provenance for the one bounded autonomous piracy encounter that
         /// owns this ship. It is separate from ordinary PirateAmbush traffic
         /// so legacy traffic targeting cannot retask an assigned raider.
@@ -233,6 +240,18 @@ namespace Roguelancer
             IsShipmentSecurityEscort = false;
             SecurityShipmentIdentity = string.Empty;
             ClearFormationFollower();
+        }
+
+        internal void MarkRogueSmuggler(string shipmentIdentity)
+        {
+            IsRogueSmuggler = true;
+            RogueSmugglingShipmentIdentity = shipmentIdentity ?? string.Empty;
+        }
+
+        internal void ClearRogueSmuggler()
+        {
+            IsRogueSmuggler = false;
+            RogueSmugglingShipmentIdentity = string.Empty;
         }
 
         internal void MarkAmbientPirateRaider(string raidIdentity)

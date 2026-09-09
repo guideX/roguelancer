@@ -48,6 +48,7 @@ namespace Roguelancer
         private ReputationManager _reputationManager;
         private ContentManager _content;
         private EconomicShipmentManager _economicShipments;
+        private RogueSmugglingManager _rogueSmuggling;
         private readonly AmbientPirateRaidManager _ambientPirateRaids;
         private readonly HashSet<NpcShip> _securityShips = new();
         private readonly HashSet<NpcShip> _pendingSecurityCleanup = new();
@@ -100,7 +101,14 @@ namespace Roguelancer
         public IReadOnlyList<TrafficZoneConfig> LoadedZones => _zonesById.Values.Select(runtime => runtime.Zone).ToList();
         public IReadOnlyList<TrafficZoneConfig> ConfiguredTraderRoutes => _zonesById.Values
             .Select(runtime => runtime.Zone)
-            .Where(zone => zone != null && zone.BehaviorType == TrafficZoneBehaviorType.TraderRoute)
+            .Where(zone => zone != null && zone.BehaviorType == TrafficZoneBehaviorType.TraderRoute &&
+                !zone.IsRogueSmugglingRoute)
+            .OrderBy(zone => zone.Id ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        public IReadOnlyList<TrafficZoneConfig> ConfiguredRogueSmugglingRoutes => _zonesById.Values
+            .Select(runtime => runtime.Zone)
+            .Where(zone => zone != null && zone.BehaviorType == TrafficZoneBehaviorType.TraderRoute &&
+                zone.IsRogueSmugglingRoute)
             .OrderBy(zone => zone.Id ?? string.Empty, StringComparer.OrdinalIgnoreCase)
             .ToList();
         public FactionDistressResponseService DistressResponse => _distressResponse;
@@ -108,6 +116,7 @@ namespace Roguelancer
         public FactionCombatDisengagementService CombatDisengagement => _combatDisengagement;
         public FactionCombatCommunicationService CombatCommunication => _combatCommunication;
         public EconomicShipmentManager EconomicShipments => _economicShipments;
+        public RogueSmugglingManager RogueSmuggling => _rogueSmuggling;
         public AmbientPirateRaidManager AmbientPirateRaids => _ambientPirateRaids;
         public IReadOnlyList<NpcShip> ActiveSecurityShips => _securityShips
             .Where(ship => ship != null && !ship.IsDestroyed)
@@ -170,6 +179,18 @@ namespace Roguelancer
             }
         }
 
+        public void ConfigureRogueSmuggling(RogueSmugglingManager smuggling, Action<string> log = null)
+        {
+            _rogueSmuggling = smuggling;
+            if (_rogueSmuggling == null)
+                return;
+
+            _rogueSmuggling.ConfigureRuntime(
+                (route, identityHint) => SpawnRogueSmuggler(route, identityHint),
+                (ship, reason) => RetireRogueSmuggler(ship, reason));
+            _rogueSmuggling.TryRestorePendingCarriers(log);
+        }
+
         public void ConfigureAmbientPirateLoot(LootManager lootManager)
         {
             _ambientPirateRaids.ConfigureRuntime(
@@ -210,6 +231,7 @@ namespace Roguelancer
         {
             _ambientPirateRaids.Reset(log);
             _economicShipments?.ResetForWorldTeardown(restoreOriginStock: true);
+            _rogueSmuggling?.ResetForWorldTeardown(restoreOriginStock: true);
             ProcessSecurityCleanup(log);
             _combatCommunication.Reset();
             _combatEscalation.Reset();
@@ -240,6 +262,8 @@ namespace Roguelancer
                 EnsureMinimumPopulation(runtime, log);
             }
 
+            _rogueSmuggling?.TryRestorePendingCarriers(log);
+
             log?.Invoke($"[TRAFFIC] Loaded {_zonesById.Count} zones for system {systemIndex}");
         }
 
@@ -261,6 +285,7 @@ namespace Roguelancer
             _combatEscalation.Update(deltaTime);
             _combatDisengagement.Update(deltaTime, playerShip);
             _ambientPirateRaids.Update(deltaTime, log);
+            _rogueSmuggling?.Update(deltaTime, log);
             UpdateTrafficInteractions(playerShip, reputationManager, log, deltaTime);
 
             foreach (TrafficZoneRuntime runtime in _zonesById.Values)
@@ -289,6 +314,7 @@ namespace Roguelancer
             _combatCommunication.UnregisterShip(destroyedShip);
             _economicShipments?.Security.NotifyNpcDestroyed(destroyedShip);
             _economicShipments?.NotifyTraderDestroyed(destroyedShip);
+            _rogueSmuggling?.NotifyCarrierDestroyed(destroyedShip);
 
             foreach (NpcShip other in _npcShips)
             {
@@ -427,7 +453,7 @@ namespace Roguelancer
 
         private void SpawnTrafficIfNeeded(TrafficZoneRuntime runtime, Action<string> log, float deltaTime)
         {
-            if (runtime.Zone == null)
+            if (runtime.Zone == null || runtime.Zone.IsRogueSmugglingRoute)
             {
                 return;
             }
@@ -1040,7 +1066,10 @@ namespace Roguelancer
             Vector3? responseOrigin = null,
             string responseEncounterId = null,
             bool isDistressReinforcement = false,
-            bool isEscalationReinforcement = false)
+            bool isEscalationReinforcement = false,
+            string factionIdOverride = null,
+            bool skipEconomicAttach = false,
+            string stableIdentityHint = null)
         {
             if (runtime.Zone == null)
             {
@@ -1090,7 +1119,7 @@ namespace Roguelancer
                     : DetermineSpawnPosition(zone, spawnSerial);
             }
             Vector3 patrolCenter = zone.Center;
-            string factionId = FactionManager.CoalesceFactionId(zone.FactionId, shipConfig.FactionId);
+            string factionId = FactionManager.CoalesceFactionId(factionIdOverride, zone.FactionId, shipConfig.FactionId);
 
             NpcShip npc = new NpcShip(
                 $"{shipConfig.Description} {runtime.SpawnSerial}",
@@ -1099,6 +1128,8 @@ namespace Roguelancer
                 Math.Max(400f, zone.Radius),
                 GetTrafficPatrolSpeed(zone.BehaviorType),
                 factionId);
+            if (!string.IsNullOrWhiteSpace(stableIdentityHint))
+                npc.RestoreStableIdentity(stableIdentityHint);
 
             npc.ConfigureTrafficBehavior(
                 zone.BehaviorType,
@@ -1109,6 +1140,8 @@ namespace Roguelancer
                 GetTrafficActivationRange(zone.BehaviorType, zone.Radius),
                 zone.RouteStart,
                 zone.RouteEnd);
+            if (!string.IsNullOrWhiteSpace(stableIdentityHint))
+                npc.RestoreStableIdentity(stableIdentityHint);
             npc.TrafficLifetimeSeconds = GetTrafficLifetime(zone.BehaviorType);
             if (isEscalationReinforcement)
             {
@@ -1161,13 +1194,53 @@ namespace Roguelancer
             _combatDisengagement.RegisterShip(npc);
             _combatCommunication.RegisterShip(npc);
             SubscribeEconomicArrival(npc);
-            if (_economicShipments != null && zone.BehaviorType == TrafficZoneBehaviorType.TraderRoute &&
+            if (!skipEconomicAttach && _economicShipments != null && zone.BehaviorType == TrafficZoneBehaviorType.TraderRoute &&
                 _economicShipments.TryAttachTrader(npc, zone, out EconomicShipment shipment))
             {
                 log?.Invoke($"[ECONOMY] Reserved {shipment.InitialQuantity} units for {npc.Name}: {shipment.OriginStationId} -> {shipment.DestinationStationId}.");
             }
             log?.Invoke($"[TRAFFIC] Spawned {npc.Name} in {zone.Name} ({zone.BehaviorType})");
             return true;
+        }
+
+        private NpcShip SpawnRogueSmuggler(TrafficZoneConfig route, string identityHint)
+        {
+            if (route == null || !route.IsRogueSmugglingRoute ||
+                _npcShips.Count >= MaximumNpcPopulation)
+                return null;
+
+            if (!_zonesById.TryGetValue(route.Id ?? string.Empty, out TrafficZoneRuntime runtime) ||
+                runtime?.Zone == null || runtime.ActiveShips.Count >= Math.Max(1, route.MaxShips))
+                return null;
+
+            int before = runtime.ActiveShips.Count;
+            if (!TrySpawnTraffic(
+                    runtime,
+                    Console.WriteLine,
+                    factionIdOverride: FactionManager.LibertyRogues,
+                    skipEconomicAttach: true,
+                    stableIdentityHint: identityHint))
+                return null;
+
+            return runtime.ActiveShips.Skip(before).FirstOrDefault();
+        }
+
+        private void RetireRogueSmuggler(NpcShip ship, string reason)
+        {
+            if (ship == null)
+                return;
+
+            if (_shipRuntimes.TryGetValue(ship, out TrafficShipRuntime runtime) &&
+                _zonesById.TryGetValue(runtime.ZoneId, out TrafficZoneRuntime zoneRuntime))
+            {
+                ReleaseShip(zoneRuntime, ship, Console.WriteLine, reason ?? "smuggling lifecycle");
+                return;
+            }
+
+            _combatDisengagement.NotifyNpcDespawned(ship);
+            _combatCommunication.UnregisterShip(ship);
+            _npcShips.Remove(ship);
+            _spaceObjects.Remove(ship);
         }
 
         private void SubscribeEconomicArrival(NpcShip ship)
@@ -1182,6 +1255,7 @@ namespace Roguelancer
         private void HandleEconomicRouteArrival(NpcShip ship, bool reachedRouteEnd)
         {
             _economicShipments?.NotifyRouteEndpointReached(ship, reachedRouteEnd, Console.WriteLine);
+            _rogueSmuggling?.NotifyRouteEndpointReached(ship, reachedRouteEnd, Console.WriteLine);
         }
 
         private IReadOnlyList<NpcShip> SpawnDistressReinforcements(
@@ -1705,7 +1779,10 @@ namespace Roguelancer
             _shipRuntimes.Remove(ship);
             ship.TrafficRouteEndpointReached -= HandleEconomicRouteArrival;
             if (!ship.IsDestroyed)
+            {
                 _economicShipments?.NotifyTraderDespawned(ship, reason);
+                _rogueSmuggling?.NotifyCarrierDespawned(ship, reason);
+            }
             _combatDisengagement.NotifyNpcDespawned(ship);
             _combatCommunication.UnregisterShip(ship);
             if (_onNpcDestroyed != null)

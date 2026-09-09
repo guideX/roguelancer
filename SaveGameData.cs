@@ -10,7 +10,7 @@ namespace Roguelancer
     /// </summary>
     public sealed class SaveGameData
     {
-        public const int CurrentSchemaVersion = 12;
+        public const int CurrentSchemaVersion = 13;
 
         [JsonPropertyName("schema_version")]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -71,6 +71,14 @@ namespace Roguelancer
 
         [JsonPropertyName("economic_shipments")]
         public List<SaveEconomicShipmentData> EconomicShipments { get; set; } = new();
+
+        /// <summary>
+        /// Phase 68 active criminal logistics snapshots. Terminal shipments
+        /// are intentionally absent because their cargo is already delivered,
+        /// physically dropped, or explicitly lost.
+        /// </summary>
+        [JsonPropertyName("rogue_smuggling_shipments")]
+        public List<SaveRogueSmugglingShipmentData> RogueSmugglingShipments { get; set; } = new();
 
         /// <summary>
         /// Optional Phase 66/67 snapshots. Keeping this field additive preserves
@@ -823,6 +831,67 @@ namespace Roguelancer
     }
 
     public sealed class SaveEconomicShipmentStackData
+    {
+        [JsonPropertyName("commodity_id")]
+        public string CommodityId { get; set; } = string.Empty;
+
+        [JsonPropertyName("initial_quantity")]
+        public int InitialQuantity { get; set; }
+
+        [JsonPropertyName("remaining_quantity")]
+        public int RemainingQuantity { get; set; }
+    }
+
+    /// <summary>
+    /// Active Phase 68 carrier snapshot. It is separate from the lawful
+    /// EconomicShipment schema so Phase 67/66 state cannot cross-settle it.
+    /// </summary>
+    public sealed class SaveRogueSmugglingShipmentData
+    {
+        [JsonPropertyName("shipment_identity")]
+        public string ShipmentIdentity { get; set; } = string.Empty;
+
+        [JsonPropertyName("route_id")]
+        public string RouteId { get; set; } = string.Empty;
+
+        [JsonPropertyName("origin_station_id")]
+        public string OriginStationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("destination_station_id")]
+        public string DestinationStationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("origin_station_name")]
+        public string OriginStationName { get; set; } = string.Empty;
+
+        [JsonPropertyName("destination_station_name")]
+        public string DestinationStationName { get; set; } = string.Empty;
+
+        [JsonPropertyName("initial_quantity")]
+        public int InitialQuantity { get; set; }
+
+        [JsonPropertyName("remaining_quantity")]
+        public int RemainingQuantity { get; set; }
+
+        [JsonPropertyName("route_toward_end")]
+        public bool RouteTowardEnd { get; set; }
+
+        [JsonPropertyName("settlement")]
+        public RogueSmugglingShipmentSettlement Settlement { get; set; } = RogueSmugglingShipmentSettlement.Active;
+
+        [JsonPropertyName("position")]
+        public SaveVector3Data Position { get; set; } = new();
+
+        [JsonPropertyName("velocity")]
+        public SaveVector3Data Velocity { get; set; } = new();
+
+        [JsonPropertyName("traffic_age_seconds")]
+        public float TrafficAgeSeconds { get; set; }
+
+        [JsonPropertyName("stacks")]
+        public List<SaveRogueSmugglingStackData> Stacks { get; set; } = new();
+    }
+
+    public sealed class SaveRogueSmugglingStackData
     {
         [JsonPropertyName("commodity_id")]
         public string CommodityId { get; set; } = string.Empty;

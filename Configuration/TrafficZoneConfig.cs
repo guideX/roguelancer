@@ -58,6 +58,15 @@ namespace Roguelancer.Configuration
         [JsonPropertyName("behavior_type")]
         public Roguelancer.TrafficZoneBehaviorType BehaviorType { get; set; } = Roguelancer.TrafficZoneBehaviorType.LawfulPatrol;
 
+        /// <summary>
+        /// Marks a trader route as owned by the bounded Phase 68 criminal
+        /// logistics scheduler. Such a route still uses ordinary TraderRoute
+        /// movement, combat, scanner, and tradelane participation, but is not
+        /// populated by the generic lawful traffic spawner.
+        /// </summary>
+        [JsonPropertyName("is_rogue_smuggling_route")]
+        public bool IsRogueSmugglingRoute { get; set; }
+
         [JsonPropertyName("route_start_x")]
         public float? RouteStartX { get; set; }
 

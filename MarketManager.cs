@@ -731,6 +731,32 @@ namespace Roguelancer
         }
 
         /// <summary>
+        /// Returns the exact bounded capacity available to a physical
+        /// contraband shipment at a configured criminal receiver. This is
+        /// deliberately separate from GetAvailableSupplyCapacity, whose
+        /// lawful supply path rejects contraband by policy.
+        /// </summary>
+        public int GetAvailableCriminalSupplyCapacity(Station station, Commodity commodity)
+        {
+            Commodity canonical = ResolveCommodity(commodity?.Id ?? commodity?.Name);
+            if (station == null || canonical?.IsContraband != true ||
+                !HasBlackMarketForStation(station))
+                return 0;
+
+            StationMarketListing listing = GetMutableListing(
+                GetStationKey(station.Name, station.Config?.Description), canonical);
+            if (listing == null || !listing.IsAvailable || listing.SellPrice <= 0 ||
+                !listing.Commodity.IsContraband)
+                return 0;
+
+            int reserved = GetReservedCapacity(
+                GetStationKey(station.Name, station.Config?.Description),
+                listing.Commodity.Id,
+                excludingMissionId: 0);
+            return Math.Max(0, listing.MaximumStock - listing.Stock - reserved);
+        }
+
+        /// <summary>
         /// Validates removal of real station inventory without changing state.
         /// Export contracts use this to keep a shipment above its normal stock
         /// floor while the terms are being accepted.
@@ -877,6 +903,52 @@ namespace Roguelancer
             }
 
             acceptedQuantity = quantity;
+            return true;
+        }
+
+        /// <summary>
+        /// Removes real contraband stock from an existing criminal market for
+        /// a physical criminal shipment. The normal supply helper rejects
+        /// contraband by policy and therefore cannot reserve this cargo.
+        /// </summary>
+        public bool TryRemoveCriminalSupply(
+            Station station,
+            Commodity commodity,
+            int quantity,
+            int minimumRemainingStock,
+            out string message)
+        {
+            message = string.Empty;
+            Commodity canonical = ResolveCommodity(commodity?.Id ?? commodity?.Name);
+            if (station == null || canonical?.IsContraband != true || quantity <= 0 ||
+                !HasBlackMarketForStation(station))
+            {
+                message = "No valid criminal supply export.";
+                return false;
+            }
+
+            StationMarketListing listing = GetMutableListing(
+                GetStationKey(station.Name, station.Config?.Description), canonical);
+            if (listing == null || !listing.IsAvailable || listing.SellPrice <= 0 ||
+                !listing.Commodity.IsContraband)
+            {
+                message = "Contraband unavailable at this criminal market.";
+                return false;
+            }
+
+            minimumRemainingStock = Math.Max(0, minimumRemainingStock);
+            if (listing.Stock - quantity < minimumRemainingStock)
+            {
+                message = $"Criminal market can export only {Math.Max(0, listing.Stock - minimumRemainingStock)} units.";
+                return false;
+            }
+
+            listing.Stock -= quantity;
+            listing.RecoveryEnabled = true;
+            listing.ImmediateSellPriceCeiling = 0;
+            listing.RecoveryRemainderMilliseconds = 0;
+            RefreshPrices(listing);
+            message = $"Exported {quantity} contraband {listing.Commodity.Name}; criminal stock is now {listing.Stock:N0}.";
             return true;
         }
 
