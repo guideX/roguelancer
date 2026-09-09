@@ -273,6 +273,7 @@ namespace Roguelancer {
         private readonly bool _runPhase66Smoke;
         private readonly bool _runPhase67Smoke;
         private readonly bool _runPhase68Smoke;
+        private readonly bool _runPhase69Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -397,6 +398,7 @@ namespace Roguelancer {
             _runPhase66Smoke = args?.Any(arg => string.Equals(arg, "--phase66-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase67Smoke = args?.Any(arg => string.Equals(arg, "--phase67-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase68Smoke = args?.Any(arg => string.Equals(arg, "--phase68-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase69Smoke = args?.Any(arg => string.Equals(arg, "--phase69-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1306,6 +1308,19 @@ namespace Roguelancer {
                 },
                 (npc, commodityId, quantity) => _missionWorldManager?.GetEconomicMissionCargoDrop(npc, commodityId, quantity),
                 drop => _missionWorldManager?.NotifyMissionCargoDropUnavailable(drop));
+            _trafficManager?.ConfigureContrabandEnforcement(
+                target =>
+                {
+                    if (_rogueSmuggling?.TryGetManifestSnapshot(target, out NpcCargoManifestSnapshot smugglingCargo) == true)
+                        return smugglingCargo;
+
+                    if (_economicShipments?.TryGetManifestSnapshot(target, out NpcCargoManifestSnapshot economicCargo) == true)
+                        return economicCargo;
+
+                    return NpcCargoManifestSnapshot.NoRegisteredCargo();
+                },
+                () => _lootManager?.ActivePods ?? Array.Empty<CargoPod>(),
+                (enforcer, pod) => _lootManager?.TrySeizeContrabandPodForNpc(enforcer, pod) ?? 0);
             _playerShip.SetNotificationManager(_notificationManager);
             _playerShip.SetExplosionSystem(_explosionParticles);
             _playerShip.SetDamageSmokeSystem(_damageSmokeParticles);
@@ -1612,6 +1627,11 @@ namespace Roguelancer {
                 var result = RunPhase68SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase69Smoke)
+            {
+                var result = RunPhase69SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -1845,6 +1865,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 66 ambient pirate raid smoke", RunPhase66SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 67 Rogue loot delivery smoke", RunPhase67SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 68 Rogue smuggling traffic smoke", RunPhase68SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 69 lawful contraband interdiction smoke", RunPhase69SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2403,6 +2424,120 @@ namespace Roguelancer {
             }
         }
 
+        private (int Passed, int Failed) RunPhase69SmokeTest()
+        {
+            try
+            {
+                (bool liveSuccess, string liveReason) = RunLivePhase69ProductionProof();
+                Console.WriteLine(liveSuccess
+                    ? "[PHASE 69 LAWFUL CONTRABAND INTERDICTION SMOKE] PASS live TrafficManager detected and destroyed a real Phase 68 carrier"
+                    : $"[PHASE 69 LAWFUL CONTRABAND INTERDICTION SMOKE] FAIL live production proof: {liveReason}");
+                (int passed, int failed) = new Phase69LawfulContrabandInterdictionSmokeTest(GraphicsDevice).Run();
+                int totalPassed = passed + (liveSuccess ? 1 : 0);
+                int totalFailed = failed + (liveSuccess ? 0 : 1);
+                Console.WriteLine($"[PHASE 69 LAWFUL CONTRABAND INTERDICTION SMOKE] TOTAL: {totalPassed} passed, {totalFailed} failed");
+                return (totalPassed, totalFailed);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 69 LAWFUL CONTRABAND INTERDICTION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        /// <summary>
+        /// Uses a live configured Rogue smuggling route and the production
+        /// TrafficManager/loot callbacks. The focused class below supplies
+        /// deterministic local coverage for the full pod race and save/reset
+        /// matrix.
+        /// </summary>
+        private (bool Success, string FailureReason) RunLivePhase69ProductionProof()
+        {
+            TrafficZoneConfig route = _trafficManager?.ConfiguredRogueSmugglingRoutes?.FirstOrDefault();
+            if (_trafficManager == null || _rogueSmuggling == null || route == null ||
+                !route.RouteStart.HasValue || !route.RouteEnd.HasValue)
+            {
+                return (false, "live traffic, smuggling manager, or configured Rogue route was unavailable");
+            }
+
+            // The aggregate smoke runner executes Phase 68 immediately before
+            // this proof. Reload the current production traffic zones so the
+            // route's deterministic spawn direction/serial and active-zone
+            // membership do not inherit the prior proof's lifecycle state.
+            string routeId = route.Id;
+            _trafficManager.LoadZonesForSystem(_currentSystemIndex, Console.WriteLine);
+            route = _trafficManager.ConfiguredRogueSmugglingRoutes.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, routeId, StringComparison.OrdinalIgnoreCase));
+            if (route == null || !route.RouteStart.HasValue || !route.RouteEnd.HasValue)
+                return (false, "live Rogue route was unavailable after production traffic reset");
+
+            _trafficManager.Update(
+                new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(RogueSmugglingManager.SpawnIntervalSeconds + 1f)),
+                _playerShip,
+                _reputationManager,
+                Console.WriteLine);
+            RogueSmugglingShipment shipment = _rogueSmuggling.ActiveShipments.FirstOrDefault();
+            if (shipment?.Carrier == null || shipment.RemainingQuantity <= 0)
+            {
+                Station origin = _stationManager?.GetStations()?.FirstOrDefault(station =>
+                    string.Equals(_commodityDealer.MarketManager.GetStationId(station), route.OriginStationId, StringComparison.OrdinalIgnoreCase));
+                string stock = string.Join(",", (_commodityDealer.MarketManager.GetBlackMarketListingsForStation(origin) ?? new List<StationMarketListing>())
+                    .Where(listing => listing?.Commodity?.IsContraband == true)
+                    .Select(listing => $"{listing.Commodity.Id}:{listing.Stock}"));
+                return (false, $"TrafficManager did not create a real manifest-bearing carrier (active={_rogueSmuggling.ActiveShipmentCount}, zone={_trafficManager.GetActiveShipCount(route.Id)}, npc={_npcShips.Count}, stock={stock})");
+            }
+
+            NpcShip police = new(
+                "Phase 69 Live Liberty Police",
+                shipment.Carrier.Position,
+                shipment.Carrier.Position,
+                1f,
+                0f,
+                FactionManager.LibertyPolice);
+            police.ConfigureTrafficBehavior(
+                TrafficZoneBehaviorType.LawfulPatrol,
+                "phase69-live-police",
+                police.Position,
+                800f,
+                180f,
+                ContrabandEnforcementPolicy.DefaultDetectionRange);
+            police.SetLoadout(NpcEquipmentLoadoutFactory.CreateForNpc(
+                "Smoke Fighter",
+                FactionManager.LibertyPolice,
+                "SMOKE/fighter",
+                TrafficZoneBehaviorType.LawfulPatrol,
+                NpcLoadoutTier.Standard));
+            _npcShips.Add(police);
+            _spaceObjects.Add(police);
+            _trafficManager.Update(
+                new GameTime(TimeSpan.Zero, TimeSpan.FromSeconds(0.1f)),
+                new Ship(new Vector3(1_000_000f, 0f, 0f)),
+                _reputationManager,
+                Console.WriteLine);
+
+            bool detected = police.FactionCombatTarget == shipment.Carrier &&
+                police.FactionCombatTargetOrigin == FactionCombatTargetOrigin.ContrabandEnforcement;
+            if (!detected)
+                return (false, "live police target was not acquired from the actual contraband manifest");
+
+            int initialQuantity = shipment.RemainingQuantity;
+            shipment.Carrier.ApplyCombatDamage(
+                shipment.Carrier.Shields.CurrentShields + shipment.Carrier.Hull.MaxHull + 10f,
+                NpcDestructionSource.Npc);
+            bool destroyed = shipment.Carrier.IsDestroyed;
+            int physicalContraband = _lootManager?.ActivePods
+                .Where(pod => pod?.GetCommodity()?.IsContraband == true)
+                .Sum(pod => pod.Quantity) ?? 0;
+            bool lost = _rogueSmuggling.TryGetSettlementByIdentity(
+                shipment.ShipmentIdentity,
+                out RogueSmugglingShipmentSettlement settlement) &&
+                settlement == RogueSmugglingShipmentSettlement.Lost;
+
+            return destroyed && lost && physicalContraband == initialQuantity
+                ? (true, string.Empty)
+                : (false, $"destroyed={destroyed}, settlement={settlement}, physical={physicalContraband}/{initialQuantity}");
+        }
+
         private (bool Success, string FailureReason) RunLivePhase68ProductionProof()
         {
             RogueSmugglingShipment shipment = null;
@@ -2453,9 +2588,42 @@ namespace Roguelancer {
                     stack.Commodity,
                     MarketSurface.BlackMarket)?.Stock ?? -1) ==
                 destinationBefore[stack.Commodity.Id] + stack.InitialQuantity);
+            if (settlement == RogueSmugglingShipmentSettlement.Delivered)
+                RestoreLivePhase68MarketState(shipment);
             return exact
                 ? (true, string.Empty)
                 : (false, $"settled={settlement}, destination stock did not match the live manifest");
+        }
+
+        private void RestoreLivePhase68MarketState(RogueSmugglingShipment shipment)
+        {
+            if (shipment?.Manifest?.Stacks == null || _stationManager?.GetStations() == null)
+                return;
+
+            Station origin = _stationManager.GetStations().FirstOrDefault(station =>
+                string.Equals(_commodityDealer.MarketManager.GetStationId(station), shipment.OriginStationId, StringComparison.OrdinalIgnoreCase));
+            Station destination = _stationManager.GetStations().FirstOrDefault(station =>
+                string.Equals(_commodityDealer.MarketManager.GetStationId(station), shipment.DestinationStationId, StringComparison.OrdinalIgnoreCase));
+            if (origin == null || destination == null ||
+                string.Equals(shipment.OriginStationId, shipment.DestinationStationId, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            foreach (TraderCargoStack stack in shipment.Manifest.Stacks.Where(candidate =>
+                candidate?.Commodity?.IsContraband == true && candidate.InitialQuantity > 0))
+            {
+                _commodityDealer.MarketManager.TryAddCriminalSupply(
+                    origin,
+                    stack.Commodity,
+                    stack.InitialQuantity,
+                    out _,
+                    out _);
+                _commodityDealer.MarketManager.TryRemoveCriminalSupply(
+                    destination,
+                    stack.Commodity,
+                    stack.InitialQuantity,
+                    0,
+                    out _);
+            }
         }
 
         private (int Passed, int Failed) RunFactionDistressResponseSmokeTest()

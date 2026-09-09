@@ -53,6 +53,12 @@ namespace Roguelancer
         private readonly HashSet<NpcShip> _securityShips = new();
         private readonly HashSet<NpcShip> _pendingSecurityCleanup = new();
         private readonly Dictionary<NpcShip, string> _securityCleanupReasons = new();
+        private readonly Dictionary<NpcShip, CargoPod> _pendingContrabandSeizures = new();
+        private readonly HashSet<int> _seizedContrabandPodIdentities = new();
+        private readonly List<LawfulContrabandSeizureRecord> _contrabandSeizures = new();
+        private Func<NpcShip, NpcCargoManifestSnapshot> _contrabandManifestResolver;
+        private Func<IEnumerable<CargoPod>> _contrabandPodsProvider;
+        private Func<NpcShip, CargoPod, int> _contrabandPodSeizer;
 
         public Func<NpcShip, NpcShip> MissionTargetResolver { get; set; }
         public PoliceFugitiveManager FugitiveManager { get; set; }
@@ -123,6 +129,9 @@ namespace Roguelancer
             .OrderBy(ship => ship.StableIdentity, StringComparer.Ordinal)
             .ToList();
         public int ActiveSecurityEscortCount => ActiveSecurityShips.Count;
+        public int ContrabandSeizureCount => _contrabandSeizures.Count;
+        public int TotalSeizedContrabandQuantity => _contrabandSeizures.Sum(record => record.Quantity);
+        public IReadOnlyList<LawfulContrabandSeizureRecord> ContrabandSeizures => _contrabandSeizures;
 
         public IReadOnlyList<NpcShip> GetActiveShipsForZone(string zoneId)
         {
@@ -191,6 +200,24 @@ namespace Roguelancer
             _rogueSmuggling.TryRestorePendingCarriers(log);
         }
 
+        /// <summary>
+        /// Connects lawful interdiction to existing manifest and physical-loot
+        /// authorities. TrafficManager owns only local target/seizure intent;
+        /// the supplied callbacks remain authoritative for cargo contents and
+        /// pod removal.
+        /// </summary>
+        public void ConfigureContrabandEnforcement(
+            Func<NpcShip, NpcCargoManifestSnapshot> manifestResolver,
+            Func<IEnumerable<CargoPod>> podsProvider,
+            Func<NpcShip, CargoPod, int> podSeizer)
+        {
+            _contrabandManifestResolver = manifestResolver;
+            _contrabandPodsProvider = podsProvider;
+            _contrabandPodSeizer = podSeizer;
+            foreach (NpcShip ship in _npcShips)
+                ship?.SetContrabandTargetValidator(HasContrabandCargo);
+        }
+
         public void ConfigureAmbientPirateLoot(LootManager lootManager)
         {
             _ambientPirateRaids.ConfigureRuntime(
@@ -229,6 +256,7 @@ namespace Roguelancer
 
         public void LoadZonesForSystem(int systemIndex, Action<string> log = null)
         {
+            ResetContrabandEnforcement();
             _ambientPirateRaids.Reset(log);
             _economicShipments?.ResetForWorldTeardown(restoreOriginStock: true);
             _rogueSmuggling?.ResetForWorldTeardown(restoreOriginStock: true);
@@ -307,6 +335,8 @@ namespace Roguelancer
             {
                 return;
             }
+
+            _pendingContrabandSeizures.Remove(destroyedShip);
 
             _ambientPirateRaids.NotifyNpcDestroyed(destroyedShip, Console.WriteLine);
             _combatEscalation.NotifyNpcDestroyed(destroyedShip);
@@ -425,6 +455,7 @@ namespace Roguelancer
 
         public void ResetTransientDistressState()
         {
+            ResetContrabandEnforcement();
             _ambientPirateRaids.Reset(Console.WriteLine);
             for (int i = _npcShips.Count - 1; i >= 0; i--)
             {
@@ -449,6 +480,29 @@ namespace Roguelancer
                 if (ship != null && !ship.IsDestroyed)
                     ship.ClearEncounterState();
             }
+        }
+
+        /// <summary>
+        /// Clears only transient enforcement target/seizure bookkeeping. It
+        /// never touches market stock, active pods, or player cargo.
+        /// </summary>
+        public void ResetContrabandEnforcement()
+        {
+            foreach (NpcShip ship in _npcShips)
+                ship?.SetContrabandTargetValidator(null);
+
+            foreach (NpcShip enforcer in _pendingContrabandSeizures.Keys.ToList())
+            {
+                if (enforcer != null && enforcer.FactionCombatTarget == null &&
+                    enforcer.EncounterState == TrafficEncounterState.AttackingFactionNpc)
+                {
+                    enforcer.ClearEncounterState();
+                }
+            }
+
+            _pendingContrabandSeizures.Clear();
+            _seizedContrabandPodIdentities.Clear();
+            _contrabandSeizures.Clear();
         }
 
         private void SpawnTrafficIfNeeded(TrafficZoneRuntime runtime, Action<string> log, float deltaTime)
@@ -556,6 +610,7 @@ namespace Roguelancer
             // ordinary target/weapon/disengagement pipeline.
             FugitiveManager?.Update(deltaTime, playerShip, _npcShips, log);
             UpdateFactionCombatEngagements(playerShip, reputationManager, log);
+            UpdateContrabandSeizurePursuit(log);
         }
 
         private void UpdateTrafficInteractions(TrafficZoneRuntime runtime, Ship playerShip, ReputationManager reputationManager, Action<string> log, float deltaTime)
@@ -773,6 +828,8 @@ namespace Roguelancer
                 if (source == null || source.IsDestroyed)
                     continue;
 
+                source.SetContrabandTargetValidator(HasContrabandCargo);
+
                 NpcShip securityThreat = _economicShipments?.Security.GetPriorityThreat(source, _npcShips);
                 if (securityThreat != null)
                 {
@@ -853,9 +910,17 @@ namespace Roguelancer
                 }
 
                 float range = Math.Max(100f, source.TrafficActivationRange);
+                NpcShip contrabandTarget = ContrabandEnforcementPolicy.SelectNearestTarget(
+                    source,
+                    nearbyCandidates,
+                    range,
+                    _contrabandManifestResolver);
+                bool hasContrabandTarget = contrabandTarget != null;
                 NpcShip target = hasMissionTarget
                     ? missionTarget
-                    : NpcFactionCombatTargeting.SelectNearestHostileTarget(source, nearbyCandidates, range);
+                    : hasContrabandTarget
+                        ? contrabandTarget
+                        : NpcFactionCombatTargeting.SelectNearestHostileTarget(source, nearbyCandidates, range);
                 if (target == null)
                     continue;
 
@@ -866,7 +931,9 @@ namespace Roguelancer
                     preserveLegacyState,
                     hasMissionTarget
                         ? FactionCombatTargetOrigin.MissionObjective
-                        : FactionCombatTargetOrigin.OrdinaryAcquisition))
+                        : hasContrabandTarget
+                            ? FactionCombatTargetOrigin.ContrabandEnforcement
+                            : FactionCombatTargetOrigin.OrdinaryAcquisition))
                 {
                     continue;
                 }
@@ -874,6 +941,103 @@ namespace Roguelancer
                 if (isNewEngagement)
                     TryReportCommunication(() => _combatCommunication.NotifyEngagementAcquired(source, target, playerShip));
                 log?.Invoke($"[TRAFFIC] Faction combat: {source.Name} ({source.FactionId}) targeting {target.Name} ({target.FactionId}).");
+            }
+        }
+
+        private bool HasContrabandCargo(NpcShip target)
+        {
+            return ContrabandEnforcementPolicy.HasActualContraband(
+                _contrabandManifestResolver?.Invoke(target));
+        }
+
+        /// <summary>
+        /// After destruction leaves ordinary CargoPods in the world, nearby
+        /// police pursue one eligible pod at a time through normal NPC
+        /// movement. The pod callback owns the actual remove/win race.
+        /// </summary>
+        private void UpdateContrabandSeizurePursuit(Action<string> log)
+        {
+            if (_contrabandPodsProvider == null || _contrabandPodSeizer == null)
+                return;
+
+            List<CargoPod> activePods = (_contrabandPodsProvider.Invoke() ?? Array.Empty<CargoPod>())
+                .Where(pod => pod != null && !pod.IsDepleted && !pod.IsExpired &&
+                    !pod.IsLawfullySeized && pod.PayloadType == CargoPodPayloadType.Commodity &&
+                    pod.GetCommodity()?.IsContraband == true)
+                .Take(CombatSalvageService.MaxLiveSalvageObjects)
+                .ToList();
+
+            foreach ((NpcShip enforcer, CargoPod pod) in _pendingContrabandSeizures.ToList())
+            {
+                if (enforcer == null || enforcer.IsDestroyed || pod == null ||
+                    !activePods.Contains(pod))
+                {
+                    _pendingContrabandSeizures.Remove(enforcer);
+                    if (enforcer != null && enforcer.FactionCombatTarget == null &&
+                        enforcer.EncounterState == TrafficEncounterState.AttackingFactionNpc)
+                    {
+                        enforcer.ClearEncounterState();
+                    }
+                    continue;
+                }
+
+                enforcer.SetEncounterState(TrafficEncounterState.AttackingFactionNpc, pod.Position);
+                if (Vector3.DistanceSquared(enforcer.Position, pod.Position) >
+                    ContrabandEnforcementPolicy.SeizureRange * ContrabandEnforcementPolicy.SeizureRange)
+                {
+                    continue;
+                }
+
+                int seizedQuantity = _contrabandPodSeizer(enforcer, pod);
+                if (seizedQuantity <= 0)
+                    continue;
+
+                _pendingContrabandSeizures.Remove(enforcer);
+                if (_seizedContrabandPodIdentities.Add(pod.RuntimeIdentity))
+                {
+                    _contrabandSeizures.Add(new LawfulContrabandSeizureRecord(
+                        pod.RuntimeIdentity,
+                        pod.CommodityId ?? string.Empty,
+                        seizedQuantity,
+                        NpcIdentity.GetStableIdentity(enforcer),
+                        FactionManager.NormalizeFactionId(enforcer.FactionId)));
+                    if (_contrabandSeizures.Count > CombatSalvageService.MaxLiveSalvageObjects)
+                        _contrabandSeizures.RemoveAt(0);
+                    log?.Invoke($"[POLICE] Seized {pod.CommodityId} x{seizedQuantity} from pod {pod.RuntimeIdentity}.");
+                }
+                enforcer.ClearEncounterState();
+            }
+
+            if (_pendingContrabandSeizures.Count >= 16 || activePods.Count == 0)
+                return;
+
+            foreach (NpcShip enforcer in _npcShips
+                         .Where(ship => ship != null && !ship.IsDestroyed &&
+                             ContrabandEnforcementPolicy.IsLawfulEnforcementFaction(ship.FactionId))
+                         .OrderBy(ship => NpcIdentity.GetStableIdentity(ship), StringComparer.Ordinal)
+                         .Take(16))
+            {
+                if (_pendingContrabandSeizures.ContainsKey(enforcer) ||
+                    enforcer.FactionCombatTarget != null ||
+                    enforcer.EncounterState == TrafficEncounterState.Fleeing ||
+                    enforcer.EncounterState == TrafficEncounterState.AttackingPlayer)
+                {
+                    continue;
+                }
+
+                CargoPod pod = activePods
+                    .Where(candidate => Vector3.DistanceSquared(enforcer.Position, candidate.Position) <=
+                        Math.Max(100f, enforcer.TrafficActivationRange) * Math.Max(100f, enforcer.TrafficActivationRange))
+                    .OrderBy(candidate => Vector3.DistanceSquared(enforcer.Position, candidate.Position))
+                    .ThenBy(candidate => candidate.CommodityId, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(candidate => candidate.RuntimeIdentity)
+                    .FirstOrDefault();
+                if (pod == null)
+                    continue;
+
+                _pendingContrabandSeizures[enforcer] = pod;
+                enforcer.SetEncounterState(TrafficEncounterState.AttackingFactionNpc, pod.Position);
+                log?.Invoke($"[POLICE] {enforcer.Name} pursuing contraband pod {pod.RuntimeIdentity}.");
             }
         }
 

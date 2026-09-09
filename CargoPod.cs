@@ -18,7 +18,14 @@ namespace Roguelancer
     /// </summary>
     public sealed class CargoPod
     {
+        private static int _nextRuntimeIdentity;
+
         public CargoPodPayloadType PayloadType { get; }
+        /// <summary>
+        /// Runtime-only identity used by bounded seizure bookkeeping. It is
+        /// not economic ownership and is intentionally not saved.
+        /// </summary>
+        public int RuntimeIdentity { get; }
         public bool IsEquipment => PayloadType == CargoPodPayloadType.Equipment;
         public bool IsConsumable => PayloadType == CargoPodPayloadType.Consumable;
         public string CommodityId { get; }
@@ -42,6 +49,9 @@ namespace Roguelancer
         public bool IsStolen => Provenance == CargoProvenance.Stolen;
         public bool CargoFullNotified { get; set; }
         public bool DetectionNotified { get; set; }
+        public bool IsLawfullySeized { get; private set; }
+        public string SeizedByFactionId { get; private set; } = string.Empty;
+        public string SeizedByNpcIdentity { get; private set; } = string.Empty;
 
         public bool IsExpired => AgeSeconds >= LifetimeSeconds;
         public bool IsDepleted => RemainingQuantity <= 0;
@@ -57,6 +67,7 @@ namespace Roguelancer
             float lifetimeSeconds,
             float pickupRadius)
         {
+            RuntimeIdentity = unchecked(++_nextRuntimeIdentity);
             PayloadType = payloadType;
             CommodityId = commodityId;
             EquipmentId = equipmentId;
@@ -67,6 +78,13 @@ namespace Roguelancer
             Velocity = velocity;
             LifetimeSeconds = lifetimeSeconds;
             PickupRadius = pickupRadius;
+        }
+
+        internal void MarkLawfullySeized(NpcShip enforcer)
+        {
+            IsLawfullySeized = true;
+            SeizedByFactionId = FactionManager.NormalizeFactionId(enforcer?.FactionId);
+            SeizedByNpcIdentity = NpcIdentity.GetStableIdentity(enforcer);
         }
 
         public static bool TryCreate(

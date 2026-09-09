@@ -43,7 +43,8 @@ namespace Roguelancer
         DistressResponse,
         EscalationResponse,
         MissionObjective,
-        AmbientPiracy
+        AmbientPiracy,
+        ContrabandEnforcement
     }
 
     /// <summary>
@@ -368,6 +369,7 @@ namespace Roguelancer
         private Vector3 _missionHoldAnchor;
         private string _stableIdentitySeed = string.Empty;
         private Quaternion _rotation = Quaternion.Identity; // Use Quaternion instead of Matrix
+        private Func<NpcShip, bool> _contrabandTargetValidator;
         
         public Vector3 Forward => Vector3.Transform(Vector3.Forward, _rotation);
         public Vector3 Up => Vector3.Transform(Vector3.Up, _rotation);
@@ -619,6 +621,12 @@ namespace Roguelancer
                 ? NpcFactionCombatTargeting.IsValidMissionTarget(this, target)
                 : targetOrigin == FactionCombatTargetOrigin.AmbientPiracy
                     ? NpcFactionCombatTargeting.IsValidAmbientPirateTarget(this, target)
+                    : targetOrigin == FactionCombatTargetOrigin.ContrabandEnforcement
+                        ? NpcFactionCombatTargeting.IsValidContrabandEnforcementTarget(
+                            this,
+                            target,
+                            null,
+                            _contrabandTargetValidator)
                     : NpcFactionCombatTargeting.IsValidHostileTarget(this, target);
             if (!validTarget)
                 return false;
@@ -649,6 +657,12 @@ namespace Roguelancer
                 ? NpcFactionCombatTargeting.IsValidMissionTarget(this, FactionCombatTarget, maxDistance)
                 : FactionCombatTargetOrigin == FactionCombatTargetOrigin.AmbientPiracy
                     ? NpcFactionCombatTargeting.IsValidAmbientPirateTarget(this, FactionCombatTarget, maxDistance)
+                    : FactionCombatTargetOrigin == FactionCombatTargetOrigin.ContrabandEnforcement
+                        ? NpcFactionCombatTargeting.IsValidContrabandEnforcementTarget(
+                            this,
+                            FactionCombatTarget,
+                            maxDistance,
+                            _contrabandTargetValidator)
                     : NpcFactionCombatTargeting.IsValidHostileTarget(this, FactionCombatTarget, maxDistance);
 
         public void ClearFactionCombatTarget()
@@ -686,6 +700,16 @@ namespace Roguelancer
         internal void SetFactionCombatDisengagementManaged(bool managed)
         {
             IsFactionCombatDisengagementManaged = managed;
+        }
+
+        /// <summary>
+        /// TrafficManager supplies the authoritative local manifest query for
+        /// the transient contraband-enforcement target origin. The callback is
+        /// never saved and is replaced/cleared with world traffic teardown.
+        /// </summary>
+        internal void SetContrabandTargetValidator(Func<NpcShip, bool> validator)
+        {
+            _contrabandTargetValidator = validator;
         }
 
         public FactionDisposition GetPlayerDisposition(ReputationManager reputationManager) =>

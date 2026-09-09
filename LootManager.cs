@@ -760,6 +760,33 @@ namespace Roguelancer
             return true;
         }
 
+        /// <summary>
+        /// Removes a nearby commodity pod through the same physical pod list
+        /// used by player pickup. Lawful enforcement has no receiving cargo
+        /// authority: successful seizure marks the pod and removes it from
+        /// circulation exactly once.
+        /// </summary>
+        public int TrySeizeContrabandPodForNpc(NpcShip enforcer, CargoPod pod)
+        {
+            if (enforcer == null || enforcer.IsDestroyed || pod == null ||
+                pod.IsLawfullySeized || pod.IsDepleted || pod.IsExpired ||
+                pod.PayloadType != CargoPodPayloadType.Commodity ||
+                pod.GetCommodity()?.IsContraband != true ||
+                !pod.IsWithinPickupRange(enforcer.Position) ||
+                !_activePods.Contains(pod))
+            {
+                return 0;
+            }
+
+            int seized = pod.TakeQuantity(pod.Quantity);
+            if (seized <= 0)
+                return 0;
+
+            pod.MarkLawfullySeized(enforcer);
+            _activePods.Remove(pod);
+            return seized;
+        }
+
         public void Update(GameTime gameTime, Ship playerShip, bool tractorActive, NotificationManager notificationManager = null, Action<string> log = null)
         {
             LastPickupNotification = string.Empty;

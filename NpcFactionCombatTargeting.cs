@@ -68,6 +68,41 @@ public static class NpcFactionCombatTargeting
     }
 
     /// <summary>
+    /// Validates the separate lawful-contraband combat origin. The manifest
+    /// callback is owned by the traffic/economy integration; faction hostility
+    /// is intentionally not consulted here.
+    /// </summary>
+    public static bool IsValidContrabandEnforcementTarget(
+        NpcShip? source,
+        NpcShip? target,
+        float? maxDistance,
+        Func<NpcShip, bool>? hasContraband)
+    {
+        if (source == null || target == null || hasContraband == null ||
+            !ContrabandEnforcementPolicy.IsLawfulEnforcementFaction(source.FactionId) ||
+            !hasContraband(target))
+        {
+            return false;
+        }
+
+        if (source == target || source.IsDestroyed || target.IsDestroyed ||
+            target.IsTradeLaneTransit ||
+            string.Equals(
+                FactionManager.NormalizeFactionId(source.FactionId),
+                FactionManager.NormalizeFactionId(target.FactionId),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!maxDistance.HasValue)
+            return true;
+
+        float distance = Math.Max(100f, maxDistance.Value);
+        return Vector3.DistanceSquared(source.Position, target.Position) <= distance * distance;
+    }
+
+    /// <summary>
     /// Validates a target supplied by an active mission objective. The mission
     /// owns the exception to the broad faction matrix; all runtime combat,
     /// damage, disengagement, and weapon behavior remains unchanged.
