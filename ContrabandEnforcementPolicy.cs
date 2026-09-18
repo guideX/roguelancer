@@ -8,9 +8,10 @@ using System.Linq;
 namespace Roguelancer;
 
 /// <summary>
-/// Read-only law-enforcement policy for NPC-to-NPC contraband detection.
-/// Faction hostility remains a separate combat rule; this policy only answers
-/// whether a lawful scanner has a bounded, manifest-backed contraband target.
+/// Read-only law-enforcement policy for NPC-to-NPC and NPC-to-player
+/// contraband detection. Faction hostility remains a separate combat rule;
+/// this policy only answers whether a lawful scanner has a bounded,
+/// cargo-backed contraband target.
 /// </summary>
 public static class ContrabandEnforcementPolicy
 {
@@ -31,6 +32,58 @@ public static class ContrabandEnforcementPolicy
     public static bool HasActualContraband(NpcCargoManifestSnapshot? manifest) =>
         manifest?.Stacks?.Any(stack =>
             stack?.Commodity?.IsContraband == true && stack.Quantity > 0) == true;
+
+    /// <summary>
+    /// Authoritative player-hold contraband query. CargoHold remains the
+    /// sole cargo owner; legality comes only from Commodity.IsContraband.
+    /// Mission-reserved units are physical hold contents and therefore count;
+    /// legal stolen goods alone never count.
+    /// </summary>
+    public static bool HasPlayerContraband(CargoHold? cargoHold)
+    {
+        if (cargoHold == null)
+            return false;
+
+        foreach (System.Collections.Generic.KeyValuePair<string, int> entry in cargoHold.GetAllCommodities())
+        {
+            if (entry.Value <= 0)
+                continue;
+
+            Commodity? commodity = CommodityCatalog.GetByIdOrName(entry.Key);
+            if (commodity?.IsContraband == true)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Bounded local rule for Phase 70: close lawful enforcement plus live
+    /// player contraband equals detection. No RNG, no scanner equipment, no
+    /// standing check; pursuit lifetime is owned by TrafficManager/NpcShip.
+    /// </summary>
+    public static bool IsValidPlayerTarget(
+        NpcShip? enforcementNpc,
+        Ship? playerShip,
+        float maxDistance)
+    {
+        if (enforcementNpc == null || playerShip == null ||
+            enforcementNpc.IsDestroyed ||
+            playerShip.Hull?.IsDestroyed == true ||
+            !IsLawfulEnforcementFaction(enforcementNpc.FactionId) ||
+            enforcementNpc.IsTradeLaneTransit ||
+            enforcementNpc.IsMissionHoldPosition ||
+            playerShip.IsTradeLaneTransit ||
+            !HasPlayerContraband(playerShip.CargoHold))
+        {
+            return false;
+        }
+
+        float range = Math.Max(100f, float.IsNaN(maxDistance) || float.IsInfinity(maxDistance)
+            ? DefaultDetectionRange
+            : maxDistance);
+        return Vector3.DistanceSquared(enforcementNpc.Position, playerShip.Position) <= range * range;
+    }
 
     public static bool IsValidTarget(
         NpcShip? enforcementNpc,

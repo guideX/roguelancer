@@ -56,9 +56,11 @@ namespace Roguelancer
         private readonly Dictionary<NpcShip, CargoPod> _pendingContrabandSeizures = new();
         private readonly HashSet<int> _seizedContrabandPodIdentities = new();
         private readonly List<LawfulContrabandSeizureRecord> _contrabandSeizures = new();
+        private readonly HashSet<NpcShip> _playerContrabandEnforcers = new();
         private Func<NpcShip, NpcCargoManifestSnapshot> _contrabandManifestResolver;
         private Func<IEnumerable<CargoPod>> _contrabandPodsProvider;
         private Func<NpcShip, CargoPod, int> _contrabandPodSeizer;
+        private Ship _currentPlayerShipForContraband;
 
         public Func<NpcShip, NpcShip> MissionTargetResolver { get; set; }
         public PoliceFugitiveManager FugitiveManager { get; set; }
@@ -132,6 +134,12 @@ namespace Roguelancer
         public int ContrabandSeizureCount => _contrabandSeizures.Count;
         public int TotalSeizedContrabandQuantity => _contrabandSeizures.Sum(record => record.Quantity);
         public IReadOnlyList<LawfulContrabandSeizureRecord> ContrabandSeizures => _contrabandSeizures;
+        public const int MaximumPlayerContrabandEnforcers = 16;
+        public int ActivePlayerContrabandEnforcerCount => _playerContrabandEnforcers.Count;
+        public IReadOnlyList<NpcShip> ActivePlayerContrabandEnforcers => _playerContrabandEnforcers
+            .Where(ship => ship != null && !ship.IsDestroyed)
+            .OrderBy(ship => ship.StableIdentity, StringComparer.Ordinal)
+            .ToList();
 
         public IReadOnlyList<NpcShip> GetActiveShipsForZone(string zoneId)
         {
@@ -337,6 +345,8 @@ namespace Roguelancer
             }
 
             _pendingContrabandSeizures.Remove(destroyedShip);
+            _playerContrabandEnforcers.Remove(destroyedShip);
+            destroyedShip.SetPlayerContrabandValidator(null);
 
             _ambientPirateRaids.NotifyNpcDestroyed(destroyedShip, Console.WriteLine);
             _combatEscalation.NotifyNpcDestroyed(destroyedShip);
@@ -381,6 +391,8 @@ namespace Roguelancer
             _combatDisengagement.UnregisterShip(ship);
             _combatCommunication.UnregisterShip(ship);
             _shipRuntimes.Remove(ship);
+            _playerContrabandEnforcers.Remove(ship);
+            ship.SetPlayerContrabandValidator(null);
             foreach (NpcShip other in _npcShips)
             {
                 if (other != null && other.FactionCombatTarget == ship)
@@ -489,7 +501,10 @@ namespace Roguelancer
         public void ResetContrabandEnforcement()
         {
             foreach (NpcShip ship in _npcShips)
+            {
                 ship?.SetContrabandTargetValidator(null);
+                ship?.SetPlayerContrabandValidator(null);
+            }
 
             foreach (NpcShip enforcer in _pendingContrabandSeizures.Keys.ToList())
             {
@@ -500,9 +515,17 @@ namespace Roguelancer
                 }
             }
 
+            foreach (NpcShip enforcer in _playerContrabandEnforcers.ToList())
+            {
+                if (enforcer != null && enforcer.PlayerTargetReason == NpcPlayerTargetReason.ContrabandEnforcement)
+                    enforcer.ClearEncounterState();
+                enforcer?.SetPlayerContrabandValidator(null);
+            }
+
             _pendingContrabandSeizures.Clear();
             _seizedContrabandPodIdentities.Clear();
             _contrabandSeizures.Clear();
+            _playerContrabandEnforcers.Clear();
         }
 
         private void SpawnTrafficIfNeeded(TrafficZoneRuntime runtime, Action<string> log, float deltaTime)
@@ -571,6 +594,8 @@ namespace Roguelancer
                 // Keep the fugitive timer running after every pursuer has been
                 // destroyed or otherwise removed from the traffic collection.
                 FugitiveManager?.Update(deltaTime, playerShip, _npcShips, log);
+                _playerContrabandEnforcers.Clear();
+                _currentPlayerShipForContraband = playerShip;
                 return;
             }
 
@@ -794,9 +819,10 @@ namespace Roguelancer
         /// </summary>
         private void UpdateFactionCombatEngagements(Ship playerShip, ReputationManager reputationManager, Action<string> log)
         {
-            if (_npcShips.Count < 2)
+            if (_npcShips.Count == 0)
                 return;
 
+            _currentPlayerShipForContraband = playerShip;
             float cellSize = 1000f;
             for (int i = 0; i < _npcShips.Count; i++)
             {
@@ -829,6 +855,7 @@ namespace Roguelancer
                     continue;
 
                 source.SetContrabandTargetValidator(HasContrabandCargo);
+                source.SetPlayerContrabandValidator(HasLivePlayerContraband);
 
                 NpcShip securityThreat = _economicShipments?.Security.GetPriorityThreat(source, _npcShips);
                 if (securityThreat != null)
@@ -942,12 +969,187 @@ namespace Roguelancer
                     TryReportCommunication(() => _combatCommunication.NotifyEngagementAcquired(source, target, playerShip));
                 log?.Invoke($"[TRAFFIC] Faction combat: {source.Name} ({source.FactionId}) targeting {target.Name} ({target.FactionId}).");
             }
+
+            UpdatePlayerContrabandEnforcement(playerShip, reputationManager, log, cells, cellSize);
         }
 
         private bool HasContrabandCargo(NpcShip target)
         {
             return ContrabandEnforcementPolicy.HasActualContraband(
                 _contrabandManifestResolver?.Invoke(target));
+        }
+
+        private bool HasLivePlayerContraband()
+        {
+            Ship player = _currentPlayerShipForContraband;
+            if (player == null || player.Hull?.IsDestroyed == true || player.IsTradeLaneTransit)
+                return false;
+
+            return ContrabandEnforcementPolicy.HasPlayerContraband(player.CargoHold);
+        }
+
+        /// <summary>
+        /// Phase 70 bounded player interdiction. Close lawful enforcement plus
+        /// live player contraband equals a ContrabandEnforcement player target.
+        /// Acquisition reuses the same spatial cells as the NPC pass and is
+        /// nearest-first deterministic; retention is cargo-backed and clears
+        /// immediately when the hold is clean. No cargo is moved here; the
+        /// existing weapon, disengagement, scan-demand, jettison, and
+        /// destruction paths remain authoritative.
+        /// </summary>
+        private void UpdatePlayerContrabandEnforcement(
+            Ship playerShip,
+            ReputationManager reputationManager,
+            Action<string> log,
+            Dictionary<FactionCombatCell, List<NpcShip>> cells,
+            float cellSize)
+        {
+            _currentPlayerShipForContraband = playerShip;
+            bool playerInvalid = playerShip == null ||
+                playerShip.Hull?.IsDestroyed == true ||
+                playerShip.IsTradeLaneTransit;
+            bool hasContraband = !playerInvalid &&
+                ContrabandEnforcementPolicy.HasPlayerContraband(playerShip.CargoHold);
+
+            if (playerInvalid || !hasContraband)
+            {
+                if (_playerContrabandEnforcers.Count == 0)
+                {
+                    // Even without tracked enforcers, a stale contraband
+                    // reason (for example after save/load rebind) must not
+                    // survive a clean hold. The validator already fails, but
+                    // this makes the traffic pass explicitly deterministic.
+                    foreach (NpcShip ship in _npcShips)
+                    {
+                        if (ship != null && ship.PlayerTargetReason == NpcPlayerTargetReason.ContrabandEnforcement)
+                            ship.ClearEncounterState();
+                    }
+
+                    return;
+                }
+
+                foreach (NpcShip enforcer in _playerContrabandEnforcers.ToList())
+                {
+                    if (enforcer != null && enforcer.PlayerTargetReason == NpcPlayerTargetReason.ContrabandEnforcement)
+                        enforcer.ClearEncounterState();
+                }
+
+                _playerContrabandEnforcers.Clear();
+                foreach (NpcShip ship in _npcShips)
+                {
+                    if (ship != null && ship.PlayerTargetReason == NpcPlayerTargetReason.ContrabandEnforcement)
+                        ship.ClearEncounterState();
+                }
+
+                return;
+            }
+
+            // Prune-tracked enforcers that were cleared elsewhere (distance
+            // disengagement, destruction, despawn, or NpcShip retention).
+            foreach (NpcShip enforcer in _playerContrabandEnforcers.ToList())
+            {
+                if (enforcer == null || enforcer.IsDestroyed || !_npcShips.Contains(enforcer) ||
+                    enforcer.PlayerTargetReason != NpcPlayerTargetReason.ContrabandEnforcement)
+                {
+                    _playerContrabandEnforcers.Remove(enforcer);
+                }
+            }
+
+            if (cells == null || playerShip == null)
+                return;
+
+            // Reuse the NPC spatial partitioning: only the player's 27-cell
+            // neighborhood is inspected, at most 64 candidates per tick.
+            FactionCombatCell playerCell = GetFactionCombatCell(playerShip.Position, Math.Max(100f, cellSize));
+            List<(NpcShip Enforcer, float DistanceSquared)> ordered = new();
+            int inspected = 0;
+            for (int x = -1; x <= 1 && inspected < ContrabandEnforcementPolicy.MaximumCandidatesPerSource; x++)
+            {
+                for (int y = -1; y <= 1 && inspected < ContrabandEnforcementPolicy.MaximumCandidatesPerSource; y++)
+                {
+                    for (int z = -1; z <= 1 && inspected < ContrabandEnforcementPolicy.MaximumCandidatesPerSource; z++)
+                    {
+                        FactionCombatCell cell = new(playerCell.X + x, playerCell.Y + y, playerCell.Z + z);
+                        if (!cells.TryGetValue(cell, out List<NpcShip> occupants))
+                            continue;
+
+                        for (int index = 0; index < occupants.Count && inspected < ContrabandEnforcementPolicy.MaximumCandidatesPerSource; index++)
+                        {
+                            NpcShip candidate = occupants[index];
+                            if (candidate == null)
+                                continue;
+
+                            inspected++;
+                            if (!ContrabandEnforcementPolicy.IsLawfulEnforcementFaction(candidate.FactionId))
+                                continue;
+
+                            float range = Math.Max(100f, candidate.TrafficActivationRange);
+                            float distanceSquared = Vector3.DistanceSquared(candidate.Position, playerShip.Position);
+                            if (distanceSquared > range * range)
+                                continue;
+
+                            ordered.Add((candidate, distanceSquared));
+                        }
+                    }
+                }
+            }
+
+            ordered = ordered
+                .OrderBy(entry => entry.DistanceSquared)
+                .ThenBy(entry => entry.Enforcer.Name ?? string.Empty, StringComparer.Ordinal)
+                .ThenBy(entry => NpcIdentity.GetStableIdentity(entry.Enforcer), StringComparer.Ordinal)
+                .ToList();
+
+            foreach ((NpcShip candidate, float _) in ordered)
+            {
+                if (candidate == null || candidate.IsDestroyed)
+                    continue;
+
+                if (_playerContrabandEnforcers.Contains(candidate))
+                {
+                    // Refresh the pursuit position without duplicating incident
+                    // state. SetPlayerTarget on an existing target only moves
+                    // the encounter anchor.
+                    candidate.SetPlayerTarget(playerShip.Position, NpcPlayerTargetReason.ContrabandEnforcement);
+                    continue;
+                }
+
+                if (_playerContrabandEnforcers.Count >= MaximumPlayerContrabandEnforcers)
+                    break;
+
+                if (_combatDisengagement.IsPlayerAcquisitionSuppressed(candidate))
+                    continue;
+
+                if (candidate.IsTradeLaneTransit || candidate.IsMissionHoldPosition)
+                    continue;
+
+                if (candidate.FactionCombatTarget != null && candidate.HasValidFactionCombatTarget())
+                    continue;
+
+                if (candidate.HasPlayerTarget)
+                {
+                    // Another valid player reason (faction, retaliation,
+                    // fugitive) retains priority; a stale contraband reason
+                    // without validity is reclaimed below.
+                    if (candidate.HasValidPlayerTarget(reputationManager))
+                        continue;
+
+                    candidate.ClearEncounterState();
+                }
+
+                if (candidate.IsTrafficEngaged)
+                    continue;
+
+                if (!ContrabandEnforcementPolicy.IsValidPlayerTarget(
+                        candidate,
+                        playerShip,
+                        candidate.TrafficActivationRange))
+                    continue;
+
+                candidate.SetPlayerTarget(playerShip.Position, NpcPlayerTargetReason.ContrabandEnforcement);
+                _playerContrabandEnforcers.Add(candidate);
+                log?.Invoke($"[TRAFFIC] Contraband enforcement: {candidate.Name} ({candidate.FactionId}) targeting player (contraband).");
+            }
         }
 
         /// <summary>
@@ -1942,6 +2144,8 @@ namespace Roguelancer
 
             _shipRuntimes.Remove(ship);
             ship.TrafficRouteEndpointReached -= HandleEconomicRouteArrival;
+            _playerContrabandEnforcers.Remove(ship);
+            ship.SetPlayerContrabandValidator(null);
             if (!ship.IsDestroyed)
             {
                 _economicShipments?.NotifyTraderDespawned(ship, reason);

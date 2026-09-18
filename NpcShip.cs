@@ -34,7 +34,8 @@ namespace Roguelancer
         None,
         FactionDisposition,
         PlayerInitiatedAggression,
-        FugitivePursuit
+        FugitivePursuit,
+        ContrabandEnforcement
     }
 
     public enum FactionCombatTargetOrigin
@@ -370,6 +371,7 @@ namespace Roguelancer
         private string _stableIdentitySeed = string.Empty;
         private Quaternion _rotation = Quaternion.Identity; // Use Quaternion instead of Matrix
         private Func<NpcShip, bool> _contrabandTargetValidator;
+        private Func<bool> _playerContrabandValidator;
         
         public Vector3 Forward => Vector3.Transform(Vector3.Forward, _rotation);
         public Vector3 Up => Vector3.Transform(Vector3.Up, _rotation);
@@ -712,6 +714,18 @@ namespace Roguelancer
             _contrabandTargetValidator = validator;
         }
 
+        /// <summary>
+        /// TrafficManager supplies the live player-hold contraband query for
+        /// the transient player interdiction reason. The callback reads the
+        /// authoritative CargoHold and is never saved.
+        /// </summary>
+        internal void SetPlayerContrabandValidator(Func<bool> validator)
+        {
+            _playerContrabandValidator = validator;
+        }
+
+        private bool HasPlayerContrabandEvidence() => _playerContrabandValidator?.Invoke() == true;
+
         public FactionDisposition GetPlayerDisposition(ReputationManager reputationManager) =>
             FactionDispositionEvaluator.Evaluate(FactionId, reputationManager);
 
@@ -724,6 +738,12 @@ namespace Roguelancer
         {
             if (!HasPlayerTarget)
                 return false;
+
+            // Phase 70 contraband retention is cargo-backed, not standing
+            // backed. A lawful enforcer keeps this reason only while the
+            // live player hold still contains canonical contraband.
+            if (PlayerTargetReason == NpcPlayerTargetReason.ContrabandEnforcement)
+                return HasPlayerContrabandEvidence();
 
             if (reputationManager == null)
                 return true;
@@ -1047,6 +1067,23 @@ namespace Roguelancer
         private void UpdatePlayerDispositionTarget(Ship playerShip, ReputationManager reputationManager)
         {
             bool isPlayerTarget = EncounterState == TrafficEncounterState.AttackingPlayer;
+            // Phase 70 retention is cargo-backed. An already-triggered lawful
+            // encounter clears as soon as the live hold is clean; ordinary
+            // disposition may re-acquire on a later TrafficManager pass with
+            // its own reason. Acquisition below never invents this reason so
+            // the bounded traffic pass remains the sole detector.
+            if (isPlayerTarget && PlayerTargetReason == NpcPlayerTargetReason.ContrabandEnforcement)
+            {
+                if (!HasPlayerContrabandEvidence())
+                {
+                    ClearEncounterState();
+                    return;
+                }
+
+                EncounterTargetPosition = playerShip?.Position ?? EncounterTargetPosition;
+                return;
+            }
+
             bool factionHostile = FactionDispositionEvaluator.IsHostile(FactionId, reputationManager);
             bool playerAttackRetaliation = WasDamagedByPlayer &&
                 reputationManager?.IsTemporarilyHostile(FactionId) == true;
