@@ -372,6 +372,7 @@ namespace Roguelancer
         private Quaternion _rotation = Quaternion.Identity; // Use Quaternion instead of Matrix
         private Func<NpcShip, bool> _contrabandTargetValidator;
         private Func<bool> _playerContrabandValidator;
+        private bool _lawfulStopHoldFire;
         
         public Vector3 Forward => Vector3.Transform(Vector3.Forward, _rotation);
         public Vector3 Up => Vector3.Transform(Vector3.Up, _rotation);
@@ -697,6 +698,7 @@ namespace Roguelancer
             FactionCombatTarget = null;
             FactionCombatTargetOrigin = FactionCombatTargetOrigin.OrdinaryAcquisition;
             IsFactionCombatDisengagementManaged = false;
+            _lawfulStopHoldFire = false;
         }
 
         internal void SetFactionCombatDisengagementManaged(bool managed)
@@ -722,6 +724,24 @@ namespace Roguelancer
         internal void SetPlayerContrabandValidator(Func<bool> validator)
         {
             _playerContrabandValidator = validator;
+        }
+
+        /// <summary>
+        /// Phase 71 lawful-stop hold-fire. While true, an unconfirmed
+        /// ContrabandEnforcement interception must not fire on the player
+        /// merely for suspected contraband. Independently valid hostility
+        /// (faction disposition, temporary hostility/fugitive, or player
+        /// retaliation) still permits fire via the weapon gate. This is
+        /// transient runtime state, never save data, and is cleared by
+        /// ClearEncounterState, escalation conversion, or coordinator reset.
+        /// Phase 70 isolated harnesses never set this flag, so their
+        /// cargo-backed firing proof is preserved.
+        /// </summary>
+        public bool IsLawfulStopHoldFire => _lawfulStopHoldFire;
+
+        internal void SetLawfulStopHoldFire(bool holdFire)
+        {
+            _lawfulStopHoldFire = holdFire;
         }
 
         private bool HasPlayerContrabandEvidence() => _playerContrabandValidator?.Invoke() == true;

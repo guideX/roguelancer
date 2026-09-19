@@ -192,6 +192,22 @@ namespace Roguelancer
                 bool hasPlayerTarget = !hasFactionTarget &&
                     playerShip != null &&
                     (_reputationManager == null || npc.HasValidPlayerTarget(_reputationManager));
+                // Phase 71 lawful stop: an unconfirmed contraband interception
+                // holds fire pending the existing police scan/demand. Firing
+                // resumes when another valid hostility reason permits combat
+                // (faction disposition, temporary hostility/fugitive, or
+                // player retaliation) or when escalation clears the flag and
+                // converts the target to FugitivePursuit. Phase 70 isolated
+                // harnesses never set the flag, so their firing proof is
+                // preserved.
+                if (hasPlayerTarget &&
+                    npc.PlayerTargetReason == NpcPlayerTargetReason.ContrabandEnforcement &&
+                    npc.IsLawfulStopHoldFire &&
+                    _reputationManager != null &&
+                    !_reputationManager.IsFactionCurrentlyHostile(npc.FactionId))
+                {
+                    hasPlayerTarget = false;
+                }
 
                 TradeLaneAttackTarget laneTarget = !hasFactionTarget && !hasPlayerTarget
                     ? TradeLaneTargetResolver?.Invoke(npc)

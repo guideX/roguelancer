@@ -128,6 +128,7 @@ namespace Roguelancer {
         private FactionCombatConsequenceService _factionCombatConsequences;
         private FactionBountyRewardService _factionBountyRewards;
         private PoliceFugitiveManager _policeFugitiveManager;
+        private PoliceContrabandStopCoordinator _policeContrabandStopCoordinator;
         /// <summary>
         /// Lighting Direction
         /// </summary>
@@ -275,6 +276,7 @@ namespace Roguelancer {
         private readonly bool _runPhase68Smoke;
         private readonly bool _runPhase69Smoke;
         private readonly bool _runPhase70Smoke;
+        private readonly bool _runPhase71Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -401,6 +403,7 @@ namespace Roguelancer {
             _runPhase68Smoke = args?.Any(arg => string.Equals(arg, "--phase68-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase69Smoke = args?.Any(arg => string.Equals(arg, "--phase69-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase70Smoke = args?.Any(arg => string.Equals(arg, "--phase70-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase71Smoke = args?.Any(arg => string.Equals(arg, "--phase71-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1283,6 +1286,7 @@ namespace Roguelancer {
                 _reputationManager,
                 message => _notificationManager?.ShowMessage(message, 3f));
             _policeScanSystem?.SetFugitiveManager(_policeFugitiveManager);
+            _policeContrabandStopCoordinator = new PoliceContrabandStopCoordinator();
             if (_trafficManager != null)
                 _trafficManager.FugitiveManager = _policeFugitiveManager;
             _reputationManager.OnReputationChanged += HandleReputationChanged;
@@ -1639,6 +1643,11 @@ namespace Roguelancer {
                 var result = RunPhase70SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase71Smoke)
+            {
+                var result = RunPhase71SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -1874,6 +1883,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 68 Rogue smuggling traffic smoke", RunPhase68SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 69 lawful contraband interdiction smoke", RunPhase69SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 70 player contraband interdiction smoke", RunPhase70SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 71 lawful contraband stop and compliance smoke", RunPhase71SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2462,6 +2472,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 70 PLAYER CONTRABAND INTERDICTION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase71SmokeTest()
+        {
+            try
+            {
+                return new Phase71LawfulContrabandStopAndComplianceSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 71 LAWFUL CONTRABAND STOP AND COMPLIANCE SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -3161,6 +3184,7 @@ namespace Roguelancer {
             _playerTargetScan?.Reset();
             _piracyDemand?.Reset();
             _policeScanSystem?.Reset();
+            _policeContrabandStopCoordinator?.Reset();
             _policeFugitiveManager?.Reset(Console.WriteLine, "save/load");
             if (_stationDockUI?.IsDocked == true)
             {
@@ -3417,6 +3441,14 @@ namespace Roguelancer {
                     _playerShip,
                     _npcShips,
                     Console.WriteLine);
+                _policeContrabandStopCoordinator?.Update(
+                    _playerShip,
+                    _npcShips,
+                    _trafficManager,
+                    _policeScanSystem,
+                    _policeFugitiveManager,
+                    _reputationManager,
+                    Console.WriteLine);
                 _prevKeys = keyboardState;
                 _prevMouseState = mouseState;
                 base.Update(gameTime);
@@ -3462,6 +3494,14 @@ namespace Roguelancer {
                     deltaTime,
                     _playerShip,
                     _npcShips,
+                    Console.WriteLine);
+                _policeContrabandStopCoordinator?.Update(
+                    _playerShip,
+                    _npcShips,
+                    _trafficManager,
+                    _policeScanSystem,
+                    _policeFugitiveManager,
+                    _reputationManager,
                     Console.WriteLine);
                 _camera.Follow(_playerShip.Position, _playerShip.Forward, _playerShip.Up, 0.3f);
                 _prevKeys = keyboardState;
@@ -3705,6 +3745,17 @@ namespace Roguelancer {
                 _stationDockUI?.IsDocked == true,
                 _playerShip?.IsTradeLaneTransit == true || _tradelaneManager?.IsInTransit == true,
                 _notificationManager,
+                Console.WriteLine);
+            // Phase 71: connect Phase 70 interception to the scan/demand and
+            // fugitive systems through one bounded encounter owner. This runs
+            // before NPC weapons so hold-fire/escalation applies this frame.
+            _policeContrabandStopCoordinator?.Update(
+                _playerShip,
+                _npcShips,
+                _trafficManager,
+                _policeScanSystem,
+                _policeFugitiveManager,
+                _reputationManager,
                 Console.WriteLine);
 
             // Mine system: update mounted proximity mines against NPC ships
@@ -4039,6 +4090,7 @@ namespace Roguelancer {
         private void HandleNpcDestroyed(NpcShip destroyedShip) {
             _playerTargetScan?.NotifyTargetDestroyed(destroyedShip);
             _piracyDemand?.NotifyNpcDestroyed(destroyedShip);
+            _policeContrabandStopCoordinator?.NotifyNpcDestroyed(destroyedShip);
             _policeFugitiveManager?.NotifyPlayerDamage(destroyedShip, _playerShip, Console.WriteLine);
             _factionCombatConsequences?.RecordPlayerDamage(destroyedShip);
             _factionCombatConsequences?.ApplyPlayerShipDestroyed(destroyedShip);
@@ -4463,10 +4515,12 @@ namespace Roguelancer {
                     3f);
                 _playerShip?.RestoreFlightState(session.LaunchPosition, session.LaunchForward);
                 _policeScanSystem?.Reset();
+                _policeContrabandStopCoordinator?.Reset();
                 return;
             }
 
             _policeScanSystem?.Reset();
+            _policeContrabandStopCoordinator?.Reset();
 
             _tradeRouteValidation?.RecordDocking(station);
 
@@ -6366,6 +6420,7 @@ namespace Roguelancer {
         private void HandleUndock() {
             _playerTargetScan?.Reset();
             _policeScanSystem?.Reset();
+            _policeContrabandStopCoordinator?.Reset();
             if (_stationSession?.IsRealDockedSession == true)
             {
                 LaunchFromStationSession();
@@ -7861,6 +7916,7 @@ namespace Roguelancer {
             int oldSystemIndex = _currentSystemIndex;
             Console.WriteLine($"[SYSTEM CHANGE] Switching from system {oldSystemIndex} to system {newSystemIndex}");
             _policeScanSystem?.Reset();
+            _policeContrabandStopCoordinator?.Reset();
             _playerTargetScan?.Reset();
             _policeFugitiveManager?.Reset(Console.WriteLine, "system transition");
             _piracyDemand?.Reset();

@@ -481,9 +481,21 @@ namespace Roguelancer
         {
             if (_activeScanner == null || _activeScanner.IsDestroyed ||
                 !IsLawfulScannerFaction(_activeScanner.FactionId) ||
-                _activeScanner.IsTrafficEngaged || _activeScanner.IsTradeLaneTransit ||
+                _activeScanner.IsTradeLaneTransit ||
                 _activeScanner.IsMissionHoldPosition ||
                 reputationManager.IsFactionCurrentlyHostile(_activeScanner.FactionId))
+            {
+                return false;
+            }
+
+            // Phase 71: a Phase 70 ContrabandEnforcement interceptor remains a
+            // valid scan owner while it closes/intercepts. Its AttackingPlayer
+            // movement state is interception, not hostility, so the legacy
+            // IsTrafficEngaged rejection is relaxed only for this reason.
+            // All other engaged/traffic states still invalidate the lock.
+            bool isContrabandIntercept = _activeScanner.HasPlayerTarget &&
+                _activeScanner.PlayerTargetReason == NpcPlayerTargetReason.ContrabandEnforcement;
+            if (_activeScanner.IsTrafficEngaged && !isContrabandIntercept)
             {
                 return false;
             }
@@ -505,8 +517,29 @@ namespace Roguelancer
                 NpcShip npc = npcs[i];
                 if (npc == null || npc.IsDestroyed || !IsLawfulScannerFaction(npc.FactionId) ||
                     npc.TrafficBehavior != TrafficZoneBehaviorType.LawfulPatrol ||
-                    npc.IsTrafficEngaged || npc.IsTradeLaneTransit || npc.IsMissionHoldPosition ||
-                    npc.HasPlayerTarget || reputationManager.IsFactionCurrentlyHostile(npc.FactionId))
+                    npc.IsTradeLaneTransit || npc.IsMissionHoldPosition ||
+                    reputationManager.IsFactionCurrentlyHostile(npc.FactionId))
+                {
+                    continue;
+                }
+
+                // Phase 71: Phase 70 ContrabandEnforcement interceptors are
+                // eligible scan owners. They carry HasPlayerTarget plus an
+                // AttackingPlayer intercept state, which the legacy scan
+                // rejected as engaged. Other player targets (faction,
+                // retaliation, fugitive) retain priority and are never
+                // claimed for a peaceful demand; a valid faction combat
+                // target also retains priority over a new scan.
+                bool isContrabandIntercept = npc.HasPlayerTarget &&
+                    npc.PlayerTargetReason == NpcPlayerTargetReason.ContrabandEnforcement;
+                if (!isContrabandIntercept)
+                {
+                    if (npc.HasPlayerTarget || npc.IsTrafficEngaged)
+                    {
+                        continue;
+                    }
+                }
+                else if (npc.FactionCombatTarget != null && npc.HasValidFactionCombatTarget())
                 {
                     continue;
                 }
