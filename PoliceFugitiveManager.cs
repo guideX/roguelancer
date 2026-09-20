@@ -112,16 +112,30 @@ public sealed class PoliceFugitiveManager
     /// Opens or refreshes the one incident. Refusal/timeout/flight call this
     /// seam; it deliberately does not mutate permanent reputation.
     /// </summary>
-    public bool BeginPursuit(Ship? playerShip = null, string reason = "lawful enforcement flight", Action<string>? log = null)
+    public bool BeginPursuit(Ship? playerShip = null, string reason = "lawful enforcement flight", Action<string>? log = null) =>
+        BeginPursuit(playerShip, reason, log, PoliceHeatLevel.Pursuit);
+
+    /// <summary>
+    /// Phase 74 tier-aware entry. A severe lawful refusal may open (or
+    /// advance) the incident at the strongest supported bounded heat
+    /// (HotPursuit); all other tiers use the established Heat 1 behavior.
+    /// Only the two existing heats are ever produced: an out-of-range
+    /// request is clamped, and no second pursuit state is created.
+    /// </summary>
+    public bool BeginPursuit(Ship? playerShip, string reason, Action<string>? log, PoliceHeatLevel initialHeat)
     {
         if (playerShip?.Hull?.IsDestroyed == true)
             return false;
+
+        PoliceHeatLevel requestedHeat = initialHeat == PoliceHeatLevel.HotPursuit
+            ? PoliceHeatLevel.HotPursuit
+            : PoliceHeatLevel.Pursuit;
 
         bool wasActive = IsActive;
         if (!wasActive)
         {
             State = PoliceFugitiveState.Pursued;
-            Heat = PoliceHeatLevel.Pursuit;
+            Heat = requestedHeat;
             _escapeTimer = 0f;
             _contactLossTimer = 0f;
             _reacquisitionGraceTimer = 0f;
@@ -133,12 +147,23 @@ public sealed class PoliceFugitiveManager
                 PoliceFugitiveHostilityReason,
                 TemporaryHostilityManager.MaximumDurationSeconds);
             Present("Suspect is fleeing lawful enforcement.");
-            log?.Invoke($"[POLICE FUGITIVE] Heat 1 started ({reason}).");
+            log?.Invoke($"[POLICE FUGITIVE] Heat {(int)Heat} started ({reason}).");
             return true;
         }
 
         _absoluteIncidentTimer = AbsoluteIncidentBoundSeconds;
         EnsureTemporaryHostility();
+        if (requestedHeat == PoliceHeatLevel.HotPursuit && Heat != PoliceHeatLevel.HotPursuit)
+        {
+            Heat = PoliceHeatLevel.HotPursuit;
+            State = PoliceFugitiveState.Pursued;
+            _escapeTimer = 0f;
+            _contactLossTimer = 0f;
+            Present("Officer under fire. Escalating pursuit.");
+            log?.Invoke($"[POLICE FUGITIVE] Heat escalated to 2 ({reason}).");
+            return true;
+        }
+
         log?.Invoke($"[POLICE FUGITIVE] Pursuit refreshed ({reason}).");
         return false;
     }
@@ -275,6 +300,12 @@ public sealed class PoliceFugitiveManager
         if (!IsActive)
             return;
 
+        // Phase 74: the post-escape re-stop separation follows the same
+        // authoritative tier used by fines and pursuit heat. It is derived
+        // live from Liberty Police standing, so recovery (missions, bribes)
+        // automatically restores the full grace. The policy floor keeps a
+        // bounded separation that always prevents same-tick reacquisition.
+        PoliceEnforcementTier tier = PoliceEnforcementEscalationPolicy.GetTier(_reputationManager);
         ClearPursuitTargets();
         if (_ownsTemporaryHostility)
             _reputationManager.TemporaryHostility.Clear(FactionManager.LibertyPolice);
@@ -287,7 +318,9 @@ public sealed class PoliceFugitiveManager
         _activeContactCount = 0;
         _ownsTemporaryHostility = false;
         _observedPlayerDamage.Clear();
-        _reacquisitionGraceTimer = ContrabandReacquisitionGraceSeconds;
+        _reacquisitionGraceTimer = Math.Max(
+            PoliceEnforcementEscalationPolicy.MinimumReacquisitionGraceSeconds,
+            PoliceEnforcementEscalationPolicy.GetReacquisitionGraceSeconds(tier));
         Present("PURSUIT EVADED");
         log?.Invoke("[POLICE FUGITIVE] Pursuit evaded; transient incident cleared.");
     }

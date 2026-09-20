@@ -352,7 +352,8 @@ namespace Roguelancer
             _enforcementOffer = _enforcementService.Evaluate(
                 ActiveScannerFactionId,
                 playerShip.CargoHold,
-                playerCredits);
+                playerCredits,
+                reputationManager);
             _scanTimer = 0f;
             _cooldownTimer = RetryCooldownSeconds;
 
@@ -376,9 +377,15 @@ namespace Roguelancer
             // countdown itself stays on the HUD status line
             // (EnforcementDemandRemainingSeconds); it is never duplicated
             // into a second timer variable.
+            // Phase 74: an elevated tier names itself once from the same
+            // authoritative quote the fine and pursuit behavior use. No
+            // duplicate tier state and no second notice per tick.
             notificationManager?.ShowMessage(
                 $"Contraband detected — [{EnforcementComplyKey}] Comply / [{EnforcementRefuseKey}] Refuse ({EnforcementDemandSeconds:0}s)", 4f);
-            log?.Invoke($"[POLICE SCAN] Violation detected: {_enforcementOffer.TotalViolationQuantity} units; enforcement demand opened for {_enforcementOffer.FineAmount:N0} CR.");
+            string tierLabel = PoliceEnforcementEscalationPolicy.GetTierLabel(_enforcementOffer.EnforcementTier);
+            if (!string.IsNullOrWhiteSpace(tierLabel))
+                notificationManager?.ShowMessage($"Liberty Police: {tierLabel}", 4f);
+            log?.Invoke($"[POLICE SCAN] Violation detected: {_enforcementOffer.TotalViolationQuantity} units; enforcement demand opened for {_enforcementOffer.FineAmount:N0} CR ({_enforcementOffer.EnforcementTier}).");
         }
 
         private void CancelScan(
@@ -448,10 +455,15 @@ namespace Roguelancer
             notificationManager?.ShowMessage(result.Message, 3f);
             if (resolution == PoliceEnforcementResolution.Refuse)
             {
+                // Phase 74: the refusal enters the one existing fugitive
+                // incident at the heat the authoritative resolved tier
+                // warrants. The fugitive manager remains the sole pursuit
+                // owner.
                 _fugitiveManager?.BeginPursuit(
                     playerShip,
                     resolutionReason,
-                    log);
+                    log,
+                    PoliceEnforcementEscalationPolicy.GetInitialHeat(result.EnforcementTier));
                 notificationManager?.ShowMessage(
                     resolutionReason.Contains("flight", StringComparison.OrdinalIgnoreCase) ||
                     resolutionReason.Contains("radius", StringComparison.OrdinalIgnoreCase)
@@ -508,7 +520,16 @@ namespace Roguelancer
             string affordability = _enforcementOffer.CanAffordFine
                 ? string.Empty
                 : " | Insufficient credits to comply";
-            return $"LIBERTY POLICE — CARGO VIOLATION | Surrender illegal cargo and pay {_enforcementOffer.FineAmount:N0} CR | [{EnforcementComplyKey}] Comply [{EnforcementRefuseKey}] Refuse {EnforcementDemandRemainingSeconds:0.0}s{affordability}";
+            // Phase 74: the live demand line names the elevated tier from
+            // the same authoritative quote behind the fine. Standard stops
+            // keep their exact existing text.
+            string tierSuffix = _enforcementOffer.EnforcementTier switch
+            {
+                PoliceEnforcementTier.Severe => " | Severe violation — elevated enforcement",
+                PoliceEnforcementTier.Elevated => " | Repeat offense — elevated fine",
+                _ => string.Empty
+            };
+            return $"LIBERTY POLICE — CARGO VIOLATION | Surrender illegal cargo and pay {_enforcementOffer.FineAmount:N0} CR | [{EnforcementComplyKey}] Comply [{EnforcementRefuseKey}] Refuse {EnforcementDemandRemainingSeconds:0.0}s{affordability}{tierSuffix}";
         }
 
         /// <summary>

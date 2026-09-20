@@ -57,6 +57,13 @@ public sealed class PoliceEnforcementOffer
     public int TotalViolationQuantity { get; init; }
     public long TotalViolationValue { get; init; }
     public int FineAmount { get; init; }
+    /// <summary>
+    /// Phase 74 derived enforcement tier. It is recomputed from the
+    /// authoritative Liberty Police standing at evaluation time and carried
+    /// on the quote so the HUD demand and the resolution charge exactly one
+    /// agreed fine. It is never persisted.
+    /// </summary>
+    public PoliceEnforcementTier EnforcementTier { get; init; } = PoliceEnforcementTier.Standard;
     public bool CanAffordFine { get; init; }
     public IReadOnlyList<PoliceEnforcementResolution> AvailableResolutions { get; init; } = Array.Empty<PoliceEnforcementResolution>();
     public string Summary { get; init; } = string.Empty;
@@ -101,6 +108,11 @@ public sealed class PoliceEnforcementResult
     public PoliceEnforcementOutcome Outcome { get; init; }
     public string PolicingFactionId { get; init; } = FactionManager.NeutralCivilians;
     public int FineAmount { get; init; }
+    /// <summary>
+    /// Phase 74 tier carried from the resolved quote: the charged fine and
+    /// any fugitive escalation both derive from this one value.
+    /// </summary>
+    public PoliceEnforcementTier EnforcementTier { get; init; } = PoliceEnforcementTier.Standard;
     public int CreditsCharged { get; init; }
     public int ConfiscatedQuantity { get; init; }
     public IReadOnlyList<ContrabandFinding> ConfiscatedContraband { get; init; } = Array.Empty<ContrabandFinding>();
@@ -145,6 +157,22 @@ public sealed class PoliceEnforcementService
         CargoHold? cargoHold,
         PlayerCredits? credits)
     {
+        return Evaluate(policingFactionId, cargoHold, credits, reputationManager: null);
+    }
+
+    /// <summary>
+    /// Phase 74 tiered evaluation. The violation is calculated exactly as
+    /// before; when a reputation authority is supplied, the current Liberty
+    /// Police standing selects the enforcement tier and the one central
+    /// escalation path adjusts the quoted fine. A null authority preserves
+    /// the established standard-enforcement behavior.
+    /// </summary>
+    public PoliceEnforcementOffer Evaluate(
+        string? policingFactionId,
+        CargoHold? cargoHold,
+        PlayerCredits? credits,
+        ReputationManager? reputationManager)
+    {
         string normalizedFactionId = FactionManager.NormalizeFactionId(policingFactionId);
         bool applicable = IsPolicingFaction(normalizedFactionId);
         List<ContrabandFinding> findings = applicable
@@ -154,7 +182,11 @@ public sealed class PoliceEnforcementService
         bool hasViolation = findings.Count > 0;
         bool hasContraband = findings.Any(finding => finding.IsContraband);
         bool hasStolen = findings.Any(finding => finding.IsStolen);
-        int fine = hasViolation ? CalculateFine(totalValue) : 0;
+        PoliceEnforcementTier tier = hasViolation
+            ? PoliceEnforcementEscalationPolicy.GetTier(reputationManager)
+            : PoliceEnforcementTier.Standard;
+        int baseFine = hasViolation ? CalculateFine(totalValue) : 0;
+        int fine = hasViolation ? PoliceEnforcementEscalationPolicy.ApplyFineEscalation(baseFine, tier) : 0;
         bool canAfford = hasViolation && credits?.CanAfford(fine) == true;
 
         return new PoliceEnforcementOffer
@@ -170,6 +202,7 @@ public sealed class PoliceEnforcementService
             TotalViolationQuantity = findings.Sum(finding => finding.Quantity),
             TotalViolationValue = totalValue,
             FineAmount = fine,
+            EnforcementTier = tier,
             CanAffordFine = canAfford,
             AvailableResolutions = hasViolation
                 ? canAfford
@@ -240,6 +273,7 @@ public sealed class PoliceEnforcementService
                 Outcome = PoliceEnforcementOutcome.Refused,
                 PolicingFactionId = current.PolicingFactionId,
                 FineAmount = offered.FineAmount,
+                EnforcementTier = offered.EnforcementTier,
                 ReputationChange = refusalChange,
                 TemporaryHostilityStarted = reputationManager.IsTemporarilyHostile(current.PolicingFactionId),
                 Message = $"{current.PolicingFactionDisplayName} are temporarily hostile"
@@ -306,6 +340,7 @@ public sealed class PoliceEnforcementService
             Outcome = outcome,
             PolicingFactionId = offer.PolicingFactionId,
             FineAmount = offer.FineAmount,
+            EnforcementTier = offer.EnforcementTier,
             CreditsCharged = creditsCharged,
             ConfiscatedQuantity = confiscatedContraband?.Sum(finding => finding.Quantity) ?? 0,
             ConfiscatedContraband = confiscatedContraband ?? Array.Empty<ContrabandFinding>(),
