@@ -373,6 +373,7 @@ namespace Roguelancer
         private Func<NpcShip, bool> _contrabandTargetValidator;
         private Func<bool> _playerContrabandValidator;
         private bool _lawfulStopHoldFire;
+        private Vector3 _contrabandSupportOffset = Vector3.Zero;
         
         public Vector3 Forward => Vector3.Transform(Vector3.Forward, _rotation);
         public Vector3 Up => Vector3.Transform(Vector3.Up, _rotation);
@@ -600,6 +601,10 @@ namespace Roguelancer
         public void SetPlayerTarget(Vector3 targetPosition, NpcPlayerTargetReason reason)
         {
             bool wasPlayerTarget = HasPlayerTarget;
+            // Phase 72: a fresh target acquisition drops any previous
+            // supporter standoff. The contraband stop coordinator reassigns
+            // the authoritative offset every tick for live interceptors.
+            _contrabandSupportOffset = Vector3.Zero;
             SetEncounterState(TrafficEncounterState.AttackingPlayer, targetPosition, null, reason);
             if (wasPlayerTarget)
                 return;
@@ -699,6 +704,7 @@ namespace Roguelancer
             FactionCombatTargetOrigin = FactionCombatTargetOrigin.OrdinaryAcquisition;
             IsFactionCombatDisengagementManaged = false;
             _lawfulStopHoldFire = false;
+            _contrabandSupportOffset = Vector3.Zero;
         }
 
         internal void SetFactionCombatDisengagementManaged(bool managed)
@@ -742,6 +748,26 @@ namespace Roguelancer
         internal void SetLawfulStopHoldFire(bool holdFire)
         {
             _lawfulStopHoldFire = holdFire;
+        }
+
+        /// <summary>
+        /// Phase 72 supporter standoff for one lawful contraband stop. The
+        /// scan owner keeps a zero offset (exact player anchor) while every
+        /// other live interceptor chases a small deterministic ring offset so
+        /// supporters stay useful nearby without stacking on one point. This
+        /// is transient runtime state, never save data: it is assigned every
+        /// tick by PoliceContrabandStopCoordinator, applied only while the
+        /// ContrabandEnforcement reason is retained, and cleared by
+        /// SetPlayerTarget/ClearEncounterState.
+        /// </summary>
+        internal Vector3 ContrabandSupportOffset => _contrabandSupportOffset;
+
+        internal void SetContrabandSupportOffset(Vector3 offset)
+        {
+            if (!IsFinitePositive(offset.LengthSquared()) && offset != Vector3.Zero)
+                _contrabandSupportOffset = Vector3.Zero;
+            else
+                _contrabandSupportOffset = offset;
         }
 
         private bool HasPlayerContrabandEvidence() => _playerContrabandValidator?.Invoke() == true;
@@ -1059,6 +1085,16 @@ namespace Roguelancer
             {
                 speed = Math.Max(speed, 220f);
             }
+            else if (EncounterState == TrafficEncounterState.AttackingPlayer &&
+                PlayerTargetReason == NpcPlayerTargetReason.ContrabandEnforcement)
+            {
+                // Phase 72: a lawful stop interceptor closes purposefully
+                // from detection range into scan range through the existing
+                // movement pipeline. No bespoke flight model; one bounded
+                // minimum so a 6.5km detection reliably becomes a scan
+                // opportunity while the player holds a lawful posture.
+                speed = Math.Max(speed, 240f);
+            }
 
             MoveTowardTarget(targetPosition, speed, deltaTime, 2.0f);
         }
@@ -1100,7 +1136,11 @@ namespace Roguelancer
                     return;
                 }
 
-                EncounterTargetPosition = playerShip?.Position ?? EncounterTargetPosition;
+                // Phase 72: the coordinator-assigned supporter standoff rides
+                // on the live player anchor through the existing engagement
+                // movement. The scan owner keeps a zero offset (exact chase).
+                if (playerShip != null)
+                    EncounterTargetPosition = playerShip.Position + _contrabandSupportOffset;
                 return;
             }
 

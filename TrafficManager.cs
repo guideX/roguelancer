@@ -1055,6 +1055,16 @@ namespace Roguelancer
                 }
             }
 
+            // Phase 72: after a legitimate fugitive escape the player gets a
+            // bounded separation window before the same contraband can open a
+            // fresh stop. The grace suppresses only new acquisition here;
+            // refusal, attack, and flight still escalate immediately through
+            // PoliceScanSystem/PoliceFugitiveManager, and a system transition
+            // clears the grace via the fugitive reset so a new system is a
+            // new encounter. No NPC reference is serialized for this.
+            if (FugitiveManager?.IsContrabandReacquisitionGraceActive == true)
+                return;
+
             if (cells == null || playerShip == null)
                 return;
 

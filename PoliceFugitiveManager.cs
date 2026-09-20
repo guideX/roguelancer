@@ -36,6 +36,16 @@ public sealed class PoliceFugitiveManager
     public const float ContactLossGraceSeconds = 0.25f;
     public const float AbsoluteIncidentBoundSeconds = 180f;
     public const float HostilityRefreshThresholdSeconds = 8f;
+    /// <summary>
+    /// Phase 72 bounded re-stop separation. After a legitimate escape the
+    /// player may still hold contraband, but the same encounter must not
+    /// re-detect on the next update tick. This transient grace suppresses
+    /// only fresh ContrabandEnforcement acquisition in TrafficManager; it
+    /// never blocks a new fugitive incident (refusal, attack, flight) and
+    /// is never persisted. A system transition clears it, so a new system
+    /// naturally constitutes a new encounter.
+    /// </summary>
+    public const float ContrabandReacquisitionGraceSeconds = 20f;
 
     private readonly ReputationManager _reputationManager;
     private readonly HashSet<NpcShip> _pursuitTargets = new();
@@ -44,6 +54,7 @@ public sealed class PoliceFugitiveManager
     private float _contactLossTimer;
     private float _absoluteIncidentTimer;
     private float _presentationTimer;
+    private float _reacquisitionGraceTimer;
     private bool _ownsTemporaryHostility;
     private int _activeContactCount;
     private string _presentationText = string.Empty;
@@ -70,6 +81,8 @@ public sealed class PoliceFugitiveManager
         ? Math.Max(0f, EscapeDurationSeconds - _escapeTimer)
         : EscapeDurationSeconds;
     public float AbsoluteIncidentRemainingSeconds => Math.Max(0f, _absoluteIncidentTimer);
+    public float ContrabandReacquisitionGraceRemainingSeconds => Math.Max(0f, _reacquisitionGraceTimer);
+    public bool IsContrabandReacquisitionGraceActive => _reacquisitionGraceTimer > 0f;
     public string StatusText
     {
         get
@@ -111,6 +124,7 @@ public sealed class PoliceFugitiveManager
             Heat = PoliceHeatLevel.Pursuit;
             _escapeTimer = 0f;
             _contactLossTimer = 0f;
+            _reacquisitionGraceTimer = 0f;
             _absoluteIncidentTimer = AbsoluteIncidentBoundSeconds;
             _activeContactCount = 0;
             _ownsTemporaryHostility = true;
@@ -184,6 +198,7 @@ public sealed class PoliceFugitiveManager
     {
         float delta = NormalizeDelta(deltaSeconds);
         _presentationTimer = Math.Max(0f, _presentationTimer - delta);
+        _reacquisitionGraceTimer = Math.Max(0f, _reacquisitionGraceTimer - delta);
 
         if (!IsActive)
             return;
@@ -272,6 +287,7 @@ public sealed class PoliceFugitiveManager
         _activeContactCount = 0;
         _ownsTemporaryHostility = false;
         _observedPlayerDamage.Clear();
+        _reacquisitionGraceTimer = ContrabandReacquisitionGraceSeconds;
         Present("PURSUIT EVADED");
         log?.Invoke("[POLICE FUGITIVE] Pursuit evaded; transient incident cleared.");
     }
@@ -290,6 +306,7 @@ public sealed class PoliceFugitiveManager
         _activeContactCount = 0;
         _ownsTemporaryHostility = false;
         _observedPlayerDamage.Clear();
+        _reacquisitionGraceTimer = 0f;
         _pursuitTargets.Clear();
         _presentationTimer = 0f;
         _presentationText = string.Empty;

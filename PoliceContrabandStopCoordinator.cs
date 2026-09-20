@@ -23,8 +23,18 @@ namespace Roguelancer;
 /// </summary>
 public sealed class PoliceContrabandStopCoordinator
 {
+    /// <summary>
+    /// Phase 72 supporter standoff radius. Supporters hold a deterministic
+    /// ring at this distance from the player anchor: near enough to stay
+    /// useful and inside scan/detection ranges, far enough to avoid obvious
+    /// ship stacking on the scan owner.
+    /// </summary>
+    public const float SupportStandoffRadius = 700f;
+    public const float SupportVerticalSpread = 240f;
+
     private readonly HashSet<NpcShip> _holdFireShips = new();
     private NpcShip? _activeOwner;
+    private bool _interceptionAnnounced;
 
     public NpcShip? ActiveOwner => _activeOwner;
     public int HoldFireCount => _holdFireShips.Count;
@@ -41,7 +51,8 @@ public sealed class PoliceContrabandStopCoordinator
         PoliceScanSystem? scan,
         PoliceFugitiveManager? fugitive,
         ReputationManager? reputation,
-        Action<string>? log = null)
+        Action<string>? log = null,
+        NotificationManager? notificationManager = null)
     {
         bool playerInvalid = playerShip == null ||
             playerShip.Hull?.IsDestroyed == true ||
@@ -54,6 +65,7 @@ public sealed class PoliceContrabandStopCoordinator
             // reset; the scan demand must not linger as phantom state.
             ClearHoldFireExcept(null);
             _activeOwner = null;
+            _interceptionAnnounced = false;
             if (playerShip?.Hull?.IsDestroyed == true)
                 scan?.Reset();
             return;
@@ -107,6 +119,28 @@ public sealed class PoliceContrabandStopCoordinator
                 enforcer.SetLawfulStopHoldFire(true);
             _holdFireShips.Add(enforcer);
         }
+
+        // Phase 72 stop readability: the ordered-stop announcement fires
+        // exactly once per encounter while the stop is still a lawful
+        // interception (no scan, no fugitive). The scan/demand/cleared/
+        // pursuit stages keep their existing one-shot scan and fugitive
+        // messages; this coordinator never repeats them per tick.
+        if (_activeOwner != null && enforcers.Count > 0 && playerShip != null &&
+            scan.State == PoliceScanState.Idle && fugitive?.IsActive != true)
+        {
+            if (!_interceptionAnnounced)
+            {
+                _interceptionAnnounced = true;
+                notificationManager?.ShowMessage("Liberty Police stop order — hold position for inspection", 3f);
+                log?.Invoke("[CONTRABAND STOP] Lawful interception ordered; awaiting scan range.");
+            }
+        }
+        else if (_activeOwner == null || enforcers.Count == 0)
+        {
+            _interceptionAnnounced = false;
+        }
+
+        AssignSupportSpacing(enforcers);
 
         // Compliant/clean resolution: the scan entered Cleared (paid and
         // confiscated, or clean hold). Cargo authority already removed only
@@ -186,6 +220,7 @@ public sealed class PoliceContrabandStopCoordinator
     {
         ClearHoldFireExcept(null);
         _activeOwner = null;
+        _interceptionAnnounced = false;
     }
 
     private void PruneOwner(IReadOnlyList<NpcShip>? npcs)
@@ -220,9 +255,77 @@ public sealed class PoliceContrabandStopCoordinator
         foreach (NpcShip ship in stale)
         {
             _holdFireShips.Remove(ship);
+            ship.SetContrabandSupportOffset(Vector3.Zero);
             if (!ship.IsDestroyed && ship.IsLawfulStopHoldFire &&
                 ship.PlayerTargetReason != NpcPlayerTargetReason.ContrabandEnforcement)
                 ship.SetLawfulStopHoldFire(false);
+        }
+    }
+
+    /// <summary>
+    /// Phase 72 deterministic supporter spacing. The encounter owner keeps
+    /// the exact player anchor; every other live interceptor chases a ring
+    /// standoff derived from stable identities so supporters stay nearby
+    /// without stacking. Bounded to the existing enforcer list, no
+    /// allocation, no world-wide search, no formation framework. The offset
+    /// rides the existing engagement movement via NpcShip retention and is
+    /// cleared automatically when the reason changes or the encounter ends.
+    /// </summary>
+    private void AssignSupportSpacing(IReadOnlyList<NpcShip> enforcers)
+    {
+        if (_activeOwner == null || enforcers == null || enforcers.Count == 0)
+            return;
+
+        int supporterCount = 0;
+        for (int i = 0; i < enforcers.Count; i++)
+        {
+            NpcShip candidate = enforcers[i];
+            if (candidate != null && !candidate.IsDestroyed &&
+                candidate.PlayerTargetReason == NpcPlayerTargetReason.ContrabandEnforcement &&
+                !ReferenceEquals(candidate, _activeOwner))
+                supporterCount++;
+        }
+
+        float basePhase = StablePhase01(NpcIdentity.GetStableIdentity(_activeOwner)) * MathHelper.TwoPi;
+        int supporterIndex = 0;
+        for (int i = 0; i < enforcers.Count; i++)
+        {
+            NpcShip enforcer = enforcers[i];
+            if (enforcer == null || enforcer.IsDestroyed ||
+                enforcer.PlayerTargetReason != NpcPlayerTargetReason.ContrabandEnforcement)
+                continue;
+
+            if (ReferenceEquals(enforcer, _activeOwner) || supporterCount == 0)
+            {
+                enforcer.SetContrabandSupportOffset(Vector3.Zero);
+                continue;
+            }
+
+            float angle = basePhase + (MathHelper.TwoPi * supporterIndex / supporterCount);
+            float vertical = (StablePhase01(NpcIdentity.GetStableIdentity(enforcer)) - 0.5f) * SupportVerticalSpread;
+            enforcer.SetContrabandSupportOffset(new Vector3(
+                (float)Math.Cos(angle) * SupportStandoffRadius,
+                vertical,
+                (float)Math.Sin(angle) * SupportStandoffRadius));
+            supporterIndex++;
+        }
+    }
+
+    private static float StablePhase01(string identity)
+    {
+        if (string.IsNullOrEmpty(identity))
+            return 0f;
+
+        unchecked
+        {
+            uint hash = 2166136261u;
+            foreach (char character in identity)
+            {
+                hash ^= character;
+                hash *= 16777619u;
+            }
+
+            return (hash % 10000u) / 10000f;
         }
     }
 

@@ -277,6 +277,7 @@ namespace Roguelancer {
         private readonly bool _runPhase69Smoke;
         private readonly bool _runPhase70Smoke;
         private readonly bool _runPhase71Smoke;
+        private readonly bool _runPhase72Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -404,6 +405,7 @@ namespace Roguelancer {
             _runPhase69Smoke = args?.Any(arg => string.Equals(arg, "--phase69-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase70Smoke = args?.Any(arg => string.Equals(arg, "--phase70-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase71Smoke = args?.Any(arg => string.Equals(arg, "--phase71-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase72Smoke = args?.Any(arg => string.Equals(arg, "--phase72-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1648,6 +1650,11 @@ namespace Roguelancer {
                 var result = RunPhase71SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase72Smoke)
+            {
+                var result = RunPhase72SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -1884,6 +1891,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 69 lawful contraband interdiction smoke", RunPhase69SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 70 player contraband interdiction smoke", RunPhase70SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 71 lawful contraband stop and compliance smoke", RunPhase71SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 72 lawful contraband stop UX persistence smoke", RunPhase72SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2485,6 +2493,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 71 LAWFUL CONTRABAND STOP AND COMPLIANCE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase72SmokeTest()
+        {
+            try
+            {
+                return new Phase72LawfulContrabandStopUxPersistenceSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 72 LAWFUL CONTRABAND STOP UX PERSISTENCE SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }

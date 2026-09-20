@@ -128,12 +128,15 @@ namespace Roguelancer
 
             if (State == PoliceScanState.ContrabandDetected)
             {
-                if (_activeScanner == null)
+                if (_activeScanner == null || !IsScannerPresentInWorld(npcs))
                 {
                     // A world reset/cleanup can invalidate an officer without
                     // being an attack. Reset() handles the normal lifecycle;
                     // this defensive path simply removes transient state.
+                    // A despawned (not destroyed) scanner is world cleanup,
+                    // never hostile action, so no fugitive is created here.
                     ClearResultState();
+                    log?.Invoke("[POLICE SCAN] Enforcement demand cleared because the scanner left the encounter.");
                     return;
                 }
 
@@ -197,6 +200,12 @@ namespace Roguelancer
 
             if (State == PoliceScanState.Scanning)
             {
+                if (!IsScannerPresentInWorld(npcs))
+                {
+                    CancelScan("scanner left the encounter", notificationManager, log, applyCooldown: false);
+                    return;
+                }
+
                 if (!IsScannerValid(playerShip, reputationManager))
                 {
                     CancelScan("scanner lost the inspection lock", notificationManager, log, applyCooldown: true);
@@ -329,7 +338,7 @@ namespace Roguelancer
             _scanTimer = 0f;
             _enforcementOffer = null;
             State = PoliceScanState.Scanning;
-            notificationManager?.ShowMessage("Liberty Police inspection initiated", 2f);
+            notificationManager?.ShowMessage("Liberty Police cargo scan in progress — hold position", 2f);
             log?.Invoke($"[POLICE SCAN] Scan initiated by {scanner.Name} ({scanner.FactionId}).");
         }
 
@@ -362,7 +371,13 @@ namespace Roguelancer
             DetectionCount++;
             if (_missionManager?.ActiveMission?.Type == MissionType.ContrabandSmuggling)
                 _missionManager.ActiveMission.SmugglingPoliceDetected = true;
-            notificationManager?.ShowMessage("Illegal property confirmed. Surrender the cargo and pay the assessed fine.", 4f);
+            // Phase 72: the one-shot demand notice carries the actual
+            // controls and the authoritative demand window. The live
+            // countdown itself stays on the HUD status line
+            // (EnforcementDemandRemainingSeconds); it is never duplicated
+            // into a second timer variable.
+            notificationManager?.ShowMessage(
+                $"Contraband detected — [{EnforcementComplyKey}] Comply / [{EnforcementRefuseKey}] Refuse ({EnforcementDemandSeconds:0}s)", 4f);
             log?.Invoke($"[POLICE SCAN] Violation detected: {_enforcementOffer.TotalViolationQuantity} units; enforcement demand opened for {_enforcementOffer.FineAmount:N0} CR.");
         }
 
@@ -446,7 +461,15 @@ namespace Roguelancer
             }
             else
             {
-                notificationManager?.ShowMessage("Fine received. Cargo confiscated. You're free to go.", 3f);
+                // Phase 72: the compliance summary reports the authoritative
+                // live-hold resolution (actual confiscated quantities and
+                // credits charged), never a pre-scan cached approximation.
+                // It is mirrored to the log so headless smoke coverage can
+                // prove the quantities without a font-bound HUD.
+                string complianceSummary = BuildComplianceSummary(result);
+                notificationManager?.ShowMessage(complianceSummary, 3f);
+                log?.Invoke($"[POLICE SCAN] Enforcement resolution ({resolutionReason}): {result.Message}. {complianceSummary}");
+                return true;
             }
             log?.Invoke($"[POLICE SCAN] Enforcement resolution ({resolutionReason}): {result.Message}.");
             return true;
@@ -466,6 +489,17 @@ namespace Roguelancer
                 log,
                 "player fled enforcement");
 
+        private static string BuildComplianceSummary(PoliceEnforcementResult result)
+        {
+            if (result == null)
+                return "Inspection resolved. You're free to go.";
+
+            if (result.ConfiscatedQuantity > 0)
+                return $"Surrendered {result.ConfiscatedQuantity} illegal units — fine {result.CreditsCharged:N0} CR paid. You're free to go.";
+
+            return $"No illegal cargo remaining — fine {result.CreditsCharged:N0} CR paid. You're free to go.";
+        }
+
         private string BuildDemandStatusText()
         {
             if (_enforcementOffer == null)
@@ -475,6 +509,27 @@ namespace Roguelancer
                 ? string.Empty
                 : " | Insufficient credits to comply";
             return $"LIBERTY POLICE — CARGO VIOLATION | Surrender illegal cargo and pay {_enforcementOffer.FineAmount:N0} CR | [{EnforcementComplyKey}] Comply [{EnforcementRefuseKey}] Refuse {EnforcementDemandRemainingSeconds:0.0}s{affordability}";
+        }
+
+        /// <summary>
+        /// Phase 72: a despawned/removed officer is world cleanup, not an
+        /// attack. Membership is checked by reference against the live world
+        /// list with a bounded loop (no allocation); a missing scanner
+        /// clears transient scan state without creating a fugitive.
+        /// </summary>
+        private bool IsScannerPresentInWorld(IReadOnlyList<NpcShip> npcs)
+        {
+            if (_activeScanner == null)
+                return false;
+            if (npcs == null)
+                return true;
+            for (int i = 0; i < npcs.Count; i++)
+            {
+                if (ReferenceEquals(npcs[i], _activeScanner))
+                    return true;
+            }
+
+            return false;
         }
 
         private bool IsScannerValid(Ship playerShip, ReputationManager reputationManager)
@@ -560,6 +615,10 @@ namespace Roguelancer
 
         private static int GetStableScannerKey(NpcShip npc)
         {
+            // Phase 72: the tie-break must be stable across frames while
+            // officers close. Position is deliberately excluded so two
+            // equidistant officers do not flicker ownership as they move;
+            // distance remains the primary ordering key.
             unchecked
             {
                 int hash = 17;
@@ -567,10 +626,8 @@ namespace Roguelancer
                     hash = hash * 31 + character;
                 foreach (char character in (npc?.Name ?? string.Empty).ToUpperInvariant())
                     hash = hash * 31 + character;
-                Vector3 position = npc?.Position ?? Vector3.Zero;
-                hash = hash * 31 + BitConverter.SingleToInt32Bits(position.X);
-                hash = hash * 31 + BitConverter.SingleToInt32Bits(position.Y);
-                hash = hash * 31 + BitConverter.SingleToInt32Bits(position.Z);
+                foreach (char character in (NpcIdentity.GetStableIdentity(npc) ?? string.Empty).ToUpperInvariant())
+                    hash = hash * 31 + character;
                 return hash;
             }
         }
