@@ -83,6 +83,17 @@ namespace Roguelancer
         public const int DynamicInterdictionMaximumOffers = 3;
         public const int DynamicInterdictionMinimumValue = EconomicShipmentManager.DynamicInterdictionValueThreshold;
         public const int DynamicInterdictionMaximumRequiredQuantity = 8;
+        // Phase 73 player smuggling reward policy. Smuggling pays a clear
+        // risk premium over lawful freight: a difficulty base plus 25% of
+        // the shipment's catalog value (mirroring the 0.25 Police fine rate
+        // so the premium scales with seizure exposure) plus a bounded route
+        // distance bonus. Clamped so offers stay positive and bounded.
+        public const int SmugglingMinimumReward = 3_000;
+        public const int SmugglingMaximumReward = 30_000;
+        public const int SmugglingEasyBaseReward = 4_000;
+        public const int SmugglingMediumBaseReward = 6_500;
+        public const int SmugglingHardBaseReward = 10_000;
+        public const int SmugglingMaximumDistanceBonus = 4_000;
         public const int MarketOpportunityMaximumEntries = 8;
         public const float MissionFailureReputationPenalty = -0.02f;
         public const float TradeLaneDisruptionHoldSeconds = 10f;
@@ -563,12 +574,7 @@ namespace Roguelancer
                 if (quantity <= 0)
                     continue;
 
-                int reward = difficulty switch
-                {
-                    MissionDifficulty.Hard => 13_000,
-                    MissionDifficulty.Medium => 8_500,
-                    _ => 5_000
-                };
+                int reward = CalculateSmugglingReward(commodity, quantity, originStation, destination, difficulty);
                 Mission offer = Mission.CreateContrabandSmuggling(
                     originStation,
                     destination,
@@ -585,6 +591,46 @@ namespace Roguelancer
             }
 
             return offers;
+        }
+
+        /// <summary>
+        /// Phase 73 deterministic smuggling reward. Exact calculation:
+        /// reward = clamp(difficultyBase + (basePrice * quantity) / 4 +
+        /// clamp(distance / 1000, 0, 4000), 3000, 30000), where
+        /// difficultyBase is 4000/6500/10000 for Easy/Medium/Hard(+)
+        /// and distance is the world-space origin-destination distance.
+        /// No market, reputation, or procedural economy state participates,
+        /// so identical routes always offer identical rewards.
+        /// </summary>
+        public static int CalculateSmugglingReward(
+            Commodity commodity,
+            int quantity,
+            Station originStation,
+            Station destinationStation,
+            MissionDifficulty difficulty)
+        {
+            if (commodity == null || quantity <= 0)
+                return SmugglingMinimumReward;
+
+            int difficultyBase = difficulty switch
+            {
+                MissionDifficulty.Hard or MissionDifficulty.Deadly => SmugglingHardBaseReward,
+                MissionDifficulty.Medium => SmugglingMediumBaseReward,
+                _ => SmugglingEasyBaseReward
+            };
+            long riskPremium = (long)Math.Max(0, commodity.BasePrice) * quantity / 4L;
+            long distanceBonus = 0L;
+            if (originStation != null && destinationStation != null)
+            {
+                float distance = Vector3.Distance(originStation.Position, destinationStation.Position);
+                if (!float.IsNaN(distance) && !float.IsInfinity(distance) && distance > 0f)
+                    distanceBonus = Math.Min(SmugglingMaximumDistanceBonus, (int)(distance / 1000f));
+            }
+
+            return (int)Math.Clamp(
+                (long)difficultyBase + riskPremium + distanceBonus,
+                SmugglingMinimumReward,
+                SmugglingMaximumReward);
         }
 
         public List<Mission> GenerateTradeLaneDisruptionMissions(Station originStation)

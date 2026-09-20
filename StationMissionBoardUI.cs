@@ -429,7 +429,7 @@ public sealed class StationMissionBoardUI
             y += 24;
             spriteBatch.DrawString(_font, $"Loaded: {loaded}/{mission.RequiredQuantity}   Free space: {_cargoHold?.AvailableCapacity ?? 0}", new Vector2(x, y), Color.Cyan);
             y += 24;
-            spriteBatch.DrawString(_font, "Warning: police scans can trigger temporary hostility; jettisoned pods are recoverable.", new Vector2(x, y), Color.Orange);
+            spriteBatch.DrawString(_font, "Illegal cargo — Liberty Police may confiscate this shipment.", new Vector2(x, y), Color.Orange);
             y += 26;
         }
         else if (mission.Type == MissionType.TradeLaneDisruption)

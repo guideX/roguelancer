@@ -636,7 +636,7 @@ namespace Roguelancer
                 destinationName,
                 reward,
                 GetSmugglingTimeLimit(difficulty),
-                $"Move {quantity} {commodityName} from {origin.Name} to {destinationName}. Liberty Police cargo inspections are active along the route.",
+                $"Move {quantity} {commodityName} from {origin.Name} to {destinationName}. Illegal cargo — Liberty Police may confiscate this shipment.",
                 FactionManager.LibertyRogues,
                 title: $"Smuggle {commodityName}")
             {
