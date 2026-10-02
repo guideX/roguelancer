@@ -41,10 +41,24 @@ public static class PoliceAttentionPresentation
         if (reputationManager == null)
             return LibertyPoliceAttentionLevel.Standard;
 
-        if (reputationManager.IsHostile(FactionManager.LibertyPolice))
+        return GetLevel(reputationManager.GetStanding(FactionManager.LibertyPolice));
+    }
+
+    /// <summary>
+    /// Numeric-standing overload used by the Phase 76 transition observer to
+    /// compare the previous and current authoritative standing carried by one
+    /// reputation change. Hostility is still resolved from the canonical
+    /// <see cref="ReputationManager.GetBandForStanding(float)"/> band, and the
+    /// lawful bands still come only from
+    /// <see cref="PoliceEnforcementEscalationPolicy.GetTier(float)"/>. No
+    /// threshold is re-encoded here.
+    /// </summary>
+    public static LibertyPoliceAttentionLevel GetLevel(float standing)
+    {
+        if (ReputationManager.GetBandForStanding(standing) == ReputationBand.Hostile)
             return LibertyPoliceAttentionLevel.Hostile;
 
-        return PoliceEnforcementEscalationPolicy.GetTier(reputationManager) switch
+        return PoliceEnforcementEscalationPolicy.GetTier(standing) switch
         {
             PoliceEnforcementTier.Severe => LibertyPoliceAttentionLevel.Severe,
             PoliceEnforcementTier.Elevated => LibertyPoliceAttentionLevel.Elevated,

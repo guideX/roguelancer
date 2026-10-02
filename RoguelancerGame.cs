@@ -129,6 +129,7 @@ namespace Roguelancer {
         private FactionBountyRewardService _factionBountyRewards;
         private PoliceFugitiveManager _policeFugitiveManager;
         private PoliceContrabandStopCoordinator _policeContrabandStopCoordinator;
+        private PoliceAttentionTransitionNotifier _policeAttentionTransitionNotifier;
         /// <summary>
         /// Lighting Direction
         /// </summary>
@@ -281,6 +282,7 @@ namespace Roguelancer {
         private readonly bool _runPhase73Smoke;
         private readonly bool _runPhase74Smoke;
         private readonly bool _runPhase75Smoke;
+        private readonly bool _runPhase76Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -412,6 +414,7 @@ namespace Roguelancer {
             _runPhase73Smoke = args?.Any(arg => string.Equals(arg, "--phase73-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase74Smoke = args?.Any(arg => string.Equals(arg, "--phase74-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase75Smoke = args?.Any(arg => string.Equals(arg, "--phase75-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase76Smoke = args?.Any(arg => string.Equals(arg, "--phase76-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1299,6 +1302,12 @@ namespace Roguelancer {
                 _trafficManager.FugitiveManager = _policeFugitiveManager;
             _reputationManager.OnReputationChanged += HandleReputationChanged;
             _reputationManager.OnTemporaryHostilityChanged += HandleTemporaryHostilityChanged;
+            // Phase 76: one bounded observer of Liberty Police attention
+            // transitions. It is stateless, so new-game and save/load
+            // initialization are silent without any rebaseline step.
+            _policeAttentionTransitionNotifier = new PoliceAttentionTransitionNotifier(
+                _reputationManager,
+                message => _notificationManager?.ShowMessage(message, 3f));
             _factionBountyRewards = new FactionBountyRewardService(
                 _reputationManager,
                 _playerCredits,
@@ -1676,6 +1685,11 @@ namespace Roguelancer {
                 var result = RunPhase75SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase76Smoke)
+            {
+                var result = RunPhase76SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -1916,6 +1930,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 73 player smuggling contracts smoke", RunPhase73SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 74 repeat-smuggler escalation smoke", RunPhase74SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 75 law-enforcement reputation readability smoke", RunPhase75SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 76 police attention transition notifications smoke", RunPhase76SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2569,6 +2584,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 75 LAW-ENFORCEMENT REPUTATION READABILITY SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase76SmokeTest()
+        {
+            try
+            {
+                return new Phase76PoliceAttentionTransitionNotificationsSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 76 POLICE ATTENTION TRANSITION NOTIFICATIONS SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -4226,6 +4254,14 @@ namespace Roguelancer {
         private void HandleReputationChanged(ReputationChangeResult change)
         {
             if (change == null)
+                return;
+
+            // Phase 76: a Liberty Police attention-band transition is the
+            // authoritative feedback for that mutation. When the observer
+            // emits it, suppress the generic reputation line so the player is
+            // told once. Hostility transitions return false and fall through
+            // to the existing band/hostility feedback below.
+            if (_policeAttentionTransitionNotifier?.TryObserve(change) == true)
                 return;
 
             if (change.IsSecondaryEffect)
