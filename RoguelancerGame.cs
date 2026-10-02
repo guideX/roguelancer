@@ -280,6 +280,7 @@ namespace Roguelancer {
         private readonly bool _runPhase72Smoke;
         private readonly bool _runPhase73Smoke;
         private readonly bool _runPhase74Smoke;
+        private readonly bool _runPhase75Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -410,6 +411,7 @@ namespace Roguelancer {
             _runPhase72Smoke = args?.Any(arg => string.Equals(arg, "--phase72-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase73Smoke = args?.Any(arg => string.Equals(arg, "--phase73-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase74Smoke = args?.Any(arg => string.Equals(arg, "--phase74-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase75Smoke = args?.Any(arg => string.Equals(arg, "--phase75-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1669,6 +1671,11 @@ namespace Roguelancer {
                 var result = RunPhase74SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase75Smoke)
+            {
+                var result = RunPhase75SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -1908,6 +1915,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 72 lawful contraband stop UX persistence smoke", RunPhase72SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 73 player smuggling contracts smoke", RunPhase73SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 74 repeat-smuggler escalation smoke", RunPhase74SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 75 law-enforcement reputation readability smoke", RunPhase75SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2548,6 +2556,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 74 REPEAT-SMUGGLER ESCALATION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase75SmokeTest()
+        {
+            try
+            {
+                return new Phase75LawEnforcementReputationReadabilitySmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 75 LAW-ENFORCEMENT REPUTATION READABILITY SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -6816,6 +6837,12 @@ namespace Roguelancer {
             {
                 line = "Plenty of people around here pay for problems to disappear.";
             }
+
+            string policeAmbient = PoliceAttentionPresentation.GetStationAmbientLine(
+                _stationSession?.DockedStation?.FactionId,
+                _reputationManager);
+            if (!string.IsNullOrEmpty(policeAmbient))
+                line = string.IsNullOrEmpty(line) ? policeAmbient : $"{line} {policeAmbient}";
 
             BarNpc reputationContact = StationBarSocial.GetReputationContactProfile(npc.Id);
             FactionBribeOffer bribeOffer = FactionBribeService.GetOfferForContact(

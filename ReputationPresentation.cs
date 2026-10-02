@@ -74,6 +74,14 @@ namespace Roguelancer
             return $"REPUTATION: {ReputationManager.FormatStanding(MissionManager.GetMissionReputationReward(mission))} {employer}";
         }
 
+        /// <summary>
+        /// Phase 75 Liberty Police attention line for the reputation overview.
+        /// Pure pass-through to the single Phase 74 tier authority; it never
+        /// mutates reputation or enforcement state.
+        /// </summary>
+        public static string BuildLibertyPoliceAttentionLine(ReputationManager reputationManager) =>
+            PoliceAttentionPresentation.GetOverviewLine(reputationManager);
+
         public static IReadOnlyList<ReputationOverviewLine> BuildOverview(ReputationManager reputationManager)
         {
             if (reputationManager == null)

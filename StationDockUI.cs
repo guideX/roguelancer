@@ -1596,7 +1596,19 @@ namespace Roguelancer
                 y += 34;
             }
 
-            spriteBatch.DrawString(_font, "Standing persists until your actions change it.", new Vector2(centerX - 300, y + 18), Color.Gray);
+            Color attentionColor = PoliceAttentionPresentation.GetLevel(_reputationManager) switch
+            {
+                LibertyPoliceAttentionLevel.Hostile => Color.IndianRed,
+                LibertyPoliceAttentionLevel.Severe => Color.OrangeRed,
+                LibertyPoliceAttentionLevel.Elevated => Color.Orange,
+                _ => Color.LightGray
+            };
+            spriteBatch.DrawString(
+                _font,
+                ReputationPresentation.BuildLibertyPoliceAttentionLine(_reputationManager),
+                new Vector2(centerX - 300, y + 18),
+                attentionColor);
+            spriteBatch.DrawString(_font, "Standing persists until your actions change it.", new Vector2(centerX - 300, y + 44), Color.Gray);
         }
 
         private void DrawActiveTradePlan(SpriteBatch spriteBatch, int screenWidth)

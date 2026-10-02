@@ -495,6 +495,18 @@ public sealed class StationMissionBoardUI
                 spriteBatch.DrawString(_font, line.TransientLabel, new Vector2(overview.X + 650, y), Color.OrangeRed);
             y += 34;
         }
+        Color attentionColor = PoliceAttentionPresentation.GetLevel(_reputationManager) switch
+        {
+            LibertyPoliceAttentionLevel.Hostile => Color.IndianRed,
+            LibertyPoliceAttentionLevel.Severe => Color.OrangeRed,
+            LibertyPoliceAttentionLevel.Elevated => Color.Orange,
+            _ => Color.LightGray
+        };
+        spriteBatch.DrawString(
+            _font,
+            ReputationPresentation.BuildLibertyPoliceAttentionLine(_reputationManager),
+            new Vector2(overview.X + 28, overview.Bottom - 80),
+            attentionColor);
         spriteBatch.DrawString(_font, "P: Return to mission board", new Vector2(overview.X + 28, overview.Bottom - 48), Color.LightGray);
     }
 
