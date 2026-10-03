@@ -168,7 +168,18 @@ namespace Roguelancer
             // NPC firing logic.
             foreach (NpcShip npc in npcShips)
             {
-                if (npc == null || npc.IsDestroyed)
+                if (npc == null)
+                {
+                    continue;
+                }
+
+                // Phase 79: a post-surrender fire hold is valid for exactly one
+                // weapon evaluation. Consume it here (before any early
+                // continue, including destruction) so a later legitimate
+                // pursuit incident is never suppressed by a stale hold.
+                bool surrenderFireHold = npc.ConsumeSurrenderFireHold();
+
+                if (npc.IsDestroyed)
                 {
                     continue;
                 }
@@ -205,6 +216,23 @@ namespace Roguelancer
                     npc.IsLawfulStopHoldFire &&
                     _reputationManager != null &&
                     !_reputationManager.IsFactionCurrentlyHostile(npc.FactionId))
+                {
+                    hasPlayerTarget = false;
+                }
+
+                // Phase 79 accepted-surrender fire cessation. Once a Liberty
+                // Police surrender commits, the fugitive authority to start a
+                // new shot ends immediately, but the weapon pass runs later in
+                // the same tick. If an officer still carries a fugitive-pursuit
+                // target (for example a same-tick stale re-acquisition), the
+                // one-pass hold suppresses that emission unless an independent
+                // authority still justifies combat: durable faction hostility
+                // or surviving "player attack" temporary hostility. This never
+                // touches damage resolution or already-fired projectiles.
+                if (hasPlayerTarget &&
+                    surrenderFireHold &&
+                    npc.PlayerTargetReason == NpcPlayerTargetReason.FugitivePursuit &&
+                    !HasIndependentPlayerCombatAuthority(npc))
                 {
                     hasPlayerTarget = false;
                 }
@@ -352,6 +380,29 @@ namespace Roguelancer
                 WeaponType.Fireball => Color.OrangeRed,
                 _ => Color.Red
             };
+        }
+
+        /// <summary>
+        /// Phase 79: the smallest authoritative query for whether an officer
+        /// still has a combat authority over the player that surrender did not
+        /// resolve. Durable faction hostility is permanent; a surviving
+        /// non-fugitive temporary hostility (for example "player attack") was
+        /// deliberately preserved by Phase 78. The surrendered fugitive reason
+        /// itself is not an independent authority. No new combat history is
+        /// introduced here.
+        /// </summary>
+        private bool HasIndependentPlayerCombatAuthority(NpcShip npc)
+        {
+            if (npc == null || _reputationManager == null)
+                return false;
+
+            if (_reputationManager.IsHostile(npc.FactionId))
+                return true;
+
+            TemporaryHostilityManager hostility = _reputationManager.TemporaryHostility;
+            return hostility != null &&
+                hostility.IsTemporarilyHostile(npc.FactionId) &&
+                !hostility.HasReason(npc.FactionId, PoliceFugitiveManager.PoliceFugitiveHostilityReason);
         }
 
         private void ApplyNpcDamage(NpcShip attacker, NpcShip target, float damage)

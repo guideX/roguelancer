@@ -162,7 +162,8 @@ public static class PoliceFugitiveSurrenderService
         PlayerCredits? credits,
         Action<string>? log,
         out PoliceSurrenderResult? result,
-        out string failureReason)
+        out string failureReason,
+        PoliceScanSystem? scan = null)
     {
         result = null;
         failureReason = string.Empty;
@@ -189,7 +190,15 @@ public static class PoliceFugitiveSurrenderService
             ? $"Surrender accepted. {assessment.FeeAmount:N0} credits assessed. Liberty Police pursuit ended."
             : "Surrender accepted. Liberty Police pursuit ended.";
 
-        fugitive.ResolveSurrender(log, message);
+        fugitive.ResolveSurrender(log, message, assessment.AcceptingOfficer);
+
+        // Phase 79: the enforcement result that the surrendered pursuit
+        // produced is now resolved. Dropping the presentational result hold
+        // prevents the contraband stop coordinator from re-opening the
+        // incident later in this same tick. This does not scan, confiscate,
+        // change cargo, alter a fine, or add grace.
+        scan?.ClearResolvedResultHold();
+
         result = new PoliceSurrenderResult
         {
             Success = true,

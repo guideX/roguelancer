@@ -373,6 +373,7 @@ namespace Roguelancer
         private Func<NpcShip, bool> _contrabandTargetValidator;
         private Func<bool> _playerContrabandValidator;
         private bool _lawfulStopHoldFire;
+        private bool _surrenderFireHold;
         private Vector3 _contrabandSupportOffset = Vector3.Zero;
         
         public Vector3 Forward => Vector3.Transform(Vector3.Forward, _rotation);
@@ -748,6 +749,36 @@ namespace Roguelancer
         internal void SetLawfulStopHoldFire(bool holdFire)
         {
             _lawfulStopHoldFire = holdFire;
+        }
+
+        /// <summary>
+        /// Phase 79 post-surrender fire cessation. When a Liberty Police
+        /// surrender commits, the fugitive authority that was authorizing new
+        /// Police fire ends immediately, but the weapon pass runs later in the
+        /// same simulation tick. This transient flag lets the surrender
+        /// resolution suppress a new fugitive-authorized shot for exactly one
+        /// weapon evaluation: it is set only by
+        /// <see cref="PoliceFugitiveManager.ResolveSurrender"/>, consumed by
+        /// <see cref="NpcWeaponSystem"/> on the next pass, and never persisted.
+        /// It is deliberately not cleared by
+        /// <see cref="ClearEncounterState"/> (which runs during the same
+        /// resolution) so the one-pass hold survives pursuit-target cleanup. It
+        /// suppresses only stale fugitive-authorised emission; independently
+        /// hostile authority (durable standing, surviving "player attack"
+        /// temporary hostility) still permits fire.
+        /// </summary>
+        public bool HasSurrenderFireHold => _surrenderFireHold;
+
+        internal void SetSurrenderFireHold(bool holdFire)
+        {
+            _surrenderFireHold = holdFire;
+        }
+
+        internal bool ConsumeSurrenderFireHold()
+        {
+            bool hold = _surrenderFireHold;
+            _surrenderFireHold = false;
+            return hold;
         }
 
         /// <summary>

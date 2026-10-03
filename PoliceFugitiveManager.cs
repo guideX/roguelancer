@@ -382,11 +382,18 @@ public sealed class PoliceFugitiveManager
     /// exactly one bounded success message. No arrest, warrant, criminal
     /// history, detention, or persisted surrender state is created here.
     /// </summary>
-    public void ResolveSurrender(Action<string>? log = null, string? presentation = null)
+    public void ResolveSurrender(Action<string>? log = null, string? presentation = null, NpcShip? acceptingOfficer = null)
     {
         if (!IsActive)
             return;
 
+        // Phase 79: arm the one-pass post-surrender fire hold on the bounded
+        // participant set (and the accepting officer) before pursuit targets
+        // are cleared. The weapon pass runs later in this same tick, so this
+        // closes the same-update window in which a stale fugitive target could
+        // still start a new shot. It never touches already-fired projectiles,
+        // damage resolution, or independent hostility.
+        ApplySurrenderFireHold(acceptingOfficer);
         ClearPursuitTargets();
         if (_ownsTemporaryHostility &&
             _reputationManager.TemporaryHostility.HasReason(
@@ -514,6 +521,28 @@ public sealed class PoliceFugitiveManager
         }
 
         _pursuitTargets.Clear();
+    }
+
+    /// <summary>
+    /// Phase 79 bounded post-surrender fire hold. Applies to the existing
+    /// bounded pursuit participant set plus the accepting officer. The flag is
+    /// transient, one-pass, and never persisted; it is consumed by the next
+    /// <see cref="NpcWeaponSystem"/> evaluation, which permits fire again if an
+    /// independent hostility authority exists. No world scan, no allocation,
+    /// and no participant history are introduced.
+    /// </summary>
+    private void ApplySurrenderFireHold(NpcShip? acceptingOfficer)
+    {
+        foreach (NpcShip police in _pursuitTargets)
+        {
+            if (police == null || police.IsDestroyed)
+                continue;
+
+            police.SetSurrenderFireHold(true);
+        }
+
+        if (acceptingOfficer != null && !acceptingOfficer.IsDestroyed)
+            acceptingOfficer.SetSurrenderFireHold(true);
     }
 
     private void Present(string text)

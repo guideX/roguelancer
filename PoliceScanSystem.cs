@@ -241,6 +241,22 @@ namespace Roguelancer
             LastJettisonedQuantity = 0;
         }
 
+        /// <summary>
+        /// Phase 79: clears a completed enforcement result hold (Cleared or
+        /// Enforcement). After a lawful surrender resolves the fugitive
+        /// incident that the enforcement refusal produced, the presentational
+        /// result hold must not re-arm the resolved incident on the next
+        /// coordinator pass. This only drops the transient result state; it
+        /// never scans, confiscates, alters a fine, or changes any contraband
+        /// rule, and the existing retry cooldown still governs future scans.
+        /// Active demands (ContrabandDetected) are left untouched.
+        /// </summary>
+        public void ClearResolvedResultHold()
+        {
+            if (State is PoliceScanState.Cleared or PoliceScanState.Enforcement)
+                ClearResultState();
+        }
+
         public bool HandleInput(
             KeyboardState keyboardState,
             KeyboardState previousKeyboardState,
