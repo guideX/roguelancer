@@ -284,6 +284,7 @@ namespace Roguelancer {
         private readonly bool _runPhase75Smoke;
         private readonly bool _runPhase76Smoke;
         private readonly bool _runPhase77Smoke;
+        private readonly bool _runPhase78Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -417,6 +418,7 @@ namespace Roguelancer {
             _runPhase75Smoke = args?.Any(arg => string.Equals(arg, "--phase75-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase76Smoke = args?.Any(arg => string.Equals(arg, "--phase76-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase77Smoke = args?.Any(arg => string.Equals(arg, "--phase77-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase78Smoke = args?.Any(arg => string.Equals(arg, "--phase78-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1700,6 +1702,11 @@ namespace Roguelancer {
                 var result = RunPhase77SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase78Smoke)
+            {
+                var result = RunPhase78SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -1942,6 +1949,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 75 law-enforcement reputation readability smoke", RunPhase75SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 76 police attention transition notifications smoke", RunPhase76SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 77 fugitive docking restrictions smoke", RunPhase77SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 78 lawful fugitive surrender smoke", RunPhase78SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2621,6 +2629,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 77 FUGITIVE DOCKING RESTRICTIONS SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase78SmokeTest()
+        {
+            try
+            {
+                return new Phase78LawfulFugitiveSurrenderSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 78 LAWFUL FUGITIVE SURRENDER SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -3846,6 +3867,31 @@ namespace Roguelancer {
                 {
                     _missionManager.ActiveMission.SmugglingJettisonedQuantity = Math.Max(0,
                         _missionManager.ActiveMission.SmugglingJettisonedQuantity + _policeScanSystem.LastJettisonedQuantity);
+                }
+            }
+
+            // Phase 78: deliberate lawful surrender to Liberty Police. The
+            // action is intentional (edge-triggered S key) and only offered
+            // while the canonical fugitive authority is active. Passive
+            // proximity to Police never surrenders automatically. The
+            // transaction is atomic: on success the pursuit resolves and one
+            // bounded notification is shown; on failure the fugitive state is
+            // left unchanged and the player is told why.
+            if (keyboardState.IsKeyDown(Keys.S) && _prevKeys.IsKeyUp(Keys.S) &&
+                _policeFugitiveManager?.IsActive == true)
+            {
+                bool surrendered = PoliceFugitiveSurrenderService.TrySurrender(
+                    _policeFugitiveManager,
+                    _reputationManager,
+                    _playerShip,
+                    _npcShips,
+                    _playerCredits,
+                    Console.WriteLine,
+                    out _,
+                    out string surrenderFailure);
+                if (!surrendered)
+                {
+                    _notificationManager?.ShowMessage(surrenderFailure, 3f);
                 }
             }
 
@@ -6164,6 +6210,21 @@ namespace Roguelancer {
                 _policeFugitiveManager.StatusText,
                 new Vector2(leftPanelX + 10, ly += 18),
                 statusColor);
+
+            // Phase 78: contextual surrender prompt. Shown only while the
+            // canonical fugitive authority is active (O(1) query); the full
+            // eligibility check (Police presence, hostility, credits) runs on
+            // the explicit S-key press, never per frame. The fee is derived
+            // from the canonical current fugitive Heat.
+            if (_policeFugitiveManager.IsActive)
+            {
+                int surrenderFee = PoliceFugitiveSurrenderService.GetSurrenderFee(_policeFugitiveManager.Heat);
+                _spriteBatch.DrawString(
+                    _font,
+                    $"SURRENDER TO LIBERTY POLICE [Keys.S] — {surrenderFee:N0} CR",
+                    new Vector2(leftPanelX + 10, ly += 18),
+                    Color.LightGreen);
+            }
         }
 
         /// <summary>

@@ -295,6 +295,47 @@ public sealed class PoliceFugitiveManager
         return Vector3.DistanceSquared(police.Position, playerShip.Position) <= radius * radius;
     }
 
+    /// <summary>
+    /// Phase 78 bounded Police-presence query for a lawful surrender. Returns
+    /// the nearest live Liberty Police actor within the same acquisition radius
+    /// the pursuit itself uses, reusing the exact candidate filter from
+    /// <see cref="AcquireNearbyPolice"/> (canonical faction id, not destroyed,
+    /// not in trade-lane transit, not on a mission hold). This is the smallest
+    /// authoritative local query: it never searches beyond the world NPC list,
+    /// never infers Police from ship name/model text, and never treats a
+    /// non-Police faction as a surrender recipient. A null result means no
+    /// Liberty Police unit is available to accept surrender.
+    /// </summary>
+    public NpcShip? FindSurrenderPresence(IReadOnlyList<NpcShip>? npcs, Ship? playerShip)
+    {
+        if (!IsActive || npcs == null || npcs.Count == 0 || playerShip == null)
+            return null;
+
+        float radiusSquared = AcquisitionRadius * AcquisitionRadius;
+        NpcShip? nearest = null;
+        float nearestDistanceSq = float.PositiveInfinity;
+        for (int i = 0; i < npcs.Count; i++)
+        {
+            NpcShip? police = npcs[i];
+            if (police == null || police.IsDestroyed || !IsLibertyPolice(police) ||
+                police.IsTradeLaneTransit || police.IsMissionHoldPosition)
+            {
+                continue;
+            }
+
+            float distanceSq = Vector3.DistanceSquared(police.Position, playerShip.Position);
+            if (distanceSq > radiusSquared)
+                continue;
+            if (distanceSq < nearestDistanceSq)
+            {
+                nearestDistanceSq = distanceSq;
+                nearest = police;
+            }
+        }
+
+        return nearest;
+    }
+
     public void ResolveEscape(Action<string>? log = null)
     {
         if (!IsActive)
@@ -323,6 +364,48 @@ public sealed class PoliceFugitiveManager
             PoliceEnforcementEscalationPolicy.GetReacquisitionGraceSeconds(tier));
         Present("PURSUIT EVADED");
         log?.Invoke("[POLICE FUGITIVE] Pursuit evaded; transient incident cleared.");
+    }
+
+    /// <summary>
+    /// Phase 78 authoritative surrender resolution. This reuses the same
+    /// internal invariant restoration as <see cref="ResolveEscape"/> (pursuit
+    /// targets cleared so Police stop firing, incident timers cleared,
+    /// fugitive-owned temporary hostility released, durable reputation
+    /// untouched) with two deliberate differences:
+    ///   1. Surrender is not an escape, so no post-escape contraband
+    ///      reacquisition grace is opened. Ordinary Police behavior resumes.
+    ///   2. Only fugitive-owned temporary hostility is released. Any unrelated
+    ///      transient hostility (for example a direct player attack recorded
+    ///      under a different reason) is preserved, never silently reset.
+    /// The optional presentation text is surfaced through the existing
+    /// one-notification <see cref="Present"/> surface so the player receives
+    /// exactly one bounded success message. No arrest, warrant, criminal
+    /// history, detention, or persisted surrender state is created here.
+    /// </summary>
+    public void ResolveSurrender(Action<string>? log = null, string? presentation = null)
+    {
+        if (!IsActive)
+            return;
+
+        ClearPursuitTargets();
+        if (_ownsTemporaryHostility &&
+            _reputationManager.TemporaryHostility.HasReason(
+                FactionManager.LibertyPolice,
+                PoliceFugitiveHostilityReason))
+        {
+            _reputationManager.TemporaryHostility.Clear(FactionManager.LibertyPolice);
+        }
+
+        State = PoliceFugitiveState.None;
+        Heat = PoliceHeatLevel.None;
+        _escapeTimer = 0f;
+        _contactLossTimer = 0f;
+        _absoluteIncidentTimer = 0f;
+        _activeContactCount = 0;
+        _ownsTemporaryHostility = false;
+        _observedPlayerDamage.Clear();
+        Present(string.IsNullOrWhiteSpace(presentation) ? "SURRENDER ACCEPTED" : presentation);
+        log?.Invoke("[POLICE FUGITIVE] Pursuit resolved by lawful surrender; transient incident cleared.");
     }
 
     public void Reset(Action<string>? log = null, string reason = "reset")
