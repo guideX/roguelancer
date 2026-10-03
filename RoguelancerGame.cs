@@ -283,6 +283,7 @@ namespace Roguelancer {
         private readonly bool _runPhase74Smoke;
         private readonly bool _runPhase75Smoke;
         private readonly bool _runPhase76Smoke;
+        private readonly bool _runPhase77Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -415,6 +416,7 @@ namespace Roguelancer {
             _runPhase74Smoke = args?.Any(arg => string.Equals(arg, "--phase74-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase75Smoke = args?.Any(arg => string.Equals(arg, "--phase75-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase76Smoke = args?.Any(arg => string.Equals(arg, "--phase76-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase77Smoke = args?.Any(arg => string.Equals(arg, "--phase77-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1475,6 +1477,9 @@ namespace Roguelancer {
                 _font,
                 _reputationManager);
             _gotoAutopilot.OnDockingComplete += HandleDockingCompleted;
+            _gotoAutopilot.SetFugitivePursuitResolver(factionId =>
+                string.Equals(FactionManager.NormalizeFactionId(factionId), FactionManager.LibertyPolice, StringComparison.OrdinalIgnoreCase) &&
+                _policeFugitiveManager?.IsActive == true);
             _playerShip.SetGotoAutopilot(_gotoAutopilot);
 
             _saveGameManager = new SaveGameManager(
@@ -1688,6 +1693,11 @@ namespace Roguelancer {
             else if (_runPhase76Smoke)
             {
                 var result = RunPhase76SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
+            else if (_runPhase77Smoke)
+            {
+                var result = RunPhase77SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
             else if (_runPhase61Smoke)
@@ -1931,6 +1941,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 74 repeat-smuggler escalation smoke", RunPhase74SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 75 law-enforcement reputation readability smoke", RunPhase75SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 76 police attention transition notifications smoke", RunPhase76SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 77 fugitive docking restrictions smoke", RunPhase77SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2597,6 +2608,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 76 POLICE ATTENTION TRANSITION NOTIFICATIONS SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase77SmokeTest()
+        {
+            try
+            {
+                return new Phase77FugitiveDockingRestrictionsSmokeTest().Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 77 FUGITIVE DOCKING RESTRICTIONS SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }

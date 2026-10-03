@@ -59,6 +59,7 @@ namespace Roguelancer
         private List<NpcShip> _npcShips;
         private NotificationManager _notifications;
         private ReputationManager _reputationManager;
+        private Func<string, bool> _fugitivePursuitResolver;
 
         // final destination
         private SpaceObject _destination;
@@ -142,6 +143,18 @@ namespace Roguelancer
         //  Public API
         // ?????????????????????????????????????????????????????????????????
 
+        /// <summary>
+        /// Supplies the authoritative active-fugitive query used by the shared
+        /// docking access policy. The resolver receives the target station's
+        /// canonical faction id and reports whether the player is currently an
+        /// active Liberty Police fugitive. Until it is set, docking evaluation
+        /// follows the pre-existing reputation/hostility rules only.
+        /// </summary>
+        public void SetFugitivePursuitResolver(Func<string, bool> fugitivePursuitResolver)
+        {
+            _fugitivePursuitResolver = fugitivePursuitResolver;
+        }
+
         /// <summary>Activate GOTO to the given target.</summary>
         public bool Activate(SpaceObject target)
         {
@@ -159,7 +172,8 @@ namespace Roguelancer
                 FactionAccessResult access = FactionAccessService.EvaluateDocking(
                     _reputationManager,
                     station.FactionId,
-                    station.Name);
+                    station.Name,
+                    _fugitivePursuitResolver?.Invoke(station.FactionId) == true);
                 if (!access.IsAllowed)
                 {
                     RejectDocking(access);
@@ -731,7 +745,8 @@ namespace Roguelancer
                 FactionAccessResult access = FactionAccessService.EvaluateDocking(
                     _reputationManager,
                     station.FactionId,
-                    station.Name);
+                    station.Name,
+                    _fugitivePursuitResolver?.Invoke(station.FactionId) == true);
                 if (!access.IsAllowed)
                 {
                     RejectDocking(access);
