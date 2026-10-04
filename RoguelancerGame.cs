@@ -286,6 +286,7 @@ namespace Roguelancer {
         private readonly bool _runPhase77Smoke;
         private readonly bool _runPhase78Smoke;
         private readonly bool _runPhase79Smoke;
+        private readonly bool _runPhase80Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -421,6 +422,7 @@ namespace Roguelancer {
             _runPhase77Smoke = args?.Any(arg => string.Equals(arg, "--phase77-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase78Smoke = args?.Any(arg => string.Equals(arg, "--phase78-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase79Smoke = args?.Any(arg => string.Equals(arg, "--phase79-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase80Smoke = args?.Any(arg => string.Equals(arg, "--phase80-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1714,6 +1716,11 @@ namespace Roguelancer {
                 var result = RunPhase79SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase80Smoke)
+            {
+                var result = RunPhase80SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -1958,6 +1965,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 77 fugitive docking restrictions smoke", RunPhase77SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 78 lawful fugitive surrender smoke", RunPhase78SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 79 surrender fire cessation smoke", RunPhase79SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 80 surrender flight-state normalization smoke", RunPhase80SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2663,6 +2671,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 79 SURRENDER FIRE CESSATION SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase80SmokeTest()
+        {
+            try
+            {
+                return new Phase80SurrenderFlightStateNormalizationSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 80 SURRENDER FLIGHT-STATE NORMALIZATION SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }

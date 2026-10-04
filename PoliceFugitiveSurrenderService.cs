@@ -81,11 +81,15 @@ public sealed class PoliceSurrenderResult
 ///   - Durable Police reputation is never improved and never reset. The
 ///     refusal/pursuit already imposed its durable penalty; surrender adds
 ///     no reputation change.
-///   - The transaction is atomic: eligibility and affordability are
-///     revalidated, then the fee is charged, then the pursuit is resolved.
-///     Any failure before commit leaves the player fugitive with no partial
-///     mutation.
-///   - Only Liberty Police (canonical faction id) can accept a surrender.
+    ///   - The transaction is atomic: eligibility and affordability are
+    ///     revalidated, then the fee is charged, then the pursuit is resolved.
+    ///     Any failure before commit leaves the player fugitive with no partial
+    ///     mutation.
+    ///   - After commit, incompatible player flight automation (GOTO/dock
+    ///     assist, cruise) is cancelled through the existing flight-control
+    ///     authorities. This adds no detention, movement, or criminal-state
+    ///     authority and never rewrites ship physics.
+    ///   - Only Liberty Police (canonical faction id) can accept a surrender.
 /// </summary>
 public static class PoliceFugitiveSurrenderService
 {
@@ -199,6 +203,16 @@ public static class PoliceFugitiveSurrenderService
         // change cargo, alter a fine, or add grace.
         scan?.ClearResolvedResultHold();
 
+        // Phase 80: the surrender transaction has committed, so any player
+        // flight automation that only made sense as escape/departure movement
+        // is now incompatible with the resolved incident. Cancel it through
+        // the existing flight-control authorities: GOTO (which also owns
+        // dock assist) and cruise. This never teleports the ship, rewrites
+        // physics, zeroes velocity, invents a destination, or takes manual
+        // control away; existing momentum simply stays governed by normal
+        // ship physics. Failed surrenders never reach this point.
+        NormalizePlayerFlightAutomation(player);
+
         result = new PoliceSurrenderResult
         {
             Success = true,
@@ -208,5 +222,33 @@ public static class PoliceFugitiveSurrenderService
         };
         log?.Invoke($"[POLICE SURRENDER] Accepted ({assessment.FeeAmount:N0} CR).");
         return true;
+    }
+
+    /// <summary>
+    /// Phase 80 flight-state normalization, executed only after the surrender
+    /// transaction has committed. Cancels the two player flight authorities
+    /// that can own escape/departure movement and coexist with an active
+    /// fugitive incident:
+    ///   - GOTO autopilot (including its dock-assist mode) via
+    ///     <see cref="Ship.CancelGoto"/>, which also releases the
+    ///     automation-owned autopilot speed override and clears the route.
+    ///   - cruise via <see cref="Ship.CancelCruise"/> with the existing
+    ///     IncompatibleFlight reason.
+    /// Both calls are no-ops when the mode is not active, so repeated input is
+    /// naturally idempotent. No new notification is produced: the goto
+    /// cancellation is silent and cruise cancellation has no presentation of
+    /// its own, so the single surrender-success message remains the only
+    /// notification. Trade-lane and jump-hole transit are intentionally not
+    /// touched here: the production update loop returns before the surrender
+    /// input is processed while either transit owns the ship, so the
+    /// transaction is unreachable in that state.
+    /// </summary>
+    private static void NormalizePlayerFlightAutomation(Ship? player)
+    {
+        if (player == null)
+            return;
+
+        player.CancelGoto(showNotification: false);
+        player.CancelCruise(CruiseCancellationReason.IncompatibleFlight);
     }
 }
