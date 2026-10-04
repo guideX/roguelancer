@@ -223,6 +223,7 @@ namespace Roguelancer {
         // Cargo pod loot system
         private LootManager _lootManager;
         private PirateCargoDemandService _piracyDemand;
+        private NpcPirateCargoDemandService _npcPirateCargoDemand;
 
         // Full-route GOTO autopilot
         private GotoAutopilot _gotoAutopilot;
@@ -287,6 +288,7 @@ namespace Roguelancer {
         private readonly bool _runPhase78Smoke;
         private readonly bool _runPhase79Smoke;
         private readonly bool _runPhase80Smoke;
+        private readonly bool _runPhase81Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -423,6 +425,7 @@ namespace Roguelancer {
             _runPhase78Smoke = args?.Any(arg => string.Equals(arg, "--phase78-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase79Smoke = args?.Any(arg => string.Equals(arg, "--phase79-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase80Smoke = args?.Any(arg => string.Equals(arg, "--phase80-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase81Smoke = args?.Any(arg => string.Equals(arg, "--phase81-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1405,6 +1408,18 @@ namespace Roguelancer {
                     .FirstOrDefault(shipment => shipment?.Trader == npc)
                     ?.ActiveSecurityEscortCount ?? 0);
             _piracyDemand.DemandResolved += result => _economicShipments?.RecordPiracyDemandResult(result);
+            _npcPirateCargoDemand = new NpcPirateCargoDemandService(
+                _npcShips,
+                _reputationManager,
+                player => _stationDockUI?.IsDocked == true,
+                () => _policeContrabandStopCoordinator?.ActiveOwner != null ||
+                    _policeFugitiveManager?.IsActive == true,
+                npc => _missionWorldManager?.IsMissionOwnedNpc(npc) == true,
+                (demander, threatPosition) => _trafficManager?.MarkNpcFleeing(demander, threatPosition, Console.WriteLine) == true,
+                (demander, commodityId, quantity) => _lootManager?.SpawnStolenCargo(
+                    demander, commodityId, quantity, out _, Console.WriteLine) ?? 0,
+                Console.WriteLine,
+                message => _notificationManager?.ShowMessage(message, 3f));
             _playerTargetScan = new PlayerTargetScanService(
                 _npcShips,
                 _factionManager,
@@ -1721,6 +1736,11 @@ namespace Roguelancer {
                 var result = RunPhase80SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase81Smoke)
+            {
+                var result = RunPhase81SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -1966,6 +1986,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 78 lawful fugitive surrender smoke", RunPhase78SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 79 surrender fire cessation smoke", RunPhase79SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 80 surrender flight-state normalization smoke", RunPhase80SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 81 NPC pirate cargo demand smoke", RunPhase81SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2688,6 +2709,19 @@ namespace Roguelancer {
             }
         }
 
+        private (int Passed, int Failed) RunPhase81SmokeTest()
+        {
+            try
+            {
+                return new Phase81NpcPirateCargoDemandSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 81 NPC PIRATE CARGO DEMAND SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
         /// <summary>
         /// Uses a live configured Rogue smuggling route and the production
         /// TrafficManager/loot callbacks. The focused class below supplies
@@ -3382,6 +3416,7 @@ namespace Roguelancer {
             int targetSystemIndex = Math.Max(1, saveData.CurrentSystemIndex);
             _playerTargetScan?.Reset();
             _piracyDemand?.Reset();
+            _npcPirateCargoDemand?.Reset();
             _policeScanSystem?.Reset();
             _policeContrabandStopCoordinator?.Reset();
             _policeFugitiveManager?.Reset(Console.WriteLine, "save/load");
@@ -3944,6 +3979,8 @@ namespace Roguelancer {
 
             _trafficManager?.Update(gameTime, _playerShip, _reputationManager, Console.WriteLine);
             _piracyDemand?.Update(deltaTime, _playerShip);
+            _npcPirateCargoDemand?.Update(deltaTime, _playerShip);
+            _npcPirateCargoDemand?.TryInitiateDemand(_playerShip, out _);
             if (_trafficManager != null &&
                 _trafficManager.TryDequeueCombatCommunication(out FactionCombatCommunicationRequest communication))
             {
@@ -4137,6 +4174,7 @@ namespace Roguelancer {
             {
               _playerTargetScan?.Reset();
               _lootManager?.Reset();
+              _npcPirateCargoDemand?.CancelActiveDemand("player destroyed");
             }
             _lootManager?.Update(gameTime, _playerShip, keyboardState.IsKeyDown(Keys.P), _notificationManager, Console.WriteLine);
             PruneInvalidNavSelection();
@@ -4315,6 +4353,7 @@ namespace Roguelancer {
         private void HandleNpcDestroyed(NpcShip destroyedShip) {
             _playerTargetScan?.NotifyTargetDestroyed(destroyedShip);
             _piracyDemand?.NotifyNpcDestroyed(destroyedShip);
+            _npcPirateCargoDemand?.NotifyNpcDestroyed(destroyedShip);
             _policeContrabandStopCoordinator?.NotifyNpcDestroyed(destroyedShip);
             _policeFugitiveManager?.NotifyPlayerDamage(destroyedShip, _playerShip, Console.WriteLine);
             _factionCombatConsequences?.RecordPlayerDamage(destroyedShip);
@@ -4494,6 +4533,11 @@ namespace Roguelancer {
                 {
                     _notificationManager?.ShowMessage(failureReason, 2.5f);
                 }
+            }
+
+            if (_npcPirateCargoDemand != null)
+            {
+                _npcPirateCargoDemand.HandleInput(keyboardState, _prevKeys, _playerShip);
             }
 
             if (iPressed && _playerTargetScan != null)
@@ -4716,6 +4760,7 @@ namespace Roguelancer {
         /// </summary>
         private void HandleDockingCompleted()
         {
+            _npcPirateCargoDemand?.CancelActiveDemand("player docked");
             if (_gotoAutopilot?.Destination is not Station station)
             {
                 Console.WriteLine("[DOCK] Completion ignored because the destination is not a supported station.");
@@ -7994,6 +8039,7 @@ namespace Roguelancer {
                     DrawActiveMissionsHUD();
                     DrawActiveTradePlanHUD();
                     DrawPiracyDemandHUD();
+                    DrawNpcPirateCargoDemandHUD();
 
                     // Draw mission guidance overlay (distance, arrows, proximity alerts)
                     _missionGuidanceHUD?.Draw(_spriteBatch, GraphicsDevice, _camera, _playerShip.Position, _missionWaypointSystem);
@@ -8034,6 +8080,17 @@ namespace Roguelancer {
             Vector2 position = new Vector2(10f, 42f);
             _spriteBatch.DrawString(_font, text, position + Vector2.One, Color.Black * 0.7f);
             _spriteBatch.DrawString(_font, text, position, Color.Orange);
+        }
+
+        private void DrawNpcPirateCargoDemandHUD()
+        {
+            if (_font == null || _npcPirateCargoDemand == null || string.IsNullOrWhiteSpace(_npcPirateCargoDemand.HudText))
+                return;
+
+            string text = _npcPirateCargoDemand.HudText;
+            Vector2 position = new Vector2(10f, 64f);
+            _spriteBatch.DrawString(_font, text, position + Vector2.One, Color.Black * 0.7f);
+            _spriteBatch.DrawString(_font, text, position, Color.IndianRed);
         }
 
         private void DrawSystemName() {
@@ -8174,6 +8231,7 @@ namespace Roguelancer {
             _playerTargetScan?.Reset();
             _policeFugitiveManager?.Reset(Console.WriteLine, "system transition");
             _piracyDemand?.Reset();
+            _npcPirateCargoDemand?.Reset();
             _tradeRouteValidation?.RecordSystemChange(oldSystemIndex, newSystemIndex, arrivalJumpHoleName);
 
             // A jump completion invalidates the old-system world object. Only
