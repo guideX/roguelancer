@@ -17,17 +17,21 @@ public enum NpcPirateDemandState
 
 /// <summary>
 /// One bounded commodity stack carried by a demanding pirate after the player
-/// complies. Provenance is tracked separately so a later destruction drop
-/// reproduces the same stolen/clean split through existing loot authority.
+/// complies. Cargo taken through a demand is stolen by definition, so the haul
+/// stores only the physical commodity and quantity. No original-owner
+/// provenance, theft timestamp, victim identity, or theft count is retained.
 /// </summary>
 public sealed class PirateDemandHaulEntry
 {
     public string CommodityId { get; init; } = string.Empty;
     public string CommodityName { get; init; } = string.Empty;
-    public int CleanQuantity { get; internal set; }
-    public int StolenQuantity { get; internal set; }
+    public int Quantity { get; internal set; }
 
-    public int TotalQuantity => CleanQuantity + StolenQuantity;
+    /// <summary>
+    /// Pirate-held demand cargo is always stolen. This is a provenance fact,
+    /// not a legality classification; contraband remains contraband.
+    /// </summary>
+    public CargoProvenance Provenance => CargoProvenance.Stolen;
 }
 
 public sealed class NpcPirateCargoDemandResult
@@ -311,23 +315,19 @@ public sealed class NpcPirateCargoDemandService
             if (quantity <= 0)
                 continue;
 
-            int stolenBefore = currentPlayer.CargoHold.GetSellableStolenCommodityQuantity(requested.Key);
-            int cleanBefore = currentPlayer.CargoHold.GetSellableCleanCommodityQuantity(requested.Key);
-
+            // Compliance transfers ownership to the pirate. The exact removed
+            // quantity becomes stolen pirate haul regardless of the player's
+            // previous clean/stolen provenance, and no original-owner state is
+            // retained. Removal prefers stolen units first so the player's
+            // remaining clean/stolen buckets stay mathematically correct.
             if (!currentPlayer.CargoHold.RemoveSellableCommodity(commodity, quantity, preferStolen: true))
                 continue;
-
-            int stolenAfter = currentPlayer.CargoHold.GetSellableStolenCommodityQuantity(requested.Key);
-            int cleanAfter = currentPlayer.CargoHold.GetSellableCleanCommodityQuantity(requested.Key);
-            int stolenRemoved = Math.Max(0, stolenBefore - stolenAfter);
-            int cleanRemoved = Math.Max(0, cleanBefore - cleanAfter);
 
             haulEntries.Add(new PirateDemandHaulEntry
             {
                 CommodityId = commodity.Id ?? commodity.Name,
                 CommodityName = commodity.Name,
-                CleanQuantity = cleanRemoved,
-                StolenQuantity = stolenRemoved
+                Quantity = quantity
             });
             totalRemoved += quantity;
         }
@@ -381,18 +381,17 @@ public sealed class NpcPirateCargoDemandService
     {
         if (_activeDemand?.Demander == destroyedShip)
         {
-            DropPirateHaul(destroyedShip);
             _activeDemand = null;
             _presentationText = string.Empty;
             _presentationRemainingSeconds = 0f;
             _log?.Invoke($"[NPC PIRACY] Demander {destroyedShip?.Name} destroyed; demand cancelled.");
         }
 
+        // A single idempotent drop handles both the immediate-death race after
+        // compliance and ordinary destruction. An uncommitted active demand
+        // never has a haul, so a demander that dies before commit drops nothing.
         if (destroyedShip != null)
-        {
             DropPirateHaul(destroyedShip);
-            _pirateHauls.Remove(destroyedShip);
-        }
     }
 
     /// <summary>
@@ -439,7 +438,8 @@ public sealed class NpcPirateCargoDemandService
             hasRegisteredCargo: true,
             haul.Select(entry => new NpcCargoManifestStackSnapshot(
                 CommodityCatalog.GetById(entry.CommodityId) ?? CommodityCatalog.GetByName(entry.CommodityName),
-                entry.TotalQuantity)));
+                entry.Quantity,
+                isStolen: true)));
         return true;
     }
 
@@ -450,7 +450,7 @@ public sealed class NpcPirateCargoDemandService
     {
         if (demander == null || !_pirateHauls.TryGetValue(demander, out List<PirateDemandHaulEntry> haul))
             return 0;
-        return haul.Sum(entry => entry.TotalQuantity);
+        return haul.Sum(entry => entry.Quantity);
     }
 
     private bool IsPlayerEligible(Ship playerShip, out string failureReason)
@@ -641,12 +641,17 @@ public sealed class NpcPirateCargoDemandService
         if (demander == null || !_pirateHauls.TryGetValue(demander, out List<PirateDemandHaulEntry> haul))
             return;
 
+        // Remove the entry before spawning so a repeated destruction
+        // notification cannot duplicate physical pods for one haul line.
+        _pirateHauls.Remove(demander);
+        int dropped = 0;
         foreach (PirateDemandHaulEntry entry in haul)
         {
-            if (entry.StolenQuantity > 0 && _spawnStolenCargo != null)
-                _spawnStolenCargo(demander, entry.CommodityId, entry.StolenQuantity);
+            if (entry.Quantity <= 0 || _spawnStolenCargo == null)
+                continue;
+            dropped += _spawnStolenCargo(demander, entry.CommodityId, entry.Quantity);
         }
-        _log?.Invoke($"[NPC PIRACY] Pirate haul dropped: {haul.Sum(e => e.TotalQuantity)} units.");
+        _log?.Invoke($"[NPC PIRACY] Pirate haul dropped: {haul.Sum(e => e.Quantity)} units ({dropped} podded).");
     }
 
     private void ResolveDestroyedOrInvalid(ActiveDemand demand, string reason)
