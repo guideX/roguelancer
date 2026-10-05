@@ -224,6 +224,7 @@ namespace Roguelancer {
         private LootManager _lootManager;
         private PirateCargoDemandService _piracyDemand;
         private NpcPirateCargoDemandService _npcPirateCargoDemand;
+        private PirateDemandHailPresentation _pirateDemandHail;
 
         // Full-route GOTO autopilot
         private GotoAutopilot _gotoAutopilot;
@@ -290,6 +291,7 @@ namespace Roguelancer {
         private readonly bool _runPhase80Smoke;
         private readonly bool _runPhase81Smoke;
         private readonly bool _runPhase82Smoke;
+        private readonly bool _runPhase83Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -428,6 +430,7 @@ namespace Roguelancer {
             _runPhase80Smoke = args?.Any(arg => string.Equals(arg, "--phase80-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase81Smoke = args?.Any(arg => string.Equals(arg, "--phase81-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase82Smoke = args?.Any(arg => string.Equals(arg, "--phase82-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase83Smoke = args?.Any(arg => string.Equals(arg, "--phase83-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1422,6 +1425,7 @@ namespace Roguelancer {
                     demander, commodityId, quantity, out _, Console.WriteLine) ?? 0,
                 Console.WriteLine,
                 message => _notificationManager?.ShowMessage(message, 3f));
+            _pirateDemandHail = new PirateDemandHailPresentation(_npcPirateCargoDemand);
             _playerTargetScan = new PlayerTargetScanService(
                 _npcShips,
                 _factionManager,
@@ -1748,6 +1752,11 @@ namespace Roguelancer {
                 var result = RunPhase82SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase83Smoke)
+            {
+                var result = RunPhase83SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -1995,6 +2004,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 80 surrender flight-state normalization smoke", RunPhase80SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 81 NPC pirate cargo demand smoke", RunPhase81SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 82 pirate haul recovery and provenance smoke", RunPhase82SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 83 pirate demand hail smoke", RunPhase83SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2739,6 +2749,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 82 PIRATE HAUL RECOVERY AND PROVENANCE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase83SmokeTest()
+        {
+            try
+            {
+                return new Phase83PirateDemandHailSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 83 PIRATE DEMAND HAIL SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -4290,8 +4313,10 @@ namespace Roguelancer {
 
             // LEFT MOUSE BUTTON: Click to select objects
             if (mouseState.LeftButton == ButtonState.Pressed && _prevMouseState.LeftButton == ButtonState.Released) {
-                // Left mouse button just clicked - try to select an object
-                if (!_playerShip.IsFreeFlightMode) {
+                // Phase 83: an active pirate hail claims the click first so the
+                // COMPLY/REFUSE controls route through the Phase 81 authority
+                // instead of selecting a world object behind the panel.
+                if (!HandlePirateDemandHailClick(mouseState) && !_playerShip.IsFreeFlightMode) {
                     HandleMouseClickSelection(mouseState);
                 }
             }
@@ -8105,13 +8130,104 @@ namespace Roguelancer {
 
         private void DrawNpcPirateCargoDemandHUD()
         {
-            if (_font == null || _npcPirateCargoDemand == null || string.IsNullOrWhiteSpace(_npcPirateCargoDemand.HudText))
+            if (_font == null || _npcPirateCargoDemand == null)
+                return;
+
+            // Phase 83: while the authoritative Phase 81 demand is active, the
+            // bounded hail panel is the single presentation of the encounter.
+            // The old single-line prompt is suppressed so the demand is never
+            // shown twice. The panel owns no state: it disappears the instant
+            // the service reports no active demand (comply, refuse, timeout,
+            // death, despawn, dock, or system transition).
+            if (_pirateDemandHail != null && _pirateDemandHail.TryBuildSnapshot(out PirateDemandHailSnapshot snapshot))
+            {
+                DrawPirateDemandHailPanel(snapshot);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_npcPirateCargoDemand.HudText))
                 return;
 
             string text = _npcPirateCargoDemand.HudText;
             Vector2 position = new Vector2(10f, 64f);
             _spriteBatch.DrawString(_font, text, position + Vector2.One, Color.Black * 0.7f);
             _spriteBatch.DrawString(_font, text, position, Color.IndianRed);
+        }
+
+        private void DrawPirateDemandHailPanel(PirateDemandHailSnapshot snapshot)
+        {
+            PirateDemandHailLayout layout = PirateDemandHailPresentation.BuildLayout(
+                GraphicsDevice.Viewport.Width,
+                snapshot.CargoLines.Count);
+            Rectangle panel = layout.Panel;
+
+            _spriteBatch.Draw(_pixel, panel, Color.Black * 0.62f);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 2), Color.IndianRed);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Bottom - 2, panel.Width, 2), Color.IndianRed);
+
+            int x = panel.X + PirateDemandHailPresentation.PanelPadding;
+            int y = panel.Y + PirateDemandHailPresentation.PanelPadding;
+
+            _spriteBatch.DrawString(_font, snapshot.HeaderText, new Vector2(x, y), Color.IndianRed);
+            y += PirateDemandHailPresentation.HeaderLineHeight;
+            _spriteBatch.DrawString(_font, snapshot.SpeakerText, new Vector2(x, y), Color.White);
+            y += PirateDemandHailPresentation.HeaderLineHeight;
+            _spriteBatch.DrawString(_font, snapshot.TitleText, new Vector2(x, y), Color.Gold);
+            y += PirateDemandHailPresentation.HeaderLineHeight;
+
+            foreach (PirateDemandHailCargoLine line in snapshot.CargoLines)
+            {
+                _spriteBatch.DrawString(_font, line.DisplayText, new Vector2(x + 10, y), Color.White * 0.95f);
+                y += PirateDemandHailPresentation.CargoLineHeight;
+            }
+
+            _spriteBatch.DrawString(_font, snapshot.CountdownText, new Vector2(x, y), Color.Orange);
+            y += PirateDemandHailPresentation.HeaderLineHeight;
+
+            DrawPirateDemandHailButton(layout.ComplyButton, snapshot.ComplyText, Color.LimeGreen);
+            DrawPirateDemandHailButton(layout.RefuseButton, snapshot.RefuseText, Color.OrangeRed);
+        }
+
+        private void DrawPirateDemandHailButton(Rectangle bounds, string label, Color accent)
+        {
+            _spriteBatch.Draw(_pixel, bounds, Color.Black * 0.55f);
+            _spriteBatch.Draw(_pixel, new Rectangle(bounds.X, bounds.Y, bounds.Width, 2), accent);
+            _spriteBatch.Draw(_pixel, new Rectangle(bounds.X, bounds.Bottom - 2, bounds.Width, 2), accent);
+            _spriteBatch.DrawString(_font, label, new Vector2(bounds.X + 8, bounds.Y + 5), accent);
+        }
+
+        /// <summary>
+        /// Phase 83: routes a left-click on the hail's COMPLY/REFUSE controls
+        /// through the same authoritative Phase 81 response path used by the
+        /// keyboard. Returns true when the click was consumed by the hail so it
+        /// cannot also select a world object.
+        /// </summary>
+        private bool HandlePirateDemandHailClick(MouseState mouseState)
+        {
+            if (_pirateDemandHail == null ||
+                !_pirateDemandHail.TryBuildSnapshot(out PirateDemandHailSnapshot snapshot))
+            {
+                return false;
+            }
+
+            PirateDemandHailLayout layout = PirateDemandHailPresentation.BuildLayout(
+                GraphicsDevice.Viewport.Width,
+                snapshot.CargoLines.Count);
+            Point click = new(mouseState.X, mouseState.Y);
+
+            if (layout.ComplyButton.Contains(click))
+            {
+                _pirateDemandHail.TryComply(_playerShip, out _);
+                return true;
+            }
+
+            if (layout.RefuseButton.Contains(click))
+            {
+                _pirateDemandHail.TryRefuse(_playerShip, out _);
+                return true;
+            }
+
+            return false;
         }
 
         private void DrawSystemName() {
