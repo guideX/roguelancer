@@ -597,17 +597,41 @@ internal sealed class PiracyDemandSmokeTest
     {
         Context c = new();
         c.Demand.TryIssueDemand(c.Player, c.Trader, out _);
-        return Check(c.Demand.HudText == "CARGO DEMAND SENT", "demand HUD did not show the issued state");
+        // Phase 86: the HUD is a live-only projection of the active demand
+        // (target identity plus authoritative countdown), never a retained
+        // static sentence.
+        return Check(c.Demand.HasActiveDemand &&
+            c.Demand.HudText.Contains("CARGO DEMAND", StringComparison.Ordinal) &&
+            c.Demand.HudText.Contains(c.Trader.Name, StringComparison.Ordinal),
+            "demand HUD did not show the live issued state");
     }
 
     private static (bool, string) DemandHudShowsBoundedOutcome()
     {
         Context c = new();
+        List<string> notifications = new();
+        PirateCargoDemandService notified = new(
+            c.Npcs,
+            c.Reputation,
+            null,
+            (trader, commodityId, quantity) => c.Loot.SpawnExtortionCargo(trader, commodityId, quantity, out _),
+            null,
+            null,
+            null,
+            c.Communication,
+            null,
+            null,
+            null,
+            null,
+            null,
+            notifications.Add);
+        notified.TryIssueDemand(c.Player, c.Trader, out _);
         c.Trader.ApplyDamage(55f, NpcDestructionSource.Unknown);
-        c.Demand.TryIssueDemand(c.Player, c.Trader, out _);
-        c.Advance();
-        return Check(c.Demand.HudText.StartsWith("Cargo surrendered:", StringComparison.Ordinal) ||
-            c.Demand.HudText == "TRADER REFUSED — FLEEING", "demand HUD did not show a bounded outcome");
+        notified.Update(PirateCargoDemandService.ResponseWindowSeconds + 0.1f, c.Player);
+        // Phase 86: no stale service-owned result text survives resolution;
+        // the bounded outcome travels through the notification seam instead.
+        return Check(!notified.HasActiveDemand && string.IsNullOrEmpty(notified.HudText) && notifications.Count == 1,
+            "demand HUD retained stale text or the outcome notification was lost");
     }
 
     private static (bool, string) StableIdentityIsDeterministic()

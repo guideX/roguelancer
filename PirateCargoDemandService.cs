@@ -117,14 +117,13 @@ public sealed class PirateCargoDemandService
     private readonly Func<NpcShip, bool> _isAuthorizedMissionTarget;
     private readonly Func<NpcShip, string, bool> _isMissionDemandCommodity;
     private readonly Func<NpcShip, int> _securityEscortCountResolver;
+    private readonly Action<string> _notify;
     // Standalone Phase 56 smoke harnesses do not construct the live market
     // owner. Keep their source-compatible deterministic fallback, while the
     // game always injects EconomicShipmentManager as the sole manifest owner.
     private readonly Dictionary<NpcShip, TraderCargoManifest> _manifests = new();
     private readonly HashSet<string> _resolvedTargetIdentities = new(StringComparer.Ordinal);
     private ActiveDemand _activeDemand;
-    private float _presentationRemainingSeconds;
-    private string _presentationText = string.Empty;
 
     public PirateCargoDemandService(
         IReadOnlyList<NpcShip> npcShips,
@@ -139,7 +138,8 @@ public sealed class PirateCargoDemandService
         Func<NpcShip, TraderCargoManifest> manifestResolver = null,
         Func<NpcShip, bool> isAuthorizedMissionTarget = null,
         Func<NpcShip, string, bool> isMissionDemandCommodity = null,
-        Func<NpcShip, int> securityEscortCountResolver = null)
+        Func<NpcShip, int> securityEscortCountResolver = null,
+        Action<string> notify = null)
     {
         _npcShips = npcShips ?? throw new ArgumentNullException(nameof(npcShips));
         _reputationManager = reputationManager ?? throw new ArgumentNullException(nameof(reputationManager));
@@ -154,6 +154,7 @@ public sealed class PirateCargoDemandService
         _isAuthorizedMissionTarget = isAuthorizedMissionTarget ?? (_ => false);
         _isMissionDemandCommodity = isMissionDemandCommodity ?? ((_, _) => false);
         _securityEscortCountResolver = securityEscortCountResolver ?? (_ => 0);
+        _notify = notify;
     }
 
     public PiracyDemandState CurrentState => _activeDemand == null
@@ -162,7 +163,16 @@ public sealed class PirateCargoDemandService
     public bool HasActiveDemand => _activeDemand != null;
     public NpcShip ActiveTarget => _activeDemand?.Target;
     public float ResponseRemainingSeconds => Math.Max(0f, _activeDemand?.RemainingSeconds ?? 0f);
-    public string HudText => _presentationRemainingSeconds > 0f ? _presentationText : string.Empty;
+    /// <summary>
+    /// Phase 86: read-only compatibility projection of the CURRENT active
+    /// demand only. It is computed live from authoritative demand state on
+    /// every read, is empty whenever no demand is active, and never retains a
+    /// previous demand's resolution. Resolution feedback (including dynamic
+    /// surrender quantities) travels through the notification seam and the
+    /// authoritative <see cref="DemandResolved"/> event instead. Nothing
+    /// parses this string back into gameplay state.
+    /// </summary>
+    public string HudText => HasActiveDemand ? FormatLiveDemandText() : string.Empty;
     public PiracyDemandResult LastResult { get; private set; }
     public int ResolvedTargetCount => _resolvedTargetIdentities.Count;
     public event Action<PiracyDemandResult> DemandResolved;
@@ -253,7 +263,6 @@ public sealed class PirateCargoDemandService
             target.FactionId,
             ReputationPenalty,
             ReputationChangeReason.PiracyDemand);
-        SetPresentation("CARGO DEMAND SENT", 3f);
         _log?.Invoke($"[PIRACY] Cargo demand issued against {target.Name} ({identity}).");
         return true;
     }
@@ -261,7 +270,6 @@ public sealed class PirateCargoDemandService
     public void Update(float deltaSeconds, Ship playerShip)
     {
         float delta = NormalizeDelta(deltaSeconds);
-        _presentationRemainingSeconds = Math.Max(0f, _presentationRemainingSeconds - delta);
         if (_activeDemand == null)
             return;
 
@@ -316,8 +324,6 @@ public sealed class PirateCargoDemandService
 
         _log?.Invoke($"[PIRACY] {_activeDemand.Target?.Name ?? "Trader"}: {reason}.");
         _activeDemand = null;
-        _presentationText = string.Empty;
-        _presentationRemainingSeconds = 0f;
     }
 
     public void Reset()
@@ -326,8 +332,6 @@ public sealed class PirateCargoDemandService
         _manifests.Clear();
         _resolvedTargetIdentities.Clear();
         LastResult = null;
-        _presentationText = string.Empty;
-        _presentationRemainingSeconds = 0f;
     }
 
     public bool IsEligibleTrader(NpcShip target, bool includeActiveDemand)
@@ -382,7 +386,10 @@ public sealed class PirateCargoDemandService
         ApplyFlee(demand, demand.PlayerShip);
         Complete(demand, PiracyDemandState.Complying, surrendered,
             "trader complied and attempted to leave", distress);
-        SetPresentation($"Cargo surrendered: {surrendered} units", 4f);
+        // Phase 86: the dynamic surrender quantity used to live only in the
+        // retained HudText result string. It now travels through the existing
+        // notification seam exactly once; no service-owned text is retained.
+        _notify?.Invoke($"Trader complied: {surrendered} units surrendered");
     }
 
     private void ResolveRefusal(ActiveDemand demand, string reason)
@@ -401,14 +408,14 @@ public sealed class PirateCargoDemandService
 
         ApplyFlee(demand, demand.PlayerShip);
         Complete(demand, PiracyDemandState.RefusingFleeing, 0, reason, distress);
-        SetPresentation("TRADER REFUSED — FLEEING", 4f);
+        // Phase 86: refusal feedback migrates to the notification seam (same
+        // terms as the removed retained string); nothing is retained.
+        _notify?.Invoke("Trader refused the cargo demand — fleeing");
     }
 
     private void ResolveDestroyedOrInvalid(ActiveDemand demand, string reason)
     {
         Complete(demand, PiracyDemandState.Resolved, 0, reason, default);
-        _presentationText = string.Empty;
-        _presentationRemainingSeconds = 0f;
     }
 
     private void Complete(
@@ -611,10 +618,21 @@ public sealed class PirateCargoDemandService
     private static float NormalizeDelta(float delta) =>
         float.IsNaN(delta) || float.IsInfinity(delta) ? 0f : Math.Clamp(delta, 0f, 60f);
 
-    private void SetPresentation(string text, float seconds)
+    /// <summary>
+    /// Phase 86: formats the CURRENT active demand for the live-only
+    /// <see cref="HudText"/> compatibility projection. Reads only the
+    /// authoritative target and remaining response window; retains nothing.
+    /// The name is bounded so the single-line HUD can never grow with world
+    /// data.
+    /// </summary>
+    private string FormatLiveDemandText()
     {
-        _presentationText = text ?? string.Empty;
-        _presentationRemainingSeconds = Math.Max(0f, seconds);
+        if (_activeDemand?.Target == null)
+            return string.Empty;
+        string name = _activeDemand.Target.Name ?? "Trader";
+        if (name.Length > 40)
+            name = name.Substring(0, 37) + "...";
+        return $"CARGO DEMAND — {name} | awaiting response {ResponseRemainingSeconds:0.0}s";
     }
 
     private static uint StableHash(string value)

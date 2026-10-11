@@ -294,6 +294,7 @@ namespace Roguelancer {
         private readonly bool _runPhase83Smoke;
         private readonly bool _runPhase84Smoke;
         private readonly bool _runPhase85Smoke;
+        private readonly bool _runPhase86Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -435,6 +436,7 @@ namespace Roguelancer {
             _runPhase83Smoke = args?.Any(arg => string.Equals(arg, "--phase83-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase84Smoke = args?.Any(arg => string.Equals(arg, "--phase84-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase85Smoke = args?.Any(arg => string.Equals(arg, "--phase85-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase86Smoke = args?.Any(arg => string.Equals(arg, "--phase86-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1415,7 +1417,12 @@ namespace Roguelancer {
                 (npc, commodityId) => _missionWorldManager?.IsInterdictionDemandCommodity(npc, commodityId) == true,
                 npc => _economicShipments?.ActiveShipments
                     .FirstOrDefault(shipment => shipment?.Trader == npc)
-                    ?.ActiveSecurityEscortCount ?? 0);
+                    ?.ActiveSecurityEscortCount ?? 0,
+                // Phase 86: resolution feedback (including the dynamic
+                // surrender quantity formerly retained in HudText) travels
+                // through the existing notification path exactly once per
+                // authoritative resolution. Nothing is retained.
+                message => _notificationManager?.ShowMessage(message, 3f));
             _piracyDemand.DemandResolved += result => _economicShipments?.RecordPiracyDemandResult(result);
             _npcPirateCargoDemand = new NpcPirateCargoDemandService(
                 _npcShips,
@@ -1771,6 +1778,11 @@ namespace Roguelancer {
                 var result = RunPhase85SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase86Smoke)
+            {
+                var result = RunPhase86SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -2021,6 +2033,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 83 pirate demand hail smoke", RunPhase83SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 84 pirate hail input and response smoke", RunPhase84SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 85 pirate demand presentation cleanup smoke", RunPhase85SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 86 spaceflight encounter HUD state cleanup smoke", RunPhase86SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2804,6 +2817,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 85 PIRATE DEMAND PRESENTATION CLEANUP SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase86SmokeTest()
+        {
+            try
+            {
+                return new Phase86SpaceflightEncounterHudStateCleanupSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 86 SPACEFLIGHT ENCOUNTER HUD STATE CLEANUP SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -8168,6 +8194,12 @@ namespace Roguelancer {
         /// </summary>
         private void DrawPiracyDemandHUD()
         {
+            // Phase 86: HudText is a live-only computed projection of the
+            // current active demand (empty whenever no demand is active), so
+            // this line can only ever render the live target/countdown while
+            // a demand is open. Resolution feedback travels through the
+            // notification path instead. It can never show a retained
+            // post-resolution message.
             if (_font == null || _piracyDemand == null || string.IsNullOrWhiteSpace(_piracyDemand.HudText))
                 return;
 
