@@ -83,11 +83,49 @@ public readonly struct PirateDemandHailLayout
 }
 
 /// <summary>
+/// The two bounded response choices a player can give an active pirate hail,
+/// plus None while no hail is active. Focus and hover are presentation-only
+/// selection states; they never own demand, cargo, timer, or combat state.
+/// </summary>
+public enum PirateHailResponse
+{
+    None,
+    Comply,
+    Refuse
+}
+
+/// <summary>
+/// One bounded, presentation-only acknowledgement beat shown after the
+/// authoritative Phase 81 resolution commits. The wording is derived from the
+/// actual service result, so no optimistic text is ever displayed. The beat
+/// never removes cargo, escalates combat, or creates a transaction.
+/// </summary>
+public sealed class PirateDemandHailAcknowledgement
+{
+    public PirateDemandHailAcknowledgement(string text, float remainingSeconds, NpcPirateCargoDemandResult result)
+    {
+        Text = text ?? string.Empty;
+        RemainingSeconds = Math.Max(0f, remainingSeconds);
+        Result = result;
+    }
+
+    public string Text { get; }
+    public float RemainingSeconds { get; }
+    public NpcPirateCargoDemandResult Result { get; }
+}
+
+/// <summary>
 /// Presentation-only adapter for the authoritative Phase 81 NPC pirate cargo
 /// demand. It reads active-demand state and delegates comply/refuse back to
 /// <see cref="NpcPirateCargoDemandService"/> exactly once per response. It
 /// owns no demand, cargo, timer, combat, or persistence state and creates no
 /// parallel transaction path.
+///
+/// Phase 84 adds presentation-only interaction polish: a deterministic default
+/// response focus, pointer hover tracking, and a bounded acknowledgement beat
+/// observed from the authoritative <see cref="NpcPirateCargoDemandService.DemandResolved"/>
+/// event. None of these states can activate a response or mutate demand state;
+/// the existing direct keys and mouse clicks remain the only response paths.
 /// </summary>
 public sealed class PirateDemandHailPresentation
 {
@@ -99,12 +137,64 @@ public sealed class PirateDemandHailPresentation
     public const int ButtonWidth = 150;
     public const int ButtonGap = 12;
 
+    /// <summary>
+    /// Bounded acknowledgement panel height: padding plus a single bounded
+    /// response line plus padding. The panel never grows with demand content.
+    /// </summary>
+    public const int AcknowledgementPanelHeight = 48;
+
+    /// <summary>
+    /// Bounded acknowledgement beat length. Matches the service's existing
+    /// result-presentation window (<c>SetPresentation(text, 4f)</c>) so the
+    /// in-world acknowledgement fully replaces the old single-line result text
+    /// instead of overlapping it. Non-modal: flight, weapons, and combat stay
+    /// live throughout; the beat blocks nothing.
+    /// </summary>
+    public const float AcknowledgementDurationSeconds = 4.0f;
+
+    public const string ComplyAcknowledgementText = "Rogue: Smart choice. We're taking the cargo.";
+    public const string RefuseAcknowledgementText = "Rogue: Then we'll take it ourselves.";
+    public const string TimeoutAcknowledgementText = "Rogue: Time's up.";
+
+    private const string PlayerRefusedReason = "player refused the demand";
+    private const string TimeoutReason = "response window expired";
+
     private readonly NpcPirateCargoDemandService _demandService;
+    private PirateHailResponse _focus = PirateHailResponse.None;
+    private PirateHailResponse _hovered = PirateHailResponse.None;
+    private PirateDemandHailAcknowledgement _acknowledgement;
+    private float _acknowledgementRemainingSeconds;
+    private NpcShip _lastDemandDemander;
 
     public PirateDemandHailPresentation(NpcPirateCargoDemandService demandService)
     {
         _demandService = demandService ?? throw new ArgumentNullException(nameof(demandService));
+        _demandService.DemandResolved += OnDemandResolved;
     }
+
+    /// <summary>
+    /// Deterministic initial response focus for every new demand. COMPLY is
+    /// the first control in the Phase 83 layout, Enter is the existing
+    /// universal confirm key and already means comply in Phase 81/83, and
+    /// compliance is the non-combat resolution. The default focus never
+    /// activates an action by itself.
+    /// </summary>
+    public const PirateHailResponse DefaultResponseFocus = PirateHailResponse.Comply;
+
+    /// <summary>
+    /// Which response the presentation currently shows as selected. This is a
+    /// visual selection state only: the existing direct keys (Enter/N) and
+    /// mouse clicks always invoke their matching authoritative actions
+    /// regardless of focus.
+    /// </summary>
+    public PirateHailResponse FocusedResponse => _focus;
+
+    /// <summary>
+    /// Which response the pointer currently hovers, or None when the pointer
+    /// is outside both hit regions. Hover never activates a response and never
+    /// alters demand state.
+    /// </summary>
+    public PirateHailResponse HoveredResponse => _hovered;
 
     /// <summary>
     /// True only while the Phase 81 service reports an active demand. There is
@@ -172,6 +262,123 @@ public sealed class PirateDemandHailPresentation
     /// </summary>
     public bool TryRefuse(Ship playerShip, out NpcPirateCargoDemandResult result) =>
         _demandService.TryRefuse(playerShip, out result);
+
+    /// <summary>
+    /// Advances presentation-only interaction state once per frame. Ticks the
+    /// acknowledgement beat, derives hover from the pointer position against
+    /// the shared layout, and resets focus/hover whenever a new authoritative
+    /// demand appears or the active demand ends. Never touches demand state.
+    /// </summary>
+    public void Update(Microsoft.Xna.Framework.Input.MouseState mouse, int viewportWidth, float deltaSeconds)
+    {
+        _acknowledgementRemainingSeconds = Math.Max(0f, _acknowledgementRemainingSeconds - Math.Max(0f, deltaSeconds));
+        if (_acknowledgementRemainingSeconds <= 0f)
+            _acknowledgement = null;
+
+        if (_acknowledgement != null && _acknowledgement.Result != null &&
+            (_acknowledgement.Result.Demander == null || _acknowledgement.Result.Demander.IsDestroyed))
+        {
+            _acknowledgement = null;
+            _acknowledgementRemainingSeconds = 0f;
+        }
+
+        NpcShip demander = _demandService.ActiveDemander;
+        if (demander == null)
+        {
+            if (_lastDemandDemander != null || _focus != PirateHailResponse.None || _hovered != PirateHailResponse.None)
+            {
+                _lastDemandDemander = null;
+                _focus = PirateHailResponse.None;
+                _hovered = PirateHailResponse.None;
+            }
+            return;
+        }
+
+        if (!ReferenceEquals(demander, _lastDemandDemander))
+        {
+            _lastDemandDemander = demander;
+            _focus = DefaultResponseFocus;
+            _hovered = PirateHailResponse.None;
+            _acknowledgement = null;
+            _acknowledgementRemainingSeconds = 0f;
+        }
+
+        _hovered = PirateHailResponse.None;
+        if (_demandService.HasActiveDemand && TryBuildSnapshot(out PirateDemandHailSnapshot snapshot))
+        {
+            PirateDemandHailLayout layout = BuildLayout(viewportWidth, snapshot.CargoLines.Count);
+            Point pointer = new(mouse.X, mouse.Y);
+            if (layout.ComplyButton.Contains(pointer))
+                _hovered = PirateHailResponse.Comply;
+            else if (layout.RefuseButton.Contains(pointer))
+                _hovered = PirateHailResponse.Refuse;
+        }
+
+        _focus = _hovered != PirateHailResponse.None ? _hovered : DefaultResponseFocus;
+    }
+
+    /// <summary>
+    /// Returns the current bounded acknowledgement beat, or false once it has
+    /// expired or was cleared. The beat is driven only by the authoritative
+    /// Phase 81 resolution result.
+    /// </summary>
+    public bool TryGetAcknowledgement(out PirateDemandHailAcknowledgement acknowledgement)
+    {
+        if (_acknowledgement != null && _acknowledgementRemainingSeconds > 0f)
+        {
+            acknowledgement = _acknowledgement;
+            return true;
+        }
+
+        acknowledgement = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Clears every Phase 84 presentation-only state: focus, hover,
+    /// acknowledgement timer, and acknowledged text. Called by the game at
+    /// every demand-cancelling boundary (player death, dock, system transition,
+    /// save/load) so no transient hail state survives a lifecycle reset. No
+    /// Phase 84 state is persisted.
+    /// </summary>
+    public void ClearTransientState()
+    {
+        _focus = PirateHailResponse.None;
+        _hovered = PirateHailResponse.None;
+        _acknowledgement = null;
+        _acknowledgementRemainingSeconds = 0f;
+        _lastDemandDemander = null;
+    }
+
+    private void OnDemandResolved(NpcPirateCargoDemandResult result)
+    {
+        if (result == null)
+            return;
+
+        string text = null;
+        if (result.State == NpcPirateDemandState.Complying)
+        {
+            text = ComplyAcknowledgementText;
+        }
+        else if (result.State == NpcPirateDemandState.Refusing)
+        {
+            if (result.ResolutionReason == PlayerRefusedReason)
+                text = RefuseAcknowledgementText;
+            else if (result.ResolutionReason == TimeoutReason)
+                text = TimeoutAcknowledgementText;
+        }
+
+        if (text != null)
+        {
+            _acknowledgement = new PirateDemandHailAcknowledgement(text, AcknowledgementDurationSeconds, result);
+            _acknowledgementRemainingSeconds = AcknowledgementDurationSeconds;
+        }
+        else
+        {
+            _acknowledgement = null;
+            _acknowledgementRemainingSeconds = 0f;
+        }
+    }
 
     /// <summary>
     /// Computes the shared panel/button layout for a given cargo-line count.

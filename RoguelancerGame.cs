@@ -292,6 +292,7 @@ namespace Roguelancer {
         private readonly bool _runPhase81Smoke;
         private readonly bool _runPhase82Smoke;
         private readonly bool _runPhase83Smoke;
+        private readonly bool _runPhase84Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -431,6 +432,7 @@ namespace Roguelancer {
             _runPhase81Smoke = args?.Any(arg => string.Equals(arg, "--phase81-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase82Smoke = args?.Any(arg => string.Equals(arg, "--phase82-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase83Smoke = args?.Any(arg => string.Equals(arg, "--phase83-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase84Smoke = args?.Any(arg => string.Equals(arg, "--phase84-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1757,6 +1759,11 @@ namespace Roguelancer {
                 var result = RunPhase83SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase84Smoke)
+            {
+                var result = RunPhase84SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -2005,6 +2012,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 81 NPC pirate cargo demand smoke", RunPhase81SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 82 pirate haul recovery and provenance smoke", RunPhase82SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 83 pirate demand hail smoke", RunPhase83SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 84 pirate hail input and response smoke", RunPhase84SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2766,6 +2774,19 @@ namespace Roguelancer {
             }
         }
 
+        private (int Passed, int Failed) RunPhase84SmokeTest()
+        {
+            try
+            {
+                return new Phase84PirateHailInputResponseSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 84 PIRATE HAIL INPUT AND RESPONSE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
         /// <summary>
         /// Uses a live configured Rogue smuggling route and the production
         /// TrafficManager/loot callbacks. The focused class below supplies
@@ -3461,6 +3482,7 @@ namespace Roguelancer {
             _playerTargetScan?.Reset();
             _piracyDemand?.Reset();
             _npcPirateCargoDemand?.Reset();
+            _pirateDemandHail?.ClearTransientState();
             _policeScanSystem?.Reset();
             _policeContrabandStopCoordinator?.Reset();
             _policeFugitiveManager?.Reset(Console.WriteLine, "save/load");
@@ -4219,6 +4241,7 @@ namespace Roguelancer {
               _playerTargetScan?.Reset();
               _lootManager?.Reset();
               _npcPirateCargoDemand?.CancelActiveDemand("player destroyed");
+              _pirateDemandHail?.ClearTransientState();
             }
             _lootManager?.Update(gameTime, _playerShip, keyboardState.IsKeyDown(Keys.P), _notificationManager, Console.WriteLine);
             PruneInvalidNavSelection();
@@ -4320,6 +4343,10 @@ namespace Roguelancer {
                     HandleMouseClickSelection(mouseState);
                 }
             }
+
+            // Phase 84: tick presentation-only hail state (hover, focus reset,
+            // acknowledgement beat). Never touches demand, cargo, or combat.
+            _pirateDemandHail?.Update(mouseState, GraphicsDevice.Viewport.Width, deltaTime);
 
             HandleTargetingInput(keyboardState);
             HandleMissileLaunchInput();
@@ -4807,6 +4834,7 @@ namespace Roguelancer {
         private void HandleDockingCompleted()
         {
             _npcPirateCargoDemand?.CancelActiveDemand("player docked");
+            _pirateDemandHail?.ClearTransientState();
             if (_gotoAutopilot?.Destination is not Station station)
             {
                 Console.WriteLine("[DOCK] Completion ignored because the destination is not a supported station.");
@@ -8145,6 +8173,14 @@ namespace Roguelancer {
                 return;
             }
 
+            // Phase 84: the bounded response acknowledgement replaces the old
+            // single-line result text while it is active.
+            if (_pirateDemandHail != null && _pirateDemandHail.TryGetAcknowledgement(out PirateDemandHailAcknowledgement acknowledgement))
+            {
+                DrawPirateDemandHailAcknowledgement(acknowledgement);
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(_npcPirateCargoDemand.HudText))
                 return;
 
@@ -8184,16 +8220,54 @@ namespace Roguelancer {
             _spriteBatch.DrawString(_font, snapshot.CountdownText, new Vector2(x, y), Color.Orange);
             y += PirateDemandHailPresentation.HeaderLineHeight;
 
-            DrawPirateDemandHailButton(layout.ComplyButton, snapshot.ComplyText, Color.LimeGreen);
-            DrawPirateDemandHailButton(layout.RefuseButton, snapshot.RefuseText, Color.OrangeRed);
+            // Phase 84: the active response choice carries a clear visual
+            // focus/hover state. Focus is the default selection, hover follows
+            // the pointer; both are presentation-only.
+            bool complyFocused = _pirateDemandHail != null && _pirateDemandHail.FocusedResponse == PirateHailResponse.Comply;
+            bool complyHovered = _pirateDemandHail != null && _pirateDemandHail.HoveredResponse == PirateHailResponse.Comply;
+            bool refuseFocused = _pirateDemandHail != null && _pirateDemandHail.FocusedResponse == PirateHailResponse.Refuse;
+            bool refuseHovered = _pirateDemandHail != null && _pirateDemandHail.HoveredResponse == PirateHailResponse.Refuse;
+            DrawPirateDemandHailButton(layout.ComplyButton, snapshot.ComplyText, Color.LimeGreen, complyFocused, complyHovered);
+            DrawPirateDemandHailButton(layout.RefuseButton, snapshot.RefuseText, Color.OrangeRed, refuseFocused, refuseHovered);
         }
 
-        private void DrawPirateDemandHailButton(Rectangle bounds, string label, Color accent)
+        private void DrawPirateDemandHailButton(Rectangle bounds, string label, Color accent, bool focused, bool hovered)
         {
-            _spriteBatch.Draw(_pixel, bounds, Color.Black * 0.55f);
-            _spriteBatch.Draw(_pixel, new Rectangle(bounds.X, bounds.Y, bounds.Width, 2), accent);
-            _spriteBatch.Draw(_pixel, new Rectangle(bounds.X, bounds.Bottom - 2, bounds.Width, 2), accent);
-            _spriteBatch.DrawString(_font, label, new Vector2(bounds.X + 8, bounds.Y + 5), accent);
+            bool active = focused || hovered;
+            _spriteBatch.Draw(_pixel, bounds, active ? Color.Black * 0.35f : Color.Black * 0.55f);
+            if (focused)
+            {
+                _spriteBatch.Draw(_pixel, new Rectangle(bounds.X, bounds.Y, bounds.Width, 2), accent);
+                _spriteBatch.Draw(_pixel, new Rectangle(bounds.X, bounds.Bottom - 2, bounds.Width, 2), accent);
+                _spriteBatch.Draw(_pixel, new Rectangle(bounds.X, bounds.Y, 2, bounds.Height), accent);
+                _spriteBatch.Draw(_pixel, new Rectangle(bounds.Right - 2, bounds.Y, 2, bounds.Height), accent);
+            }
+            else
+            {
+                _spriteBatch.Draw(_pixel, new Rectangle(bounds.X, bounds.Y, bounds.Width, 2), accent);
+                _spriteBatch.Draw(_pixel, new Rectangle(bounds.X, bounds.Bottom - 2, bounds.Width, 2), accent);
+            }
+            if (hovered)
+            {
+                _spriteBatch.Draw(_pixel, new Rectangle(bounds.X + 2, bounds.Y + 2, bounds.Width - 4, bounds.Height - 4), accent * 0.18f);
+            }
+            _spriteBatch.DrawString(_font, label, new Vector2(bounds.X + 8, bounds.Y + 5), active ? Color.White : accent);
+        }
+
+        /// <summary>
+        /// Phase 84: draws the bounded response acknowledgement beat that
+        /// follows an authoritative Phase 81 resolution. Same panel width and
+        /// style as the hail, single bounded line, no buttons, no state.
+        /// </summary>
+        private void DrawPirateDemandHailAcknowledgement(PirateDemandHailAcknowledgement acknowledgement)
+        {
+            int panelX = Math.Max(0, (GraphicsDevice.Viewport.Width - PirateDemandHailPresentation.PanelWidth) / 2);
+            Rectangle panel = new(panelX, 96, PirateDemandHailPresentation.PanelWidth, PirateDemandHailPresentation.AcknowledgementPanelHeight);
+
+            _spriteBatch.Draw(_pixel, panel, Color.Black * 0.62f);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Y, panel.Width, 2), Color.IndianRed);
+            _spriteBatch.Draw(_pixel, new Rectangle(panel.X, panel.Bottom - 2, panel.Width, 2), Color.IndianRed);
+            _spriteBatch.DrawString(_font, acknowledgement.Text, new Vector2(panel.X + PirateDemandHailPresentation.PanelPadding, panel.Y + PirateDemandHailPresentation.PanelPadding), Color.White);
         }
 
         /// <summary>
@@ -8369,6 +8443,7 @@ namespace Roguelancer {
             _policeFugitiveManager?.Reset(Console.WriteLine, "system transition");
             _piracyDemand?.Reset();
             _npcPirateCargoDemand?.Reset();
+            _pirateDemandHail?.ClearTransientState();
             _tradeRouteValidation?.RecordSystemChange(oldSystemIndex, newSystemIndex, arrivalJumpHoleName);
 
             // A jump completion invalidates the old-system world object. Only
