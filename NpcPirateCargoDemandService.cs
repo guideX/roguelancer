@@ -95,8 +95,6 @@ public sealed class NpcPirateCargoDemandService
     private readonly HashSet<string> _resolvedDemanderIdentities = new(StringComparer.Ordinal);
     private ActiveDemand _activeDemand;
     private float _playerCooldownRemainingSeconds;
-    private float _presentationRemainingSeconds;
-    private string _presentationText = string.Empty;
 
     public NpcPirateCargoDemandService(
         IReadOnlyList<NpcShip> npcShips,
@@ -126,7 +124,14 @@ public sealed class NpcPirateCargoDemandService
     public bool HasActiveDemand => _activeDemand != null;
     public NpcShip ActiveDemander => _activeDemand?.Demander;
     public float ResponseRemainingSeconds => Math.Max(0f, _activeDemand?.RemainingSeconds ?? 0f);
-    public string HudText => _presentationRemainingSeconds > 0f ? _presentationText : string.Empty;
+    /// <summary>
+    /// Phase 85: read-only compatibility projection of the CURRENT active
+    /// demand only. It is computed live from authoritative demand state on
+    /// every read, is empty whenever no demand is active, and never retains a
+    /// previous demand's resolution. The hail panel reads structured state
+    /// directly and never parses this string back into gameplay state.
+    /// </summary>
+    public string HudText => HasActiveDemand ? FormatLiveDemandText() : string.Empty;
     public NpcPirateCargoDemandResult LastResult { get; private set; }
     public float PlayerCooldownRemainingSeconds => Math.Max(0f, _playerCooldownRemainingSeconds);
     public IReadOnlyDictionary<string, int> ActiveDemandQuantities => _activeDemand?.RequestedQuantities
@@ -194,8 +199,8 @@ public sealed class NpcPirateCargoDemandService
                 StringComparer.OrdinalIgnoreCase)
         };
 
-        string demandText = FormatDemandText(selected);
-        SetPresentation(demandText, ResponseWindowSeconds + 2f);
+        string demandText = FormatDemandText(selected.Select(entry =>
+            (entry.Commodity?.Name ?? "Cargo", entry.Quantity)));
         _notify?.Invoke(demandText);
         _log?.Invoke($"[NPC PIRACY] {demander.Name} ({identity}) demands cargo: {demandText}");
         return true;
@@ -208,7 +213,6 @@ public sealed class NpcPirateCargoDemandService
     public void Update(float deltaSeconds, Ship playerShip)
     {
         float delta = NormalizeDelta(deltaSeconds);
-        _presentationRemainingSeconds = Math.Max(0f, _presentationRemainingSeconds - delta);
         _playerCooldownRemainingSeconds = Math.Max(0f, _playerCooldownRemainingSeconds - delta);
         if (_activeDemand == null)
             return;
@@ -340,7 +344,6 @@ public sealed class NpcPirateCargoDemandService
         ApplyFlee(demand, currentPlayer);
         Complete(demand, NpcPirateDemandState.Complying, totalRemoved,
             $"player complied; {totalRemoved} units transferred to pirate haul");
-        SetPresentation($"Cargo surrendered: {totalRemoved} units", 4f);
         _notify?.Invoke($"Pirate cargo demand complied: {totalRemoved} units surrendered");
         result = LastResult;
         return true;
@@ -366,7 +369,6 @@ public sealed class NpcPirateCargoDemandService
 
         EscalateToCombat(demand, playerShip ?? demand.PlayerShip);
         Complete(demand, NpcPirateDemandState.Refusing, 0, "player refused the demand");
-        SetPresentation("PIRATE DEMAND REFUSED — ESCALATING", 4f);
         _notify?.Invoke("Pirate cargo demand refused");
         result = LastResult;
         return true;
@@ -382,8 +384,6 @@ public sealed class NpcPirateCargoDemandService
         if (_activeDemand?.Demander == destroyedShip)
         {
             _activeDemand = null;
-            _presentationText = string.Empty;
-            _presentationRemainingSeconds = 0f;
             _log?.Invoke($"[NPC PIRACY] Demander {destroyedShip?.Name} destroyed; demand cancelled.");
         }
 
@@ -405,8 +405,6 @@ public sealed class NpcPirateCargoDemandService
 
         _log?.Invoke($"[NPC PIRACY] {_activeDemand.Demander?.Name ?? "Pirate"}: {reason}.");
         _activeDemand = null;
-        _presentationText = string.Empty;
-        _presentationRemainingSeconds = 0f;
     }
 
     /// <summary>
@@ -420,8 +418,6 @@ public sealed class NpcPirateCargoDemandService
         _resolvedDemanderIdentities.Clear();
         _playerCooldownRemainingSeconds = 0f;
         LastResult = null;
-        _presentationText = string.Empty;
-        _presentationRemainingSeconds = 0f;
     }
 
     /// <summary>
@@ -658,8 +654,6 @@ public sealed class NpcPirateCargoDemandService
     {
         DropPirateHaul(demand.Demander);
         Complete(demand, NpcPirateDemandState.Resolved, 0, reason);
-        _presentationText = string.Empty;
-        _presentationRemainingSeconds = 0f;
     }
 
     private void ResolveRefusal(ActiveDemand demand, string reason)
@@ -691,10 +685,24 @@ public sealed class NpcPirateCargoDemandService
         _log?.Invoke($"[NPC PIRACY] Demand resolved: {state}; surrendered={surrendered}; reason={reason}.");
     }
 
-    private static string FormatDemandText(List<(Commodity Commodity, int Quantity)> selected)
+    /// <summary>
+    /// Phase 85: formats the CURRENT active demand for the live-only
+    /// <see cref="HudText"/> compatibility projection. Reads only the
+    /// authoritative requested quantities; retains nothing.
+    /// </summary>
+    private string FormatLiveDemandText()
+    {
+        if (_activeDemand == null)
+            return string.Empty;
+        return FormatDemandText(_activeDemand.RequestedQuantities
+            .OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => (entry.Key, entry.Value)));
+    }
+
+    private static string FormatDemandText(IEnumerable<(string Name, int Quantity)> selected)
     {
         string commodities = string.Join(", ", selected.Select(entry =>
-            $"{entry.Commodity?.Name ?? "Cargo"} x{entry.Quantity}"));
+            $"{entry.Name ?? "Cargo"} x{entry.Quantity}"));
         return $"LIBERTY ROGUES DEMAND CARGO: {commodities} | [{ComplyKey}] Comply [{RefuseKey}] Refuse ({ResponseWindowSeconds:0}s)";
     }
 
@@ -702,12 +710,6 @@ public sealed class NpcPirateCargoDemandService
 
     private static float NormalizeDelta(float delta) =>
         float.IsNaN(delta) || float.IsInfinity(delta) ? 0f : Math.Clamp(delta, 0f, 60f);
-
-    private void SetPresentation(string text, float seconds)
-    {
-        _presentationText = text ?? string.Empty;
-        _presentationRemainingSeconds = Math.Max(0f, seconds);
-    }
 
     private static uint StableHash(string value)
     {

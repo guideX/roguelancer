@@ -293,6 +293,7 @@ namespace Roguelancer {
         private readonly bool _runPhase82Smoke;
         private readonly bool _runPhase83Smoke;
         private readonly bool _runPhase84Smoke;
+        private readonly bool _runPhase85Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -433,6 +434,7 @@ namespace Roguelancer {
             _runPhase82Smoke = args?.Any(arg => string.Equals(arg, "--phase82-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase83Smoke = args?.Any(arg => string.Equals(arg, "--phase83-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase84Smoke = args?.Any(arg => string.Equals(arg, "--phase84-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase85Smoke = args?.Any(arg => string.Equals(arg, "--phase85-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1764,6 +1766,11 @@ namespace Roguelancer {
                 var result = RunPhase84SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase85Smoke)
+            {
+                var result = RunPhase85SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -2013,6 +2020,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 82 pirate haul recovery and provenance smoke", RunPhase82SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 83 pirate demand hail smoke", RunPhase83SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 84 pirate hail input and response smoke", RunPhase84SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 85 pirate demand presentation cleanup smoke", RunPhase85SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2783,6 +2791,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 84 PIRATE HAIL INPUT AND RESPONSE SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase85SmokeTest()
+        {
+            try
+            {
+                return new Phase85PirateDemandPresentationCleanupSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 85 PIRATE DEMAND PRESENTATION CLEANUP SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }
@@ -8181,6 +8202,11 @@ namespace Roguelancer {
                 return;
             }
 
+            // Phase 85: HudText is a live-only computed projection of the
+            // current active demand (empty whenever no demand is active), so
+            // this fallback can only ever render current demand text while the
+            // hail snapshot is momentarily unavailable. It can never show a
+            // retained post-resolution message.
             if (string.IsNullOrWhiteSpace(_npcPirateCargoDemand.HudText))
                 return;
 

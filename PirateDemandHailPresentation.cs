@@ -144,11 +144,11 @@ public sealed class PirateDemandHailPresentation
     public const int AcknowledgementPanelHeight = 48;
 
     /// <summary>
-    /// Bounded acknowledgement beat length. Matches the service's existing
-    /// result-presentation window (<c>SetPresentation(text, 4f)</c>) so the
-    /// in-world acknowledgement fully replaces the old single-line result text
-    /// instead of overlapping it. Non-modal: flight, weapons, and combat stay
-    /// live throughout; the beat blocks nothing.
+    /// Bounded acknowledgement beat length. Phase 85 removed the service's
+    /// old single-line result text, so this beat plus the existing
+    /// notification path is the full resolution presentation. Non-modal:
+    /// flight, weapons, and combat stay live throughout; the beat blocks
+    /// nothing.
     /// </summary>
     public const float AcknowledgementDurationSeconds = 4.0f;
 
