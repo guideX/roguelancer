@@ -143,10 +143,11 @@ no stale references or stuck prompts.
 
 Environmental salvage only: no touch on trade-lane traffic, disruption/defense
 missions, Police scans/enforcement/fugitive state, smuggling, piracy demands,
-dealers, black-market pricing, mission reservations, NPC equipment salvage, or
-destruction attribution. The suite asserts unchanged keys, catalog entries,
-salvage determinism, extortion provenance, and (via reflection) that the
-recovery service holds no mission/lane/Police/economy state.
+ dealers, black-market pricing, mission reservations, NPC equipment salvage, or
+ destruction attribution. The suite asserts unchanged keys, catalog entries,
+ salvage determinism, extortion provenance, mission-callback silence, and that
+ recovery holds no mission/lane/Police/economy state (string site IDs only;
+ pods stay owned by `LootManager`).
 
 ## 13. Performance
 
@@ -157,16 +158,18 @@ global scan, no per-frame rebuild.
 ## 14. Test results
 
 - **Focused suite** `Phase87DiscoverableDerelictSmokeTest` (`--phase87-smoke`):
-  **57 passed, 0 failed**, covering all 52 spec gates plus architecture cases
-  (world-object-not-NPC, key documentation, HUD conventions, O(1) lookup,
-  commit point) and embedded green runs of loot, Phase 57, and combat-salvage
-  suites.
+  **52 passed, 0 failed**, covering each of the 52 spec gates one-to-one
+  (placement/discovery 1–10, interaction 11–18, loot 19–28, persistence
+  29–36, lifecycle 37–42, regressions 43–52) with production-only
+  assertions and no new warning output.
 - **Regression:** `--all-smoke` → **87 suites passed, 0 failed** (86 existing +
   Phase 87), covering Phases 57, 66, 68–86, cargo/loot/salvage, freight,
   missions, trading/black-market, navigation/traffic/lanes, targeting, piracy,
   faction combat, Police enforcement/fugitive, save/load, and UI/HUD.
-- **Build:** `dotnet build -c Debug` → **0 errors, 128 warnings** — identical to
-  the pre-change baseline (128/0).
+- **Build:** `dotnet build -c Debug` → **0 errors, 137 warnings** in a full
+  no-incremental build — none attributable to Phase 87 files (verified by
+  warning attribution; the 128 figure in Phase 86 notes reflects incremental
+  output, which undercounts unchanged files).
 
 ## 15. Known limitations
 
