@@ -226,6 +226,12 @@ namespace Roguelancer {
         private NpcPirateCargoDemandService _npcPirateCargoDemand;
         private PirateDemandHailPresentation _pirateDemandHail;
 
+        // Phase 87: discoverable derelict wreck salvage (curated world
+        // objects + one-time recovery; loot itself stays in LootManager).
+        private readonly DerelictRecoveryService _derelictRecovery = new();
+        private readonly List<DerelictWreckObject> _derelictWrecks = new();
+        private readonly Dictionary<string, DerelictPresentation> _derelictLastPresentation = new(StringComparer.OrdinalIgnoreCase);
+
         // Full-route GOTO autopilot
         private GotoAutopilot _gotoAutopilot;
 
@@ -295,6 +301,7 @@ namespace Roguelancer {
         private readonly bool _runPhase84Smoke;
         private readonly bool _runPhase85Smoke;
         private readonly bool _runPhase86Smoke;
+        private readonly bool _runPhase87Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -437,6 +444,7 @@ namespace Roguelancer {
             _runPhase84Smoke = args?.Any(arg => string.Equals(arg, "--phase84-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase85Smoke = args?.Any(arg => string.Equals(arg, "--phase85-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase86Smoke = args?.Any(arg => string.Equals(arg, "--phase86-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase87Smoke = args?.Any(arg => string.Equals(arg, "--phase87-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -950,6 +958,9 @@ namespace Roguelancer {
                 _spaceObjects.Add(ring);
                 Console.WriteLine($"[TRADELANE] Added: {ring.Name} at {ring.Position}");
             }
+
+            // Phase 87: curated discoverable derelict(s) for this system.
+            RefreshDerelictWrecksForSystem(_currentSystemIndex);
 
             // Create reference grid markers - MUCH SPARSER GRID
             int gridSize = 20000; // Expanded range but fewer markers
@@ -1783,6 +1794,11 @@ namespace Roguelancer {
                 var result = RunPhase86SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase87Smoke)
+            {
+                var result = RunPhase87SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -2034,6 +2050,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 84 pirate hail input and response smoke", RunPhase84SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 85 pirate demand presentation cleanup smoke", RunPhase85SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 86 spaceflight encounter HUD state cleanup smoke", RunPhase86SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 87 discoverable derelict salvage smoke", RunPhase87SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2834,6 +2851,19 @@ namespace Roguelancer {
             }
         }
 
+        private (int Passed, int Failed) RunPhase87SmokeTest()
+        {
+            try
+            {
+                return new Phase87DiscoverableDerelictSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 87 DISCOVERABLE DERELICT SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
         /// <summary>
         /// Uses a live configured Rogue smuggling route and the production
         /// TrafficManager/loot callbacks. The focused class below supplies
@@ -3508,6 +3538,7 @@ namespace Roguelancer {
             saveData.MarketElapsedMilliseconds = _commodityDealer?.MarketManager?.ElapsedMilliseconds ?? 0L;
             saveData.MarketIntelligence = _marketIntelligence?.CaptureState() ?? new List<SaveMarketIntelligenceData>();
             saveData.TradePlan = _tradePlanManager?.CaptureState();
+            saveData.DerelictRecoveredSiteIds = _derelictRecovery?.CaptureState() ?? new List<string>();
 
             return saveData;
         }
@@ -3599,6 +3630,12 @@ namespace Roguelancer {
             }
 
             _tradePlanManager?.RestoreState(saveData.TradePlan);
+
+            // Phase 87: durable derelict recovery restores before the world
+            // objects are refreshed so the rebuilt sites reflect it. Legacy
+            // saves carry no field (null) and restore as fully unrecovered.
+            _derelictRecovery?.RestoreState(saveData.DerelictRecoveredSiteIds);
+            RefreshDerelictWrecksForSystem(targetSystemIndex);
 
             _playerShip.ApplySavedState(
                 saveData.PlayerPosition.ToVector3(_playerShip.Position),
@@ -4287,10 +4324,12 @@ namespace Roguelancer {
             {
               _playerTargetScan?.Reset();
               _lootManager?.Reset();
+              _derelictRecovery?.ResetTransient();
               _npcPirateCargoDemand?.CancelActiveDemand("player destroyed");
               _pirateDemandHail?.ClearTransientState();
             }
             _lootManager?.Update(gameTime, _playerShip, keyboardState.IsKeyDown(Keys.P), _notificationManager, Console.WriteLine);
+            UpdateDerelictInteraction(keyboardState);
             PruneInvalidNavSelection();
             UpdatePlayerTargetScan(deltaTime);
             UpdateFirstDockOnboarding((float)gameTime.ElapsedGameTime.TotalSeconds);
@@ -8174,6 +8213,9 @@ namespace Roguelancer {
                     // Draw cargo pod tractor hint when nearby
                     _lootManager?.DrawHUD(_spriteBatch);
 
+                    // Phase 87: discoverable derelict proximity hint (live-only).
+                    DrawDerelictHUD();
+
                     // Draw current system name
                     DrawSystemName();
 
@@ -8490,6 +8532,158 @@ namespace Roguelancer {
         }
 
         /// <summary>
+        /// Phase 87: (re)builds the curated derelict world objects for a
+        /// system. Derelicts are ordinary SpaceObjects with the shared wreck
+        /// model, never NPCs. Transient presentation resets; durable recovery
+        /// survives.
+        /// </summary>
+        private void RefreshDerelictWrecksForSystem(int systemIndex)
+        {
+            for (int i = _spaceObjects.Count - 1; i >= 0; i--)
+            {
+                if (_spaceObjects[i] is DerelictWreckObject)
+                    _spaceObjects.RemoveAt(i);
+            }
+            _derelictWrecks.Clear();
+            _derelictLastPresentation.Clear();
+            _derelictRecovery.ResetTransient();
+
+            foreach (DerelictSite site in DerelictCatalog.GetForSystem(systemIndex))
+            {
+                var wreck = new DerelictWreckObject(site);
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(wreck.ModelPath))
+                        wreck.Model = Content.Load<Model>(wreck.ModelPath);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DERELICT] Wreck model unavailable for '{site.SiteId}': {ex.Message}");
+                    wreck.Model = null;
+                }
+                _derelictWrecks.Add(wreck);
+                _spaceObjects.Add(wreck);
+                _derelictLastPresentation[site.SiteId] = DerelictPresentation.Hidden;
+                Console.WriteLine($"[DERELICT] Site '{site.SiteId}' at {site.Position} (system {site.SystemIndex})");
+            }
+        }
+
+        private bool IsPlayerAliveForDerelict() => _playerShip != null && _playerShip.Hull?.IsDestroyed != true;
+
+        private bool IsDockedForDerelict() => _stationDockUI?.IsDocked == true;
+
+        private bool IsInTransitForDerelict() => _playerShip?.IsTradeLaneTransit == true || _tradelaneManager?.IsInTransit == true;
+
+        /// <summary>
+        /// Phase 87 per-frame update: edge-triggered F investigation plus
+        /// edge-triggered discovery notifications. Reads live state only.
+        /// </summary>
+        private void UpdateDerelictInteraction(KeyboardState keyboardState)
+        {
+            if (_playerShip == null || _derelictWrecks.Count == 0)
+                return;
+
+            bool playerAlive = IsPlayerAliveForDerelict();
+            bool docked = IsDockedForDerelict();
+            bool inTransit = IsInTransitForDerelict();
+
+            foreach (DerelictWreckObject wreck in _derelictWrecks)
+            {
+                DerelictSite site = DerelictCatalog.GetById(wreck.SiteId);
+                if (site == null)
+                    continue;
+
+                DerelictPresentation presentation = _derelictRecovery.GetPresentation(
+                    site, _playerShip.Position, _currentSystemIndex, playerAlive, docked);
+                _derelictLastPresentation.TryGetValue(site.SiteId, out DerelictPresentation previous);
+                if (presentation != previous)
+                {
+                    _derelictLastPresentation[site.SiteId] = presentation;
+                    if (presentation == DerelictPresentation.UnidentifiedSignal)
+                        _notificationManager?.ShowMessage("Unidentified signal detected", 3f);
+                    else if (presentation == DerelictPresentation.IdentifiedWreck)
+                        _notificationManager?.ShowMessage(site.DisplayName, 3f);
+                }
+            }
+
+            bool investigatePressed = keyboardState.IsKeyDown(DerelictRecoveryService.InvestigateKey) &&
+                _prevKeys.IsKeyUp(DerelictRecoveryService.InvestigateKey);
+            if (!investigatePressed)
+                return;
+
+            // Resolve the nearest recoverable site in this system; wrong
+            // system, docked, destroyed, or transit states fail in CanRecover.
+            DerelictSite nearest = null;
+            float nearestDistance = float.MaxValue;
+            foreach (DerelictWreckObject wreck in _derelictWrecks)
+            {
+                DerelictSite site = DerelictCatalog.GetById(wreck.SiteId);
+                if (site == null || site.SystemIndex != _currentSystemIndex)
+                    continue;
+                float distance = Vector3.Distance(_playerShip.Position, site.Position);
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    nearest = site;
+                }
+            }
+
+            if (nearest == null)
+                return;
+
+            // Only surface feedback when the player is plausibly interacting
+            // with the wreck (identified or closer, or already salvaged while
+            // nearby); distant accidental presses stay silent.
+            DerelictPresentation current = _derelictRecovery.GetPresentation(
+                nearest, _playerShip.Position, _currentSystemIndex, playerAlive, docked);
+            DerelictRecoveryResult result = _derelictRecovery.TryRecover(
+                nearest, _playerShip.Position, _currentSystemIndex, playerAlive, docked, inTransit, _lootManager);
+            if (result.Success)
+            {
+                _notificationManager?.ShowMessage($"Salvage released - {result.SpawnedPods.Count} cargo pods", 4f);
+                Console.WriteLine($"[DERELICT] '{nearest.SiteId}' recovered: {result.SpawnedPods.Count} pods released");
+            }
+            else if (current != DerelictPresentation.Hidden)
+            {
+                _notificationManager?.ShowMessage(result.FailureReason, 2f);
+            }
+        }
+
+        private void DrawDerelictHUD()
+        {
+            if (_font == null || _playerShip == null || _derelictWrecks.Count == 0)
+                return;
+
+            bool playerAlive = IsPlayerAliveForDerelict();
+            bool docked = IsDockedForDerelict();
+            string best = null;
+            float bestDistance = float.MaxValue;
+            foreach (DerelictWreckObject wreck in _derelictWrecks)
+            {
+                DerelictSite site = DerelictCatalog.GetById(wreck.SiteId);
+                if (site == null)
+                    continue;
+                string text = _derelictRecovery.GetHudText(
+                    site, _playerShip.Position, _currentSystemIndex, playerAlive, docked);
+                if (string.IsNullOrWhiteSpace(text))
+                    continue;
+                float distance = Vector3.Distance(_playerShip.Position, site.Position);
+                if (best == null || distance < bestDistance)
+                {
+                    best = text;
+                    bestDistance = distance;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(best))
+                return;
+
+            Vector2 position = new Vector2(10f, 86f);
+            _spriteBatch.DrawString(_font, best, position + Vector2.One, Color.Black * 0.7f);
+            _spriteBatch.DrawString(_font, best, position, Color.Gold);
+        }
+
+        /// <summary>
         /// Handle system change triggered by jump hole transit
         /// </summary>
         private void HandleSystemChange(int newSystemIndex, string arrivalJumpHoleName) {
@@ -8642,6 +8836,11 @@ namespace Roguelancer {
                         Console.WriteLine($"[SYSTEM CHANGE] Tradelane ring: {ring.Name} at {ring.Position}");
                     }
                 }
+
+                // Phase 87: curated discoverable derelict(s) for the new
+                // system. Transient presentation resets; durable recovery
+                // survives the transition.
+                RefreshDerelictWrecksForSystem(newSystemIndex);
 
                 // Recreate grid markers
                 int gridSize = 20000;

@@ -97,6 +97,14 @@ namespace Roguelancer
         public List<SaveMarketIntelligenceData> MarketIntelligence { get; set; } = new();
 
         /// <summary>
+        /// Optional Phase 87 durable recovery set. Additive like the Phase
+        /// 66/67 snapshots: missing on legacy saves means no site recovered,
+        /// so schema version 13 is intentionally unchanged.
+        /// </summary>
+        [JsonPropertyName("derelict_recovered_site_ids")]
+        public List<string> DerelictRecoveredSiteIds { get; set; } = new();
+
+        /// <summary>
         /// Optional player-created trade route. Null keeps older saves fully
         /// compatible and intentionally stores no UI formatting strings.
         /// </summary>

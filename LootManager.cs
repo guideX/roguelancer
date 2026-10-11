@@ -1250,6 +1250,113 @@ namespace Roguelancer
             _effect?.Dispose();
         }
 
+        /// <summary>
+        /// Releases one curated derelict's finite salvage as ordinary physical
+        /// pods. All-or-nothing: if any line cannot spawn (live-object cap or
+        /// blocked coordinates) no pod is added and the caller must leave the
+        /// wreck unrecovered so the player can retry. Provenance is always
+        /// Clean: derelict salvage is environmental, never stolen or
+        /// mission-reserved (MissionId stays 0). Mission-cargo catalog
+        /// entries are rejected so wreck recovery can never mint or
+        /// duplicate mission-reserved cargo.
+        /// </summary>
+        public bool SpawnDerelictSalvage(
+            Vector3 wreckPosition,
+            IReadOnlyList<DerelictSalvageLine> salvage,
+            out IReadOnlyList<CargoPod> spawnedPods,
+            out string failureReason)
+        {
+            spawnedPods = Array.Empty<CargoPod>();
+            failureReason = string.Empty;
+            if (salvage == null || salvage.Count == 0)
+            {
+                failureReason = "derelict has no salvage";
+                return false;
+            }
+            if (!TradeLaneStateSanitizer.IsFinite(wreckPosition))
+            {
+                failureReason = "derelict position invalid";
+                return false;
+            }
+
+            var validated = new List<(Commodity Commodity, int Quantity)>(salvage.Count);
+            foreach (DerelictSalvageLine line in salvage)
+            {
+                Commodity commodity = CommodityCatalog.GetById(line?.CommodityId);
+                int quantity = Math.Clamp(line?.Quantity ?? 0, 1, 40);
+                if (commodity == null || commodity.IsMissionCargo || quantity <= 0)
+                {
+                    failureReason = $"unknown derelict salvage '{line?.CommodityId}'";
+                    return false;
+                }
+                validated.Add((commodity, quantity));
+            }
+
+            if (_activePods.Count + validated.Count > CombatSalvageService.MaxLiveSalvageObjects)
+            {
+                failureReason = "salvage capacity reached";
+                return false;
+            }
+
+            Vector3[] offsets =
+            {
+                new Vector3(140f, 0f, 0f),
+                new Vector3(-140f, 40f, 0f),
+                new Vector3(0f, -40f, 140f),
+                new Vector3(0f, 30f, -140f),
+                new Vector3(90f, 60f, 90f),
+                new Vector3(-90f, -60f, -90f),
+            };
+
+            var staged = new List<CargoPod>(validated.Count);
+            var usedPositions = new List<Vector3>(validated.Count);
+            for (int i = 0; i < validated.Count; i++)
+            {
+                bool placed = false;
+                for (int attempt = 0; attempt < offsets.Length && !placed; attempt++)
+                {
+                    Vector3 candidate = wreckPosition + offsets[(i + attempt) % offsets.Length];
+                    if (!TradeLaneStateSanitizer.IsFinite(candidate) ||
+                        !IsSpawnPositionAvailable(candidate, null))
+                        continue;
+                    bool overlapsStaged = false;
+                    for (int s = 0; s < usedPositions.Count; s++)
+                    {
+                        if (Vector3.DistanceSquared(candidate, usedPositions[s]) < 40f * 40f)
+                        {
+                            overlapsStaged = true;
+                            break;
+                        }
+                    }
+                    if (overlapsStaged)
+                        continue;
+                    if (!CargoPod.TryCreate(
+                            validated[i].Commodity.Id,
+                            validated[i].Quantity,
+                            candidate,
+                            Vector3.Zero,
+                            (float)CombatSalvageService.SalvageLifetimeSeconds,
+                            CombatSalvageService.PickupRadius,
+                            out CargoPod pod))
+                        continue;
+                    staged.Add(pod);
+                    usedPositions.Add(candidate);
+                    placed = true;
+                }
+
+                if (!placed)
+                {
+                    failureReason = "derelict salvage location blocked";
+                    return false;
+                }
+            }
+
+            foreach (CargoPod pod in staged)
+                _activePods.Add(pod);
+            spawnedPods = staged;
+            return true;
+        }
+
         public void Reset()
         {
             _activePods.Clear();
