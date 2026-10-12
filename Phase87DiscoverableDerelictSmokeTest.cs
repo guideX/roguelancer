@@ -445,8 +445,15 @@ internal sealed class Phase87DiscoverableDerelictSmokeTest
         Ship player = ctx.PlayerAtSite;
         bool canRecover = ctx.Service.CanRecover(ctx.Site, player.Position, 2, true, false, false, out string reason);
         DerelictPresentation presentation = ctx.Service.GetPresentation(ctx.Site, player.Position, 2, true, false);
+        // Phase 88 added a second curated site in California (system 2), so
+        // the wrong-system gate now also asserts the New York site is absent
+        // from the California system set while the California site is the
+        // only entry there.
+        IReadOnlyList<DerelictSite> foreignSites = DerelictCatalog.GetForSystem(2);
         return Check(!canRecover && reason == "derelict is in another system" &&
-            presentation == DerelictPresentation.Hidden && DerelictCatalog.GetForSystem(2).Count == 0,
+            presentation == DerelictPresentation.Hidden &&
+            foreignSites.All(candidate => candidate.SiteId != ctx.Site.SiteId) &&
+            foreignSites.Count == 1 && foreignSites[0].SiteId == DerelictCatalog.SecondSiteId,
             $"wrong-system gate returned {canRecover} '{reason}' with presentation {presentation}");
     }
 
@@ -903,8 +910,10 @@ internal sealed class Phase87DiscoverableDerelictSmokeTest
     private static (bool, string) WreckHasNoNpcBehavior()
     {
         var wreck = new DerelictWreckObject(Site());
+        // Phase 88 curates exactly two production sites; the New York wreck
+        // itself is unchanged.
         return Check(wreck is SpaceObject && !(wreck is NpcShip) && wreck.SiteId == DerelictCatalog.FirstSiteId &&
-            wreck.ModelPath == "MODELS/wreck" && DerelictCatalog.Sites.Count == 1,
+            wreck.ModelPath == "MODELS/wreck" && DerelictCatalog.Sites.Count == 2,
             "derelict wreck was not a plain non-NPC world object");
     }
 
@@ -954,7 +963,9 @@ internal sealed class Phase87DiscoverableDerelictSmokeTest
         var ctx = new DerelictContext();
         DerelictRecoveryResult result = ctx.Service.TryRecover(ctx.Site, ctx.PlayerAtSite.Position, 1, true, false, false, ctx.Loot);
         List<string> captured = ctx.Service.CaptureState();
-        return Check(DerelictCatalog.Sites.Count == 1 && result.Success &&
+        // Phase 88 curates exactly two production sites through the same
+        // catalog; both still release through the single LootManager pool.
+        return Check(DerelictCatalog.Sites.Count == 2 && result.Success &&
             captured.All(id => id is string) && ctx.Loot.ActivePods.Count == 3 &&
             result.SpawnedPods.All(pod => pod is CargoPod),
             "a parallel loot or inventory authority appeared");

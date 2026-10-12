@@ -302,6 +302,7 @@ namespace Roguelancer {
         private readonly bool _runPhase85Smoke;
         private readonly bool _runPhase86Smoke;
         private readonly bool _runPhase87Smoke;
+        private readonly bool _runPhase88Smoke;
         private readonly bool _runPhase62Smoke;
         private readonly bool _runPhase60Smoke;
         private readonly bool _runPhase61Smoke;
@@ -445,6 +446,7 @@ namespace Roguelancer {
             _runPhase85Smoke = args?.Any(arg => string.Equals(arg, "--phase85-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase86Smoke = args?.Any(arg => string.Equals(arg, "--phase86-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase87Smoke = args?.Any(arg => string.Equals(arg, "--phase87-smoke", StringComparison.OrdinalIgnoreCase)) == true;
+            _runPhase88Smoke = args?.Any(arg => string.Equals(arg, "--phase88-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase62Smoke = args?.Any(arg => string.Equals(arg, "--phase62-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase60Smoke = args?.Any(arg => string.Equals(arg, "--phase60-smoke", StringComparison.OrdinalIgnoreCase)) == true;
             _runPhase61Smoke = args?.Any(arg => string.Equals(arg, "--phase61-smoke", StringComparison.OrdinalIgnoreCase)) == true;
@@ -1799,6 +1801,11 @@ namespace Roguelancer {
                 var result = RunPhase87SmokeTest();
                 Environment.Exit(result.Failed == 0 ? 0 : 1);
             }
+            else if (_runPhase88Smoke)
+            {
+                var result = RunPhase88SmokeTest();
+                Environment.Exit(result.Failed == 0 ? 0 : 1);
+            }
             else if (_runPhase61Smoke)
             {
                 var result = RunPhase61SmokeTest();
@@ -2051,6 +2058,7 @@ namespace Roguelancer {
             RunAllSmokeSuite("phase 85 pirate demand presentation cleanup smoke", RunPhase85SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 86 spaceflight encounter HUD state cleanup smoke", RunPhase86SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("phase 87 discoverable derelict salvage smoke", RunPhase87SmokeTest, ref suitesPassed, ref suitesFailed);
+            RunAllSmokeSuite("phase 88 multi-system derelict exploration smoke", RunPhase88SmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction distress response smoke", RunFactionDistressResponseSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat escalation smoke", RunFactionCombatEscalationSmokeTest, ref suitesPassed, ref suitesFailed);
             RunAllSmokeSuite("faction combat disengagement smoke", RunFactionCombatDisengagementSmokeTest, ref suitesPassed, ref suitesFailed);
@@ -2860,6 +2868,19 @@ namespace Roguelancer {
             catch (Exception ex)
             {
                 Console.WriteLine($"[PHASE 87 DISCOVERABLE DERELICT SMOKE] FAILED TO RUN: {ex.Message}");
+                return (0, 1);
+            }
+        }
+
+        private (int Passed, int Failed) RunPhase88SmokeTest()
+        {
+            try
+            {
+                return new Phase88MultiSystemDerelictSmokeTest(GraphicsDevice).Run();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PHASE 88 MULTI-SYSTEM DERELICT SMOKE] FAILED TO RUN: {ex.Message}");
                 return (0, 1);
             }
         }

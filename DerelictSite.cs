@@ -66,13 +66,16 @@ namespace Roguelancer
     }
 
     /// <summary>
-    /// Static curated derelict collection. Phase 87 ships exactly one fully
-    /// functional site in the starting New York system; the dictionary shape
-    /// lets later phases add curated sites without copying gameplay logic.
+    /// Static curated derelict collection. Phase 87 shipped the first fully
+    /// functional site in the starting New York system; Phase 88 adds a
+    /// second independent site in California. The dictionary shape means new
+    /// sites are content-only entries: discovery, recovery, loot, and
+    /// persistence logic is shared and keyed by stable site id.
     /// </summary>
     public static class DerelictCatalog
     {
         public const string FirstSiteId = "derelict_ny_manhattan_drift";
+        public const string SecondSiteId = "derelict_ca_hesperia_verge";
 
         // Detection 6000m: beyond the 4000m NPC scanner and 900m pod notice
         // so exploration is rewarded, but far below the 25000m map extent so
@@ -113,6 +116,39 @@ namespace Roguelancer
                             new DerelictSalvageLine("boron", 6),
                             new DerelictSalvageLine("consumer-goods", 4),
                             new DerelictSalvageLine("construction-materials", 2),
+                        })
+                },
+                {
+                    SecondSiteId,
+                    new DerelictSite(
+                        SecondSiteId,
+                        systemIndex: 2,
+                        // Open north-eastern verge beyond Outpost Hesperia:
+                        // ~6.3km from the nearest station (Hesperia),
+                        // ~12.3km from the nearest jump hole (California ->
+                        // New York, also the New York arrival corridor),
+                        // ~15.0km from the nearest planet (Mojave), and
+                        // California ships no trade lanes, so lane clearance
+                        // is total by construction.
+                        position: new Vector3(15000f, 500f, -18000f),
+                        detectionRange: DefaultDetectionRange,
+                        identificationRange: DefaultIdentificationRange,
+                        recoveryRange: DefaultRecoveryRange,
+                        displayName: "Abandoned spacecraft",
+                        modelPath: "MODELS/wreck",
+                        salvage: new List<DerelictSalvageLine>
+                        {
+                            // Consumable/medical manifest: deliberately
+                            // different economically from Manhattan Drift's
+                            // industrial mix. All canonical, Clean,
+                            // non-contraband catalog entries. Total volume
+                            // 5*1 + 4*1 + 3*1 = 12, well inside the starter
+                            // 50-capacity hold so a normal pickup succeeds,
+                            // while a small hold still exercises the
+                            // partial-pickup path.
+                            new DerelictSalvageLine("food-rations", 5),
+                            new DerelictSalvageLine("water", 4),
+                            new DerelictSalvageLine("medical-supplies", 3),
                         })
                 },
             };
